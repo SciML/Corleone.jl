@@ -49,5 +49,6 @@ export Parameter
 include("parameters.jl")
 export ParameterContainer
 include("grid_function.jl")
+export GridFunction
 
 end
