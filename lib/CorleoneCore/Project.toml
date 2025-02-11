@@ -1,0 +1,36 @@
+name = "CorleoneCore"
+uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+authors = ["JuliusMartensen <julius.martensen@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
+LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
+
+[compat]
+Aqua = "0.8"
+DocStringExtensions = "0.9"
+Functors = "0.5"
+JET = "0.9"
+LuxCore = "1.2"
+Random = "1"
+Reexport = "1.2"
+SafeTestsets = "0.1"
+SciMLBase = "2.72"
+Setfield = "1.1"
+Test = "1"
+julia = "1.10"
+
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Aqua", "JET", "SafeTestsets" ,"Test"]
