@@ -6,5 +6,3 @@ test:
         using Pkg
         Pkg.build()
         Pkg.test(coverage=true)'
-  except:
-    - branches
