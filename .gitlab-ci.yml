@@ -17,7 +17,7 @@ default:
 # Run your script after the image is built
 run_tests:
   image: julia:1.10
-  stage: script
+  stage: test
   script:
     - echo "Running a script after the Docker image is built"
     - |
