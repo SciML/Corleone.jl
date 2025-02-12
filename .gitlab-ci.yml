@@ -1,4 +1,4 @@
-.script:
+.test:
   script:
     - |
       julia --project=@. -e '
@@ -17,7 +17,6 @@
         using Printf
         @printf "Test coverage %.2f%%\n" 100c / t'
 julia_pipeline:
-  image: julia:1.10
+  image: julia:1.10:latest
   extends:
-    - .script
-    - .coverage
+    - .test
