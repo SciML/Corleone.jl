@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-A simple container for [`Parameter`](@ref) layers. This layer **must** be called with a tuple `(x, t)`.
+A simple container for [`Parameter`](@ref) layers. This layer **must** be called with `t`.
 
 In addition, the parameter
 """
