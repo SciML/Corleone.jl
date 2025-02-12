@@ -17,6 +17,6 @@
         using Printf
         @printf "Test coverage %.2f%%\n" 100c / t'
 julia_pipeline:
-  image: julia:1.10:latest
+  image: julia:1.10
   extends:
     - .test
