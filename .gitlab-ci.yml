@@ -12,7 +12,6 @@ default:
   tags:
     - linux
     - docker
-    - julia
 
 # Run your script after the image is built
 run_tests:
