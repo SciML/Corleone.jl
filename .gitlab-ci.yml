@@ -1,8 +1,29 @@
-test:
+# Invoke the Kaniko template to build the Docker container image.
+# NOTE: We use Kaniko because Docker itself would need Root privileges
+#       to build a container image and we do not want to give those to
+#       CI/CD scripts.
+#
+# For more information, check out the Kaniko template at
+#   https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Kaniko.gitlab-ci.yml
+include:
+  template: Kaniko.gitlab-ci.yml
+
+default:
+  tags:
+    - linux
+    - docker
+    - julia
+
+# Run your script after the image is built
+run_tests:
   image: julia:1.10
+  stage: script
   script:
+    - echo "Running a script after the Docker image is built"
     - |
       julia --project=@. -e '
         using Pkg
         Pkg.build()
         Pkg.test(coverage=true)'
+  only:
+    - main
