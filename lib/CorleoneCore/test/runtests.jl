@@ -27,4 +27,8 @@ end
     @safetestset "Grid Function" begin 
         include("grid_functions.jl")
     end
+
+    @safetestset "Simulation Grid" begin
+        include("simulation_grid.jl")
+    end
 end
