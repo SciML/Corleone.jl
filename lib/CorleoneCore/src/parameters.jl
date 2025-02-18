@@ -19,7 +19,9 @@ function ParameterContainer(layers::Parameter...; name = nothing, output = ident
     return ParameterContainer{typeof(name), typeof(parameters), typeof(output)}(name, parameters, output)
 end
 
-function (container::ParameterContainer)(t, ps, st::NamedTuple)
+(container::ParameterContainer)(t::Tuple, ps, st) = container(last(t), ps, st)
+
+function (container::ParameterContainer)(t::Number, ps, st::NamedTuple)
     output, layer_st =  _apply_parameters(container.layers, t, ps.layers, st.layers)
     out = container.output(output)
     return out, NamedTuple{(:layers,)}((layer_st,))
