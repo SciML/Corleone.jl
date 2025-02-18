@@ -1,11 +1,13 @@
 module CorleoneCoreLuxExt
 
-using CorleoneCore: CorleoneCore
+using CorleoneCore: CorleoneCore, LuxCore
 using Lux: Lux 
+
+@info "Loaded Extension"
 
 CorleoneCore.InternalWrapper.is_extension_loaded(::Val{:Lux}) = true 
 
-function wrap_stateful(d::LuxCore.AbstractLuxLayer, ps, st::NamedTuple, args...)
+function CorleoneCore.InternalWrapper.wrap_stateful(d::LuxCore.AbstractLuxLayer, ps, st::NamedTuple, args...)
     Lux.StatefulLuxLayer{true}(d, ps, st)
 end 
 
