@@ -53,9 +53,9 @@ function GridFunction{IIP}(
         #if !isempty(saveat)
         #    @assert size(lower_bounds) == size(saveat) "The size of the bounds and timepoints `saveat` is inconsistent."
         #end
-        CS = true
+        CS = size(lower_bounds, 1)
     else
-        CS = false
+        CS = 0
     end
 
     initial_states = let saveat = saveat, lower_bounds = lower_bounds, upper_bounds = upper_bounds

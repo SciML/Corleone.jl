@@ -88,3 +88,4 @@ end
     @test f_g_oop(x0, ps, st) == (reduce(vcat, baseline), st)
     @test reduce(vcat, first.(x_iip)) == first(f_g_oop(x0, ps, st))
 end
+

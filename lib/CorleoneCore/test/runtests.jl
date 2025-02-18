@@ -23,4 +23,8 @@ end
     @safetestset "Parameter Container" begin 
         include("parameters.jl")
     end
+
+    @safetestset "Grid Function" begin 
+        include("grid_functions.jl")
+    end
 end
