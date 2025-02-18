@@ -36,9 +36,6 @@ Indicator if a [`AbstractTimeGridLayer`](@ref) omits `saveat`s. Returns a `Bool`
 has_saveats(::AbstractTimeGridLayer{<:Any,SAVEATS}) where {SAVEATS} = SAVEATS
 has_saveats(::Any) = false
 
-# Initialization 
-InternalWrapper.initialize_model(f::SciMLBase.AbstractDiffEqFunction, args...) = f
-
 
 # Common utility functions 
 include("utils.jl")
