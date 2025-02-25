@@ -25,8 +25,9 @@ end
 function wrap_stateful end
 
 (m::WrapperFunction)(args...) = begin 
-    states, p, t = args
-    return first(m.model((states..., t), p, m.st))
+    prefix..., t = args
+    states..., p = prefix
+    return first(m.model((states..., t), p, m.states))
 end
 
 (m::WrapperFunction{<:Any, Nothing})(args...) = begin 

@@ -51,10 +51,15 @@ include("parameters.jl")
 export ParameterContainer
 include("grid_function.jl")
 export GridFunction
-include("simulation_grid.jl")
-export SimulationGrid
+
+# The model and grid function
 include("model.jl")
 export DynamicModel
+include("problem_layer.jl")
+export ProblemLayer
+include("simulation_grid.jl")
+export SimulationGrid
+
 
 # Similar to LuxCore.Internal we define extensions for wrapping models here
 end
