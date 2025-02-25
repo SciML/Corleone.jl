@@ -19,7 +19,6 @@ LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ProblemLayer) = (; mod
 LuxCore.parameterlength(layer::ProblemLayer) = LuxCore.parameterlength(layer.model)
 LuxCore.initialstates(rng::Random.AbstractRNG, layer::ProblemLayer) = (; model = LuxCore.initialstates(rng, layer.model))
 
-
 # We assume that inits is a 
 function (layer::ProblemLayer{P})(inits, ps, st) where P 
     inits = merge(layer.initials, inits)
