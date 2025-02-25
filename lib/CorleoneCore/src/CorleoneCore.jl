@@ -59,6 +59,8 @@ include("problem_layer.jl")
 export ProblemLayer
 include("simulation_grid.jl")
 export SimulationGrid
+include("stage_layer.jl")
+export SimulationStage, ODEStage, DAEStage
 
 
 # Similar to LuxCore.Internal we define extensions for wrapping models here
