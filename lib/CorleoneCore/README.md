@@ -9,3 +9,8 @@
 
 - [ ] Tests for the model
 - [ ] Tests for the ParameterContainer
+- [ ] Tests for the SimulationStage
+- [ ] Tests for the ProblemLayer
+- [ ] Docs for the SimulationStage
+- [ ] Docs for the ProblemLayer
+- [ ] AutoIIP detection for the model 
