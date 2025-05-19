@@ -11,6 +11,8 @@ using Aqua
 end
 
 
+@testset "Trajectory" begin include("./trajectory.jl") end 
+
 #@testset "Lotka MS" begin
 #    include("./lotka_MS.jl")
 #end
