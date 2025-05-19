@@ -1,67 +1,58 @@
 module CorleoneCore
 
-using DocStringExtensions
-using LuxCore
-using SciMLBase
-using Functors
-using Setfield
-using Random
 using Reexport
+using DocStringExtensions
 
-include("./InternalWrapper.jl")
+using ModelingToolkit
+using ModelingToolkit: t_nounits as t, D_nounits as D
 
-# Dispatch on an Abstract Layer of Lux 
-# TSTOPS, SAVEATS <: Bool indicates the use of these timepoints
+using SciMLBase
+using SciMLStructures
+using SymbolicIndexingInterface
 
-"""
-$(TYPEDEF)
+using Accessors
 
-A subtype for an `AbstractLuxLayer` which indicates the use of `tstops` or `saveat`.
-"""
-abstract type AbstractTimeGridLayer{TSTOPS,SAVEATS} <: LuxCore.AbstractLuxLayer end
+# The main symbolic metadata structure
+include("metadata.jl")
 
-"""
-$(FUNCTIONNAME)
+include("symbolic_operations.jl")
+export ∫
+export ∀
 
-Indicator if a [`AbstractTimeGridLayer`](@ref) omits `tstops``. Returns a `Bool`.
-"""
-has_tstops(::AbstractTimeGridLayer{TSTOPS}) where {TSTOPS} = TSTOPS
-has_tstops(::Any) = false
+#include("extend_functions.jl")
+include("extend_costs.jl")
+export extend_costs
 
-"""
-$(FUNCTIONNAME)
+# This stores the piecewise constant struct and the function which extends controls
+include("control_formulations/abstract.jl")
+include("control_formulations/directcallback.jl")
+export DirectControlCallback 
+#include("control_formulations/indexcallback.jl")
+#export IndexControlCallback 
+include("control_formulations/searchindex.jl")
+export SearchIndexControl
+include("control_formulations/ifelsecontrol.jl")
+export IfElseControl
+include("control_formulations/tanhapproximation.jl")
+export TanhControl
+include("control_formulations/shooting_control.jl")
+export ShootingControl 
 
-Indicator if a [`AbstractTimeGridLayer`](@ref) omits `saveat`s. Returns a `Bool`.
-"""
-has_saveats(::AbstractTimeGridLayer{<:Any,SAVEATS}) where {SAVEATS} = SAVEATS
-has_saveats(::Any) = false
+include("shooting.jl")
+export ShootingGrid
 
+include("predictor.jl")
+export OCPredictor
 
-# Common utility functions 
-include("utils.jl")
-export collect_saveat, collect_tstops
-export contains_timegrid_layer
-export contains_tstop_layer
-export contains_saveat_layer
+# Convert a solution into a trajectory
+include("trajectory.jl")
+export Trajectory
 
-# The basic for useage of gridded parameters
-include("grid_parameters.jl")
-export Parameter
-include("parameters.jl")
-export ParameterContainer
-include("grid_function.jl")
-export GridFunction
+# Define observed functions 
+include("observed.jl")
+export ObservedFunction
 
-# The model and grid function
-include("model.jl")
-export DynamicModel
-include("problem_layer.jl")
-export ProblemLayer
-include("simulation_grid.jl")
-export SimulationGrid
-include("stage_layer.jl")
-export SimulationStage, ODEStage, DAEStage
+# Here we prepare the objective and constraints
+include("prepare_expression.jl")
 
-
-# Similar to LuxCore.Internal we define extensions for wrapping models here
 end
