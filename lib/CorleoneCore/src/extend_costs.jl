@@ -90,3 +90,68 @@ function change_of_variables(sys)
     #newsys = @set newsys.consolidate = consol
     newsys
 end
+
+function find_explicit_timepoints!(subs, ex, vars, iv)
+    if iscall(ex)
+        op, args = operation(ex), arguments(ex)
+        if op ∈ vars && !Base.isequal(args[1], iv)
+            if any(Base.Fix1(isequal, ex), keys(subs))
+                return last(subs[ex]) 
+            end
+            sym = gensym(Symbol(op)) #, Symbol(Char(0x2080 + length(subs) + 1)))
+            var = Symbolics.unwrap(only(@variables ($sym)))
+            subs[ex] = (only(args), var)
+            return var
+        else 
+            newex = op(map(args) do arg
+                find_explicit_timepoints!(subs, arg, vars, iv)
+            end...)
+            return newex 
+        end
+    end
+    return ex
+end
+
+struct SystemEvaluator{OOP, IIP, T} <: Function 
+    "Out-of-place function"
+    f_oop::OOP 
+    "In-place function"
+    f_iip::IIP 
+    "Evaluation timepoints"
+    saveat::T 
+end
+
+function _get_normalized_constraints(sys)
+    csys = ModelingToolkit.get_constraintsystem(sys) 
+    isnothing(csys) && return Num[] 
+    eqs = map(x->x.lhs, Symbolics.canonical_form.(equations(csys)))  
+end 
+
+function build_evaluators(sys)
+    iv = ModelingToolkit.get_iv(sys)
+    varset = operation.(ModelingToolkit.unknowns(sys))
+    costs = ModelingToolkit.get_costs(sys) 
+    idx = [!is_costvariable(xi) for xi in costs]
+    objective
+    cons = _get_normalized_constraints(sys)
+    
+end
+
+# Right now no controls etc are supported here. We assume just states and parameters
+function build_evaluator(sys, expressions, vars, iv)
+    config = expand_mayer_terms(expressions, vars, iv)
+    expressions = build_function(config.expressions, vars, parameters)
+end
+
+function expand_mayer_terms(expressions, vars, iv)
+    subs = Dict()
+    new_expressions = map(expressions) do ex 
+        find_explicit_timepoints!(subs, Symbolics.unwrap(ex), vars, iv)
+    end
+    tpoints = unique!(sort!(first.(values(subs))))
+    for (k, v) in subs
+        opidx = findfirst(Base.Fix1(Base.isequal, operation(k)), varset)
+        subs[k] = ((opidx, findfirst(==(v[1]), tpoints)), v[2])  
+    end
+    config = (; expressions = new_expressions, timepoints = tpoints, substitutions = subs)
+end
