@@ -17,7 +17,6 @@ include("metadata.jl")
 
 include("symbolic_operations.jl")
 export ∫
-export ∀
 
 #include("extend_functions.jl")
 include("extend_costs.jl")
