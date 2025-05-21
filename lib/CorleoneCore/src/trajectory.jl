@@ -26,15 +26,22 @@ end
 
 Base.eltype(x::Trajectory) = eltype(x.states)
 
-function Trajectory(sol::DESolution; special_variables::Union{NamedTuple,Nothing}=nothing)
+default_special_idx(sol::DESolution) = begin
+    u0size = size(sol.prob.u0) 
+    (; 
+        shooting = ones(Bool, u0size),
+        pseudo_mayer = zeros(Bool, u0size),
+        controls = zeros(Bool, u0size)
+    )
+end
+
+function Trajectory(sol::DESolution; special_variables::NamedTuple=default_special_idx(sol))
     states = Array(sol)
     parameters = sol.prob.p
     time = sol.t
-    _mayer = isnothing(special_variables) ? nothing : states[special_variables.pseudo_mayer,end]
+    _mayer = states[special_variables.pseudo_mayer,end]
     Trajectory(states, parameters, time, nothing, sol.retcode == SciMLBase.ReturnCode.Success, special_variables, _mayer)
 end
-
-
 
 function Base.merge(trajectories::Trajectory...)
     N = length(trajectories)
@@ -46,7 +53,7 @@ function Base.merge(trajectories::Trajectory...)
     retcodes = all(x -> x.retcodes, trajectories)
     mayers = [x.mayer_variables for x in trajectories]
     special_variables = first(trajectories).special_variables
-    shooting = .!(special_variables.pseudo_mayer .|| special_variables.control)
+    shooting = special_variables.shooting 
     shooting_variables::Vector{NTuple{2, Vector{eltype(U)}}} = [(trajectories[i].states[shooting, end], trajectories[i+1].states[shooting, 1]) for i in  Base.OneTo(N - 1)]
     Trajectory{U, P, T, typeof(shooting_variables), typeof(retcodes), typeof(special_variables),
             typeof(mayers)}(states, trajectories[1].parameters, time, shooting_variables, retcodes, special_variables, mayers)

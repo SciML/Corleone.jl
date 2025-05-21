@@ -113,7 +113,7 @@ function OCPredictor{IIP}(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) whe
     perm = compute_permutation_of_variables(sys, shooting_intervals)
     mayer_indices = is_costvariable.(unknowns(sys))
     control_indices = isinput.(unknowns(sys))
-    special_variables = (pseudo_mayer = mayer_indices, control=control_indices)
+    special_variables = (; shooting = .!(mayer_indices .|| control_indices), pseudo_mayer = mayer_indices, control=control_indices)
     return OCPredictor{
         length(shooting_intervals),typeof(problem),
         typeof(alg),typeof(ensemblealg),
@@ -140,7 +140,7 @@ end
 function predict(predictor::OCPredictor{1}, p; permute=false, kwargs...)
     (; problem, alg, initial_condition, shooting_intervals, solver_kwargs,
             permutation, special_variables) = predictor
-    _p = permute ? p[permutation.rev] : p
+    _p = permute ? view(p, permutation.rev) : view(p,:)
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     tspan = only(shooting_intervals)
     u0 = initial_condition(problem.u0, new_params, first(tspan))
@@ -151,7 +151,7 @@ end
 function predict(predictor::OCPredictor{N}, p; permute=false, kwargs...) where {N}
     (; problem, alg, ensemblealg, initial_condition, shooting_transition,
         shooting_intervals, solver_kwargs, permutation, special_variables) = predictor
-    _p = permute ? p[permutation.rev] : p
+    _p = permute ? view(p, permutation.rev) : view(p,:)
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     probfunc = let shooting_intervals = shooting_intervals, u0 = initial_condition, shooting_init = shooting_transition, p = new_params
         function (prob, i, repeat)
