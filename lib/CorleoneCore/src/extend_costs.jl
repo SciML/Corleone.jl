@@ -37,13 +37,14 @@ function extend_costs(sys)
     new_vars = collect(keys(inv_subs))
     lag_sys = ODESystem(
         new_eqs, t, new_vars, [], name=nameof(sys),
-        # costs = new_costs,
     )
 
     newsys = extend(lag_sys, sys)
     newsys = @set newsys.costs = new_costs
     newsys = @set newsys.consolidate = consol
     newsys = @set newsys.tspan = ModelingToolkit.get_tspan(sys)
+    newsys = @set newsys.constraintsystem = ModelingToolkit.get_constraintsystem(sys)
+    return newsys, subs
 end
 
 # We have a very specific case here.
@@ -88,7 +89,7 @@ function change_of_variables(sys)
     newsys = change_independent_variable(newsys, x[1], eqs, add_old_diff=false, simplify=true, fold=true)
     #newsys = @set newsys.costs = costs
     #newsys = @set newsys.consolidate = consol
-    newsys
+    structural_simplify(newsys)
 end
 
 function find_explicit_timepoints!(subs, ex, vars, iv)
@@ -96,62 +97,67 @@ function find_explicit_timepoints!(subs, ex, vars, iv)
         op, args = operation(ex), arguments(ex)
         if op ∈ vars && !Base.isequal(args[1], iv)
             if any(Base.Fix1(isequal, ex), keys(subs))
-                return last(subs[ex]) 
+                return last(subs[ex])
             end
             sym = gensym(Symbol(op)) #, Symbol(Char(0x2080 + length(subs) + 1)))
             var = Symbolics.unwrap(only(@variables ($sym)))
             subs[ex] = (only(args), var)
             return var
-        else 
+        else
             newex = op(map(args) do arg
                 find_explicit_timepoints!(subs, arg, vars, iv)
             end...)
-            return newex 
+            return newex
         end
     end
     return ex
 end
 
-struct SystemEvaluator{OOP, IIP, T} <: Function 
-    "Out-of-place function"
-    f_oop::OOP 
-    "In-place function"
-    f_iip::IIP 
-    "Evaluation timepoints"
-    saveat::T 
+function _get_normalized_constraints(sys)
+    csys = ModelingToolkit.get_constraintsystem(sys)
+    isnothing(csys) && return Num[]
+    eqs = map(x -> x.lhs, Symbolics.canonical_form.(equations(csys)))
 end
 
-function _get_normalized_constraints(sys)
-    csys = ModelingToolkit.get_constraintsystem(sys) 
-    isnothing(csys) && return Num[] 
-    eqs = map(x->x.lhs, Symbolics.canonical_form.(equations(csys)))  
-end 
+function _is_equality_indicator(sys)
+    csys = ModelingToolkit.get_constraintsystem(sys)
+    isnothing(csys) && return Bool[]
+    map(Base.Fix2(isa, Equation), equations(csys))
+end
 
-function build_evaluators(sys)
+function derive_objective_and_constraints(initial_sys; kwargs...)
+    sys, lagrangesubs = extend_costs(initial_sys)
+    sys = complete(sys)
     iv = ModelingToolkit.get_iv(sys)
     varset = operation.(ModelingToolkit.unknowns(sys))
-    costs = ModelingToolkit.get_costs(sys) 
+    # Build the cost function 
+    costs = ModelingToolkit.get_costs(sys)
+    costs = isa(costs, AbstractArray) ? costs : [costs]
     idx = [!is_costvariable(xi) for xi in costs]
-    objective
-    cons = _get_normalized_constraints(sys)
-    
+    objective_f = expand_mayer_terms(sys, costs[idx], varset, iv; kwargs...)
+    cons = map(_get_normalized_constraints(sys)) do con
+        substitute(con, lagrangesubs)
+    end
+    cons_f = expand_mayer_terms(sys, cons, varset, iv; kwargs...)
+    (;
+        objective=merge(objective_f, (; consolidate=ModelingToolkit.get_consolidate(sys))),
+        constraints=merge(cons_f, (; is_equality=_is_equality_indicator(sys)))
+    )
 end
 
-# Right now no controls etc are supported here. We assume just states and parameters
-function build_evaluator(sys, expressions, vars, iv)
-    config = expand_mayer_terms(expressions, vars, iv)
-    expressions = build_function(config.expressions, vars, parameters)
-end
-
-function expand_mayer_terms(expressions, vars, iv)
+function expand_mayer_terms(sys, expressions, vars, iv; kwargs...)
     subs = Dict()
-    new_expressions = map(expressions) do ex 
+    new_expressions = map(expressions) do ex
         find_explicit_timepoints!(subs, Symbolics.unwrap(ex), vars, iv)
     end
     tpoints = unique!(sort!(first.(values(subs))))
+    statevars = @variables $(gensym(:x))[1:length(vars), 1:length(tpoints)]
+    newsubs = Dict()
     for (k, v) in subs
-        opidx = findfirst(Base.Fix1(Base.isequal, operation(k)), varset)
-        subs[k] = ((opidx, findfirst(==(v[1]), tpoints)), v[2])  
+        opidx = findfirst(Base.Fix1(Base.isequal, operation(k)), vars)
+        newsubs[last(v)] = getindex(statevars[1], opidx, findfirst(==(v[1]), tpoints))
     end
-    config = (; expressions = new_expressions, timepoints = tpoints, substitutions = subs)
+    new_expressions = map(Base.Fix2(substitute, newsubs), new_expressions)
+    fs = ModelingToolkit.generate_custom_function(sys, new_expressions, statevars; kwargs...)
+    (; functions=fs, timepoints=tpoints)
 end
