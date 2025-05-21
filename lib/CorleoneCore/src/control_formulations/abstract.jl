@@ -77,7 +77,5 @@ function __preprocess_control_specs(variable, timepoints, defaults=nothing)
 end
 
 function _preprocess_control_specs(specs...)
-    map(specs) do spec
-        __preprocess_control_specs(spec)
-    end
+    __preprocess_control_specs.(specs)
 end

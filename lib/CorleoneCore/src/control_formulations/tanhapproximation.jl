@@ -24,25 +24,20 @@ struct TanhControl{D} <: AbstractControlFormulation
     controls::D
 end
 
-__tanh(x, k) = 1/2 * (1 + tanh(k*x)) 
+__tanh(x, k) = 1 / 2 * (1 + tanh(k * x))
 
 function _expand_tanh(t, k, ts, ps)
     eq = Num(0)
     for i in axes(ts, 1)
         eq += if i == lastindex(ts)
-            __tanh(t-ts[i], k)*ps[i]
+            __tanh(t - ts[i], k) * ps[i]
         elseif i == firstindex(ts)
-            (1-__tanh(t-ts[i+1], k))*ps[i]
+            (1 - __tanh(t - ts[i+1], k)) * ps[i]
         else
-            __tanh(t - ts[i], k) * (1 - __tanh(t - ts[i+1], k)) *ps[i]
+            __tanh(t - ts[i], k) * (1 - __tanh(t - ts[i+1], k)) * ps[i]
         end
     end
     simplify(eq)
-end
-
-TanhControl(x) = begin
-    specs = _preprocess_control_specs((x,)...)
-    TanhControl{typeof(specs)}(specs)
 end
 
 TanhControl(args...) = begin
@@ -66,7 +61,7 @@ function expand_formulation(::TanhControl, sys, spec::NamedTuple)
     ps = @parameters begin
         ($local_controlsym)[1:N] = defaults, [bounds = (lower, upper), localcontrol = true]
         ($timepoint_sym)[1:N] = timepoints, [tstop = true]
-        ($transition_sym) = 50.0, [tunable=false, bounds = (0., Inf)]
+        ($transition_sym) = 50.0, [tunable = false, bounds = (0.0, Inf)]
     end
     append!(new_parameters, ps)
     if !differential

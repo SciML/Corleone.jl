@@ -38,11 +38,6 @@ struct SearchIndexControl{D} <: AbstractControlFormulation
     controls::D
 end
 
-SearchIndexControl(x) = begin
-    specs = (__preprocess_control_specs(x),)
-    SearchIndexControl{typeof(specs)}(specs)
-end
-
 SearchIndexControl(args...) = begin
     specs = _preprocess_control_specs(args...)
     SearchIndexControl{typeof(specs)}(specs)

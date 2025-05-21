@@ -17,7 +17,6 @@ include("metadata.jl")
 
 include("symbolic_operations.jl")
 export ∫
-export ∀
 
 #include("extend_functions.jl")
 include("extend_costs.jl")
@@ -27,16 +26,12 @@ export extend_costs
 include("control_formulations/abstract.jl")
 include("control_formulations/directcallback.jl")
 export DirectControlCallback 
-#include("control_formulations/indexcallback.jl")
-#export IndexControlCallback 
 include("control_formulations/searchindex.jl")
 export SearchIndexControl
 include("control_formulations/ifelsecontrol.jl")
 export IfElseControl
 include("control_formulations/tanhapproximation.jl")
 export TanhControl
-include("control_formulations/shooting_control.jl")
-export ShootingControl 
 
 include("shooting.jl")
 export ShootingGrid
@@ -50,7 +45,6 @@ export Trajectory
 
 # Define observed functions 
 include("observed.jl")
-export ObservedFunction
 
 # Here we prepare the objective and constraints
 include("prepare_expression.jl")

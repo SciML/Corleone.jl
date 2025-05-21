@@ -35,15 +35,8 @@ function _expand_ifelse(t, ts, ps)
     eq
 end
 
-IfElseControl(x) = begin
-    specs = _preprocess_control_specs((x,)...)
-    IfElseControl{typeof(specs)}(specs)
-end
-
 IfElseControl(args...) = begin
-    @info args
     specs = _preprocess_control_specs(args...)
-    @info specs
     IfElseControl{typeof(specs)}(specs)
 end
 

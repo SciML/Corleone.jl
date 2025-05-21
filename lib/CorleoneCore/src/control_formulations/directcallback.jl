@@ -26,11 +26,6 @@ struct DirectControlCallback{D} <: AbstractControlFormulation
     controls::D
 end
 
-DirectControlCallback(x) = begin
-    specs = _preprocess_control_specs((x,)...)
-    DirectControlCallback{typeof(specs)}(specs)
-end
-
 DirectControlCallback(args...) = begin
     specs = _preprocess_control_specs(args...)
     DirectControlCallback{typeof(specs)}(specs)
