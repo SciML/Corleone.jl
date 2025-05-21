@@ -51,7 +51,7 @@ function Base.merge(trajectories::Trajectory...)
     states = reduce(hcat, map(i -> i == N ? trajectories[i].states : trajectories[i].states[:, 1:end-1], eachindex(trajectories)))
     time = reduce(vcat, map(i -> i == N ? trajectories[i].time : trajectories[i].time[1:end-1], eachindex(trajectories)))
     retcodes = all(x -> x.retcodes, trajectories)
-    mayers = [x.mayer_variables for x in trajectories]
+    mayers = reduce(hcat, [x.mayer_variables for x in trajectories])
     special_variables = first(trajectories).special_variables
     shooting = special_variables.shooting 
     shooting_variables::Vector{NTuple{2, Vector{eltype(U)}}} = [(trajectories[i].states[shooting, end], trajectories[i+1].states[shooting, 1]) for i in  Base.OneTo(N - 1)]

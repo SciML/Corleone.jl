@@ -20,7 +20,7 @@ prob = ODEProblem(dynamics, u0, tspan, p)
     @test prob.p == traj.parameters
     @test all(traj.retcodes)
     @test isnothing(traj.shooting_variables)
-    @test !any(traj.mayer_indices)
+    @test !any(traj.special_variables.pseudo_mayer)
     @test isempty(traj.mayer_variables)
     # Merge 
     sol1 = solve(prob, Tsit5(), tspan=(0.0, 0.5), saveat=0.1)
@@ -31,7 +31,7 @@ prob = ODEProblem(dynamics, u0, tspan, p)
     @test Array(sol) ≈ traj.states
     @test sol.t ≈ traj.time
     @test all(≈(sol1[:, end]), traj.shooting_variables...)
-    @test !any(traj.mayer_indices)
+    @test !any(traj.special_variables.pseudo_mayer)
     @test isempty(traj.mayer_variables)
 end
 
