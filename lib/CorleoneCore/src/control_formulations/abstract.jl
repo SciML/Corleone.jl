@@ -76,6 +76,8 @@ function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     (; variable, differential, bounds, independent_variable, timepoints=getindex(timepoints, idx), defaults=getindex(defaults, idx))
 end
 
-function _preprocess_control_specs(specs...)
+function _preprocess_control_specs(specs::Base.Pair...)
     __preprocess_control_specs.(specs)
 end
+
+_preprocess_control_specs(spec::Base.Pair) = (__preprocess_control_specs(spec),)

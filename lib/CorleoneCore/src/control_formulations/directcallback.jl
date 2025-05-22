@@ -24,11 +24,11 @@ u_p = u_i
 struct DirectControlCallback{D} <: AbstractControlFormulation
     "The control specifications"
     controls::D
-end
 
-DirectControlCallback(args...) = begin
-    specs = _preprocess_control_specs(args...)
-    DirectControlCallback{typeof(specs)}(specs)
+    function DirectControlCallback(x...)
+        specs = _preprocess_control_specs(x...)
+        return new{typeof(specs)}(specs)
+    end
 end
 
 function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)

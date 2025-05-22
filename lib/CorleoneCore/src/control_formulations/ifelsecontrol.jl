@@ -19,6 +19,11 @@ where `u_i` are the local controls and `u_t` the timepoints.
 struct IfElseControl{D} <: AbstractControlFormulation
     "The control specifications"
     controls::D
+
+    function IfElseControl(x...)
+        specs = _preprocess_control_specs(x...)
+        return new{typeof(specs)}(specs)
+    end
 end
 
 function _expand_ifelse(t, ts, ps)
@@ -35,10 +40,6 @@ function _expand_ifelse(t, ts, ps)
     eq
 end
 
-IfElseControl(args...) = begin
-    specs = _preprocess_control_specs(args...)
-    IfElseControl{typeof(specs)}(specs)
-end
 
 function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
     (; variable, differential, bounds, timepoints, independent_variable, defaults) = spec

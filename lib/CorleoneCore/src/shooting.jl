@@ -1,15 +1,17 @@
 struct ShootingGrid{T}
     "Shooting timepoints"
     timepoints::T
+    "Shooting node initialization"
+    initializer::AbstractNodeInitialization
 
-    function ShootingGrid(tpoints::AbstractVector)
+    function ShootingGrid(tpoints::AbstractVector, initializer::AbstractNodeInitialization)
         tpoints = unique!(sort(tpoints))
-        new{typeof(tpoints)}(tpoints)
+        new{typeof(tpoints)}(tpoints, initializer)
     end
 end
 
-function (x::ShootingGrid)(sys; initializer::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    (; timepoints) = x
+function (x::ShootingGrid)(sys)
+    (; timepoints, initializer) = x
     t0, tinf = ModelingToolkit.get_tspan(sys)
     # Clamp the shooting points
     timepoints = unique(vcat(t0, [t for t in timepoints if t0 < t < tinf], tinf))
@@ -22,7 +24,7 @@ function (x::ShootingGrid)(sys; initializer::Union{AbstractVector{<:Pair}, Nothi
     new_defs = copy(ModelingToolkit.defaults(sys))
     foreach(vars) do v
         collect_shooting_equations!(new_parameters, new_equations,
-                initialization_equations, v, sys, timepoints, initializer)
+                initialization_equations, v, sys, timepoints, initializer.init)
         delete!(new_defs, v)
     end
 
