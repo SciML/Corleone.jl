@@ -165,11 +165,13 @@ function predict(predictor::OCPredictor{N}, p; permute=false, kwargs...) where {
     merge(sols.u...)
 end
 
-function (predictor::OCPredictor)(p; kwargs)
-    (; mayer) = predictor
+function (predictor::OCPredictor)(p; kwargs...)
+    (; special_variables) = predictor
     sol = predict(predictor, p; kwargs...)
-    collect_trajectory(sol, mayer)
+    collect_trajectory(sol, special_variables)
 end
+
+collect_trajectory(traj::Trajectory, x) = traj
 
 function collect_trajectory(sol::DESolution, mayer)
     Trajectory(sol, mayer=mayer)
@@ -181,4 +183,3 @@ function collect_trajectory(sol::EnsembleSolution, mayer)
     end
     merge(trajs...)
 end
-
