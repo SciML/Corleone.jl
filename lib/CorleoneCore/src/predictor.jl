@@ -1,16 +1,16 @@
-struct VariablePermutation
+struct VariablePermutation{P,B,H}
     "Forward permutation from the original order to the block order"
-    fwd::AbstractVector{<:Integer}
+    fwd::P
     "Reverse permutation from the block order to the original order"
-    rev::AbstractVector{<:Integer}
+    rev::P
     "Variable bounds in original order"
-    bounds_original::AbstractVector{<:Tuple}
+    bounds_original::B
     "Variable bounds in permuted order"
-    bounds_permuted::AbstractVector{<:Tuple}
+    bounds_permuted::B
     "Array of variable indices (in permuted order) denoting the blocks
     in the Hessian of the Lagrangian of the discretized optimal control problem.
     Constructed for direct use with blockSQP."
-    blocks::AbstractVector{<:Integer}
+    blocks::H
 end
 
 struct OCPredictor{N,P,A,E,I,S,T,K,M}
@@ -41,7 +41,7 @@ end
 OCPredictor(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) = OCPredictor{true}(sys, alg, ensemblealg; kwargs...)
 
 function compute_permutation_of_variables(sys, shooting_intervals)
-    ns = length(shooting_intervals) - 1
+    ns = length(shooting_intervals) -1
     ps = parameters(sys)
 
     tunable_stuff = filter(istunable, ps)
@@ -68,12 +68,10 @@ function compute_permutation_of_variables(sys, shooting_intervals)
     # via LinRange(), which may cause inaccurate representation of floating points
     # TODO: Make block identification more robust!s
     blocks_ctr = [[findfirst(tf -> x < tf, shooting_times) for x in ctrl_time] for ctrl_time in ctrl_times]
+    first_blocks = [vcat([collect(x)[i] for x in sts]..., [collect(x)[bl.==i+1] for (x, bl) in zip(ctls, blocks_ctr)]...) for i = 1:ns]
+    last_block = [collect(x)[ns+1] for x in sts]
 
-    first_block = reduce(vcat, [collect(x)[bl.==1] for (x, bl) in zip(ctls, blocks_ctr)])
-    middle_blocks = [vcat([collect(x)[i] for x in sts]..., [collect(x)[bl.==i+1] for (x, bl) in zip(ctls, blocks_ctr)]...) for i = 1:ns-1]
-    last_block = [collect(x)[ns] for x in sts]
-
-    order = [first_block, middle_blocks..., last_block]
+    order = [first_blocks..., last_block]
     @info order ModelingToolkit.getbounds.(order)
 
     blocks_hess = vcat(0, reduce(vcat, cumsum(length(vcat(order[1:i]...))) for i = 1:length(order)))
@@ -84,8 +82,7 @@ function compute_permutation_of_variables(sys, shooting_intervals)
 
     perm = [findfirst(x -> isequal(x, y), original_order) for y in new_order]
     rev_perm = [findfirst(x -> isequal(x, y), new_order) for y in original_order]
-
-    VariablePermutation(perm, rev_perm, bounds, bounds_perm, blocks_hess)
+    VariablePermutation{typeof(perm), typeof(bounds), typeof(blocks_hess)}(perm, rev_perm, bounds, bounds_perm, blocks_hess)
 end
 
 
@@ -96,17 +93,7 @@ function OCPredictor{IIP}(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) whe
     u0 = build_u0_initializer(sys)
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
-    shooting_intervals = typeof(tspan)[]
-    for i in eachindex(shooting_timepoints)
-        t0 = i == firstindex(shooting_timepoints) ? first(tspan) : shooting_timepoints[i-1]
-        tinf = i == lastindex(shooting_timepoints) ? last(tspan) : shooting_timepoints[i]
-        push!(shooting_intervals, (t0, tinf))
-    end
-    if !isempty(shooting_intervals)
-        if (-)(reverse(last(shooting_intervals))...) > 0.0
-            push!(shooting_intervals, (last(tspan), last(tspan)))
-        end
-    end
+    shooting_intervals = vcat((first(tspan), first(tspan)), collect(xi for xi in zip(shooting_timepoints[1:end-1], shooting_timepoints[2:end])))
     if isempty(shooting_intervals)
         push!(shooting_intervals, tspan)
     end
