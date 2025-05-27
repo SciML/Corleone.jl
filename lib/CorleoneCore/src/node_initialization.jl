@@ -17,10 +17,10 @@ function ForwardSolveInitialization(sys, timepoints, alg; init_values::Union{Abs
     vars = unknowns(sys)
     idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
     init_vars = vars[idx]
-
-    prob = ODEProblem(complete(sys); allow_cost = true)
-    tstops = [last(de.condition.arguments) |> Symbolics.getdefaultval for de in discrete_events(sys)]
+    tstops = get_tstoppoints(sys)
     tspan = ModelingToolkit.get_tspan(sys)
+
+    prob = ODEProblem(complete(sys); allow_cost = true, build_initializeprob=false)
     new_tspan = (min(minimum(tstops)-eps(), first(tspan)), last(tspan)) # Some hacky trick to take all callbacks into account
     prob = isempty(tstops) ? prob : remake(prob, tspan=new_tspan)
     sol = solve(prob, alg; tstops=tstops, kwargs...)
