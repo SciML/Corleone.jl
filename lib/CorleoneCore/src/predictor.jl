@@ -39,7 +39,7 @@ end
 OCPredictor(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) = OCPredictor{true}(sys, alg, ensemblealg; kwargs...)
 
 function compute_permutation_of_variables(sys, shooting_intervals)
-    ns = length(shooting_intervals) -1
+    ns = length(shooting_intervals) - 1
     ps = parameters(sys)
 
     tunable_stuff = filter(istunable, ps)
