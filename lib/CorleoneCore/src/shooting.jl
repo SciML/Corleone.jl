@@ -114,18 +114,3 @@ function build_shooting_initializer(sys)
     end
     return first(ModelingToolkit.generate_custom_function(sys, shooting_equations, expression = Val{false}))
 end
-
-function build_u0_initializer(sys)
-    init_eqs = initialization_equations(sys)
-    lhs = map(x -> x.lhs, init_eqs)
-    vars = unknowns(sys)
-    vars_init = map(xi->xi(0), operation.(vars))
-    var_idx = findall(xi->!any(Base.Fix1(isequal, xi), lhs), vars_init)
-    init_idx = findall(xi->any(Base.Fix1(isequal, xi), vars_init), lhs)
-    init_equations = map(x -> x.rhs, init_eqs[init_idx])
-    # We assume that if any variable is not present here, we apply a feedthrough
-    for i in var_idx
-        push!(init_equations, vars[i])
-    end
-    return first(ModelingToolkit.generate_custom_function(sys, init_equations, expression = Val{false}))
-end

@@ -13,15 +13,13 @@ struct VariablePermutation{P,B,H}
     blocks::H
 end
 
-struct OCPredictor{N,P,A,E,I,S,T,K,M}
+struct OCPredictor{N,P,A,E,S,T,K,M}
     "The underlying problem"
     problem::P
     "The algorithm to solve the problem"
     alg::A
     "The ensemble algorithm"
     ensemblealg::E
-    "The initial conditions"
-    initial_condition::I
     "The shooting transition"
     shooting_transition::S
     "The shooting intervals"
@@ -68,7 +66,8 @@ function compute_permutation_of_variables(sys, shooting_intervals)
     # via LinRange(), which may cause inaccurate representation of floating points
     # TODO: Make block identification more robust!s
     blocks_ctr = [[findfirst(tf -> x < tf, shooting_times) for x in ctrl_time] for ctrl_time in ctrl_times]
-    first_blocks = [vcat([collect(x)[i] for x in sts]..., [collect(x)[bl.==i+1] for (x, bl) in zip(ctls, blocks_ctr)]...) for i = 1:ns]
+
+    first_blocks = [vcat([collect(x)[i] for x in sts]..., [collect(x)[bl.==i] for (x, bl) in zip(ctls, blocks_ctr)]...) for i = 1:ns]
     last_block = [collect(x)[ns+1] for x in sts]
 
     order = [first_blocks..., last_block]
@@ -90,12 +89,13 @@ function OCPredictor{IIP}(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) whe
     tspan = ModelingToolkit.get_tspan(sys)
     @assert !isnothing(tspan) "No tspan provided!"
     problem = ODEProblem{IIP}(sys, [], tspan, [], build_initializeprob=false, allow_cost=true)
-    u0 = build_u0_initializer(sys)
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
-    shooting_intervals = vcat((first(tspan), first(tspan)), collect(xi for xi in zip(shooting_timepoints[1:end-1], shooting_timepoints[2:end])))
+    shooting_intervals = collect(xi for xi in zip(shooting_timepoints[1:end-1], shooting_timepoints[2:end]))
     if isempty(shooting_intervals)
         push!(shooting_intervals, tspan)
+    elseif -(reverse(last(shooting_intervals))...) > 0.0
+        push!(shooting_intervals, (last(tspan), last(tspan)))
     end
     perm = compute_permutation_of_variables(sys, shooting_intervals)
     mayer_indices = is_costvariable.(unknowns(sys))
@@ -104,13 +104,14 @@ function OCPredictor{IIP}(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) whe
     return OCPredictor{
         length(shooting_intervals),typeof(problem),
         typeof(alg),typeof(ensemblealg),
-        typeof(u0),typeof(shooting_init),
+        typeof(shooting_init),
         typeof(shooting_intervals),
         typeof(kwargs), typeof(special_variables)
     }(
-        problem, alg, ensemblealg, u0, shooting_init, shooting_intervals, kwargs, perm, special_variables
+        problem, alg, ensemblealg, shooting_init, shooting_intervals, kwargs, perm, special_variables
     )
 end
+
 function get_p0(predictor::OCPredictor; permute=false)
     (; problem, permutation) = predictor
     p, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.p)
@@ -125,25 +126,25 @@ function get_bounds(predictor::OCPredictor; permute=false)
 end
 
 function predict(predictor::OCPredictor{1}, p; permute=false, kwargs...)
-    (; problem, alg, initial_condition, shooting_intervals, solver_kwargs,
+    (; problem, alg, shooting_intervals, shooting_transition, solver_kwargs,
             permutation, special_variables) = predictor
-    _p = permute ? view(p, permutation.rev) : view(p,:)
+    _p = permute ? p[permutation.rev] : p
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     tspan = only(shooting_intervals)
-    u0 = initial_condition(problem.u0, new_params, first(tspan))
+    u0 = shooting_transition(problem.u0, new_params, first(tspan))
     new_problem = remake(problem, p=new_params, u0=u0, tspan=tspan)
     Trajectory(solve(new_problem, alg; solver_kwargs...); special_variables=special_variables)
 end
 
 function predict(predictor::OCPredictor{N}, p; permute=false, kwargs...) where {N}
-    (; problem, alg, ensemblealg, initial_condition, shooting_transition,
+    (; problem, alg, ensemblealg, shooting_transition,
         shooting_intervals, solver_kwargs, permutation, special_variables) = predictor
-    _p = permute ? view(p, permutation.rev) : view(p,:)
+    _p = permute ? p[permutation.rev] : p
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
-    probfunc = let shooting_intervals = shooting_intervals, u0 = initial_condition, shooting_init = shooting_transition, p = new_params
+    probfunc = let shooting_intervals = shooting_intervals, shooting_init = shooting_transition, p = new_params
         function (prob, i, repeat)
             current_tspan = shooting_intervals[i]
-            newu0 = i == 1 ? u0(prob.u0, p, first(current_tspan)) : shooting_init(prob.u0, p, first(current_tspan))
+            newu0 = shooting_init(prob.u0, p, first(current_tspan))
             remake(prob; u0=newu0, p=p, tspan=current_tspan)
         end
     end
