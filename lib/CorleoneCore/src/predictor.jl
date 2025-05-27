@@ -71,8 +71,6 @@ function compute_permutation_of_variables(sys, shooting_intervals)
     last_block = [collect(x)[ns+1] for x in sts]
 
     order = [first_blocks..., last_block]
-    @info order ModelingToolkit.getbounds.(order)
-
     blocks_hess = vcat(0, reduce(vcat, cumsum(length(vcat(order[1:i]...))) for i = 1:length(order)))
 
     new_order = reduce(vcat, order)

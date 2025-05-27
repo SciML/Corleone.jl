@@ -58,7 +58,6 @@ shooting_points = [0.0, 0.5, 1.0]
             initializer
         end
 
-        @info [x.init for x in inits]
         are_inits_equal = map(x->isapprox(first(inits).init[1].second, first(x.init).second), inits)
         if init_method != RandomInitialization
             @test all(are_inits_equal)

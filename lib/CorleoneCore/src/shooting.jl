@@ -16,8 +16,7 @@ function (x::ShootingGrid)(sys)
     # Clamp the shooting points
     timepoints = unique(vcat(t0, [t for t in timepoints if t0 < t < tinf], tinf))
     vars = ModelingToolkit.unknowns(sys)
-    dependent_vars, free_vars = filter(!isinput, vars), filter(isinput, vars)
-    @info vars dependent_vars free_vars
+
     new_parameters = []
     initialization_equations = Equation[]
     new_equations = Equation[]
@@ -51,7 +50,6 @@ end
 
 function collect_shooting_equations!(new_ps, eqs, inits, x, sys, timepoints, initializer=nothing)
     tspan = ModelingToolkit.get_tspan(sys)
-    # TODO: Check if x is # SymbolicUtils.FnType
     varsym = Symbol(operation(x))
     N = length(unique(vcat(first(tspan), timepoints, last(tspan))))
     fixed = false

@@ -47,7 +47,6 @@ function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
     callback_eqs = []
     new_equations = Equation[]
     D = Differential(ModelingToolkit.get_iv(sys))
-    @info variable
     control_var = Num(ModelingToolkit.getvar(sys, Symbol(variable), namespace=false))
     iv = Num(ModelingToolkit.getvar(sys, Symbol(independent_variable), namespace=false))
     local_controlsym = Symbol(variable, :ᵢ)

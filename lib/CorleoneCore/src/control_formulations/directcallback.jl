@@ -69,7 +69,6 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
             ]
         )
     end
-    @info new_equations
     controlsys = ODESystem(
         new_equations,
         ModelingToolkit.get_iv(sys), [], new_parameters;
