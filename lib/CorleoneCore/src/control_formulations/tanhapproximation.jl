@@ -22,6 +22,10 @@ This formulation is differentiable with respect to the timepoints.
 struct TanhControl{D} <: AbstractControlFormulation
     "The control specifications"
     controls::D
+    TanhControl(args...) = begin
+        specs = _preprocess_control_specs(args...)
+        new{typeof(specs)}(specs)
+    end
 end
 
 __tanh(x, k) = 1 / 2 * (1 + tanh(k * x))
@@ -40,27 +44,24 @@ function _expand_tanh(t, k, ts, ps)
     simplify(eq)
 end
 
-TanhControl(args...) = begin
-    specs = _preprocess_control_specs(args...)
-    TanhControl{typeof(specs)}(specs)
-end
 
 function expand_formulation(::TanhControl, sys, spec::NamedTuple)
     (; variable, differential, timepoints, independent_variable, defaults) = spec
     new_parameters = []
     callback_eqs = []
     new_equations = Equation[]
-    D = Differential(ModelingToolkit.independent_variable(sys))
+    D = Differential(ModelingToolkit.get_iv(sys))
     control_var = Num(ModelingToolkit.getvar(sys, Symbol(variable), namespace=false))
     iv = Num(ModelingToolkit.getvar(sys, Symbol(independent_variable), namespace=false))
     local_controlsym = Symbol(variable, :ᵢ)
     timepoint_sym = Symbol(variable, :ₜ)
     transition_sym = Symbol(variable, :ₖ)
     N = length(timepoints)
-    lower, upper = ModelingToolkit.getbounds(variable)
+    lower, upper = ModelingToolkit.getbounds(control_var)
+    @info lower, upper
     ps = @parameters begin
         ($local_controlsym)[1:N] = defaults, [bounds = (lower, upper), localcontrol = true]
-        ($timepoint_sym)[1:N] = timepoints, [tstop = true]
+        ($timepoint_sym)[1:N] = timepoints, [tunable = false, tstop = true]
         ($transition_sym) = 50.0, [tunable = false, bounds = (0.0, Inf)]
     end
     append!(new_parameters, ps)
@@ -78,9 +79,9 @@ function expand_formulation(::TanhControl, sys, spec::NamedTuple)
         )
 
     end
-    controlsys = ODESystem(
+    controlsys = System(
         new_equations,
-        ModelingToolkit.independent_variable(sys), [], new_parameters;
+        ModelingToolkit.get_iv(sys), [], new_parameters;
         name=nameof(sys),
         discrete_events=callback_eqs,
     )
