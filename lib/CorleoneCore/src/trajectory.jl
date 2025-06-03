@@ -54,7 +54,7 @@ function Base.merge(trajectories::Trajectory...)
     mayers = reduce(hcat, [x.mayer_variables for x in trajectories])
     special_variables = first(trajectories).special_variables
     shooting = special_variables.shooting 
-    shooting_variables::Vector{NTuple{2, Vector{eltype(U)}}} = [(trajectories[i].states[shooting, end], trajectories[i+1].states[shooting, 1]) for i in  Base.OneTo(N - 1)]
+    shooting_variables::Vector{eltype(U)} = reduce(vcat, [trajectories[i].states[shooting, end] .- trajectories[i+1].states[shooting, 1] for i in  Base.OneTo(N - 1)])
     Trajectory{U, P, T, typeof(shooting_variables), typeof(retcodes), typeof(special_variables),
             typeof(mayers)}(states, trajectories[1].parameters, time, shooting_variables, retcodes, special_variables, mayers)
 end

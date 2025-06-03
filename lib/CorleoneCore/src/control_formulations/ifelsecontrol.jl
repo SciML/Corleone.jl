@@ -44,7 +44,7 @@ end
 function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
     (; variable, differential, bounds, timepoints, independent_variable, defaults) = spec
     new_parameters = []
-    callback_eqs = []
+    callback_eqs = Equation[]
     new_equations = Equation[]
     D = Differential(ModelingToolkit.get_iv(sys))
     control_var = Num(ModelingToolkit.getvar(sys, Symbol(variable), namespace=false))
@@ -71,11 +71,11 @@ function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
         )
 
     end
-    controlsys = ODESystem(
+    controlsys = System(
         new_equations,
         ModelingToolkit.get_iv(sys), [], new_parameters;
         name=nameof(sys),
-        discrete_events=callback_eqs,
+        discrete_events=[timepoints => nothing],
     )
     extend(sys, controlsys)
 end

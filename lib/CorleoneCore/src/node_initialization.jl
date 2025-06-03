@@ -1,3 +1,13 @@
+function __fallbackdefault(x)
+    if ModelingToolkit.hasbounds(x) 
+        lo, hi = ModelingToolkit.getbounds(x) 
+        return (hi - lo) / 2
+    else Symbolics.hasmetadata(x, Symbolics.VariableDefaultValue)
+        return Symbolics.getdefaultval(x)
+    end
+    return zero(Symbolics.symtype(x))
+end
+
 """
 $(TYPEDEF)
 
@@ -6,120 +16,191 @@ Abstract type defining different formulations for initialization of shooting nod
 """
 abstract type AbstractNodeInitialization end
 
-
-struct ForwardSolveInitialization{I,S} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-    solver_info::S
+function (f::AbstractNodeInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
+    throw(ArgumentError("The initialization $f is not implemented."))
 end
 
-function ForwardSolveInitialization(sys, timepoints, alg; init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing, kwargs...)
-    vars = unknowns(sys)
-    idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
-    init_vars = vars[idx]
-    tstops = get_tstoppoints(sys)
-    tspan = ModelingToolkit.get_tspan(sys)
+struct DefaultsInitialization <: AbstractNodeInitialization end
+(::DefaultsInitialization)(problem, args...; kwargs...) = problem
 
-    prob = ODEProblem(complete(sys); allow_cost = true, build_initializeprob=false)
-    new_tspan = (min(minimum(tstops)-eps(), first(tspan)), last(tspan)) # Some hacky trick to take all callbacks into account
-    prob = isempty(tstops) ? prob : remake(prob, tspan=new_tspan)
-    sol = solve(prob, alg; tstops=tstops, kwargs...)
-    _sol = Array(sol(timepoints, idxs=findall(idx)))
-    init = init_vars .=> eachrow(_sol)
-    solver_info = (alg = alg, solver_kwargs = kwargs)
-    return ForwardSolveInitialization{typeof(init), typeof(solver_info)}(init, solver_info)
+"""
+$(TYPEDEF)
+
+Initializes the problem with random values in the bounds of the variables.
+
+# Fields
+$(FIELDS)
+"""
+struct RandomInitialization{R<:Random.AbstractRNG} <: AbstractNodeInitialization
+    "The random number generator"
+    rng::R
 end
 
+RandomInitialization() = RandomInitialization(Random.default_rng())
 
-struct DefaultsInitialization{I} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-end
-
-function DefaultsInitialization(sys, timepoints;  init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    vars = unknowns(sys)
-    idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
-    init_vars = vars[idx]
-
-    init = map(init_vars) do x
-                u0 = Symbolics.hasmetadata(x, Symbolics.VariableDefaultValue) ? Symbolics.getdefaultval(x) : 0.0
-                x => [u0 for _ in 1:length(timepoints)]
-    end
-    return DefaultsInitialization{typeof(init)}(init)
-end
-
-struct RandomInitialization{I} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-end
-
-function RandomInitialization(sys, timepoints;  init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    vars = unknowns(sys)
-    idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
-    init_vars = vars[idx]
-    bounds = getbounds.(init_vars)
-    default_values = Symbolics.getdefaultval.(init_vars)
-    init = [var => vcat(default_values[i], rand(LinRange(bounds[i]..., 100), length(timepoints)-1)) for (i,var) in enumerate(init_vars)]
-    return RandomInitialization{typeof(init)}(init)
-end
-
-struct LinearInterpolationInitialization{I} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-end
-
-function LinearInterpolationInitialization(sys, timepoints;  init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    vars = unknowns(sys)
-    idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
-    init_vars = vars[idx]
-
-    @assert all([length(x.second) == 1 for x in init_values]) "Initialization via linear interpolation
-        expected one value for the state at the end point, got $([length(x.second) for x in init_values]) values."
-    init = map(init_vars) do var
-        default_value = Symbolics.getdefaultval.(var)
-        slope = 0.0
-        for _pair in init_values
-            isequal(var, _pair.first) || continue
-            slope = only(_pair.second) - default_value
+function (f::RandomInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
+    (; rng) = f
+    psyms = SciMLBase.getparamsyms(problem)
+    shooting_vars = filter(is_shootingvariable, psyms)
+    isempty(shooting_vars) && return problem
+    foreach(shooting_vars) do si
+        xi = get_shootingparent(si)
+        if (is_statevar(xi) && hasbounds(xi))
+            lo, hi = ModelingToolkit.getbounds(xi)
+            newvars = lo .+ rand(rng, typeof(hi), size(si)) .* hi
+            SymbolicIndexingInterface.setp(problem, si)(problem, newvars)
         end
-        var => default_value .+ slope * (timepoints ./ last(timepoints))
     end
-    return LinearInterpolationInitialization{typeof(init)}(init)
+    problem
 end
 
+"""
+$(TYPEDEF)
 
-struct CustomInitialization{I} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-end
+Initializes the problem using a single forward solve of the problem.
+"""
+struct ForwardSolveInitialization <: AbstractNodeInitialization end
 
-function CustomInitialization(sys, timepoints;  init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    @assert all([length(x.second) == length(timepoints) for x in init_values]) "Custom initialization
-            expected $(length(timepoints)) values, got $([length(x.second) for x in init_values]) values."
-    CustomInitialization{typeof(init_values)}(init_values)
-end
-
-struct ConstantInitialization{I} <: AbstractNodeInitialization
-    "The init values for all dependent variables"
-    init::I
-end
-
-function ConstantInitialization(sys, timepoints; init_values::Union{AbstractVector{<:Pair}, Nothing}=nothing)
-    vars = unknowns(sys)
-    idx =  .!is_costvariable.(vars) .&& .!isinput.(vars)
-    init_vars = vars[idx]
-
-    @assert all([length(x.second) == 1 for x in init_values]) "Initialization via linear interpolation
-        expected one value for the state at the end point, got $([length(x.second) for x in init_values]) values."
-    init = map(init_vars) do var
-        default_value = Symbolics.getdefaultval.(var)
-        c = 0.0
-        for _pair in init_values
-            if isequal(var, _pair.first)
-                c = only(_pair.second)
-            end
+function (f::ForwardSolveInitialization)(problem::SciMLBase.AbstractSciMLProblem, alg, args...; kwargs...)
+    psyms = SciMLBase.getparamsyms(problem)
+    shooting_vars = filter(is_shootingvariable, psyms)
+    isempty(shooting_vars) && return problem
+    shooting_points = filter(is_shootingpoint, psyms)
+    timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
+    tspan = problem.tspan
+    tstops = get(problem.kwargs, :tstpops, collect(tspan))
+    new_tspan = (min(minimum(tstops) - eps(), first(tspan)), last(tspan)) # Some hacky trick to take all callbacks into account
+    prob = remake(problem, tspan=new_tspan)
+    sol = solve(prob, alg; kwargs...)
+    foreach(shooting_vars) do si
+        xi = get_shootingparent(si)
+        if is_statevar(xi)
+            newvars = sol(timepoints)[xi]
+            @info xi => newvars
+            SymbolicIndexingInterface.setp(problem, si)(problem, newvars)
         end
-        var => vcat(default_value, c*ones(length(timepoints)-1))
     end
-    return ConstantInitialization{typeof(init)}(init)
+    problem
+end
+
+"""
+$(TYPEDEF)
+
+Initializes the problem using a custom function which returns a vector for all variables. 
+
+# Fields 
+$(FIELDS)
+"""
+struct FunctionInitialization{F} <: AbstractNodeInitialization 
+    "Initialization function f(problem, t_i) -> u(t_i)"
+    initializer::F 
+end
+
+function (f::FunctionInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
+    psyms = SciMLBase.getparamsyms(problem)
+    shooting_vars = filter(is_shootingvariable, psyms)
+    isempty(shooting_vars) && return problem
+    shooting_points = filter(is_shootingpoint, psyms)
+    timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
+    (; initializer) = f 
+    u0s = reduce(hcat, map(timepoints) do ti 
+        initializer(problem, ti)
+    end)
+    sysvars = SciMLBase.getsyms(problem)
+    foreach(shooting_vars) do si
+        xi = get_shootingparent(si)
+        if is_statevar(xi)
+            id = findfirst(Base.Fix1(isequal, xi), sysvars)
+            newvars = u0s[id, :]
+            SymbolicIndexingInterface.setp(problem, si)(problem, newvars)
+        end
+    end
+end
+
+function linear_initializer(u_inf, problem, t)
+    (_, tinf) = problem.tspan
+    u0 = problem.u0
+    slope = u_inf .- u0 
+    val = t ./ tinf 
+    u0 .+ slope .* val  
+end
+
+"""
+$(FUNCTIONNAME)
+
+Creates a (`FunctionInitialization`)[@ref] with linearly interpolates between u0 and the provided u_inf. 
+"""
+function LinearInterpolationInitialization(u0_inf)
+    finit = Base.Fix1(linear_initializer, u0_inf)
+    FunctionInitialization{typeof(finit)}(finit)
+end
+
+"""
+$(TYPEDEF)
+
+Initializes the system with a custom vector of points provided as a Dictionary of variable => values. 
+
+# Fields 
+$(FIELDS)
+
+# Note 
+If the variable is not present in the dictionary, we use the fallback value.
+"""
+struct CustomInitialization{I <: AbstractDict} <: AbstractNodeInitialization
+    "The init values for all dependent variables"
+    initial_values::I
+end
+
+function (f::CustomInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...) 
+    psyms = SciMLBase.getparamsyms(problem)
+    shooting_vars = filter(is_shootingvariable, psyms)
+    isempty(shooting_vars) && return problem
+    shooting_points = filter(is_shootingpoint, psyms)
+    timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
+    (; initial_values) = f 
+    foreach(shooting_vars) do si
+        xi = get_shootingparent(si)
+        if is_statevar(xi)
+            newvar = get(initial_values, xi) do 
+                fill(__fallbackdefault(xi), length(timepoints)) |> collect
+            end 
+            SymbolicIndexingInterface.setp(problem, si)(problem, newvar)
+        end
+    end
+    return problem
+end
+
+"""
+$(TYPEDEF)
+
+Initializes the system with a custom single value provided as a Dictionary of variable => values. 
+
+# Fields 
+$(FIELDS)
+
+# Note 
+If the variable is not present in the dictionary, we use the fallback value.
+"""
+struct ConstantInitialization{I <: AbstractDict} <: AbstractNodeInitialization
+    "The init values for all dependent variables"
+    initial_values::I
+end
+
+function (f::ConstantInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
+    psyms = SciMLBase.getparamsyms(problem)
+    shooting_vars = filter(is_shootingvariable, psyms)
+    isempty(shooting_vars) && return problem
+    shooting_points = filter(is_shootingpoint, psyms)
+    timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
+    (; initial_values) = f 
+    foreach(shooting_vars) do si
+        xi = get_shootingparent(si)
+        if is_statevar(xi)
+            newvar = get(initial_values, xi) do 
+                __fallbackdefault(xi)
+            end 
+            SymbolicIndexingInterface.setp(problem, si)(problem, collect(fill(newvar, length(timepoints))))
+        end
+    end
+    return problem 
 end

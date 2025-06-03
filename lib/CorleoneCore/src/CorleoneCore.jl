@@ -2,6 +2,7 @@ module CorleoneCore
 
 using Reexport
 using DocStringExtensions
+using Random
 
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
@@ -44,10 +45,8 @@ export Trajectory
 
 include("predictor.jl")
 export OCPredictor
-# Define observed functions
-include("observed.jl")
 
-# Here we prepare the objective and constraints
-include("prepare_expression.jl")
+include("variable_substitution.jl")
+
 
 end

@@ -51,7 +51,7 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
     if !differential
         append!(new_parameters, ps[1:2])
         for i in eachindex(timepoints)
-            push!(callback_eqs, (iv == ps[2][i]) => [control_var ~ ps[1][i]])
+            push!(callback_eqs, (iv == ps[2][i]) => [control_var ~ ModelingToolkit.Pre(ps[1][i])])
         end
         append!(
             new_equations, [
@@ -61,7 +61,7 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
     else
         append!(new_parameters, ps)
         for i in eachindex(timepoints)
-            push!(callback_eqs, (iv == ps[2][i]) => [ps[3] ~ ps[1][i]])
+            push!(callback_eqs, (iv == ps[2][i]) => [ps[3] ~ ModelingToolkit.Pre(ps[1][i])])
         end
         append!(
             new_equations, [
@@ -69,7 +69,7 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
             ]
         )
     end
-    controlsys = ODESystem(
+    controlsys = System(
         new_equations,
         ModelingToolkit.get_iv(sys), [], new_parameters;
         name=nameof(sys),

@@ -13,7 +13,7 @@ function expand_formulation(x::AbstractControlFormulation, sys)
     newsys = expand_formulation(x, sys, x.controls...)
     newsys = @set newsys.costs = ModelingToolkit.get_costs(sys)
     newsys = @set newsys.consolidate = ModelingToolkit.get_consolidate(sys)
-    newsys = @set newsys.tspan = ModelingToolkit.get_tspan(sys)
+    newsys = @set newsys.constraints = ModelingToolkit.constraints(sys)
 end
 
 function expand_formulation(x::AbstractControlFormulation, sys, specs...)

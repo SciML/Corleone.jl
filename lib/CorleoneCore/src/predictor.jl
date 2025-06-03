@@ -1,12 +1,8 @@
-struct VariablePermutation{P,B,H}
+struct VariablePermutation{P,H}
     "Forward permutation from the original order to the block order"
     fwd::P
     "Reverse permutation from the block order to the original order"
     rev::P
-    "Variable bounds in original order"
-    bounds_original::B
-    "Variable bounds in permuted order"
-    bounds_permuted::B
     "Array of variable indices (in permuted order) denoting the blocks
     in the Hessian of the Lagrangian of the discretized optimal control problem.
     Constructed for direct use with blockSQP."
@@ -35,109 +31,172 @@ struct OCPredictor{N,P,A,E,S,T,K,M}
     special_variables::M
 end
 
-
 OCPredictor(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) = OCPredictor{true}(sys, alg, ensemblealg; kwargs...)
 
-function compute_permutation_of_variables(sys, shooting_intervals)
-    ns = length(shooting_intervals) - 1
-    ps = parameters(sys)
+OCPredictor(problem, alg, ensemblealg, transition, intervals, kwargs, permutation, specials) = OCPredictor{length(intervals),typeof(problem),typeof(alg),typeof(ensemblealg),typeof(transition),typeof(intervals),typeof(kwargs),typeof(specials)}(problem, alg, ensemblealg, transition, intervals, kwargs, permutation, specials)
 
-    tunable_stuff = filter(istunable, ps)
-    original_order = reduce(vcat, collect.(tunable_stuff))
+function (f::AbstractNodeInitialization)(predictor::OCPredictor; kwargs...)
+    newprob = f(predictor.problem, predictor.alg; kwargs...)
+    @set predictor.problem = newprob
+end
 
-    idx_states = map(x -> endswith(x, "ₛ"), string.(tunable_stuff))
-    idx_controls = map(x -> endswith(x, "ᵢ"), string.(tunable_stuff))
+function find_control_pairs(sys, var)
+    var = Symbolics.unwrap(var)
+    x = Symbol(iscall(var) ? operation(var) : var)
+    ps = ModelingToolkit.getvar(sys, Symbol(x, :ᵢ), namespace=false)
+    ts = ModelingToolkit.getvar(sys, Symbol(x, :ₜ), namespace=false)
+    [xi for xi in zip(collect(ps), collect(ts))]
+end
 
-    ctls = tunable_stuff[idx_controls]
-    sts = tunable_stuff[idx_states]
+function find_shooting_pairs(sys, var)
+    var = Symbolics.unwrap(var)
+    x = Symbol(iscall(var) ? operation(var) : var)
+    ps = ModelingToolkit.getvar(sys, Symbol(x, :ₛ), namespace=false)
+    ts = ModelingToolkit.getvar(sys, Symbol(x, :ₛ, :ₜ), namespace=false)
+    [xi for xi in zip(collect(ps), collect(ts))]
+end
 
-    # get timepoints for switches of controls
-    controls = string.(ctls)
+function compare_timedependent_variables(x, y)
+    a, t1 = x
+    b, t2 = y
+    # This sorts by time 
+    Symbolics.getdefaultval(t1) < Symbolics.getdefaultval(t2) && return true
+    # Shooting preceede controls
+    if Symbolics.getdefaultval(t1) == Symbolics.getdefaultval(t2)
+        is_localcontrol(a) && is_localcontrol(b) && return true
+        is_shootingvariable(a) && is_shootingvariable(b) && return true
+        is_shootingvariable(a) && is_localcontrol(b) && return true
+        return false
+    end
+    return false
+end
 
-    indices_strings_ctls = collect.(eachindex.(controls))
-    var_contr_time = filter!(!isnothing, [length(indices_strings_ctls[i]) > 1 ? x[indices_strings_ctls[i][1:end-1]] * "ₜ" : nothing for (i, x) in enumerate(controls)])
-    dfs_sys = defaults(sys)
-    keys_dfs = collect(keys(dfs_sys))
-    idx_ctrl_times = [findfirst(x -> x == y, string.(keys_dfs)) for y in var_contr_time]
-    ctrl_times = [dfs_sys[keys_dfs[idx]] for idx in idx_ctrl_times]
-    shooting_times = unique(last.(shooting_intervals))
+# TODO Adapt this to include lifted parameters
+is_local_parameter(x) = is_localcontrol(x)
 
-    # This may cause trouble when the shooting grid or the control grids are initialized
-    # via LinRange(), which may cause inaccurate representation of floating points
-    # TODO: Make block identification more robust!s
-    blocks_ctr = [[findfirst(tf -> x < tf, shooting_times) for x in ctrl_time] for ctrl_time in ctrl_times]
+function _find_blocks(vars)
+    idx = Int64[]
+    idx_cache = Int64[] 
+    current = firstindex(vars)
+    pushable = true
+    parent = nothing
+    while current <= lastindex(vars)
+        xi = vars[current]
+        @info parent xi idx_cache
+        if is_shootingvariable(xi) && pushable
+            # First parent variable. Should stay consistent 
+            if isnothing(parent)
+                parent = get_shootingparent(xi)
+            end
+            if isequal(get_shootingparent(xi), parent)
+                push!(idx_cache, current)
+            end
+            pushable = false
+        elseif is_localcontrol(xi)
+            # This is a control 
+            pushable = true 
+            append!(idx, idx_cache)
+            empty!(idx_cache)
+        end
+        current += 1
+    end
+    @info vars[idx]
+    @info vars
+    idx .-= 1
+    push!(idx, lastindex(vars))
+    return idx
+end
 
-    first_blocks = [vcat([collect(x)[i] for x in sts]..., [collect(x)[bl.==i] for (x, bl) in zip(ctls, blocks_ctr)]...) for i = 1:ns]
-    last_block = [collect(x)[ns+1] for x in sts]
+_maybecollect(x) = x
+_maybecollect(x::SymbolicUtils.BasicSymbolic{<:AbstractArray}) = collect(x)
 
-    order = [first_blocks..., last_block]
-    blocks_hess = vcat(0, reduce(vcat, cumsum(length(vcat(order[1:i]...))) for i = 1:length(order)))
+function compute_permutation_of_variables(sys)
+    ps = filter(!ModelingToolkit.isinitial, reduce(vcat, _maybecollect.(tunable_parameters(sys))))
+    ctrls = filter(ModelingToolkit.isinput, vcat(unknowns(sys), observables(sys)))
+    states = filter(is_statevar, unknowns(sys))
+    ctrl_vars = reduce(vcat, map(Base.Fix1(find_control_pairs, sys), ctrls), init = [])
+    shooting_vars = reduce(vcat, map(Base.Fix1(find_shooting_pairs, sys), states))
+    vars_to_sort = vcat(ctrl_vars, shooting_vars)
+    sort!(vars_to_sort, lt=compare_timedependent_variables)
+    vars = first.(vars_to_sort)
+    @info vars
+    rest = findall(x -> !any(Base.Fix1(isequal, x), vars), ps)
+    new_order = vcat(vars, ps[rest])
+    blocks_hess = if !isempty(rest)
+        [0, length(ps)]
+    else
+        _find_blocks(new_order)
+    end
 
-    new_order = reduce(vcat, order)
-    bounds_perm = getbounds.(new_order)
-    bounds = getbounds.(original_order)
+    perm = [findfirst(x -> isequal(x, y), ps) for y in new_order]
+    rev_perm = sortperm(perm)
 
-    perm = [findfirst(x -> isequal(x, y), original_order) for y in new_order]
-    rev_perm = [findfirst(x -> isequal(x, y), new_order) for y in original_order]
-    VariablePermutation{typeof(perm), typeof(bounds), typeof(blocks_hess)}(perm, rev_perm, bounds, bounds_perm, blocks_hess)
+    VariablePermutation{typeof(perm),typeof(blocks_hess)}(perm, rev_perm, blocks_hess)
 end
 
 
-function OCPredictor{IIP}(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) where {IIP}
-    tspan = ModelingToolkit.get_tspan(sys)
+function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(); kwargs...) where {IIP}
     @assert !isnothing(tspan) "No tspan provided!"
-    problem = ODEProblem{IIP}(sys, [], tspan, [], build_initializeprob=false, allow_cost=true)
+    tstops = get_tstoppoints(sys)
+    problem = ODEProblem{IIP, SciMLBase.FullSpecialize}(sys, [], tspan, tstops=tstops, d_discontinuities = tstops, jac = true, tgrad = false,  build_initializeprob=false, allow_cost=true)
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
-    shooting_intervals = collect(xi for xi in zip(shooting_timepoints[1:end-1], shooting_timepoints[2:end]))
-    if isempty(shooting_intervals)
-        push!(shooting_intervals, tspan)
-    elseif -(reverse(last(shooting_intervals))...) > 0.0
+    shooting_intervals = [ti for ti in zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end]))]
+    if last(tspan) != last(shooting_timepoints) 
+        push!(shooting_intervals, (last(shooting_timepoints), last(tspan)))
+    else #if last(shooting_timepoints) == last(tspan)
         push!(shooting_intervals, (last(tspan), last(tspan)))
     end
-    perm = compute_permutation_of_variables(sys, shooting_intervals)
+    perm = compute_permutation_of_variables(sys)
     mayer_indices = is_costvariable.(unknowns(sys))
     control_indices = isinput.(unknowns(sys))
-    special_variables = (; shooting = .!(mayer_indices .|| control_indices), pseudo_mayer = mayer_indices, control=control_indices)
+    special_variables = (; shooting=(.!(mayer_indices .|| control_indices)), pseudo_mayer=mayer_indices, control=control_indices)
     return OCPredictor{
         length(shooting_intervals),typeof(problem),
         typeof(alg),typeof(ensemblealg),
         typeof(shooting_init),
         typeof(shooting_intervals),
-        typeof(kwargs), typeof(special_variables)
+        typeof(kwargs),typeof(special_variables)
     }(
         problem, alg, ensemblealg, shooting_init, shooting_intervals, kwargs, perm, special_variables
     )
 end
 
-function get_p0(predictor::OCPredictor; permute=false)
+function get_p0(predictor::OCPredictor)
     (; problem, permutation) = predictor
     p, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.p)
-    permute || return p
     p[permutation.fwd]
 end
 
-function get_bounds(predictor::OCPredictor; permute=false)
-    (; permutation) = predictor
-    bounds = !permute ? permutation.bounds_original : permutation.bounds_permuted
-    Float64.(first.(bounds)), Float64.(last.(bounds))
+function get_bounds(predictor::OCPredictor)
+    (; permutation, problem) = predictor
+    ps = SciMLBase.getparamsyms(problem)
+    filter!(!ModelingToolkit.isinitial, ps)
+    filter!(ModelingToolkit.istunable, ps)
+    bounds = map(ps) do pi 
+        ModelingToolkit.getbounds(pi)
+    end
+    lbounds = reduce(vcat, vec.(first.(bounds)))
+    ubounds = reduce(vcat, vec.(last.(bounds)))
+    lbounds[permutation.fwd], ubounds[permutation.fwd]
+    #first.(bounds), last.(bounds)
 end
 
-function predict(predictor::OCPredictor{1}, p; permute=false, kwargs...)
+function (predictor::OCPredictor{1})(p; kwargs...)
     (; problem, alg, shooting_intervals, shooting_transition, solver_kwargs,
-            permutation, special_variables) = predictor
-    _p = permute ? p[permutation.rev] : p
+        permutation) = predictor
+    _p = p[permutation.rev]
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     tspan = only(shooting_intervals)
     u0 = shooting_transition(problem.u0, new_params, first(tspan))
     new_problem = remake(problem, p=new_params, u0=u0, tspan=tspan)
-    Trajectory(solve(new_problem, alg; solver_kwargs...); special_variables=special_variables)
+    solve(new_problem, alg; solver_kwargs...)
 end
 
-function predict(predictor::OCPredictor{N}, p; permute=false, kwargs...) where {N}
+function (predictor::OCPredictor{N})(p; kwargs...) where {N}
     (; problem, alg, ensemblealg, shooting_transition,
-        shooting_intervals, solver_kwargs, permutation, special_variables) = predictor
-    _p = permute ? p[permutation.rev] : p
+        shooting_intervals, solver_kwargs, permutation) = predictor
+    _p = p[permutation.rev]
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     probfunc = let shooting_intervals = shooting_intervals, shooting_init = shooting_transition, p = new_params
         function (prob, i, repeat)
@@ -146,21 +205,20 @@ function predict(predictor::OCPredictor{N}, p; permute=false, kwargs...) where {
             remake(prob; u0=newu0, p=p, tspan=current_tspan)
         end
     end
-    problem = EnsembleProblem(problem, prob_func=probfunc, output_func = (sol, i) -> (Trajectory(sol; special_variables=special_variables), false))
+    problem = EnsembleProblem(problem, prob_func=probfunc)
     sols = solve(problem, alg, ensemblealg, trajectories=N; solver_kwargs...)
-    merge(sols.u...)
 end
 
-function (predictor::OCPredictor)(p; kwargs...)
+function predict(predictor::OCPredictor, p)
     (; special_variables) = predictor
-    sol = predict(predictor, p; kwargs...)
+    sol = predictor(p)
     collect_trajectory(sol, special_variables)
 end
 
 collect_trajectory(traj::Trajectory, x) = traj
 
-function collect_trajectory(sol::DESolution, mayer)
-    Trajectory(sol, mayer=mayer)
+function collect_trajectory(sol::DESolution, special_variables)
+    Trajectory(sol; special_variables)
 end
 
 function collect_trajectory(sol::EnsembleSolution, mayer)

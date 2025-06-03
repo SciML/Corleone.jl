@@ -36,11 +36,10 @@ where `u_i` are the local controls and `u_t` the timepoints.
 struct SearchIndexControl{D} <: AbstractControlFormulation
     "The control specifications"
     controls::D
-end
-
-SearchIndexControl(args...) = begin
-    specs = _preprocess_control_specs(args...)
-    SearchIndexControl{typeof(specs)}(specs)
+    function SearchIndexControl(x...)
+        specs = _preprocess_control_specs(x...)
+        return new{typeof(specs)}(specs)
+    end
 end
 
 function expand_formulation(::SearchIndexControl, sys, spec::NamedTuple)

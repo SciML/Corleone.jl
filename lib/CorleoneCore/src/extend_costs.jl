@@ -35,16 +35,16 @@ function extend_costs(sys)
         D(k) ~ substitute(arguments(v)[1], subs) for (k, v) in inv_subs
     ]
     new_vars = collect(keys(inv_subs))
-    lag_sys = ODESystem(
+    lag_sys = System(
         new_eqs, t, new_vars, [], name=nameof(sys),
     )
 
     newsys = extend(lag_sys, sys)
     newsys = @set newsys.costs = new_costs
     newsys = @set newsys.consolidate = consol
-    newsys = @set newsys.tspan = ModelingToolkit.get_tspan(sys)
-    newsys = @set newsys.constraintsystem = ModelingToolkit.get_constraintsystem(sys)
-    return newsys, subs
+    #newsys = @set newsys.tspan = ModelingToolkit.get_tspan(sys)
+    newsys = @set newsys.constraints = ModelingToolkit.constraints(sys)
+    return newsys
 end
 
 # We have a very specific case here.
