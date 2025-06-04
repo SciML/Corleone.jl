@@ -17,7 +17,7 @@ struct OCProblemBuilder{S,C,G,I}
 end
 
 function Base.show(io::IO, prob::OCProblemBuilder)
-    (; system) = prob 
+    (; system) = prob
     cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system))
     cons = ModelingToolkit.constraints(system)
     eqs = ModelingToolkit.equations(system)
@@ -26,11 +26,16 @@ function Base.show(io::IO, prob::OCProblemBuilder)
     println(io, "s.t.")
     println(io, "")
     println(io, "Dynamics $(nameof(system))")
-    foreach(eqs) do eq 
+    foreach(eqs) do eq
         println(io, "     ", eq)
     end
+    println(io, "Observed $(nameof(system))")
+    foreach(ModelingToolkit.observed(system)) do eq
+        println(io, "     ", eq)
+    end
+
     println(io, "Constraints")
-    foreach(cons) do eq 
+    foreach(cons) do eq
         println(io, "     ", eq)
     end
 end
@@ -54,12 +59,54 @@ function (prob::OCProblemBuilder)(; kwargs...)
     # Extend the costs 
     prob = expand_lagrange!(prob)
     # Extend the controls 
-    prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init = identity)(prob.system))
+    prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init=identity)(prob.system))
     prob = replace_shooting_variables!(prob)
     prob = append_shooting_constraints!(prob)
-    prob = @set prob.system = complete(prob.system; add_initial_parameters = false)
+    prob = @set prob.system = complete(prob.system; add_initial_parameters=false)
     return prob
-end 
+end
+
+function SciMLBase.OptimizationFunction{IIP}(prob::OCProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
+    (; system) = prob
+    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
+    constraints = ModelingToolkit.constraints(system)
+    costs = ModelingToolkit.get_costs(system) 
+    consolidate = ModelingToolkit.get_consolidate(system)
+    objective = OptimalControlFunction{true}(
+        costs, prob, alg, args...; consolidate=consolidate, kwargs...
+    )
+    if !isempty(constraints)
+        constraints = OptimalControlFunction{IIP}(
+            map(x -> x.lhs, constraints), prob, alg, args...; kwargs...
+        )
+    else
+        constraints = nothing
+    end
+    return OptimizationFunction{IIP}(
+        objective, adtype, cons=constraints,
+    )
+end
+
+function SciMLBase.OptimizationProblem{IIP}(prob::OCProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
+    (; system) = prob
+    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
+    constraints = ModelingToolkit.constraints(system)
+    f = OptimizationFunction{IIP}(prob, adtype, alg, args...; kwargs...)
+    predictor = f.f.predictor
+    u0 = get_p0(predictor)
+    lb, ub = get_bounds(predictor)
+    if !isempty(constraints)
+        lcons = zeros(eltype(u0), size(constraints, 1))
+        ucons = zeros(eltype(u0), size(constraints, 1))
+        for (i, c) in enumerate(constraints)
+            isa(c, Equation) && continue
+            lcons[i] = eltype(u0)(-Inf)
+        end
+    else
+        lcons = ucons = nothing
+    end
+    OptimizationProblem{IIP}(f, u0; lb, ub, lcons, ucons)
+end
 
 function collect_integrals!(substitutions, ex, t, gridpoints)
     if iscall(ex)
@@ -145,16 +192,16 @@ function replace_shooting_variables!(prob::OCProblemBuilder)
             substitutions[var(tshoot[i])] = ps[i]
         end
     end
-    new_costs = map(ModelingToolkit.get_costs(system)) do eq 
+    new_costs = map(ModelingToolkit.get_costs(system)) do eq
         substitute(eq, substitutions)
-    end 
-    new_constraints = map(ModelingToolkit.constraints(system)) do eq 
-        new_lhs = substitute(eq.lhs, substitutions) 
-        isa(eq, Equation) ? new_lhs ~ 0 : new_lhs ≲ 0 
-    end 
+    end
+    new_constraints = map(ModelingToolkit.constraints(system)) do eq
+        new_lhs = substitute(eq.lhs, substitutions)
+        isa(eq, Equation) ? new_lhs ~ 0 : new_lhs ≲ 0
+    end
 
     empty!(ModelingToolkit.constraints(system))
-    append!(ModelingToolkit.constraints(system), collect(Union{Equation, Inequality}, new_constraints))
+    append!(ModelingToolkit.constraints(system), collect(Union{Equation,Inequality}, new_constraints))
     empty!(ModelingToolkit.get_costs(system))
     append!(ModelingToolkit.get_costs(system), new_costs)
     return prob
@@ -181,27 +228,27 @@ function collect_explicit_timepoints!(subs, ex, vars, iv)
     return ex
 end
 
-struct OptimalControlFunction{OOP, IIP, P, C}
-    f_oop::OOP 
-    f_iip::IIP 
-    predictor::P 
-    consolidate::C 
+struct OptimalControlFunction{OOP,IIP,P,C}
+    f_oop::OOP
+    f_iip::IIP
+    predictor::P
+    consolidate::C
 end
 
-function (f::OptimalControlFunction)(p::AbstractVector{T}, ::Any) where T
+function (f::OptimalControlFunction)(p::AbstractVector{T}, ::Any) where {T}
     (; f_oop, predictor, consolidate) = f
     trajectory, ps = predict(predictor, p)
     f_oop(vec(trajectory), ps, zero(eltype(p))) |> consolidate
 end
 
 function (f::OptimalControlFunction)(u::AbstractVector, p::AbstractVector{T}, ::Any) where {T}
-    (; f_iip, predictor) = f 
+    (; f_iip, predictor) = f
     trajectory, ps = predict(predictor, p)
-    f_iip(u, vec(trajectory), ps, zero(eltype(p))) 
+    f_iip(u, vec(trajectory), ps, zero(eltype(p)))
 end
 
 
-function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...; consolidate = identity, kwargs...) where IIP
+function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...; consolidate=identity, kwargs...) where {IIP}
     (; system, substitutions) = prob
     t = ModelingToolkit.get_iv(system)
     vars = operation.(ModelingToolkit.unknowns(system))
@@ -210,19 +257,22 @@ function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args.
         collect_explicit_timepoints!(substitutions, eq, vars, t)
     end
     statevars, cost_substitutions, saveat = create_cost_substitutions(substitutions, vars)
-    new_ex = map(new_ex) do eq 
+    new_ex = map(new_ex) do eq
         substitute(eq, cost_substitutions)
-    end  
+    end
     tspan = extrema(saveat)
-    predictor = OCPredictor{IIP}(system, alg, tspan, args...; kwargs...) 
-    foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression = Val{false}, kwargs...)
+    predictor = OCPredictor{IIP}(system, alg, tspan, args...; saveat = saveat, kwargs...)
+    foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression=Val{false}, kwargs...)
     return OptimalControlFunction{
-        typeof(foop), typeof(fiip), typeof(predictor), typeof(consolidate)
+        typeof(foop),typeof(fiip),typeof(predictor),typeof(consolidate)
     }(foop, fiip, predictor, consolidate)
-end 
+end
 
 function create_cost_substitutions(subs, vars)
-    timepoints = (unique! ∘ sort!)(first.(values(subs)))
+    timepoints = first.(values(subs))
+    sort!(timepoints)
+    unique!(timepoints)
+    @info timepoints
     statevars = @variables $(gensym(:X))[1:length(vars), 1:length(timepoints)]
     newsubs = Dict()
     for (k, v) in subs

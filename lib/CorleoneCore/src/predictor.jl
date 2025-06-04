@@ -80,7 +80,6 @@ function _find_blocks(vars)
     parent = nothing
     while current <= lastindex(vars)
         xi = vars[current]
-        @info parent xi idx_cache
         if is_shootingvariable(xi) && pushable
             # First parent variable. Should stay consistent 
             if isnothing(parent)
@@ -131,19 +130,27 @@ function compute_permutation_of_variables(sys)
 end
 
 
-function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(), args...; kwargs...) where {IIP}
+function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(), args...; saveat=[], kwargs...) where {IIP}
     @assert !isnothing(tspan) "No tspan provided!"
-    tstops = get_tstoppoints(sys)
-    problem = ODEProblem{IIP,SciMLBase.FullSpecialize}(sys, [], tspan, tstops=tstops, d_discontinuities=tstops, jac=true, tgrad=false, build_initializeprob=false, check_compatibility=false)
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
-    shooting_intervals = [ti for ti in zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end]))]
-    if last(tspan) != last(shooting_timepoints)
-        push!(shooting_intervals, (last(shooting_timepoints), last(tspan)))
-    else #if last(shooting_timepoints) == last(tspan)
-        push!(shooting_intervals, (last(tspan), last(tspan)))
+    tspan = extrema(vcat(shooting_timepoints, collect(tspan)))
+    shooting_intervals = collect(zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end]))) 
+    if isempty(shooting_intervals)
+        push!(shooting_intervals, tspan)
+    elseif last(tspan) != last(shooting_timepoints) 
+        push!(shooting_intervals, (shooting_timepoints[end], last(tspan)))
     end
+    append!(saveat, last.(shooting_intervals))
+    @info shooting_timepoints
+    @info shooting_intervals
+    @info saveat 
+    tstops = get_tstoppoints(sys)
+    sort!(saveat)
+    unique!(saveat)
     perm = compute_permutation_of_variables(sys)
+    kwargs = merge(NamedTuple(kwargs), (; tstops=tstops, saveat=saveat))
+    problem = ODEProblem{IIP,SciMLBase.FullSpecialize}(sys, [], tspan; jac=true, tgrad=true, build_initializeprob=false, check_compatibility=false, kwargs...)
     return OCPredictor{
         length(shooting_intervals),typeof(problem),
         typeof(alg),typeof(ensemblealg),
@@ -176,13 +183,13 @@ end
 
 function (predictor::OCPredictor{1})(p::AbstractVector{T}) where {T}
     (; problem, alg, shooting_intervals, shooting_transition,
-        permutation, solver_kwargs ) = predictor
+        permutation,) = predictor
     _p = invtransform(permutation, p)
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     tspan = only(shooting_intervals)
     u0 = shooting_transition(problem.u0, new_params, first(tspan))
     new_problem = remake(problem, p=new_params, u0=u0, tspan=tspan)
-    solve(new_problem, alg; solver_kwargs...), new_params
+    solve(new_problem, alg), new_params
 end
 
 function (predictor::OCPredictor{N})(p::AbstractVector; kwargs...) where {N}
@@ -198,7 +205,7 @@ function (predictor::OCPredictor{N})(p::AbstractVector; kwargs...) where {N}
         end
     end
     problem = EnsembleProblem(problem, prob_func=probfunc)
-    sols = solve(problem, alg, ensemblealg, trajectories=N; solver_kwargs...), new_params
+    sols = solve(problem, alg, ensemblealg, trajectories=N; merge(solver_kwargs, kwargs)...), new_params
 end
 
 function predict(predictor::OCPredictor, p)
@@ -206,12 +213,15 @@ function predict(predictor::OCPredictor, p)
     # Reduce all solutions here 
     collect_solution(sol), ps
 end
- 
-collect_solution(sol::DESolution) = Array(sol)
+# We filter the idx here
+function collect_solution(sol::DESolution)
+    idx = filter(!isnothing, findlast.(isequal.(sol.prob.kwargs[:saveat]), [sol.t])) 
+    Array(sol)[:, idx]
+end
 
-function collect_solution(sol::EnsembleSolution) 
-    reduce(hcat, map(eachindex(sol)) do i 
-        x = Array(sol.u[i])
-        i == 1 ? x : x[:, 2:end]
-    end)
+function collect_solution(sol::EnsembleSolution)
+    x = map(eachindex(sol)) do i
+        collect_solution(sol.u[i])
+    end
+    reduce(hcat, i == 1 ? x[i] : x[i][:, 2:end] for i in eachindex(x))
 end
