@@ -14,14 +14,7 @@ using Accessors
 
 # The main symbolic metadata structure
 include("metadata.jl")
-
-include("symbolic_operations.jl")
-export ∫
-
-#include("extend_functions.jl")
-include("extend_costs.jl")
-export extend_costs
-
+include("utils.jl")
 # This stores the piecewise constant struct and the function which extends controls
 include("control_formulations/abstract.jl")
 include("control_formulations/directcallback.jl")
@@ -38,15 +31,10 @@ export DefaultsInitialization, ForwardSolveInitialization, RandomInitialization
 export LinearInterpolationInitialization, CustomInitialization, ConstantInitialization
 include("shooting.jl")
 export ShootingGrid
-
-# Convert a solution into a trajectory
-include("trajectory.jl")
-export Trajectory
-
 include("predictor.jl")
 export OCPredictor
 
 include("variable_substitution.jl")
-
+export OCProblemBuilder
 
 end
