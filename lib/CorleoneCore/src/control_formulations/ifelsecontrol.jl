@@ -77,5 +77,5 @@ function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
         name=nameof(sys),
         discrete_events=[timepoints => nothing],
     )
-    extend(sys, controlsys)
+    extend_system(sys, controlsys)
 end
