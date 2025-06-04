@@ -1,15 +1,18 @@
-struct VariablePermutation{P,H}
+struct VariablePermutation
     "Forward permutation from the original order to the block order"
-    fwd::P
+    fwd::Vector{Int64}
     "Reverse permutation from the block order to the original order"
-    rev::P
+    rev::Vector{Int64}
     "Array of variable indices (in permuted order) denoting the blocks
     in the Hessian of the Lagrangian of the discretized optimal control problem.
     Constructed for direct use with blockSQP."
-    blocks::H
+    blocks::Vector{Int64}
 end
 
-struct OCPredictor{N,P,A,E,S,T,K,M}
+transform(perm::VariablePermutation, p::AbstractVector) = getindex(p, perm.fwd)
+invtransform(perm::VariablePermutation, p::AbstractVector) = getindex(p, perm.rev)
+
+struct OCPredictor{N,P,A,E,S,T,K}
     "The underlying problem"
     problem::P
     "The algorithm to solve the problem"
@@ -24,16 +27,11 @@ struct OCPredictor{N,P,A,E,S,T,K,M}
     solver_kwargs::K
     "Permutation of variables to obtain block structure"
     permutation::VariablePermutation
-    "Indices of special variables that need to be treated differently in the evaluation:
-        1) pseudo-Mayer variables on each shooting interval needed due to transformation
-                of the Lagrange term, and
-        2) control variables added via DirectControlCallbacks"
-    special_variables::M
 end
 
 OCPredictor(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) = OCPredictor{true}(sys, alg, ensemblealg; kwargs...)
 
-OCPredictor(problem, alg, ensemblealg, transition, intervals, kwargs, permutation, specials) = OCPredictor{length(intervals),typeof(problem),typeof(alg),typeof(ensemblealg),typeof(transition),typeof(intervals),typeof(kwargs),typeof(specials)}(problem, alg, ensemblealg, transition, intervals, kwargs, permutation, specials)
+OCPredictor(problem, alg, ensemblealg, transition, intervals, kwargs, permutation) = OCPredictor{length(intervals),typeof(problem),typeof(alg),typeof(ensemblealg),typeof(transition),typeof(intervals),typeof(kwargs)}(problem, alg, ensemblealg, transition, intervals, kwargs, permutation)
 
 function (f::AbstractNodeInitialization)(predictor::OCPredictor; kwargs...)
     newprob = f(predictor.problem, predictor.alg; kwargs...)
@@ -76,7 +74,7 @@ is_local_parameter(x) = is_localcontrol(x)
 
 function _find_blocks(vars)
     idx = Int64[]
-    idx_cache = Int64[] 
+    idx_cache = Int64[]
     current = firstindex(vars)
     pushable = true
     parent = nothing
@@ -94,14 +92,12 @@ function _find_blocks(vars)
             pushable = false
         elseif is_localcontrol(xi)
             # This is a control 
-            pushable = true 
+            pushable = true
             append!(idx, idx_cache)
             empty!(idx_cache)
         end
         current += 1
     end
-    @info vars[idx]
-    @info vars
     idx .-= 1
     push!(idx, lastindex(vars))
     return idx
@@ -114,7 +110,7 @@ function compute_permutation_of_variables(sys)
     ps = filter(!ModelingToolkit.isinitial, reduce(vcat, _maybecollect.(tunable_parameters(sys))))
     ctrls = filter(ModelingToolkit.isinput, vcat(unknowns(sys), observables(sys)))
     states = filter(is_statevar, unknowns(sys))
-    ctrl_vars = reduce(vcat, map(Base.Fix1(find_control_pairs, sys), ctrls), init = [])
+    ctrl_vars = reduce(vcat, map(Base.Fix1(find_control_pairs, sys), ctrls), init=[])
     shooting_vars = reduce(vcat, map(Base.Fix1(find_shooting_pairs, sys), states))
     vars_to_sort = vcat(ctrl_vars, shooting_vars)
     sort!(vars_to_sort, lt=compare_timedependent_variables)
@@ -128,44 +124,41 @@ function compute_permutation_of_variables(sys)
         _find_blocks(new_order)
     end
 
-    perm = [findfirst(x -> isequal(x, y), ps) for y in new_order]
+    perm = Int64[findfirst(x -> isequal(x, y), ps) for y in new_order]
     rev_perm = sortperm(perm)
 
-    VariablePermutation{typeof(perm),typeof(blocks_hess)}(perm, rev_perm, blocks_hess)
+    VariablePermutation(perm, rev_perm, blocks_hess)
 end
 
 
-function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(); kwargs...) where {IIP}
+function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(), args...; kwargs...) where {IIP}
     @assert !isnothing(tspan) "No tspan provided!"
     tstops = get_tstoppoints(sys)
-    problem = ODEProblem{IIP, SciMLBase.FullSpecialize}(sys, [], tspan, tstops=tstops, d_discontinuities = tstops, jac = true, tgrad = false,  build_initializeprob=false, allow_cost=true)
+    problem = ODEProblem{IIP,SciMLBase.FullSpecialize}(sys, [], tspan, tstops=tstops, d_discontinuities=tstops, jac=true, tgrad=false, build_initializeprob=false, check_compatibility=false)
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
     shooting_intervals = [ti for ti in zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end]))]
-    if last(tspan) != last(shooting_timepoints) 
+    if last(tspan) != last(shooting_timepoints)
         push!(shooting_intervals, (last(shooting_timepoints), last(tspan)))
     else #if last(shooting_timepoints) == last(tspan)
         push!(shooting_intervals, (last(tspan), last(tspan)))
     end
     perm = compute_permutation_of_variables(sys)
-    mayer_indices = is_costvariable.(unknowns(sys))
-    control_indices = isinput.(unknowns(sys))
-    special_variables = (; shooting=(.!(mayer_indices .|| control_indices)), pseudo_mayer=mayer_indices, control=control_indices)
     return OCPredictor{
         length(shooting_intervals),typeof(problem),
         typeof(alg),typeof(ensemblealg),
         typeof(shooting_init),
         typeof(shooting_intervals),
-        typeof(kwargs),typeof(special_variables)
+        typeof(kwargs)
     }(
-        problem, alg, ensemblealg, shooting_init, shooting_intervals, kwargs, perm, special_variables
+        problem, alg, ensemblealg, shooting_init, shooting_intervals, kwargs, perm
     )
 end
 
 function get_p0(predictor::OCPredictor)
     (; problem, permutation) = predictor
     p, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.p)
-    p[permutation.fwd]
+    transform(permutation, p)
 end
 
 function get_bounds(predictor::OCPredictor)
@@ -173,30 +166,29 @@ function get_bounds(predictor::OCPredictor)
     ps = SciMLBase.getparamsyms(problem)
     filter!(!ModelingToolkit.isinitial, ps)
     filter!(ModelingToolkit.istunable, ps)
-    bounds = map(ps) do pi 
+    bounds = map(ps) do pi
         ModelingToolkit.getbounds(pi)
     end
     lbounds = reduce(vcat, vec.(first.(bounds)))
     ubounds = reduce(vcat, vec.(last.(bounds)))
-    lbounds[permutation.fwd], ubounds[permutation.fwd]
-    #first.(bounds), last.(bounds)
+    transform(permutation, lbounds), transform(permutation, ubounds)
 end
 
-function (predictor::OCPredictor{1})(p; kwargs...)
-    (; problem, alg, shooting_intervals, shooting_transition, solver_kwargs,
-        permutation) = predictor
-    _p = p[permutation.rev]
+function (predictor::OCPredictor{1})(p::AbstractVector{T}) where {T}
+    (; problem, alg, shooting_intervals, shooting_transition,
+        permutation, solver_kwargs ) = predictor
+    _p = invtransform(permutation, p)
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     tspan = only(shooting_intervals)
     u0 = shooting_transition(problem.u0, new_params, first(tspan))
     new_problem = remake(problem, p=new_params, u0=u0, tspan=tspan)
-    solve(new_problem, alg; solver_kwargs...)
+    solve(new_problem, alg; solver_kwargs...), new_params
 end
 
-function (predictor::OCPredictor{N})(p; kwargs...) where {N}
+function (predictor::OCPredictor{N})(p::AbstractVector; kwargs...) where {N}
     (; problem, alg, ensemblealg, shooting_transition,
         shooting_intervals, solver_kwargs, permutation) = predictor
-    _p = p[permutation.rev]
+    _p = invtransform(permutation, p)
     new_params = SciMLStructures.replace(SciMLStructures.Tunable(), problem.p, _p)
     probfunc = let shooting_intervals = shooting_intervals, shooting_init = shooting_transition, p = new_params
         function (prob, i, repeat)
@@ -206,24 +198,20 @@ function (predictor::OCPredictor{N})(p; kwargs...) where {N}
         end
     end
     problem = EnsembleProblem(problem, prob_func=probfunc)
-    sols = solve(problem, alg, ensemblealg, trajectories=N; solver_kwargs...)
+    sols = solve(problem, alg, ensemblealg, trajectories=N; solver_kwargs...), new_params
 end
 
 function predict(predictor::OCPredictor, p)
-    (; special_variables) = predictor
-    sol = predictor(p)
-    collect_trajectory(sol, special_variables)
+    sol, ps = predictor(p)
+    # Reduce all solutions here 
+    collect_solution(sol), ps
 end
+ 
+collect_solution(sol::DESolution) = Array(sol)
 
-collect_trajectory(traj::Trajectory, x) = traj
-
-function collect_trajectory(sol::DESolution, special_variables)
-    Trajectory(sol; special_variables)
-end
-
-function collect_trajectory(sol::EnsembleSolution, mayer)
-    trajs = map(sol.u) do subsol
-        collect_trajectory(subsol, mayer)
-    end
-    merge(trajs...)
+function collect_solution(sol::EnsembleSolution) 
+    reduce(hcat, map(eachindex(sol)) do i 
+        x = Array(sol.u[i])
+        i == 1 ? x : x[:, 2:end]
+    end)
 end
