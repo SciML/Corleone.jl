@@ -21,22 +21,28 @@ function Base.show(io::IO, prob::OCProblemBuilder)
     cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system))
     cons = ModelingToolkit.constraints(system)
     eqs = ModelingToolkit.equations(system)
+    obs = ModelingToolkit.observed(system)
     println(io, "min $(cost)")
     println(io, "")
     println(io, "s.t.")
     println(io, "")
-    println(io, "Dynamics $(nameof(system))")
-    foreach(eqs) do eq
-        println(io, "     ", eq)
+    if !isempty(eqs)
+        println(io, "Dynamics $(nameof(system))")
+        foreach(eqs) do eq
+            println(io, "     ", eq)
+        end
     end
-    println(io, "Observed $(nameof(system))")
-    foreach(ModelingToolkit.observed(system)) do eq
-        println(io, "     ", eq)
+    if !isempty(obs)
+        println(io, "Observed $(nameof(system))")
+        foreach(ModelingToolkit.observed(system)) do eq
+            println(io, "     ", eq)
+        end
     end
-
-    println(io, "Constraints")
-    foreach(cons) do eq
-        println(io, "     ", eq)
+    if !isempty(cons)
+        println(io, "Constraints")
+        foreach(cons) do eq
+            println(io, "     ", eq)
+        end
     end
 end
 
@@ -70,7 +76,7 @@ function SciMLBase.OptimizationFunction{IIP}(prob::OCProblemBuilder, adtype::Sci
     (; system) = prob
     @assert ModelingToolkit.iscomplete(system) "The system is not complete."
     constraints = ModelingToolkit.constraints(system)
-    costs = ModelingToolkit.get_costs(system) 
+    costs = ModelingToolkit.get_costs(system)
     consolidate = ModelingToolkit.get_consolidate(system)
     objective = OptimalControlFunction{true}(
         costs, prob, alg, args...; consolidate=consolidate, kwargs...
@@ -228,6 +234,19 @@ function collect_explicit_timepoints!(subs, ex, vars, iv)
     return ex
 end
 
+function create_cost_substitutions(subs, vars)
+    timepoints = first.(values(subs))
+    sort!(timepoints)
+    unique!(timepoints)
+    statevars = @variables $(gensym(:X))[1:length(vars), 1:length(timepoints)]
+    newsubs = Dict()
+    for (k, v) in subs
+        opidx = findfirst(Base.Fix1(Base.isequal, operation(k)), vars)
+        newsubs[last(v)] = getindex(statevars[1], opidx, findfirst(==(first(v)), timepoints))
+    end
+    return statevars, newsubs, timepoints
+end
+
 struct OptimalControlFunction{OOP,IIP,P,C}
     f_oop::OOP
     f_iip::IIP
@@ -261,48 +280,9 @@ function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args.
         substitute(eq, cost_substitutions)
     end
     tspan = extrema(saveat)
-    predictor = OCPredictor{IIP}(system, alg, tspan, args...; saveat = saveat, kwargs...)
+    predictor = OCPredictor{IIP}(system, alg, tspan, args...; saveat=saveat, kwargs...)
     foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression=Val{false}, kwargs...)
     return OptimalControlFunction{
         typeof(foop),typeof(fiip),typeof(predictor),typeof(consolidate)
     }(foop, fiip, predictor, consolidate)
 end
-
-function create_cost_substitutions(subs, vars)
-    timepoints = first.(values(subs))
-    sort!(timepoints)
-    unique!(timepoints)
-    @info timepoints
-    statevars = @variables $(gensym(:X))[1:length(vars), 1:length(timepoints)]
-    newsubs = Dict()
-    for (k, v) in subs
-        opidx = findfirst(Base.Fix1(Base.isequal, operation(k)), vars)
-        newsubs[last(v)] = getindex(statevars[1], opidx, findfirst(==(first(v)), timepoints))
-    end
-    return statevars, newsubs, timepoints
-end
-
-function expand_timepoints!(prob::OCProblemBuilder)
-    (; system, substitutions) = prob
-    t = ModelingToolkit.get_iv(system)
-    vars = operation.(ModelingToolkit.unknowns(system))
-    costs = ModelingToolkit.get_costs(system)
-    constraints = ModelingToolkit.constraints(system)
-    empty!(substitutions)
-    new_costs = map(costs) do eq
-        collect_explicit_timepoints!(substitutions, eq, vars, t)
-    end
-    cost_substitutions = create_cost_substitutions(substitutions, vars)
-    empty!(substitutions)
-    new_constraints = map(constraints) do con
-        con = Symbolics.canonical_form(con)
-        new_lhs = collect_explicit_timepoints!(substitutions, con.lhs, vars, t)
-        isa(con, Equation) ? new_lhs ~ 0 : new_lhs ≲ con.rhs
-    end
-    constraint_substitutions = create_cost_substitutions(substitutions, vars)
-    sys = @set system.costs = new_costs
-    sys = @set sys.constraints = new_constraints
-    return @set prob.system = sys
-end
-
-
