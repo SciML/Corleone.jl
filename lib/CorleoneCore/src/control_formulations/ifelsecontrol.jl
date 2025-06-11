@@ -75,7 +75,7 @@ function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
         new_equations,
         ModelingToolkit.get_iv(sys), [], new_parameters;
         name=nameof(sys),
-        discrete_events=[timepoints => nothing],
+        discrete_events=[],
     )
-    extend(sys, controlsys)
+    extend_system(sys, controlsys)
 end

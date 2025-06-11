@@ -29,7 +29,7 @@ function (x::ShootingGrid)(sys)
         name=nameof(sys),
         initialization_eqs=init_equations
     )
-    newsys = extend(init_sys, sys)
+    extend_system(init_sys, sys)
 end
 
 function find_initial_condition(t, timepoints, p)
@@ -92,5 +92,5 @@ function build_shooting_initializer(sys)
     vars = unknowns(sys)
     idx = [findfirst(Base.Fix1(isequal, xi), lhs) for xi in vars]
     shooting_equations = map(x -> x.rhs, init_eqs[idx])
-    return first(ModelingToolkit.generate_custom_function(sys, shooting_equations, expression=Val{false}))
+    return first(ModelingToolkit.generate_custom_function(sys, shooting_equations, []; expression=Val{false}))
 end

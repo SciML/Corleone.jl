@@ -75,5 +75,5 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
         name=nameof(sys),
         discrete_events=callback_eqs,
     )
-    extend(sys, controlsys)
+    extend_system(sys, controlsys)
 end
