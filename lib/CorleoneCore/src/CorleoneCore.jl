@@ -35,12 +35,15 @@ export ShootingGrid
 include("predictor.jl")
 export OCPredictor
 
+include("criteria.jl")
+export AbstractOEDCriterion
+export ACriterion, DCriterion, ECriterion
+
 include("experimental_design.jl")
 export OEDProblemBuilder
 
 include("variable_substitution.jl")
 export OCProblemBuilder
 
-include("criteria.jl")
-export ACriterion, DCriterion, ECriterion
+
 end

@@ -3,13 +3,15 @@ $(TYPEDEF)
 
 Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
 """
-struct OEDProblemBuilder{S,C,G,I}
+struct OEDProblemBuilder{S,G,I}
     "The system"
     system::S
     "The controls"
-    controls::C
+    controls::AbstractControlFormulation
     "The grid"
     grids::G
+    "OED criterion"
+    crit::AbstractOEDCriterion
     "The initialization"
     initialization::I
     "Substitutions"
@@ -47,9 +49,11 @@ function Base.show(io::IO, prob::OEDProblemBuilder)
     end
 end
 
-function OEDProblemBuilder(sys::ModelingToolkit.System, controls::C, grids::G, inits::I, subs::Dict) where {C<:Tuple,G<:Tuple,I<:Tuple}
-    OEDProblemBuilder{typeof(sys),C,G,I}(
-        sys, controls, grids, inits, subs
+function OEDProblemBuilder(sys::ModelingToolkit.System, controls::AbstractControlFormulation,
+            grids::G, crit::AbstractOEDCriterion,
+            inits::I, subs::Dict) where {G<:Tuple, I<:Tuple}
+    OEDProblemBuilder{G,I}(
+        sys, controls, grids, crit, inits, subs
     )
 end
 
@@ -159,14 +163,46 @@ function replace_controls!(prob::OEDProblemBuilder)
     return @set prob.controls = new_c
 end
 
+function replace_costs!(prob::OEDProblemBuilder)
+    (; system, crit, grids) = prob
+    costs = ModelingToolkit.get_costs(system)
+
+    @info costs
+    t0, tf = extrema(grids.timepoints)
+
+    fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
+
+    @info fim_states
+    fim_states_mayer = map(x->operation(x)(tf), fim_states)
+    @info fim_states_mayer
+    F_mayer = __symmetric_from_vector(fim_states_mayer)
+    @info F_mayer
+    new_costs = [crit(F_mayer)]
+    @info new_costs
+
+    sys = @set system.costs = new_costs
+    return @set prob.system = sys
+end
+
+function LinearAlgebra.tr(A::Matrix{Symbolics.SymbolicUtils.BasicSymbolic{Real}})
+    n = size(A,1)
+    sum([A[i,i] for i=1:n])
+end
+
+function LinearAlgebra.det(A::Matrix{Symbolics.SymbolicUtils.BasicSymbolic{Real}})
+    n = size(A,1)
+    prod([A[i,i] for i=1:n])
+end
+
 function (prob::OEDProblemBuilder)(; kwargs...)
 
     # Extend system with sensitivities, Fisher, and sampling controls
     prob = expand_equations!(prob)
 
     prob = replace_controls!(prob)
-    # Extend the costs
-    #prob = expand_lagrange!(prob)
+
+    # Replace costs by criterion
+    prob = replace_costs!(prob)
     # Extend the controls
     prob = @set prob.system = prob.grids(tearing(prob.controls(prob.system)))
     prob = replace_shooting_variables!(prob)

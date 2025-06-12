@@ -8,23 +8,35 @@ struct ECriterion <: AbstractOEDCriterion end
 
 
 function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}) where {T, N}
-    return Symmetric([i <= j ? x[Int(j * (j - 1) / 2 + i)] : zero(T) for i in 1:N, j in 1:N])
+    F = Array{T,2}(undef,N,N)
+    for j=1:N
+        for i=1:N
+            if i<= j
+                F[i,j] = x[Int(j * (j - 1) / 2 + i)]
+            else
+                F[i,j] = x[Int(i * (i - 1) / 2 + j)]
+            end
+        end
+    end
+    return F
+
+    #return Symmetric([i <= j ? x[Int(j * (j - 1) / 2 + i)] : zero(T) for i in 1:N, j in 1:N])
 end
 
-function __symmetric_from_vector(x::AbstractArray)
+function __symmetric_from_vector(x::AbstractVector)
     n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
     _symmetric_from_vector(x, Val(n))
 end
 
-function (crit::ACriterion)(F::AbstractArray)
+function (crit::ACriterion)(F::AbstractVector)
     return crit(__symmetric_from_vector(F))
 end
 
-function (crit::DCriterion)(F::AbstractArray)
+function (crit::DCriterion)(F::AbstractVector)
     return crit(__symmetric_from_vector(F))
 end
 
-function (crit::ECriterion)(F::AbstractArray)
+function (crit::ECriterion)(F::AbstractVector)
     return crit(__symmetric_from_vector(F))
 end
 
