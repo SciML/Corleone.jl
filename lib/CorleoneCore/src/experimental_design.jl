@@ -20,12 +20,12 @@ end
 
 function Base.show(io::IO, prob::OEDProblemBuilder)
     (; system) = prob
-    #cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system))
+    cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system),[])
     cons = ModelingToolkit.constraints(system)
     eqs = ModelingToolkit.equations(system)
     obs = ModelingToolkit.observed(system)
 
-    #println(io, "min $(cost)")
+    println(io, "min $(cost)")
     println(io, "")
     println(io, "s.t.")
     println(io, "")
