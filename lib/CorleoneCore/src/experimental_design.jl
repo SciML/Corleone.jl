@@ -1,0 +1,218 @@
+"""
+$(TYPEDEF)
+
+Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
+"""
+struct OEDProblemBuilder{S,C,G,I}
+    "The system"
+    system::S
+    "The controls"
+    controls::C
+    "The grid"
+    grids::G
+    "The initialization"
+    initialization::I
+    "Substitutions"
+    substitutions::Dict
+end
+
+function Base.show(io::IO, prob::OEDProblemBuilder)
+    (; system) = prob
+    #cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system))
+    cons = ModelingToolkit.constraints(system)
+    eqs = ModelingToolkit.equations(system)
+    obs = ModelingToolkit.observed(system)
+
+    #println(io, "min $(cost)")
+    println(io, "")
+    println(io, "s.t.")
+    println(io, "")
+    if !isempty(eqs)
+        println(io, "Dynamics $(nameof(system))")
+        foreach(eqs) do eq
+            println(io, "     ", eq)
+        end
+    end
+    if !isempty(obs)
+        println(io, "Observed $(nameof(system))")
+        foreach(ModelingToolkit.observed(system)) do eq
+            println(io, "     ", eq)
+        end
+    end
+    if !isempty(cons)
+        println(io, "Constraints")
+        foreach(cons) do eq
+            println(io, "     ", eq)
+        end
+    end
+end
+
+function OEDProblemBuilder(sys::ModelingToolkit.System, controls::C, grids::G, inits::I, subs::Dict) where {C<:Tuple,G<:Tuple,I<:Tuple}
+    OEDProblemBuilder{typeof(sys),C,G,I}(
+        sys, controls, grids, inits, subs
+    )
+end
+
+#function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
+#    controls = filter(Base.Fix2(isa, AbstractControlFormulation), args)
+#    grid = filter(Base.Fix2(isa, ShootingGrid), args)
+#    inits = filter(Base.Fix2(isa, AbstractNodeInitialization), args)
+#    OEDProblemBuilder{typeof(sys),typeof(controls), typeof(grid),typeof(inits)}(
+#        sys, controls, grid, inits, Dict()
+#    )
+#end
+
+function expand_equations!(prob::OEDProblemBuilder)
+    (; system) = prob
+    t = ModelingToolkit.get_iv(system)
+    D = Differential(t)
+    filter_p = findall(is_statevar, unknowns(system))
+    sts = unknowns(system)[filter_p]
+    eqs = equations(system)[filter_p]
+    _ff = map(eqs) do eq
+        if operation(eq.lhs) == Differential(t)
+            eq.rhs
+        else
+            throw(error("Equation is not in standard form ̇x=f(x)."))
+        end
+    end
+    dfdx = Symbolics.jacobian(_ff, sts)
+    pp = reduce(vcat, filter(x -> istunable(x) && !(is_shootingvariable(x) || is_shootingpoint(x) || is_localcontrol(x) || is_tstop(x)), parameters(system)))
+    np, nx = length(pp), length(sts)
+    dfdp = Symbolics.jacobian(_ff, pp)
+    G = reduce(vcat, map(1:np) do j
+        reduce(vcat, map(1:nx) do i
+            Gsym = Symbol("G", "$i", "$j")
+            @variables ($(Gsym)(..) = 0.0, [tunable=false, sensitivities=true])
+        end)
+    end)
+
+    F = []
+    for j= 1:np
+        for i = 1:np
+            Fsym = Symbol("F", "$i", "$j")
+            if i <= j
+                _f =  @variables ($(Fsym)(..) = 0.0, [tunable=false, fim=true])
+                push!(F, only(_f))
+            end
+        end
+    end
+    _G = map(x -> x(t), reshape(G, (nx, np)))
+    _F = map(x -> x(t), F)
+
+    dg = dfdp .+ dfdx * _G
+    sens_eqs = vec(D.(_G)) .~ vec(dg)
+
+    obs_eqs = map(x -> x.rhs, ModelingToolkit.observed(system))
+    nh = length(obs_eqs)
+    w = reduce(vcat, map(1:nh) do i
+        wsym = Symbol("w", "$i")
+        @variables ($(wsym)(..) = 1.0, [input=true, bounds=(0,1), measurements=true])
+    end)
+
+    upper_triangle = triu(trues(np, np))
+    F_eq = map(enumerate(obs_eqs)) do (i,h_i)
+        hix = Symbolics.jacobian([h_i], sts)
+        gram = hix * _G
+        w[i](t) * gram' * gram
+    end |> sum
+    fisher_eqs = vec(D.(_F)) .~ vec(F_eq[upper_triangle])
+    new_eqs = reduce(vcat, [sens_eqs, fisher_eqs])
+
+    oedsys = System(
+        new_eqs,
+        t,
+        reduce(vcat, [vec(_G), vec(_F), [wi(t) for wi in w]]), [],
+        name = nameof(system),
+        )
+
+    newsys = extend_system(system, oedsys)
+
+    return @set prob.system = newsys
+end
+
+
+function replace_controls!(prob::OEDProblemBuilder)
+    (; controls, system) = prob
+
+    t = ModelingToolkit.get_iv(system)
+    obs = ModelingToolkit.observed(system)
+
+    obsvar = map(x -> operation(x.lhs), obs)
+    sample_var = operation.(filter(is_measurement, unknowns(system)))
+
+    cvars = map(x-> x.variable, controls.controls)
+    cvars = replace(cvars, [x => y for (x,y) in zip(obsvar,sample_var)]...)
+    cdefaults = map(x-> x.defaults, controls.controls)
+    ctimepoints = map(x-> x.timepoints, controls.controls)
+
+    control_specs = map(1:length(cvars)) do i
+        Num(cvars[i](t)) => (; defaults=cdefaults[i], timepoints=ctimepoints[i])
+    end
+    # Don't know how this works better
+    new_c = begin
+        if typeof(controls) <: DirectControlCallback
+            DirectControlCallback(control_specs...)
+        end
+    end
+
+    return @set prob.controls = new_c
+end
+
+function (prob::OEDProblemBuilder)(; kwargs...)
+
+    # Extend system with sensitivities, Fisher, and sampling controls
+    prob = expand_equations!(prob)
+
+    prob = replace_controls!(prob)
+    # Extend the costs
+    #prob = expand_lagrange!(prob)
+    # Extend the controls
+    prob = @set prob.system = prob.grids(tearing(prob.controls(prob.system)))
+    prob = replace_shooting_variables!(prob)
+    prob = append_shooting_constraints!(prob)
+    prob = @set prob.system = complete(prob.system; add_initial_parameters=false)
+    return prob
+end
+
+function SciMLBase.OptimizationFunction{IIP}(prob::OEDProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
+    (; system) = prob
+    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
+    constraints = ModelingToolkit.constraints(system)
+    costs = ModelingToolkit.get_costs(system)
+    consolidate = ModelingToolkit.get_consolidate(system)
+    objective = OptimalControlFunction{true}(
+        costs, prob, alg, args...; consolidate=consolidate, kwargs...
+    )
+    if !isempty(constraints)
+        constraints = OptimalControlFunction{IIP}(
+            map(x -> x.lhs, constraints), prob, alg, args...; kwargs...
+        )
+    else
+        constraints = nothing
+    end
+    return OptimizationFunction{IIP}(
+        objective, adtype, cons=constraints,
+    )
+end
+
+function SciMLBase.OptimizationProblem{IIP}(prob::OEDProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
+    (; system) = prob
+    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
+    constraints = ModelingToolkit.constraints(system)
+    f = OptimizationFunction{IIP}(prob, adtype, alg, args...; kwargs...)
+    predictor = f.f.predictor
+    u0 = get_p0(predictor)
+    lb, ub = get_bounds(predictor)
+    if !isempty(constraints)
+        lcons = zeros(eltype(u0), size(constraints, 1))
+        ucons = zeros(eltype(u0), size(constraints, 1))
+        for (i, c) in enumerate(constraints)
+            isa(c, Equation) && continue
+            lcons[i] = eltype(u0)(-Inf)
+        end
+    else
+        lcons = ucons = nothing
+    end
+    OptimizationProblem{IIP}(f, u0; lb, ub, lcons, ucons)
+end

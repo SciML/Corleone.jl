@@ -11,6 +11,7 @@ using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
 using Accessors
+using LinearAlgebra
 
 # The main symbolic metadata structure
 include("metadata.jl")
@@ -34,7 +35,12 @@ export ShootingGrid
 include("predictor.jl")
 export OCPredictor
 
+include("experimental_design.jl")
+export OEDProblemBuilder
+
 include("variable_substitution.jl")
 export OCProblemBuilder
 
+include("criteria.jl")
+export ACriterion, DCriterion, ECriterion
 end

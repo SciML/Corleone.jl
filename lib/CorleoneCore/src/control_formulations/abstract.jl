@@ -33,7 +33,7 @@ Returns the control specification, which should be a `Dict` of variables and tim
 get_control_specs(x::AbstractControlFormulation) = x.controls
 
 function __preprocess_control_specs(x::Any)
-    throw(ArgumentError("The current control specification ($x) is not implemented. Please refer to the documentation on how to provide control specifications."))
+    throw(ArgumentError("The current control specification ($x) of type ($(typeof(x))) is not implemented. Please refer to the documentation on how to provide control specifications."))
 end
 
 function __preprocess_control_specs(nt::NamedTuple)

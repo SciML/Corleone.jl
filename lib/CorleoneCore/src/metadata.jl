@@ -48,7 +48,7 @@ A struct for storing the active shooting variables of a system and their respect
 struct ShootingVariable end
 Symbolics.option_to_metadata_type(::Val{:shooting_variable}) = ShootingVariable
 is_shootingvariable(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, ShootingVariable)
- 
+
 function get_shootingvariables(sys, ::Type{T} = Float64) where T
     filter(is_shootingvariable, parameters(sys))
 end
@@ -66,3 +66,24 @@ Symbolics.option_to_metadata_type(::Val{:costvariable}) = CostVariable
 is_costvariable(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, CostVariable)
 
 is_statevar(x) = !is_costvariable(x) && !ModelingToolkit.isinput(x)
+
+"""
+A struct to annotate added variables for sensitivities.
+"""
+struct Sensitivities end
+Symbolics.option_to_metadata_type(::Val{:sensitivities}) = Sensitivities
+is_sensitivity(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Sensitivities)
+
+"""
+A struct to annotate added variables for Fisher information matrices.
+"""
+struct FIM end
+Symbolics.option_to_metadata_type(::Val{:fim}) = FIM
+is_fim(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, FIM)
+
+"""
+A struct to annotate added variables for measurement variables for OED.
+"""
+struct Measurement end
+Symbolics.option_to_metadata_type(::Val{:measurements}) = Measurement
+is_measurement(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Measurement)

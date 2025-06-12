@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`. 
+Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
 """
 struct OCProblemBuilder{S,C,G,I}
     "The system"
@@ -62,9 +62,9 @@ function OCProblemBuilder(sys::ModelingToolkit.System, args...)
 end
 
 function (prob::OCProblemBuilder)(; kwargs...)
-    # Extend the costs 
+    # Extend the costs
     prob = expand_lagrange!(prob)
-    # Extend the controls 
+    # Extend the controls
     prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init=identity)(prob.system))
     prob = replace_shooting_variables!(prob)
     prob = append_shooting_constraints!(prob)
@@ -127,7 +127,7 @@ function collect_integrals!(substitutions, ex, t, gridpoints)
             sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(substitutions) + 1)))
             var = Symbolics.unwrap(only(@variables ($sym)(t) = 0.0, [costvariable = true]))
             substitutions[args] = (var, op)
-            # We replace with the bounds here 
+            # We replace with the bounds here
             lo, hi = op.domain.domain.left, op.domain.domain.right
             right = [ti for ti in gridpoints if lo <= ti <= hi]
             push!(right, hi)
@@ -163,9 +163,9 @@ function expand_lagrange!(prob::OCProblemBuilder)
     return @set prob.system = sys
 end
 
-function append_shooting_constraints!(prob::OCProblemBuilder)
+function append_shooting_constraints!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, grids) = prob
-    gridpoints = only(grids).timepoints
+    gridpoints = grids.timepoints
     isempty(gridpoints) && return prob
     vars = ModelingToolkit.unknowns(system)
     constraints = ModelingToolkit.constraints(system)
@@ -182,9 +182,9 @@ function append_shooting_constraints!(prob::OCProblemBuilder)
     return @set prob.system = system
 end
 
-function replace_shooting_variables!(prob::OCProblemBuilder)
+function replace_shooting_variables!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, substitutions) = prob
-    # We assume first one is t0 
+    # We assume first one is t0
     tshoot = get_shootingpoints(system)
     length(tshoot) <= 1 && return prob
     t = ModelingToolkit.get_iv(system)
