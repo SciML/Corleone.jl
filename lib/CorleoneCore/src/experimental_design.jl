@@ -81,7 +81,7 @@ function expand_equations!(prob::OEDProblemBuilder)
         end
     end
     dfdx = Symbolics.jacobian(_ff, sts)
-    pp = reduce(vcat, filter(x -> istunable(x) && !(is_shootingvariable(x) || is_shootingpoint(x) || is_localcontrol(x) || is_tstop(x)), parameters(system)))
+    pp = reduce(vcat, filter(x -> is_uncertain(x) && !(is_shootingvariable(x) || is_shootingpoint(x) || is_localcontrol(x) || is_tstop(x)), parameters(system)))
     np, nx = length(pp), length(sts)
     dfdp = Symbolics.jacobian(_ff, pp)
     G = reduce(vcat, map(1:np) do j
@@ -131,6 +131,7 @@ function expand_equations!(prob::OEDProblemBuilder)
         )
 
     newsys = extend_system(system, oedsys)
+    newsys = @set newsys.consolidate = ModelingToolkit.get_consolidate(system)
 
     return @set prob.system = newsys
 end
@@ -144,9 +145,11 @@ function replace_controls!(prob::OEDProblemBuilder)
 
     obsvar = map(x -> operation(x.lhs), obs)
     sample_var = operation.(filter(is_measurement, unknowns(system)))
-
+    @info sample_var
     cvars = map(x-> x.variable, controls.controls)
+    @info cvars
     cvars = replace(cvars, [x => y for (x,y) in zip(obsvar,sample_var)]...)
+    @info cvars
     cdefaults = map(x-> x.defaults, controls.controls)
     ctimepoints = map(x-> x.timepoints, controls.controls)
 
@@ -157,9 +160,12 @@ function replace_controls!(prob::OEDProblemBuilder)
     new_c = begin
         if typeof(controls) <: DirectControlCallback
             DirectControlCallback(control_specs...)
+        elseif typeof(controls) <: IfElseControl
+            IfElseControl(control_specs...)
         end
     end
 
+    @info new_c
     return @set prob.controls = new_c
 end
 
@@ -167,18 +173,13 @@ function replace_costs!(prob::OEDProblemBuilder)
     (; system, crit, grids) = prob
     costs = ModelingToolkit.get_costs(system)
 
-    @info costs
     t0, tf = extrema(grids.timepoints)
 
     fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
 
-    @info fim_states
     fim_states_mayer = map(x->operation(x)(tf), fim_states)
-    @info fim_states_mayer
     F_mayer = __symmetric_from_vector(fim_states_mayer)
-    @info F_mayer
     new_costs = [crit(F_mayer)]
-    @info new_costs
 
     sys = @set system.costs = new_costs
     return @set prob.system = sys
@@ -217,8 +218,9 @@ function SciMLBase.OptimizationFunction{IIP}(prob::OEDProblemBuilder, adtype::Sc
     constraints = ModelingToolkit.constraints(system)
     costs = ModelingToolkit.get_costs(system)
     consolidate = ModelingToolkit.get_consolidate(system)
+    tspan = prob.grids.timepoints |> extrema
     objective = OptimalControlFunction{true}(
-        costs, prob, alg, args...; consolidate=consolidate, kwargs...
+        costs, prob, alg, args...; consolidate=consolidate, tspan=tspan, kwargs...
     )
     if !isempty(constraints)
         constraints = OptimalControlFunction{IIP}(

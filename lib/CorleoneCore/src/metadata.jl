@@ -87,3 +87,10 @@ A struct to annotate added variables for measurement variables for OED.
 struct Measurement end
 Symbolics.option_to_metadata_type(::Val{:measurements}) = Measurement
 is_measurement(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Measurement)
+
+"""
+A struct to annotate parameters to consider for OED.
+"""
+struct UncertainParameter end
+Symbolics.option_to_metadata_type(::Val{:uncertain}) = UncertainParameter
+is_uncertain(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, UncertainParameter)

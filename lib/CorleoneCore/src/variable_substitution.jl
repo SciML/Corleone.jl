@@ -267,7 +267,8 @@ function (f::OptimalControlFunction)(u::AbstractVector, p::AbstractVector{T}, ::
 end
 
 
-function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...; consolidate=identity, kwargs...) where {IIP}
+function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...;
+        consolidate=identity, tspan=nothing, kwargs...) where {IIP}
     (; system, substitutions) = prob
     t = ModelingToolkit.get_iv(system)
     vars = operation.(ModelingToolkit.unknowns(system))
@@ -279,8 +280,9 @@ function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args.
     new_ex = map(new_ex) do eq
         substitute(eq, cost_substitutions)
     end
-    tspan = extrema(saveat)
-    predictor = OCPredictor{IIP}(system, alg, tspan, args...; saveat=saveat, kwargs...)
+    @info statevars, cost_substitutions
+    _tspan = isnothing(tspan) ? extrema(saveat) : tspan
+    predictor = OCPredictor{IIP}(system, alg, _tspan, args...; saveat=saveat, kwargs...)
     foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression=Val{false}, kwargs...)
     return OptimalControlFunction{
         typeof(foop),typeof(fiip),typeof(predictor),typeof(consolidate)

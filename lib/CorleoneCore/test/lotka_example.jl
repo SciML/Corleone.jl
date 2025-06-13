@@ -16,7 +16,7 @@ using Test
 end
 @parameters begin
     p1[1:2] = [1.0; 1.0], [tunable = false]
-    p2[1:2] = [0.4; 0.2], [tunable = true]
+    p2[1:2] = [0.4; 0.2], [uncertain=true]
 end
 ∫ = Symbolics.Integral(t in (0., 12.))
 
@@ -29,7 +29,7 @@ end
     observed = [h1(t) ~ x(t); h2(t) ~ y(t)],
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
-N = 48
+N = 24
 shooting_points = [0., 6., 12.0]
 grid = ShootingGrid(shooting_points, DefaultsInitialization())
 controlmethod = DirectControlCallback(
@@ -63,11 +63,18 @@ using CairoMakie
 optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
 
 # Initial plot
+blocks = optfun.f.f.predictor.permutation.blocks
 sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
-plot(sol, idxs = [:x, :y, :u])
+f = Figure()
+plot!(Axis(f[1,1]), sol, idxs = [:x, :y, :u])
+plot!(Axis(f[1,2]), sol, idxs = [:G11, :G12, :G21, :G22])
+plot!(Axis(f[2,1]), sol, idxs = [:F11, :F12, :F22])
+plot!(Axis(f[2,2]), sol, idxs = [:w1, :w2])
+f
 
 # Optimize
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 150, tol = 1e-6, hessian_approximation="limited-memory", )
+sol = solve(optfun, Ipopt.Optimizer(); max_iter = 150,
+         tol = 1e-6, hessian_approximation="limited-memory", )
 
 # Result plot
 pred = optfun.f.f.predictor(sol.u, saveat = 0.01)[1]

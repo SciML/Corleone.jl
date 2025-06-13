@@ -15,6 +15,7 @@ using LinearAlgebra
 
 # The main symbolic metadata structure
 include("metadata.jl")
+export UncertainParameter, is_uncertain
 include("utils.jl")
 # This stores the piecewise constant struct and the function which extends controls
 include("control_formulations/abstract.jl")
