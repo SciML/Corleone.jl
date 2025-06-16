@@ -44,7 +44,6 @@ function __preprocess_control_specs(nt::NamedTuple)
     @assert haskey(nt, :variable) "The provided specification $(nt) does not have the required key `variable`"
     @assert haskey(nt, :timepoints) "The provided specification $(nt) does not have the required key `timepoints`"
     (; variable, timepoints) = nt
-    @info "BOUNDS BEFORE FOR $variable" getbounds(variable)
     defaults = haskey(nt, :defaults) ? nt.defaults : nothing
     __preprocess_control_specs(variable, timepoints, defaults)
 end
@@ -62,7 +61,6 @@ function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     variable = Symbolics.unwrap(first(variable))
     differential = false
     bounds = getbounds(variable)
-    @info "BOUNDS IN CONTROL: $bounds for variable $variable"
     if Symbolics.iscall(variable) && isa(operation(variable), Differential)
         variable = first(arguments(variable))
         differential = true

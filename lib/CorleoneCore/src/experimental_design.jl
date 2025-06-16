@@ -61,7 +61,6 @@ function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
     controls = filter(Base.Fix2(isa, AbstractControlFormulation), args)
     grid = filter(Base.Fix2(isa, ShootingGrid), args)
     crit = only(filter(Base.Fix2(isa, AbstractOEDCriterion), args))
-    @info crit
     inits = filter(Base.Fix2(isa, AbstractNodeInitialization), args)
     OEDProblemBuilder{typeof(controls),typeof(grid),typeof(inits)}(
         sys, controls, grid, crit, inits, Dict()
