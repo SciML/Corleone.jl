@@ -29,11 +29,12 @@ end
     ], t, [x(t), y(t), u(t)], [p1, p2];
     costs=Num[∫((x(t) - 1)^2 + (y(t) - 1)^2)],
     observed = [h1(t) ~ x(t); h2(t) ~ y(t)],
+    constraints = [∫(h1(t)) ≲ 4.0; ∫(h2(t)) ≲ 4.0],
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
-N = 12
+N = 24
 shooting_points = [0., 6.0, 12.0]
-grid = ShootingGrid(shooting_points, ForwardSolveInitialization())
+grid = ShootingGrid(shooting_points, DefaultsInitialization())
 controlmethod = DirectControlCallback(
     u(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
         defaults= collect(LinRange(0., 1., N))),
@@ -59,8 +60,8 @@ controlmethod = DirectControlCallback(
 #ModelingToolkit.getbounds(u(t))
 
 builder = CorleoneCore.OEDProblemBuilder(
-    lotka_volterra, controlmethod, grid, DCriterion((0.0,12.0)),
-         ForwardSolveInitialization()
+    lotka_volterra, controlmethod, grid, ACriterion((0.0,12.0)),
+         DefaultsInitialization()
 )
 
 # Instantiates the problem fully

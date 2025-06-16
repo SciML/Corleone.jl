@@ -128,12 +128,13 @@ function expand_equations!(prob::OEDProblemBuilder)
     oedsys = System(
         new_eqs,
         t,
-        reduce(vcat, [vec(_G), vec(_F), [wi(t) for wi in w]]), [],
+        reduce(vcat, [vec(_G), vec(_F), [var(t) for var in w]]), [],
         name = nameof(system),
         )
 
     newsys = extend_system(system, oedsys)
     newsys = @set newsys.consolidate = ModelingToolkit.get_consolidate(system)
+    newsys = @set newsys.constraints = ModelingToolkit.constraints(system)
     return @set prob.system = newsys
 end
 
@@ -193,12 +194,60 @@ function LinearAlgebra.det(A::Matrix{Symbolics.SymbolicUtils.BasicSymbolic{Real}
     prod([A[i,i] for i=1:n])
 end
 
+function replace_constraints!(prob::OEDProblemBuilder)
+    (; system) = prob
+
+    @info "HALO!"
+    constraints = ModelingToolkit.constraints(system)
+    @info constraints
+    ob = map(x -> x.lhs, ModelingToolkit.observed(system))
+    w = filter(is_measurement, unknowns(system))
+
+    subs = ob .=> w
+    @info subs
+    new_cs = reduce(vcat, map(constraints) do c
+        @info c.lhs.arguments
+        idx = findfirst(x -> isequal(only(c.lhs.arguments),x), ob)
+
+        if !isnothing(idx)
+            new_c  = substitute([c], subs[idx])
+            @info new_c
+            new_c
+        else
+            c
+        end
+    end)
+    @info new_cs
+
+    return @set prob.system.constraints = new_cs
+end
+
+function expand_lagrange!(prob::OEDProblemBuilder)
+    (; system, substitutions, grids) = prob
+    gridpoints = only(grids).timepoints
+    t = ModelingToolkit.get_iv(system)
+    constraints = ModelingToolkit.constraints(system)
+    new_constraints = map(constraints) do con
+        con = Symbolics.canonical_form(con)
+        new_lhs = collect_integrals!(substitutions, con.lhs, t, gridpoints)
+        new_lhs ≲ con.rhs
+    end
+    system = ModelingToolkit.add_accumulations(system,
+        [v[1] => only(k) for (k, v) in substitutions]
+    )
+    sys = @set system.constraints = new_constraints
+    return @set prob.system = sys
+end
+
 function (prob::OEDProblemBuilder)(; kwargs...)
 
     # Extend system with sensitivities, Fisher, and sampling controls
     prob = expand_equations!(prob)
 
     prob = replace_controls!(prob)
+    prob = replace_constraints!(prob)
+
+    prob = expand_lagrange!(prob)
 
     # Replace costs by criterion
     prob = replace_costs!(prob)
