@@ -1,10 +1,26 @@
 
 abstract type AbstractOEDCriterion end
 
-struct ACriterion <: AbstractOEDCriterion end
-struct DCriterion <: AbstractOEDCriterion end
-struct ECriterion <: AbstractOEDCriterion end
+struct ACriterion{T} <: AbstractOEDCriterion where T <: Tuple
+    tspan::T
+    function ACriterion(tspan)
+        return new{typeof(tspan)}(tspan)
+    end
+end
 
+struct DCriterion{T} <: AbstractOEDCriterion
+    tspan::T
+    function DCriterion(tspan)
+        return new{typeof(tspan)}(tspan)
+    end
+end
+
+struct ECriterion{T} <: AbstractOEDCriterion
+    tspan::T
+    function ECriterion(tspan)
+        return new{typeof(tspan)}(tspan)
+    end
+end
 
 
 function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}) where {T, N}

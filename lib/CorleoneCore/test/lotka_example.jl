@@ -5,18 +5,20 @@ using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
 using Test
-
+using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
+using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
+using CairoMakie
 # Lotka
 @variables begin
     x(..) = 0.5, [tunable=false]
     y(..) = 0.7, [tunable = false]
     u(..)=0.0, [input = true, bounds = (0., 1.)]
-    h1(..)=0.0, [tunable=false]
-    h2(..)=0.0, [tunable=false]
+    h1(..)=0.0, [tunable=false, bounds=(0.,1.)]
+    h2(..)=0.0, [tunable=false, bounds=(0.,1.)]
 end
 @parameters begin
     p1[1:2] = [1.0; 1.0], [tunable = false]
-    p2[1:2] = [0.4; 0.2], [uncertain=true]
+    p2[1:2] = [0.4; 0.2], [tunable=false, uncertain=true]
 end
 ∫ = Symbolics.Integral(t in (0., 12.))
 
@@ -29,15 +31,15 @@ end
     observed = [h1(t) ~ x(t); h2(t) ~ y(t)],
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
-N = 24
-shooting_points = [0., 6., 12.0]
-grid = ShootingGrid(shooting_points, DefaultsInitialization())
+N = 12
+shooting_points = [0., 6.0, 12.0]
+grid = ShootingGrid(shooting_points, ForwardSolveInitialization())
 controlmethod = DirectControlCallback(
-    u(t) => (; timepoints=collect(LinRange(0.,  12.0, N)),
+    u(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
         defaults= collect(LinRange(0., 1., N))),
-    h1(t) => (; timepoints=collect(LinRange(0.,  12.0, N)),
-        defaults= ones(N)),
-    h2(t) => (; timepoints=collect(LinRange(0.,  12.0, N)),
+    h1(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
+        defaults= ones(N), bounds=(0,1)),
+    h2(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
         defaults= ones(N)
     )
 )
@@ -47,34 +49,50 @@ controlmethod = DirectControlCallback(
 #    lotka_volterra, controlmethod, grid, DefaultsInitialization()
 #)
 #builder= builder()
-
+#optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
+#
+#CorleoneCore.get_bounds(optfun.f.f.predictor)
+#
+#sol = solve(optfun, Ipopt.Optimizer(); max_iter = 50,
+#         tol = 1e-6, hessian_approximation="limited-memory", )
+#
+#ModelingToolkit.getbounds(u(t))
 
 builder = CorleoneCore.OEDProblemBuilder(
-    lotka_volterra, controlmethod, grid, DCriterion(), DefaultsInitialization(), Dict()
+    lotka_volterra, controlmethod, grid, DCriterion((0.0,12.0)),
+         ForwardSolveInitialization()
 )
 
 # Instantiates the problem fully
 builder = builder()
 
-
-using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
-using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
-using CairoMakie
 optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
 
 # Initial plot
-blocks = optfun.f.f.predictor.permutation.blocks
-sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
-f = Figure()
-plot!(Axis(f[1,1]), sol, idxs = [:x, :y, :u])
-plot!(Axis(f[1,2]), sol, idxs = [:G11, :G12, :G21, :G22])
-plot!(Axis(f[2,1]), sol, idxs = [:F11, :F12, :F22])
-plot!(Axis(f[2,2]), sol, idxs = [:w1, :w2])
-f
+callback(x,l) = begin
+    sol = optfun.f.f.predictor(x.u, saveat = 0.01)[1];
+    f = Figure()
+    plot!(Axis(f[1,1]), sol, idxs = [:x, :y, :u])
+    plot!(Axis(f[1,2]), sol, idxs = [:G11, :G12, :G21, :G22])
+    plot!(Axis(f[2,1]), sol, idxs = [:F11, :F12, :F22])
+    plot!(Axis(f[2,2], limits=(nothing, (-0.02,1.02))), sol, idxs = [:w1, :w2])
+    display(f)
+    return false
 
+end
+
+callback((;u=optfun.u0),nothing)
 # Optimize
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 150,
+sol = solve(optfun, Ipopt.Optimizer(); max_iter = 150, callback=callback,
          tol = 1e-6, hessian_approximation="limited-memory", )
+
+using blockSQP
+
+sol = solve(optfun, BlockSQPOpt(); maxiters = 50, callback=callback,
+         opttol = 1e-6, options=blockSQP.sparse_options(),
+        sparsity=optfun.f.f.predictor.permutation.blocks)
+
+
 
 # Result plot
 pred = optfun.f.f.predictor(sol.u, saveat = 0.01)[1]

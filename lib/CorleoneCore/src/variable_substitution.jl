@@ -165,7 +165,7 @@ end
 
 function append_shooting_constraints!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, grids) = prob
-    gridpoints = grids.timepoints
+    gridpoints = only(grids).timepoints
     isempty(gridpoints) && return prob
     vars = ModelingToolkit.unknowns(system)
     constraints = ModelingToolkit.constraints(system)

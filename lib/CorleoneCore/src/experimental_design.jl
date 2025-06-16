@@ -3,11 +3,11 @@ $(TYPEDEF)
 
 Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
 """
-struct OEDProblemBuilder{S,G,I}
+struct OEDProblemBuilder{C,G,I}
     "The system"
-    system::S
+    system::ModelingToolkit.AbstractSystem
     "The controls"
-    controls::AbstractControlFormulation
+    controls::C
     "The grid"
     grids::G
     "OED criterion"
@@ -49,22 +49,24 @@ function Base.show(io::IO, prob::OEDProblemBuilder)
     end
 end
 
-function OEDProblemBuilder(sys::ModelingToolkit.System, controls::AbstractControlFormulation,
+function OEDProblemBuilder(sys::ModelingToolkit.System, controls::C,
             grids::G, crit::AbstractOEDCriterion,
-            inits::I, subs::Dict) where {G<:Tuple, I<:Tuple}
-    OEDProblemBuilder{G,I}(
+            inits::I, subs::Dict) where {C<:Tuple, G<:Tuple, I<:Tuple}
+    OEDProblemBuilder{C,G,I}(
         sys, controls, grids, crit, inits, subs
     )
 end
 
-#function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
-#    controls = filter(Base.Fix2(isa, AbstractControlFormulation), args)
-#    grid = filter(Base.Fix2(isa, ShootingGrid), args)
-#    inits = filter(Base.Fix2(isa, AbstractNodeInitialization), args)
-#    OEDProblemBuilder{typeof(sys),typeof(controls), typeof(grid),typeof(inits)}(
-#        sys, controls, grid, inits, Dict()
-#    )
-#end
+function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
+    controls = filter(Base.Fix2(isa, AbstractControlFormulation), args)
+    grid = filter(Base.Fix2(isa, ShootingGrid), args)
+    crit = only(filter(Base.Fix2(isa, AbstractOEDCriterion), args))
+    @info crit
+    inits = filter(Base.Fix2(isa, AbstractNodeInitialization), args)
+    OEDProblemBuilder{typeof(controls),typeof(grid),typeof(inits)}(
+        sys, controls, grid, crit, inits, Dict()
+    )
+end
 
 function expand_equations!(prob::OEDProblemBuilder)
     (; system) = prob
@@ -96,7 +98,8 @@ function expand_equations!(prob::OEDProblemBuilder)
         for i = 1:np
             Fsym = Symbol("F", "$i", "$j")
             if i <= j
-                _f =  @variables ($(Fsym)(..) = 0.0, [tunable=false, fim=true])
+                _def = i==j ? 1.0 : 0.0
+                _f =  @variables ($(Fsym)(..) = _def, [tunable=false, fim=true])
                 push!(F, only(_f))
             end
         end
@@ -111,7 +114,7 @@ function expand_equations!(prob::OEDProblemBuilder)
     nh = length(obs_eqs)
     w = reduce(vcat, map(1:nh) do i
         wsym = Symbol("w", "$i")
-        @variables ($(wsym)(..) = 1.0, [input=true, bounds=(0,1), measurements=true])
+        @variables ($(wsym)(..) = 1.0, [input=true, bounds=(0.0,1.0), measurements=true])
     end)
 
     upper_triangle = triu(trues(np, np))
@@ -132,7 +135,6 @@ function expand_equations!(prob::OEDProblemBuilder)
 
     newsys = extend_system(system, oedsys)
     newsys = @set newsys.consolidate = ModelingToolkit.get_consolidate(system)
-
     return @set prob.system = newsys
 end
 
@@ -140,40 +142,37 @@ end
 function replace_controls!(prob::OEDProblemBuilder)
     (; controls, system) = prob
 
+    controls = only(controls)
     t = ModelingToolkit.get_iv(system)
     obs = ModelingToolkit.observed(system)
 
     obsvar = map(x -> operation(x.lhs), obs)
     sample_var = operation.(filter(is_measurement, unknowns(system)))
-    @info sample_var
-    cvars = map(x-> x.variable, controls.controls)
-    @info cvars
-    cvars = replace(cvars, [x => y for (x,y) in zip(obsvar,sample_var)]...)
-    @info cvars
-    cdefaults = map(x-> x.defaults, controls.controls)
-    ctimepoints = map(x-> x.timepoints, controls.controls)
-
-    control_specs = map(1:length(cvars)) do i
-        Num(cvars[i](t)) => (; defaults=cdefaults[i], timepoints=ctimepoints[i])
+    _specs = map(controls.controls) do spec
+        if any(isequal(spec.variable), obsvar)
+            idx = findfirst(x -> isequal(x, spec.variable), obsvar)
+            return merge(spec, (; bounds=(0,1), variable=sample_var[idx]))
+        end
+        return spec
     end
+
     # Don't know how this works better
     new_c = begin
         if typeof(controls) <: DirectControlCallback
-            DirectControlCallback(control_specs...)
+            DirectControlCallback(_specs)
         elseif typeof(controls) <: IfElseControl
-            IfElseControl(control_specs...)
+            IfElseControl(_specs)
         end
     end
 
-    @info new_c
-    return @set prob.controls = new_c
+    return @set only(prob.controls) = new_c
 end
 
 function replace_costs!(prob::OEDProblemBuilder)
-    (; system, crit, grids) = prob
+    (; system, crit) = prob
     costs = ModelingToolkit.get_costs(system)
 
-    t0, tf = extrema(grids.timepoints)
+    tf = last(crit.tspan)
 
     fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
 
@@ -205,7 +204,7 @@ function (prob::OEDProblemBuilder)(; kwargs...)
     # Replace costs by criterion
     prob = replace_costs!(prob)
     # Extend the controls
-    prob = @set prob.system = prob.grids(tearing(prob.controls(prob.system)))
+    prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init=identity)(prob.system))
     prob = replace_shooting_variables!(prob)
     prob = append_shooting_constraints!(prob)
     prob = @set prob.system = complete(prob.system; add_initial_parameters=false)
@@ -218,7 +217,7 @@ function SciMLBase.OptimizationFunction{IIP}(prob::OEDProblemBuilder, adtype::Sc
     constraints = ModelingToolkit.constraints(system)
     costs = ModelingToolkit.get_costs(system)
     consolidate = ModelingToolkit.get_consolidate(system)
-    tspan = prob.grids.timepoints |> extrema
+    tspan = prob.crit.tspan
     objective = OptimalControlFunction{true}(
         costs, prob, alg, args...; consolidate=consolidate, tspan=tspan, kwargs...
     )
@@ -252,5 +251,5 @@ function SciMLBase.OptimizationProblem{IIP}(prob::OEDProblemBuilder, adtype::Sci
     else
         lcons = ucons = nothing
     end
-    OptimizationProblem{IIP}(f, u0; lb, ub, lcons, ucons)
+    OptimizationProblem{IIP}(f, u0; lb=lb, ub=ub, lcons=lcons, ucons=ucons)
 end

@@ -36,10 +36,15 @@ function __preprocess_control_specs(x::Any)
     throw(ArgumentError("The current control specification ($x) of type ($(typeof(x))) is not implemented. Please refer to the documentation on how to provide control specifications."))
 end
 
+function _preprocess_control_specs(x::Tuple{Vararg{<:NamedTuple}})
+    x
+end
+
 function __preprocess_control_specs(nt::NamedTuple)
     @assert haskey(nt, :variable) "The provided specification $(nt) does not have the required key `variable`"
     @assert haskey(nt, :timepoints) "The provided specification $(nt) does not have the required key `timepoints`"
     (; variable, timepoints) = nt
+    @info "BOUNDS BEFORE FOR $variable" getbounds(variable)
     defaults = haskey(nt, :defaults) ? nt.defaults : nothing
     __preprocess_control_specs(variable, timepoints, defaults)
 end
@@ -52,9 +57,12 @@ function __preprocess_control_specs(spec::Pair{Num,<:NamedTuple})
     __preprocess_control_specs(merge(last(spec), (; variable=first(spec))))
 end
 
+
 function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     variable = Symbolics.unwrap(first(variable))
     differential = false
+    bounds = getbounds(variable)
+    @info "BOUNDS IN CONTROL: $bounds for variable $variable"
     if Symbolics.iscall(variable) && isa(operation(variable), Differential)
         variable = first(arguments(variable))
         differential = true
@@ -64,7 +72,6 @@ function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     elseif isnothing(defaults)
         throw(error("Control variable $(variable) does not have a default value and no defaults have been specified"))
     end
-    bounds = getbounds(variable)
     @assert iscall(variable) "The control variables must be specified using x(t) or similar syntax."
     independent_variable = only(arguments(variable))
     #independent_variable = arguments(variable)
