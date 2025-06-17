@@ -22,6 +22,21 @@ struct ECriterion{T} <: AbstractOEDCriterion
     end
 end
 
+struct FisherACriterion{T} <: AbstractOEDCriterion
+    tspan::T
+    function FisherACriterion(tspan)
+        return new{typeof(tspan)}(tspan)
+    end
+end
+
+struct FisherDCriterion{T} <: AbstractOEDCriterion
+    tspan::T
+    function FisherDCriterion(tspan)
+        return new{typeof(tspan)}(tspan)
+    end
+end
+
+
 
 function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}, regu) where {T, N}
     F = Array{T,2}(undef,N,N)
@@ -73,6 +88,10 @@ function (crit::DCriterion)(F::AbstractMatrix)
     return inv(det(F))
 end
 
-function (crit::ECriterion)(F::AbstractMatrix)
-    return max(eigvals(F))
+function (crit::FisherACriterion)(F::AbstractMatrix)
+    return -tr(F)
+end
+
+function (crit::FisherDCriterion)(F::AbstractMatrix)
+    return -det(F)
 end

@@ -9,6 +9,9 @@ using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
 using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
 using CairoMakie
 # Lotka
+tspan = (0.0,12.0)
+∫ = Symbolics.Integral(t in tspan)
+
 @variables begin
     x(..) = 0.5, [tunable=false]
     y(..) = 0.7, [tunable = false]
@@ -18,9 +21,8 @@ using CairoMakie
 end
 @parameters begin
     p1[1:2] = [1.0; 1.0], [tunable = false]
-    p2[1:2] = [0.4; 0.2], [tunable=false, uncertain=true]
+    p2[1:2] = [0.4; 0.2], [tunable = false, uncertain=true]
 end
-∫ = Symbolics.Integral(t in (0., 12.))
 
 @named lotka_volterra = System(
     [
@@ -32,35 +34,25 @@ end
     constraints = [∫(h1(t)) ≲ 4.0; ∫(h2(t)) ≲ 4.0],
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
+
+
 N = 24
-shooting_points = [0., 6.0, 12.0]
+shooting_points = [0., 6.0]
 grid = ShootingGrid(shooting_points, DefaultsInitialization())
+
+tpoints = collect(LinRange(0.,  12.0, N+1))[1:end-1]
 controlmethod = DirectControlCallback(
-    u(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
+    u(t) => (; timepoints=tpoints,
         defaults= collect(LinRange(0., 1., N))),
-    h1(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
+    h1(t) => (; timepoints=tpoints,
         defaults= ones(N), bounds=(0,1)),
-    h2(t) => (; timepoints=collect(LinRange(0.,  12.0, N+1))[1:end-1],
+    h2(t) => (; timepoints=tpoints,
         defaults= ones(N)
     )
 )
 
-
-#builder = CorleoneCore.OCProblemBuilder(
-#    lotka_volterra, controlmethod, grid, DefaultsInitialization()
-#)
-#builder= builder()
-#optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
-#
-#CorleoneCore.get_bounds(optfun.f.f.predictor)
-#
-#sol = solve(optfun, Ipopt.Optimizer(); max_iter = 50,
-#         tol = 1e-6, hessian_approximation="limited-memory", )
-#
-#ModelingToolkit.getbounds(u(t))
-
 builder = CorleoneCore.OEDProblemBuilder(
-    lotka_volterra, controlmethod, grid, ACriterion((0.0,12.0)),
+    lotka_volterra, controlmethod, grid, FisherACriterion(tspan),
          DefaultsInitialization()
 )
 
@@ -82,16 +74,18 @@ callback(x,l) = begin
 
 end
 
+optfun.f.f(optfun.u0,nothing)
 callback((;u=optfun.u0),nothing)
 # Optimize
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 150, callback=callback,
+sol = solve(optfun, Ipopt.Optimizer(); max_iter = 75, callback=callback,
          tol = 1e-6, hessian_approximation="limited-memory", )
+
+callback(sol, nothing)
 
 using blockSQP
 
 sol = solve(optfun, BlockSQPOpt(); maxiters = 50, callback=callback,
-         opttol = 1e-6, options=blockSQP.sparse_options(),
-        sparsity=optfun.f.f.predictor.permutation.blocks)
+         opttol = 1e-6)
 
 
 

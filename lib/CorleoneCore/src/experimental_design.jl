@@ -286,7 +286,8 @@ function SciMLBase.OptimizationProblem{IIP}(prob::OEDProblemBuilder, adtype::Sci
     @assert ModelingToolkit.iscomplete(system) "The system is not complete."
     constraints = ModelingToolkit.constraints(system)
     f = OptimizationFunction{IIP}(prob, adtype, alg, args...; kwargs...)
-    predictor = f.f.predictor
+    init = only(prob.initialization)
+    predictor = init(f.f.predictor)
     u0 = get_p0(predictor)
     lb, ub = get_bounds(predictor)
     if !isempty(constraints)

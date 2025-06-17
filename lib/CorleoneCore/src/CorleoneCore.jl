@@ -39,6 +39,7 @@ export OCPredictor
 include("criteria.jl")
 export AbstractOEDCriterion
 export ACriterion, DCriterion, ECriterion
+export FisherACriterion, FisherDCriterion
 
 include("experimental_design.jl")
 export OEDProblemBuilder
