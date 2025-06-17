@@ -57,7 +57,7 @@ end
 function compare_timedependent_variables(x, y)
     a, t1 = x
     b, t2 = y
-    # This sorts by time 
+    # This sorts by time
     Symbolics.getdefaultval(t1) < Symbolics.getdefaultval(t2) && return true
     # Shooting preceede controls
     if Symbolics.getdefaultval(t1) == Symbolics.getdefaultval(t2)
@@ -81,7 +81,7 @@ function _find_blocks(vars)
     while current <= lastindex(vars)
         xi = vars[current]
         if is_shootingvariable(xi) && pushable
-            # First parent variable. Should stay consistent 
+            # First parent variable. Should stay consistent
             if isnothing(parent)
                 parent = get_shootingparent(xi)
             end
@@ -90,7 +90,7 @@ function _find_blocks(vars)
             end
             pushable = false
         elseif is_localcontrol(xi)
-            # This is a control 
+            # This is a control
             pushable = true
             append!(idx, idx_cache)
             empty!(idx_cache)
@@ -134,10 +134,10 @@ function OCPredictor{IIP}(sys, alg, tspan, ensemblealg=EnsembleSerial(), args...
     shooting_init = build_shooting_initializer(sys)
     shooting_timepoints = get_shootingpoints(sys)
     tspan = extrema(vcat(shooting_timepoints, collect(tspan)))
-    shooting_intervals = collect(zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end]))) 
+    shooting_intervals = collect(zip(shooting_timepoints[1:end-1], prevfloat.(shooting_timepoints[2:end])))
     if isempty(shooting_intervals)
         push!(shooting_intervals, tspan)
-    elseif last(tspan) != last(shooting_timepoints) 
+    elseif last(tspan) != last(shooting_timepoints)
         push!(shooting_intervals, (shooting_timepoints[end], last(tspan)))
     end
     append!(saveat, last.(shooting_intervals))
@@ -170,7 +170,8 @@ function get_bounds(predictor::OCPredictor)
     filter!(!ModelingToolkit.isinitial, ps)
     filter!(ModelingToolkit.istunable, ps)
     bounds = map(ps) do pi
-        ModelingToolkit.getbounds(pi)
+        bi = ModelingToolkit.getbounds(pi)
+        eltype(bi) <: Real ? ([bi[1]], [bi[2]]) : bi
     end
     lbounds = reduce(vcat, vec.(first.(bounds)))
     ubounds = reduce(vcat, vec.(last.(bounds)))
@@ -206,7 +207,7 @@ end
 
 function find_idx(full::AbstractVector, subset::AbstractVector)
     idx = Int64[]
-    @inbounds for i in eachindex(subset)   
+    @inbounds for i in eachindex(subset)
         id = searchsortedlast(full, subset[i])
         (id in eachindex(full)) && (id ∉ idx)  && push!(idx, id)
     end
@@ -214,12 +215,12 @@ function find_idx(full::AbstractVector, subset::AbstractVector)
 end
 
 # TODO This can go into an extension
-using ChainRulesCore 
+using ChainRulesCore
 ChainRulesCore.@non_differentiable find_idx(::AbstractVector, ::AbstractVector)
 
 function predict(predictor::OCPredictor, p)
     sol, ps = predictor(p)
-    # Reduce all solutions here 
+    # Reduce all solutions here
     collect_solution(sol), ps
 end
 # We filter the idx here

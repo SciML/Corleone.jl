@@ -94,3 +94,10 @@ A struct to annotate parameters to consider for OED.
 struct UncertainParameter end
 Symbolics.option_to_metadata_type(::Val{:uncertain}) = UncertainParameter
 is_uncertain(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, UncertainParameter)
+
+"""
+A struct to annotate parameters to consider for OED.
+"""
+struct Regularization end
+Symbolics.option_to_metadata_type(::Val{:regularization}) = Regularization
+is_regularization(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Regularization)

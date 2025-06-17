@@ -97,8 +97,7 @@ function expand_equations!(prob::OEDProblemBuilder)
         for i = 1:np
             Fsym = Symbol("F", "$i", "$j")
             if i <= j
-                _def = i==j ? 1.0 : 0.0
-                _f =  @variables ($(Fsym)(..) = _def, [tunable=false, fim=true])
+                _f =  @variables ($(Fsym)(..) = 0.0, [tunable=false, fim=true])
                 push!(F, only(_f))
             end
         end
@@ -125,10 +124,12 @@ function expand_equations!(prob::OEDProblemBuilder)
     fisher_eqs = vec(D.(_F)) .~ vec(F_eq[upper_triangle])
     new_eqs = reduce(vcat, [sens_eqs, fisher_eqs])
 
+    @parameters ϵ = 1.0 [regularization = true, tunable=true, bounds = (0.,1.)]
+
     oedsys = System(
         new_eqs,
         t,
-        reduce(vcat, [vec(_G), vec(_F), [var(t) for var in w]]), [],
+        reduce(vcat, [vec(_G), vec(_F), [var(t) for var in w]]), [ϵ],
         name = nameof(system),
         )
 
@@ -174,11 +175,14 @@ function replace_costs!(prob::OEDProblemBuilder)
 
     tf = last(crit.tspan)
 
+    regu = ModelingToolkit.getvar(system, :ϵ; namespace=false)
+
     fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
 
     fim_states_mayer = map(x->operation(x)(tf), fim_states)
-    F_mayer = __symmetric_from_vector(fim_states_mayer)
-    new_costs = [crit(F_mayer)]
+    F_mayer = __symmetric_from_vector(fim_states_mayer, regu)
+    @info eltype(F_mayer) typeof(regu)
+    new_costs = [crit(F_mayer) + regu]
 
     sys = @set system.costs = new_costs
     return @set prob.system = sys
@@ -197,26 +201,22 @@ end
 function replace_constraints!(prob::OEDProblemBuilder)
     (; system) = prob
 
-    @info "HALO!"
     constraints = ModelingToolkit.constraints(system)
-    @info constraints
     ob = map(x -> x.lhs, ModelingToolkit.observed(system))
     w = filter(is_measurement, unknowns(system))
 
     subs = ob .=> w
-    @info subs
     new_cs = reduce(vcat, map(constraints) do c
-        @info c.lhs.arguments
         idx = findfirst(x -> isequal(only(c.lhs.arguments),x), ob)
 
         if !isnothing(idx)
             new_c  = substitute([c], subs[idx])
-            @info new_c
             new_c
         else
             c
         end
     end)
+
     @info new_cs
 
     return @set prob.system.constraints = new_cs
