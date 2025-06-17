@@ -3,7 +3,9 @@ using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
 using CairoMakie
-using Test
+using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
+using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
+using blockSQP
 
 # Lotka
 @variables begin
@@ -24,10 +26,10 @@ end
     costs=Num[∫((x(t) - 1)^2 + (y(t) - 1)^2)],
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
-N = 48
+N = 24
 shooting_points = [0.,3., 6., 9.]
 
-grid = ShootingGrid(shooting_points, DefaultsInitialization())
+grid = ShootingGrid(shooting_points)
 controlmethod = DirectControlCallback(
     u(t) => (; timepoints=collect(12 .* LinRange(0.,  N / (N+1), N)),
         defaults= collect(LinRange(0., 1., N))
@@ -40,9 +42,6 @@ builder = OCProblemBuilder(
 # Instantiates the problem fully
 builder = builder()
 
-using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
-using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
-
 optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
 
 # Initial plot
@@ -50,7 +49,6 @@ sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
 plot(sol, idxs = [:x, :y, :u])
 
 # Optimize
-using blockSQP
 sol = solve(optfun, BlockSQPOpt(); maxiters = 100, opttol = 1e-6,
         options=blockSQP.sparse_options(), sparsity=optfun.f.f.predictor.permutation.blocks)
 

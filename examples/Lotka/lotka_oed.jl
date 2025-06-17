@@ -1,13 +1,11 @@
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
 using Corleone
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
-using Test
 using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
 using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
 using CairoMakie
+
 # Lotka
 tspan = (0.0,12.0)
 ∫ = Symbolics.Integral(t in tspan)
@@ -35,7 +33,6 @@ end
     consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
 )
 
-
 N = 24
 shooting_points = [0., 6.0]
 grid = ShootingGrid(shooting_points)
@@ -45,15 +42,15 @@ controlmethod = DirectControlCallback(
     u(t) => (; timepoints=tpoints,
         defaults= collect(LinRange(0., 1., N))),
     h1(t) => (; timepoints=tpoints,
-        defaults= ones(N), bounds=(0,1)),
+        defaults= ones(N), bounds=(0.,1.)),
     h2(t) => (; timepoints=tpoints,
         defaults= ones(N)
     )
 )
 
 builder = CorleoneCore.OEDProblemBuilder(
-    lotka_volterra, controlmethod, grid, FisherACriterion(tspan),
-         DefaultsInitialization()
+    lotka_volterra, controlmethod, grid, ACriterion(tspan),
+         ForwardSolveInitialization()
 )
 
 # Instantiates the problem fully
@@ -71,11 +68,10 @@ callback(x,l) = begin
     plot!(Axis(f[2,2], limits=(nothing, (-0.02,1.02))), sol, idxs = [:w1, :w2])
     display(f)
     return false
-
 end
 
-optfun.f.f(optfun.u0,nothing)
 callback((;u=optfun.u0),nothing)
+
 # Optimize
 sol = solve(optfun, Ipopt.Optimizer(); max_iter = 75, callback=callback,
          tol = 1e-6, hessian_approximation="limited-memory", )
