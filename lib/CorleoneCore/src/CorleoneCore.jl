@@ -11,9 +11,11 @@ using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
 using Accessors
+using LinearAlgebra
 
 # The main symbolic metadata structure
 include("metadata.jl")
+export UncertainParameter, is_uncertain
 include("utils.jl")
 # This stores the piecewise constant struct and the function which extends controls
 include("control_formulations/abstract.jl")
@@ -34,7 +36,16 @@ export ShootingGrid
 include("predictor.jl")
 export OCPredictor
 
+include("criteria.jl")
+export AbstractOEDCriterion
+export ACriterion, DCriterion, ECriterion
+export FisherACriterion, FisherDCriterion
+
+include("experimental_design.jl")
+export OEDProblemBuilder
+
 include("variable_substitution.jl")
 export OCProblemBuilder
+
 
 end

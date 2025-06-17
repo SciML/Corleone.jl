@@ -1,6 +1,6 @@
 function __fallbackdefault(x)
-    if ModelingToolkit.hasbounds(x) 
-        lo, hi = ModelingToolkit.getbounds(x) 
+    if ModelingToolkit.hasbounds(x)
+        lo, hi = ModelingToolkit.getbounds(x)
         return (hi - lo) / 2
     else Symbolics.hasmetadata(x, Symbolics.VariableDefaultValue)
         return Symbolics.getdefaultval(x)
@@ -21,7 +21,7 @@ function (f::AbstractNodeInitialization)(problem::SciMLBase.AbstractSciMLProblem
 end
 
 struct DefaultsInitialization <: AbstractNodeInitialization end
-(::DefaultsInitialization)(problem, args...; kwargs...) = problem
+(::DefaultsInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...) = problem
 
 """
 $(TYPEDEF)
@@ -86,14 +86,14 @@ end
 """
 $(TYPEDEF)
 
-Initializes the problem using a custom function which returns a vector for all variables. 
+Initializes the problem using a custom function which returns a vector for all variables.
 
-# Fields 
+# Fields
 $(FIELDS)
 """
-struct FunctionInitialization{F} <: AbstractNodeInitialization 
+struct FunctionInitialization{F} <: AbstractNodeInitialization
     "Initialization function f(problem, t_i) -> u(t_i)"
-    initializer::F 
+    initializer::F
 end
 
 function (f::FunctionInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
@@ -102,8 +102,8 @@ function (f::FunctionInitialization)(problem::SciMLBase.AbstractSciMLProblem, ar
     isempty(shooting_vars) && return problem
     shooting_points = filter(is_shootingpoint, psyms)
     timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
-    (; initializer) = f 
-    u0s = reduce(hcat, map(timepoints) do ti 
+    (; initializer) = f
+    u0s = reduce(hcat, map(timepoints) do ti
         initializer(problem, ti)
     end)
     sysvars = SciMLBase.getsyms(problem)
@@ -120,15 +120,15 @@ end
 function linear_initializer(u_inf, problem, t)
     (_, tinf) = problem.tspan
     u0 = problem.u0
-    slope = u_inf .- u0 
-    val = t ./ tinf 
-    u0 .+ slope .* val  
+    slope = u_inf .- u0
+    val = t ./ tinf
+    u0 .+ slope .* val
 end
 
 """
 $(FUNCTIONNAME)
 
-Creates a (`FunctionInitialization`)[@ref] with linearly interpolates between u0 and the provided u_inf. 
+Creates a (`FunctionInitialization`)[@ref] with linearly interpolates between u0 and the provided u_inf.
 """
 function LinearInterpolationInitialization(u0_inf)
     finit = Base.Fix1(linear_initializer, u0_inf)
@@ -138,12 +138,12 @@ end
 """
 $(TYPEDEF)
 
-Initializes the system with a custom vector of points provided as a Dictionary of variable => values. 
+Initializes the system with a custom vector of points provided as a Dictionary of variable => values.
 
-# Fields 
+# Fields
 $(FIELDS)
 
-# Note 
+# Note
 If the variable is not present in the dictionary, we use the fallback value.
 """
 struct CustomInitialization{I <: AbstractDict} <: AbstractNodeInitialization
@@ -151,19 +151,19 @@ struct CustomInitialization{I <: AbstractDict} <: AbstractNodeInitialization
     initial_values::I
 end
 
-function (f::CustomInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...) 
+function (f::CustomInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
     psyms = SciMLBase.getparamsyms(problem)
     shooting_vars = filter(is_shootingvariable, psyms)
     isempty(shooting_vars) && return problem
     shooting_points = filter(is_shootingpoint, psyms)
     timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
-    (; initial_values) = f 
+    (; initial_values) = f
     foreach(shooting_vars) do si
         xi = get_shootingparent(si)
         if is_statevar(xi)
-            newvar = get(initial_values, xi) do 
+            newvar = get(initial_values, xi) do
                 fill(__fallbackdefault(xi), length(timepoints)) |> collect
-            end 
+            end
             SymbolicIndexingInterface.setp(problem, si)(problem, newvar)
         end
     end
@@ -173,12 +173,12 @@ end
 """
 $(TYPEDEF)
 
-Initializes the system with a custom single value provided as a Dictionary of variable => values. 
+Initializes the system with a custom single value provided as a Dictionary of variable => values.
 
-# Fields 
+# Fields
 $(FIELDS)
 
-# Note 
+# Note
 If the variable is not present in the dictionary, we use the fallback value.
 """
 struct ConstantInitialization{I <: AbstractDict} <: AbstractNodeInitialization
@@ -192,15 +192,15 @@ function (f::ConstantInitialization)(problem::SciMLBase.AbstractSciMLProblem, ar
     isempty(shooting_vars) && return problem
     shooting_points = filter(is_shootingpoint, psyms)
     timepoints = unique!(sort!(reduce(vcat, Symbolics.getdefaultval.(shooting_points))))
-    (; initial_values) = f 
+    (; initial_values) = f
     foreach(shooting_vars) do si
         xi = get_shootingparent(si)
         if is_statevar(xi)
-            newvar = get(initial_values, xi) do 
+            newvar = get(initial_values, xi) do
                 __fallbackdefault(xi)
-            end 
+            end
             SymbolicIndexingInterface.setp(problem, si)(problem, collect(fill(newvar, length(timepoints))))
         end
     end
-    return problem 
+    return problem
 end

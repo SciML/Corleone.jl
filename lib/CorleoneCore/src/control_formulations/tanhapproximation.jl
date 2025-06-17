@@ -6,18 +6,18 @@ Extends the system using `tanh` as a smooth approximation for the heaviside step
 # Fields
 $(FIELDS)
 
-# Formulations 
+# Formulations
 
-If the control signal `u` is a variable, the equation will be added directly 
+If the control signal `u` is a variable, the equation will be added directly
 
 ```julia
-``` 
+```
 
-where `u_i` are the local controls and `u_t` the timepoints. 
+where `u_i` are the local controls and `u_t` the timepoints.
 
-# Note 
+# Note
 
-This formulation is differentiable with respect to the timepoints. 
+This formulation is differentiable with respect to the timepoints.
 """
 struct TanhControl{D} <: AbstractControlFormulation
     "The control specifications"
@@ -58,7 +58,6 @@ function expand_formulation(::TanhControl, sys, spec::NamedTuple)
     transition_sym = Symbol(variable, :ₖ)
     N = length(timepoints)
     lower, upper = ModelingToolkit.getbounds(control_var)
-    @info lower, upper
     ps = @parameters begin
         ($local_controlsym)[1:N] = defaults, [bounds = (lower, upper), localcontrol = true]
         ($timepoint_sym)[1:N] = timepoints, [tunable = false, tstop = true]

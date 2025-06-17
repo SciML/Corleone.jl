@@ -33,7 +33,11 @@ Returns the control specification, which should be a `Dict` of variables and tim
 get_control_specs(x::AbstractControlFormulation) = x.controls
 
 function __preprocess_control_specs(x::Any)
-    throw(ArgumentError("The current control specification ($x) is not implemented. Please refer to the documentation on how to provide control specifications."))
+    throw(ArgumentError("The current control specification ($x) of type ($(typeof(x))) is not implemented. Please refer to the documentation on how to provide control specifications."))
+end
+
+function _preprocess_control_specs(x::Tuple{Vararg{<:NamedTuple}})
+    x
 end
 
 function __preprocess_control_specs(nt::NamedTuple)
@@ -52,9 +56,11 @@ function __preprocess_control_specs(spec::Pair{Num,<:NamedTuple})
     __preprocess_control_specs(merge(last(spec), (; variable=first(spec))))
 end
 
+
 function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     variable = Symbolics.unwrap(first(variable))
     differential = false
+    bounds = getbounds(variable)
     if Symbolics.iscall(variable) && isa(operation(variable), Differential)
         variable = first(arguments(variable))
         differential = true
@@ -64,7 +70,6 @@ function __preprocess_control_specs(variable, timepoints, defaults=nothing)
     elseif isnothing(defaults)
         throw(error("Control variable $(variable) does not have a default value and no defaults have been specified"))
     end
-    bounds = getbounds(variable)
     @assert iscall(variable) "The control variables must be specified using x(t) or similar syntax."
     independent_variable = only(arguments(variable))
     #independent_variable = arguments(variable)

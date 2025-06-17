@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`. 
+Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
 """
 struct OCProblemBuilder{S,C,G,I}
     "The system"
@@ -62,9 +62,9 @@ function OCProblemBuilder(sys::ModelingToolkit.System, args...)
 end
 
 function (prob::OCProblemBuilder)(; kwargs...)
-    # Extend the costs 
+    # Extend the costs
     prob = expand_lagrange!(prob)
-    # Extend the controls 
+    # Extend the controls
     prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init=identity)(prob.system))
     prob = replace_shooting_variables!(prob)
     prob = append_shooting_constraints!(prob)
@@ -98,7 +98,8 @@ function SciMLBase.OptimizationProblem{IIP}(prob::OCProblemBuilder, adtype::SciM
     @assert ModelingToolkit.iscomplete(system) "The system is not complete."
     constraints = ModelingToolkit.constraints(system)
     f = OptimizationFunction{IIP}(prob, adtype, alg, args...; kwargs...)
-    predictor = f.f.predictor
+    init = only(prob.initialization)
+    predictor = init(f.f.predictor)
     u0 = get_p0(predictor)
     lb, ub = get_bounds(predictor)
     if !isempty(constraints)
@@ -127,7 +128,7 @@ function collect_integrals!(substitutions, ex, t, gridpoints)
             sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(substitutions) + 1)))
             var = Symbolics.unwrap(only(@variables ($sym)(t) = 0.0, [costvariable = true]))
             substitutions[args] = (var, op)
-            # We replace with the bounds here 
+            # We replace with the bounds here
             lo, hi = op.domain.domain.left, op.domain.domain.right
             right = [ti for ti in gridpoints if lo <= ti <= hi]
             push!(right, hi)
@@ -163,7 +164,7 @@ function expand_lagrange!(prob::OCProblemBuilder)
     return @set prob.system = sys
 end
 
-function append_shooting_constraints!(prob::OCProblemBuilder)
+function append_shooting_constraints!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, grids) = prob
     gridpoints = only(grids).timepoints
     isempty(gridpoints) && return prob
@@ -182,9 +183,9 @@ function append_shooting_constraints!(prob::OCProblemBuilder)
     return @set prob.system = system
 end
 
-function replace_shooting_variables!(prob::OCProblemBuilder)
+function replace_shooting_variables!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, substitutions) = prob
-    # We assume first one is t0 
+    # We assume first one is t0
     tshoot = get_shootingpoints(system)
     length(tshoot) <= 1 && return prob
     t = ModelingToolkit.get_iv(system)
@@ -267,7 +268,8 @@ function (f::OptimalControlFunction)(u::AbstractVector, p::AbstractVector{T}, ::
 end
 
 
-function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...; consolidate=identity, kwargs...) where {IIP}
+function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...;
+        consolidate=identity, tspan=nothing, kwargs...) where {IIP}
     (; system, substitutions) = prob
     t = ModelingToolkit.get_iv(system)
     vars = operation.(ModelingToolkit.unknowns(system))
@@ -279,8 +281,9 @@ function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args.
     new_ex = map(new_ex) do eq
         substitute(eq, cost_substitutions)
     end
-    tspan = extrema(saveat)
-    predictor = OCPredictor{IIP}(system, alg, tspan, args...; saveat=saveat, kwargs...)
+    @info statevars, cost_substitutions
+    _tspan = isnothing(tspan) ? extrema(saveat) : tspan
+    predictor = OCPredictor{IIP}(system, alg, _tspan, args...; saveat=saveat, kwargs...)
     foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression=Val{false}, kwargs...)
     return OptimalControlFunction{
         typeof(foop),typeof(fiip),typeof(predictor),typeof(consolidate)

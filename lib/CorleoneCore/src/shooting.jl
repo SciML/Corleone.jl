@@ -1,12 +1,10 @@
 struct ShootingGrid{T}
     "Shooting timepoints"
     timepoints::T
-    "Shooting node initialization"
-    initializer::AbstractNodeInitialization
 
-    function ShootingGrid(tpoints::AbstractVector, initializer::AbstractNodeInitialization)
+    function ShootingGrid(tpoints::AbstractVector)
         tpoints = unique!(sort(tpoints))
-        new{typeof(tpoints)}(tpoints, initializer)
+        new{typeof(tpoints)}(tpoints)
     end
 end
 
@@ -85,7 +83,7 @@ end
 
 # We follow this pattern: We take the initialization equations.
 # If the lhs is a state, we assume it is a shooting variable
-# If the lhs is a state(0) we assume it is the correpsonding parameter
+# If the lhs is a state(0) we assume it is the corresponding parameter
 function build_shooting_initializer(sys)
     init_eqs = initialization_equations(sys)
     lhs = map(x -> x.lhs, init_eqs)
