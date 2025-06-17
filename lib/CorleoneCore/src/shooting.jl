@@ -1,12 +1,10 @@
 struct ShootingGrid{T}
     "Shooting timepoints"
     timepoints::T
-    "Shooting node initialization"
-    initializer::AbstractNodeInitialization
 
-    function ShootingGrid(tpoints::AbstractVector, initializer::AbstractNodeInitialization)
+    function ShootingGrid(tpoints::AbstractVector)
         tpoints = unique!(sort(tpoints))
-        new{typeof(tpoints)}(tpoints, initializer)
+        new{typeof(tpoints)}(tpoints)
     end
 end
 

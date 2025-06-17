@@ -38,7 +38,7 @@ end
 
 N = 24
 shooting_points = [0., 6.0]
-grid = ShootingGrid(shooting_points, DefaultsInitialization())
+grid = ShootingGrid(shooting_points)
 
 tpoints = collect(LinRange(0.,  12.0, N+1))[1:end-1]
 controlmethod = DirectControlCallback(
