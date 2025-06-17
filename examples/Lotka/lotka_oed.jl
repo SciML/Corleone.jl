@@ -1,6 +1,6 @@
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
-using CorleoneCore
+using Corleone
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
@@ -81,73 +81,3 @@ sol = solve(optfun, Ipopt.Optimizer(); max_iter = 75, callback=callback,
          tol = 1e-6, hessian_approximation="limited-memory", )
 
 callback(sol, nothing)
-
-using blockSQP
-
-sol = solve(optfun, BlockSQPOpt(); maxiters = 50, callback=callback,
-         opttol = 1e-6)
-
-
-
-# Result plot
-pred = optfun.f.f.predictor(sol.u, saveat = 0.01)[1]
-f = plot(pred, idxs = [:x, :y, :u])
-
-
-fil = findall(CorleoneCore.is_statevar, unknowns(builder.system))
-sts = unknowns(builder.system)[fil]
-ff = equations(builder.system)[fil]
-
-_ff = map(ff) do eq
-    if operation(eq.lhs) == Differential(t)
-        eq.rhs
-    else
-        eq.lhs - eq.rhs
-    end
-end
-
-dfdx = Symbolics.jacobian(_ff, sts)
-
-parameters(builder.system)
-pp = filter(x -> istunable(x) && !(CorleoneCore.is_shootingvariable(x) || CorleoneCore.is_shootingpoint(x) || CorleoneCore.is_localcontrol(x) || CorleoneCore.is_tstop(x)), parameters(builder.system))
-pp = reduce(vcat, pp)
-np = length(pp)
-dfdp = Symbolics.jacobian(_ff, pp)
-
-@variables G(..)[1:2,1:np] = 0.0
-_G = collect(G(t))
-dg = vec(dfdp .+ dfdx * _G)
-
-
-sens_eqs = vec(_G) .~
-
-@variables F(..)[1:np,1:np] = 0.0
-_F = collect(F(t))
-
-h = [x(t); y(t)]
-
-@variables w(..)[1:2] = 0.0 [input=true, bounds=(0,1)]
-
-F_eq = map(enumerate(h)) do (i,h_i)
-    hix = Symbolics.jacobian([h_i], sts)
-    @info hix
-    gram = hix * _G
-    w(t)[i] * gram' * gram
-end |> sum
-
-fisher_eqs = vec(_F) .~ vec(F_eq)
-
-new_eqs = reduce(vcat, [sens_eqs, fisher_eqs])
-
-oedsys = System(
-    new_eqs,
-    ModelingToolkit.get_iv(lotka_volterra),
-    [G(t), F(t), w(t)], [],
-    name = nameof(lotka_volterra),
-    )
-
-
-newsys = CorleoneCore.extend_system(lotka_volterra, oedsys)
-
-prob = ODEProblem(complete(mtkcompile(newsys)), [], (0.0,12.0); allow_cost=true, build_initializeprob=false)
-solve()
