@@ -48,8 +48,14 @@ optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
 sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
 plot(sol, idxs = [:x, :y, :u])
 
+callback(x,l) = begin
+    sol = optfun.f.f.predictor(x.u, saveat = 0.1)[1];
+    display(plot(sol, idxs = [:x, :y, :u]))
+    return false
+end
+
 # Optimize
-sol = solve(optfun, BlockSQPOpt(); maxiters = 100, opttol = 1e-6,
+sol = solve(optfun, BlockSQPOpt(); maxiters = 100, opttol = 1e-6, callback=callback,
         options=blockSQP.sparse_options(), sparsity=optfun.f.f.predictor.permutation.blocks)
 
 sol = solve(optfun, Ipopt.Optimizer(); max_iter = 100, tol = 1e-6,

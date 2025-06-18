@@ -42,7 +42,7 @@ export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherDCriterion
 
 include("experimental_design.jl")
-export OEDProblemBuilder
+export OEDProblemBuilder, InformationGain
 
 include("variable_substitution.jl")
 export OCProblemBuilder

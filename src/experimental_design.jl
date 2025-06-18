@@ -18,6 +18,20 @@ struct OEDProblemBuilder{C,G,I}
     substitutions::Dict
 end
 
+"""
+$(TYPEDEF)
+
+Struct to hold measurement information gain and corresponding multipliers
+"""
+struct InformationGain{L,G,M}
+    "Local information gain"
+    LIG::L
+    "Global information gain"
+    GIG::G
+    "Multiplier corresponding to measurement constraints"
+    μ::M
+end
+
 function Base.show(io::IO, prob::OEDProblemBuilder)
     (; system) = prob
     cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system),[])
@@ -68,9 +82,11 @@ function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
 end
 
 function expand_equations!(prob::OEDProblemBuilder)
-    (; system) = prob
+    (; system, crit) = prob
     t = ModelingToolkit.get_iv(system)
     D = Differential(t)
+    tspan = crit.tspan
+    ∫ = Symbolics.Integral(t in tspan)
     filter_p = findall(is_statevar, unknowns(system))
     sts = unknowns(system)[filter_p]
     eqs = equations(system)[filter_p]
@@ -92,18 +108,18 @@ function expand_equations!(prob::OEDProblemBuilder)
         end)
     end)
 
-    F = []
-    for j= 1:np
-        for i = 1:np
-            Fsym = Symbol("F", "$i", "$j")
-            if i <= j
-                _f =  @variables ($(Fsym)(..) = 0.0, [tunable=false, fim=true])
-                push!(F, only(_f))
-            end
-        end
-    end
+    #F = []
+    #for j= 1:np
+    #    for i = 1:np
+    #        Fsym = Symbol("F", "$i", "$j")
+    #        if i <= j
+    #            _f =  @variables ($(Fsym)(..) = 0.0, [tunable=false, fim=true])
+    #            push!(F, only(_f))
+    #        end
+    #    end
+    #end
     _G = map(x -> x(t), reshape(G, (nx, np)))
-    _F = map(x -> x(t), F)
+    #_F = map(x -> x(t), F)
 
     dg = dfdp .+ dfdx * _G
     sens_eqs = vec(D.(_G)) .~ vec(dg)
@@ -121,20 +137,29 @@ function expand_equations!(prob::OEDProblemBuilder)
         gram = hix * _G
         w[i](t) * gram' * gram
     end |> sum
-    fisher_eqs = vec(D.(_F)) .~ vec(F_eq[upper_triangle])
-    new_eqs = reduce(vcat, [sens_eqs, fisher_eqs])
 
     @parameters ϵ = 1.0 [regularization = true, tunable=true, bounds = (0.,1.)]
 
+
+
+    costs = map(Symbolics.unwrap, ∫.(F_eq[upper_triangle]))
+    @info costs
+
+    #for i in axes(F_eq,1)
+    #    costs[i,i] += ϵ
+    #end
+
+    @info costs
     oedsys = System(
-        new_eqs,
+        sens_eqs,
         t,
-        reduce(vcat, [vec(_G), vec(_F), [var(t) for var in w]]), [ϵ],
+        reduce(vcat, [vec(_G), [var(t) for var in w]]), [ϵ],
         name = nameof(system),
         )
 
     newsys = extend_system(system, oedsys)
     newsys = @set newsys.consolidate = ModelingToolkit.get_consolidate(system)
+    newsys = @set newsys.costs = costs
     newsys = @set newsys.constraints = ModelingToolkit.constraints(system)
     return @set prob.system = newsys
 end
@@ -169,7 +194,7 @@ function replace_controls!(prob::OEDProblemBuilder)
     return @set only(prob.controls) = new_c
 end
 
-function replace_costs!(prob::OEDProblemBuilder)
+function replace_consolidate!(prob::OEDProblemBuilder)
     (; system, crit) = prob
     costs = ModelingToolkit.get_costs(system)
 
@@ -177,14 +202,15 @@ function replace_costs!(prob::OEDProblemBuilder)
 
     regu = ModelingToolkit.getvar(system, :ϵ; namespace=false)
 
-    fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
+    consolidate = ModelingToolkit.get_consolidate(system)
 
-    fim_states_mayer = map(x->operation(x)(tf), fim_states)
-    F_mayer = __symmetric_from_vector(fim_states_mayer, regu)
-    @info eltype(F_mayer) typeof(regu)
-    new_costs = [crit(F_mayer) + regu]
+    new_consolidate = (x...) -> crit(__symmetric_from_vector(first(x), regu)) + regu
+    #fim_states_mayer = map(x->operation(x)(tf), fim_states)
+    #F_mayer = __symmetric_from_vector(fim_states_mayer, regu)
+    #@info eltype(F_mayer) F_mayer typeof(regu)
+    #new_costs = [crit(F_mayer) + regu]
 
-    sys = @set system.costs = new_costs
+    sys = @set system.consolidate = new_consolidate
     return @set prob.system = sys
 end
 
@@ -222,35 +248,36 @@ function replace_constraints!(prob::OEDProblemBuilder)
     return @set prob.system.constraints = new_cs
 end
 
-function expand_lagrange!(prob::OEDProblemBuilder)
-    (; system, substitutions, grids) = prob
-    gridpoints = only(grids).timepoints
-    t = ModelingToolkit.get_iv(system)
-    constraints = ModelingToolkit.constraints(system)
-    new_constraints = map(constraints) do con
-        con = Symbolics.canonical_form(con)
-        new_lhs = collect_integrals!(substitutions, con.lhs, t, gridpoints)
-        new_lhs ≲ con.rhs
-    end
-    system = ModelingToolkit.add_accumulations(system,
-        [v[1] => only(k) for (k, v) in substitutions]
-    )
-    sys = @set system.constraints = new_constraints
-    return @set prob.system = sys
-end
+#function expand_lagrange!(prob::OEDProblemBuilder)
+#    (; system, substitutions, grids) = prob
+#    gridpoints = only(grids).timepoints
+#    t = ModelingToolkit.get_iv(system)
+#    constraints = ModelingToolkit.constraints(system)
+#    new_constraints = map(constraints) do con
+#        con = Symbolics.canonical_form(con)
+#        new_lhs = collect_integrals!(substitutions, con.lhs, t, gridpoints)
+#        new_lhs ≲ con.rhs
+#    end
+#    system = ModelingToolkit.add_accumulations(system,
+#        [v[1] => only(k) for (k, v) in substitutions]
+#    )
+#    sys = @set system.constraints = new_constraints
+#    return @set prob.system = sys
+#end
 
 function (prob::OEDProblemBuilder)(; kwargs...)
 
-    # Extend system with sensitivities, Fisher, and sampling controls
+    # Extend system with sensitivities, Fisher, and sampling controls + new costs
     prob = expand_equations!(prob)
 
     prob = replace_controls!(prob)
     prob = replace_constraints!(prob)
 
+
     prob = expand_lagrange!(prob)
 
     # Replace costs by criterion
-    prob = replace_costs!(prob)
+    prob = replace_consolidate!(prob)
     # Extend the controls
     prob = @set prob.system = (only(prob.grids) ∘ tearing)(foldl(∘, prob.controls, init=identity)(prob.system))
     prob = replace_shooting_variables!(prob)

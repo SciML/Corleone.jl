@@ -115,38 +115,51 @@ function SciMLBase.OptimizationProblem{IIP}(prob::OCProblemBuilder, adtype::SciM
     OptimizationProblem{IIP}(f, u0; lb, ub, lcons, ucons)
 end
 
+function collect_integrals!(subs, ex::AbstractArray, t, gridpoint)
+    return map(ex) do exi
+        collect_integrals!(subs, Symbolics.unwrap(exi), t, gridpoint)
+    end
+end
+
 function collect_integrals!(substitutions, ex, t, gridpoints)
+    @info "Recursion $ex" iscall(ex)
     if iscall(ex)
         op, args = operation(ex), arguments(ex)
+        @info "OP $op" typeof(op) typeof(args)
         ex = op(map(args) do arg
             collect_integrals!(substitutions, arg, t, gridpoints)
         end...)
         if isa(op, Symbolics.Integral)
-            if any(Base.Fix1(isequal, args), keys(substitutions))
-                return substitutions[args]
-            end
-            sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(substitutions) + 1)))
-            var = Symbolics.unwrap(only(@variables ($sym)(t) = 0.0, [costvariable = true]))
-            substitutions[args] = (var, op)
-            # We replace with the bounds here
-            lo, hi = op.domain.domain.left, op.domain.domain.right
-            right = [ti for ti in gridpoints if lo <= ti <= hi]
-            push!(right, hi)
-            unique!(right)
-            left = [ti for ti in gridpoints if ti <= lo]
-            push!(left, lo)
-            unique!(left)
-            return sum(operation(var).(right)) - sum(operation(var).(left))
+            @info args length(args)
+            #for arg in args
+                @info "Found integral $op with args $args"
+                if any(Base.Fix1(isequal, args), keys(substitutions))
+                    return substitutions[args]
+                end
+                sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(substitutions) + 1)))
+                var = Symbolics.unwrap(only(@variables ($sym)(t) = 0.0, [costvariable = true]))
+                substitutions[args] = (var, op)
+                # We replace with the bounds here
+                lo, hi = op.domain.domain.left, op.domain.domain.right
+                right = [ti for ti in gridpoints if lo <= ti <= hi]
+                push!(right, hi)
+                unique!(right)
+                left = [ti for ti in gridpoints if ti <= lo]
+                push!(left, lo)
+                unique!(left)
+                return sum(operation(var).(right)) - sum(operation(var).(left))
+            #end
         end
     end
     return ex
 end
 
-function expand_lagrange!(prob::OCProblemBuilder)
+function expand_lagrange!(prob::Union{OCProblemBuilder,OEDProblemBuilder})
     (; system, substitutions, grids) = prob
     gridpoints = only(grids).timepoints
     t = ModelingToolkit.get_iv(system)
     costs = ModelingToolkit.get_costs(system)
+    @info "Expand lagrange costs $costs"
     constraints = ModelingToolkit.constraints(system)
     new_costs = map(costs) do eq
         collect_integrals!(substitutions, eq, t, gridpoints)
