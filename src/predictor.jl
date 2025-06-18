@@ -116,7 +116,8 @@ function compute_permutation_of_variables(sys)
     vars = first.(vars_to_sort)
     rest = findall(x -> !any(Base.Fix1(isequal, x), vars), ps)
     new_order = vcat(vars, ps[rest])
-    blocks_hess = if !isempty(rest)
+    block_structure = isempty(rest) || (!isempty(rest) && all(is_regularization, ps[rest]))
+    blocks_hess = if !block_structure
         [0, length(ps)]
     else
         _find_blocks(new_order)
