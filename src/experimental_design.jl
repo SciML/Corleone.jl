@@ -251,7 +251,6 @@ function replace_costs!(prob::OEDProblemBuilder)
 
     fim_states_mayer = map(x->operation(x)(tf), fim_states)
     F_mayer = __symmetric_from_vector(fim_states_mayer, regu)
-    @info eltype(F_mayer) typeof(regu)
     new_costs = [crit(F_mayer) + regu]
 
     sys = @set system.costs = new_costs
@@ -286,8 +285,6 @@ function replace_constraints!(prob::OEDProblemBuilder)
             c
         end
     end)
-
-    @info new_cs
 
     return @set prob.system.constraints = new_cs
 end
