@@ -154,11 +154,13 @@ function expand_lagrange!(prob::OCProblemBuilder)
     new_constraints = map(constraints) do con
         con = Symbolics.canonical_form(con)
         new_lhs = collect_integrals!(substitutions, con.lhs, t, gridpoints)
-        new_lhs ≲ con.rhs
+        isa(con, Inequality) ? new_lhs ≲ con.rhs : new_lhs ~ 0
     end
-    system = ModelingToolkit.add_accumulations(system,
-        [v[1] => only(k) for (k, v) in substitutions]
-    )
+    if !isempty(substitutions)
+        system = ModelingToolkit.add_accumulations(system,
+            [v[1] => only(k) for (k, v) in substitutions]
+        )
+    end
     sys = @set system.costs = new_costs
     sys = @set sys.constraints = new_constraints
     return @set prob.system = sys
@@ -269,7 +271,7 @@ end
 
 
 function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args...;
-        consolidate=identity, tspan=nothing, kwargs...) where {IIP}
+    consolidate=identity, tspan=nothing, kwargs...) where {IIP}
     (; system, substitutions) = prob
     t = ModelingToolkit.get_iv(system)
     vars = operation.(ModelingToolkit.unknowns(system))
@@ -281,8 +283,15 @@ function OptimalControlFunction{IIP}(ex, prob, alg::SciMLBase.DEAlgorithm, args.
     new_ex = map(new_ex) do eq
         substitute(eq, cost_substitutions)
     end
-    @info statevars, cost_substitutions
-    _tspan = isnothing(tspan) ? extrema(saveat) : tspan
+    # TODO SPecial case with no simulation needed! 
+    _tspan = if isnothing(tspan) && !isempty(saveat)
+        extrema(saveat)
+    elseif isnothing(tspan) && isempty(saveat)
+        # No sim needed 
+        (0.0, 0.0)
+    else
+        tspan
+    end
     predictor = OCPredictor{IIP}(system, alg, _tspan, args...; saveat=saveat, kwargs...)
     foop, fiip = generate_custom_function(system, new_ex, vec(statevars[1]); expression=Val{false}, kwargs...)
     return OptimalControlFunction{

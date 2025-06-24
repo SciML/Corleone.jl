@@ -1,3 +1,6 @@
+"""
+$(TYPEDEF)
+"""
 struct ShootingGrid{T}
     "Shooting timepoints"
     timepoints::T
