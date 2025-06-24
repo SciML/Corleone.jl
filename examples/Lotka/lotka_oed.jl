@@ -5,7 +5,6 @@ using OrdinaryDiffEq
 using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
 using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
 using CairoMakie
-using blockSQP
 
 # Lotka
 tspan = (0.0,12.0)
@@ -77,10 +76,8 @@ end
 callback((;u=optfun.u0),nothing)
 
 # Optimize
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 50,# callback=callback,
-         tol = 1e-6, hessian_approximation="limited-memory", )
-
-sol_bsqp = solve(remake(optfun, u0=sol_bsqp.u), BlockSQPOpt(); maxiters = 50, opttol = 1e-6)
+sol = solve(optfun, Ipopt.Optimizer(); max_iter = 50,
+         tol = 1e-6, hessian_approximation="limited-memory")
 
 IG = InformationGain(builder, optfun.f.f.predictor, sol.u; saveat=0.025);
 
