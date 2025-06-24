@@ -76,7 +76,6 @@ function (f::ForwardSolveInitialization)(problem::SciMLBase.AbstractSciMLProblem
         xi = get_shootingparent(si)
         if is_statevar(xi)
             newvars = sol(timepoints)[xi]
-            @info xi => newvars
             SymbolicIndexingInterface.setp(problem, si)(problem, newvars)
         end
     end
