@@ -1,0 +1,260 @@
+---
+title: Linear quadratic regulator 
+author: Carl Julius Martensen
+date: last-modified
+categories: 
+  - ODE
+description: This example introduces Corleone.
+engines: ['julia']
+julia:
+  exeflags: ["--project=.."]
+format: 
+  html: default
+  ipynb: default
+  mediawiki: default
+format-links: 
+  - text: Julia 
+    href: ../../examples/lqr.jl 
+    icon: file-code 
+  - ipynb
+---
+
+
+Let’s start by modeling the [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator). This example is one of the simplest optimal control problems. Lets assume we want to It reads as
+
+\begin{align}
+\min_u & \int_0^T w_1 (x - x_f)^2 + w_2 u^2 dt \\
+\text{s.t.} \quad & \dot{x} = a x + b u
+\end{align}
+
+First, we load the necessary packages to model the problem.
+
+```{julia}
+using Corleone
+using Corleone.ModelingToolkit
+using Corleone.ModelingToolkit: t_nounits as t, D_nounits as D
+```
+
+We use ModelingToolkit.jl to model the optimal control problem.
+
+::: {.callout-note}
+  We use ModelingToolkits `@mtkmodel` here. The reason for this is that we do not have any constraints on the dynamic states. See other examples on how to use a custom function to generate models or have a look at the (ModelingToolkit.jl documentation.)
+::: 
+
+```{julia}
+@mtkmodel LQR begin 
+    @description "Linear quadratic regulator"
+    @variables begin
+        x(t)=1.0, [description = "State variable", tunable = false]
+        u(t)=0.0, [description = "Control variable", input = true]
+    end 
+    @parameters begin 
+        a=-1.0, [description = "Decay", tunable = false]
+        b=1.0, [description = "Input scale", tunable = false]
+    end 
+    @equations begin
+        D(x) ~ a * x + b * u
+    end 
+    @costs begin 
+        Symbolics.Integral(t in (0., 10.)).(10.0*(x-3.0)^2 + 0.1*u^2)
+    end
+    @consolidate begin
+        (system_costs...) -> first(system_costs)[1]
+    end
+end;
+```
+
+
+## Modeling explained step by step
+
+Alright. Lets break down each part of the model.
+
+First, we add a description of the model. This is useful for collaborateurs, different usecases and future you.
+
+```julia
+    @description "Linear quadratic regulator"
+```
+
+Next, we define the variables *x*(*t*), *u*(*t*) of the model. As given in the problem definition above, this defines or state and our control signal respectively.
+
+```julia
+    @variables begin
+        x(t)=1.0, [description = "State variable", tunable = false]
+        u(t)=0.0, [description = "Control variable", input = true]
+    end 
+```
+
+Lets break this down line by line.
+
+```julia
+x(t)=1.0, [description = "State variable", tunable = false]
+```
+
+Defines a variable which **depends on *t*** represented by the symbol `x`. It has a default value of `1.0`, which corresponds to the intial value of the variable. Similar to the full system, we can add a description or other (metadata) to the variable using the square brackets. Note that we explicitly set `tunable=false`. This indicates later on that the initial condition is **fixed**.
+
+```julia
+u(t)=0.0, [description = "Control variable", input = true]
+```
+
+Similar to the definition of `x` we define a variable `u` which depends on time. Note that we set `input=true` to indicate that this is a control variable.
+
+To define the parameters of the system, we can use the `@parameters` macro. Similar to above, we create two symbolic variables which are **independent of *t*** and represent constant values - indicated by `tunable = false`.
+
+```julia
+    @parameters begin 
+        a=-1.0, [description = "Decay", tunable = false]
+        b=1.0, [description = "Input scale", tunable = false]
+    end 
+```
+
+To model the system of differential equations, we simply write it down!
+
+```julia
+    @equations begin
+        D(x) ~ a * x + b * u
+    end 
+```
+
+So far this defines the corresponding ODE system without any additional information. However, we want to solve an optimal control problem!
+
+Luckily, ModelingToolkit - starting from version 10.0 - supports to model general systems. Hence, we can simply add `costs` and `constraints` to our system definition.
+
+Our goal is to minimize an integrated expression over time. Given that Symbolics defines an `Integral` operator, we can simply write
+
+```julia
+    @costs begin 
+        Symbolics.Integral(t in (0., 10.)).(10.0*(x-3.0)^2 + 0.1*u^2)
+    end
+```
+
+Which internally defines a `Vector` of costs. To combine this vector and possible subsystems in a meaningful way, we must provide a `consolidate` function.
+
+``` julia
+    @consolidate begin
+        (system_costs...) -> first(system_costs)[1]
+    end
+```
+
+Which just takes in several system costs and returns the first vector entry of the first system.
+
+## Instantiate the model
+
+Next, we generate an instance of the model.
+
+```{julia}
+lqr_model = LQR(; name = :LQR)
+```
+
+Note that every model needs a `name` in the form of a symbol.
+
+We now have symbolic instance of our model. However, we still need to define our inputs `u` properly. To do this, we first extract the corresponding variable from the model **without namespacing**.
+
+::: {.callout-note}
+Right now, this is required from Corleone.jl to find the corresponding variable. In the future, we plan to make this easier and support namespaced variables.
+:::
+
+```{julia}
+u = ModelingToolkit.getvar(lqr_model, :u, namespace = false)
+```
+
+Next, we use this variable to define a piecewise constant function for *u*.
+There are different formulations which can be employed, but in general we recommend using the `DirectControlCallback`.
+
+```{julia}
+control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.5:9.5)));
+```
+
+This formulation adds callbacks at the provided `timepoints`.
+
+Finally we can combine our model, the control method, a shooting grid and initialization scheme into our problem.
+
+```{julia}
+problem = OCProblemBuilder(lqr_model, control, ShootingGrid([0.,]), DefaultsInitialization())
+```
+
+## Expanding the model
+
+The problem itsself is not useful for us right now. To transform the initial representation into a tractable symbolic representation, we simply call the problem.
+
+```{julia}
+expandedproblem = problem()
+```
+
+This call transformed the system into a different, but equivalent formulation. It added the control definitions and moved integrals around.
+
+## Optimize
+
+Now that our symbolic system is ready, lets optimize it!
+
+Similar to using ModelingToolkit, we will now rely on Optimization jl to solve the corresponding optimal control problem. Lets start by loading the packages:
+
+```{julia}
+using Optimization, OptimizationMOI, Ipopt
+using OrdinaryDiffEqTsit5, SciMLSensitivity
+```
+
+And transform our symbolic problem into an optimization problem.
+
+To do this, we need additional information on how to compute the necessary derivatives of the objective function and constraints, and solve the differential equations. We will use ForwardDiff.jl to compute derivatives - given that our problem is relatively small - and `Tsit5` to integrate our system of differential equations.
+
+```{julia}
+optimization_problem = OptimizationProblem{true}(expandedproblem, AutoForwardDiff(), Tsit5())
+```
+
+Finally, we solve the resulting problem using Ipopt and plot the results.
+
+```{julia}
+optimization_solution = solve(optimization_problem, Ipopt.Optimizer(),)
+```
+
+```{julia}
+#| code-fold: true
+#| renderings: [light, dark]
+
+using CairoMakie
+
+function result_plot_lqr(problem, u)
+  sol = problem.f.f.predictor(u, saveat = 0.01);
+  f = Figure(title = "LQR Results")
+  ax = Axis(f[1,1], ylabel = "x(t)")
+  plot!(sol[1], idxs = [:x])
+  ax2 = Axis(f[2, 1], ylabel = "u(t)") 
+  plot!(sol[1], idxs = [:u])
+  ax3 = Axis(f[3,1], ylabel = "Running costs", xlabel = "t")
+  plot!(sol[1], idxs = [1])
+  linkxaxes!(ax, ax2, ax3)
+  return f
+end
+# We want two outputs for the light and dark rendering. Hence we use display
+update_theme!(theme_light());
+f_light = result_plot_lqr(optimization_problem, optimization_solution.u)
+display(f_light)
+update_theme!(theme_dark());
+f_dark = result_plot_lqr(optimization_problem, optimization_solution.u)
+```
+
+## Appendix
+
+### Reproducability
+
+This document was rendered using Quarto CLI {{< version >}}.
+
+```{julia}
+#| code-fold: true
+using Pkg
+
+versioninfo()
+
+Pkg.status() 
+```
+
+### Doctests 
+
+Additional tests which are exported:
+
+```julia
+@test isapprox(optimization_solution.u, [1.0, 6.865341837123803, 2.303020511034252, 3.084624489682982, 2.9506996290744407, 2.973658328965578, 2.969720781097132, 2.970395856955674, 2.9702800858740277, 2.9702999379278796, 2.9702965162164032, 2.9702971776852873, 2.9702967089587893, 2.970298802173118, 2.970286737658208, 2.9703568817904946, 2.969948951800308, 2.9723213263356705, 2.9585244447063057, 3.0387621686432014, 2.5721283077786925])
+@test SciMLBase.ReturnCode.Success == optimization_solution.retcode
+@test isapprox(optimization_solution.objective, 1.5772524e+01)
+@test optimization_solution.stats.iterations == 3 
+```

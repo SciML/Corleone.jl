@@ -1,0 +1,39 @@
+---
+title: "Public API"
+---
+
+```{julia}
+#| echo: false
+include("utils.jl");
+```
+
+## Builder
+
+Problem builder definitions [asd](api.qmd#doc-OCProblemBuilder)
+
+```{julia}
+#| echo: false
+#| output: asis
+quarto_doc(Corleone, 
+  :OCProblemBuilder, 
+  :OEDProblemBuilder) |> print
+```
+
+## Control Signals
+
+Control signal definitions
+
+```{julia}
+#| echo: false
+#| output: asis
+quarto_doc(Corleone, :DirectControlCallback, :IfElseControl) |> print
+```
+
+## Optimal Experimental Design 
+
+
+```{julia}
+#| echo: false
+#| output: asis
+quarto_doc(Corleone, :FisherACriterion, :FisherDCriterion) |> print
+```

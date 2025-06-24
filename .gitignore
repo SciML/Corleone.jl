@@ -7,3 +7,5 @@
 /docs/Manifest.toml
 /docs/build/
 lib/CorleoneCore/__old
+examples/Project.toml
+docs/src/examples

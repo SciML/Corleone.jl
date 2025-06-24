@@ -1,0 +1,9 @@
+---
+title: "Examples"
+listing:
+  contents: examples
+  type: grid 
+  categories: true
+  sort: date
+  fields: [date, title, author, description]
+---

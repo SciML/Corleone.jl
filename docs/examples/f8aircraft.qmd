@@ -1,0 +1,134 @@
+---
+title: F8 Aircraft
+author: Carl Julius Martensen
+date: last-modified
+categories: 
+  - ODE
+  - Aeronautics
+description: This example introduces Corleone.
+engines: ['julia']
+julia:
+  exeflags: ["--project=.."]
+format: 
+  html: default
+  ipynb: default
+---
+
+```{julia}
+using Corleone
+using Corleone.ModelingToolkit
+using Corleone.ModelingToolkit: t_nounits as t, D_nounits as D
+using CairoMakie
+```
+
+```{julia}
+function F8(; name::Symbol, kwargs...) 
+    vars = @variables begin
+        x₁(..)=0.4655, [description = "Angle of attack", tunable = false]
+        x₂(..)=0., [description = "Pitch angle", tunable = false]
+        x₃(..)=0., [description = "Pitch rate", tunable = false]
+        y₁(t)=0.0, [description = "Algebraic state"]
+        y₂(t)=0.0, [description = "Algebraic state"]
+        v(t)=0., [description = "Control", input = true, bounds = (-0.05236, 0.05236)]
+    end 
+    
+    x = [x₁(t), x₂(t), x₃(t)]
+    y = [y₁, y₂]
+    
+    ps = @parameters begin 
+        T=8.0, [description = "Time scale", bounds = (1., 10.)]
+    end
+    
+    eqs = [
+        D(x[1]) ~ T*(y[1]*x[1] + x[3] - 0.0019 * x[2]^2 - 0.215*v + 0.63*v^3)
+        D(x[2]) ~ T*x[3]
+        D(x[3]) ~ T*(-4.208*x[1] - 0.396*x[3]-0.47*x[1]^2-3.564*x[1]^3 - 20.967*v + 6.265*x[1]*y[2] + 46.0*y[2] * v + 61.4 * v^3)
+        0 ~ -y[2] + x[1]*v
+        0 ~ -y[1] - 0.877 - 0.088*x[3] + 0.47*x[1] - x[1]*x[3] + 3.846* x[1]^2 + 0.28*y[2] + 0.47*v^2
+    ] 
+    
+    cons = [x₁(1.0), x₂(1.0), x₃(1.0)] .~ 0
+    
+
+    sys = ODESystem(eqs, t; name = name, 
+        costs = [T], 
+        constraints = cons, 
+        consolidate = (x...) -> first(x)[1]
+    )
+end;
+```
+
+```{julia}
+aircraft = F8(; name = :Aircraft);
+```
+
+```{julia}
+u = ModelingToolkit.getvar(aircraft, :v, namespace = false)
+control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.05:0.95)))
+```
+
+```{julia}
+problem = OCProblemBuilder(aircraft, control, ShootingGrid([0.,]), ForwardSolveInitialization());
+expandedproblem = problem()
+```
+
+```{julia}
+using Optimization, OptimizationMOI, Ipopt
+using OrdinaryDiffEqTsit5, SciMLSensitivity
+```
+
+```{julia}
+optimization_problem = OptimizationProblem{true}(expandedproblem, AutoForwardDiff(), Tsit5())
+```
+
+```{julia}
+optimization_solution = solve(optimization_problem, Ipopt.Optimizer(),);
+```
+
+## Solution 
+
+```{{julia}}
+#| code-fold: true
+#| renderings: [light, dark]
+
+using CairoMakie
+
+function result_plot_f8aircraft(problem, u)
+  sol = problem.f.f.predictor(u, saveat = 0.01);
+  # We add the right time scaling here
+  sol[1].t .*= optsol.u[end]
+  f = Figure()
+  ax1 = Axis(f[1,1], ylabel = "v(t)")
+  plot!(sol[1], idxs = [:v])
+  ax2 = Axis(f[1,2], ylabel = "x₁(t)")
+  plot!(sol[1], idxs = [:x₁])
+  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  ax3 = Axis(f[2,1], ylabel = "x₂(t)", xlabel = "Time")
+  plot!(sol[1], idxs = [:x₂])
+  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  ax4 = Axis(f[2,2], ylabel = "x₃(t)", xlabel = "Time")
+  plot!(sol[1], idxs = [:x₃])
+  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  linkxaxes!(ax1, ax2, ax3, ax4)
+  return f
+end
+# We want two outputs for the light and dark rendering. Hence we use display
+update_theme!(theme_light());
+f_light = result_plot_f8aircraft(optimization_problem, optimization_solution.u)
+display(f_light)
+update_theme!(theme_dark());
+f_dark = result_plot_f8aircraft(optimization_problem, optimization_solution.u)
+```
+
+## Appendix
+
+This document was rendered using Quarto CLI {{< version >}}.
+
+```{{julia}}
+#| code-fold: true
+using Pkg
+
+versioninfo()
+
+Pkg.status() 
+```
