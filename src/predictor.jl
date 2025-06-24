@@ -12,6 +12,9 @@ end
 transform(perm::VariablePermutation, p::AbstractVector) = getindex(p, perm.fwd)
 invtransform(perm::VariablePermutation, p::AbstractVector) = getindex(p, perm.rev)
 
+"""
+$(TYPEDEF)
+"""
 struct OCPredictor{N,P,A,E,S,T,K}
     "The underlying problem"
     problem::P

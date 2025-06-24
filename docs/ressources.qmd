@@ -1,0 +1,13 @@
+---
+title: Ressources
+--- 
+
+## Optimal Control 
+
+## Julia
+
+## Additional packages 
+
+- [ModelingToolkit.jl]()
+- [CairoMakie.jl]()
+- [Optimization.jl]()
