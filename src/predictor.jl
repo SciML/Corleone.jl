@@ -36,11 +36,6 @@ OCPredictor(sys, alg, ensemblealg=EnsembleSerial(); kwargs...) = OCPredictor{tru
 
 OCPredictor(problem, alg, ensemblealg, transition, intervals, kwargs, permutation) = OCPredictor{length(intervals),typeof(problem),typeof(alg),typeof(ensemblealg),typeof(transition),typeof(intervals),typeof(kwargs)}(problem, alg, ensemblealg, transition, intervals, kwargs, permutation)
 
-function (f::AbstractNodeInitialization)(predictor::OCPredictor; kwargs...)
-    newprob = f(predictor.problem, predictor.alg; kwargs...)
-    @set predictor.problem = newprob
-end
-
 function find_control_pairs(sys, var)
     var = Symbolics.unwrap(var)
     x = Symbol(iscall(var) ? operation(var) : var)

@@ -28,13 +28,15 @@ export IfElseControl
 include("control_formulations/tanhapproximation.jl")
 export TanhControl
 
-include("node_initialization.jl")
-export DefaultsInitialization, ForwardSolveInitialization, RandomInitialization
-export LinearInterpolationInitialization, CustomInitialization, ConstantInitialization
 include("shooting.jl")
 export ShootingGrid
 include("predictor.jl")
 export OCPredictor
+
+include("node_initialization.jl")
+export DefaultsInitialization, ForwardSolveInitialization, RandomInitialization
+export LinearInterpolationInitialization, CustomInitialization, ConstantInitialization
+export HybridInitialization
 
 include("criteria.jl")
 export AbstractOEDCriterion
