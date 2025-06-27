@@ -3,7 +3,7 @@ $(TYPEDEF)
 
 Takes in a `System` with defined `cost` and optional `constraints` and `consolidate` together with a [`ShootingGrid`](@ref) and [`AbstractControlFormulation`](@ref)s and build the related `OptimizationProblem`.
 """
-struct OEDProblemBuilder{C,G,I}
+struct OEDProblemBuilder{C,G} <: AbstractBuilder
     "The system"
     system::ModelingToolkit.AbstractSystem
     "The controls"
@@ -12,118 +12,19 @@ struct OEDProblemBuilder{C,G,I}
     grids::G
     "OED criterion"
     crit::AbstractOEDCriterion
-    "The initialization"
-    initialization::I
     "Substitutions"
     substitutions::Dict
 end
 
-"""
-$(TYPEDEF)
-
-Struct to hold measurement information gain and corresponding multipliers
-"""
-struct InformationGain{L,G,T,M}
-    "Local information gain"
-    LIG::L
-    "Global information gain"
-    GIG::G
-    "Timepoints"
-    t::T
-    "Multiplier corresponding to measurement constraints"
-    μ::M
-end
-
-function Corleone.InformationGain(builder::OEDProblemBuilder, predictor::OCPredictor, u_opt; kwargs...)
-    fwdsol = predictor(u_opt; kwargs...)[1];
-
-
-    ob = map(x -> x.rhs, ModelingToolkit.observed(builder.system))
-
-    sts = filter(x -> Corleone.is_statevar(x) && !Corleone.is_fim(x) && !Corleone.is_sensitivity(x), unknowns(builder.system))
-    G_states = filter(Corleone.is_sensitivity, unknowns(builder.system))
-
-    nx = length(sts)
-    np = Int(length(G_states)/nx)
-
-    G_states = map(Iterators.product(Base.OneTo(2), Base.OneTo(np))) do (i,j)
-        ModelingToolkit.getvar(builder.system, Symbol("G", string(i), string(j)))
-    end
-
-    F_states = map(Iterators.product(Base.OneTo(np), Base.OneTo(np))) do (i,j)
-        if i <= j
-            ModelingToolkit.getvar(builder.system, Symbol("F", string(i), string(j)))
-        else
-            ModelingToolkit.getvar(builder.system, Symbol("F", string(j), string(i)))
-        end
-    end
-
-
-    timepoints = reduce(vcat, map(fwdsol) do sol
-        sol.t
-    end)
-
-    Pi = map(ob) do obi
-        hx = Symbolics.jacobian([obi], sts)
-        gram = hx * G_states
-        gram' * gram
-    end
-
-
-    Pi_eval = reduce(vcat, map(fwdsol) do sol
-        SymbolicIndexingInterface.getsym(sol, Pi)(sol)
-    end)
-
-    F_inv = inv(last(getsym(last(fwdsol), F_states)(last(fwdsol))))
-
-    GIG_eval = map(Pi_eval) do Pit
-        map(Pit) do Pii
-            F_inv' * Pii * F_inv
-        end
-    end
-
-    multiplier = nothing
-
-    return Corleone.InformationGain{typeof(Pi_eval), typeof(GIG_eval), typeof(timepoints), typeof(multiplier)}(Pi_eval, GIG_eval,
-                timepoints, multiplier)
-end
-
-function Base.show(io::IO, prob::OEDProblemBuilder)
-    (; system) = prob
-    cost = ModelingToolkit.get_consolidate(system)(ModelingToolkit.get_costs(system),[])
-    cons = ModelingToolkit.constraints(system)
-    eqs = ModelingToolkit.equations(system)
-    obs = ModelingToolkit.observed(system)
-
-    println(io, "min $(cost)")
-    println(io, "")
-    println(io, "s.t.")
-    println(io, "")
-    if !isempty(eqs)
-        println(io, "Dynamics $(nameof(system))")
-        foreach(eqs) do eq
-            println(io, "     ", eq)
-        end
-    end
-    if !isempty(obs)
-        println(io, "Observed $(nameof(system))")
-        foreach(ModelingToolkit.observed(system)) do eq
-            println(io, "     ", eq)
-        end
-    end
-    if !isempty(cons)
-        println(io, "Constraints")
-        foreach(cons) do eq
-            println(io, "     ", eq)
-        end
-    end
-end
+# This makes it so that the OEDBuilder does not replace the costs with anything
+__process_costs(::OEDProblemBuilder) = false 
+__process_constraints(::OEDProblemBuilder) = true
 
 function OEDProblemBuilder(sys::ModelingToolkit.System, controls::C,
             grids::G, crit::AbstractOEDCriterion,
-            inits::I, subs::Dict) where {C<:Tuple, G<:Tuple, I<:Tuple}
-    OEDProblemBuilder{C,G,I}(
-        sys, controls, grids, crit, inits, subs
+            subs::Dict) where {C<:Tuple, G<:Tuple,}
+    OEDProblemBuilder{C,G}(
+        sys, controls, grids, crit, subs
     )
 end
 
@@ -131,9 +32,8 @@ function OEDProblemBuilder(sys::ModelingToolkit.System, args...)
     controls = filter(Base.Fix2(isa, AbstractControlFormulation), args)
     grid = filter(Base.Fix2(isa, ShootingGrid), args)
     crit = only(filter(Base.Fix2(isa, AbstractOEDCriterion), args))
-    inits = filter(Base.Fix2(isa, AbstractNodeInitialization), args)
-    OEDProblemBuilder{typeof(controls),typeof(grid),typeof(inits)}(
-        sys, controls, grid, crit, inits, Dict()
+    OEDProblemBuilder{typeof(controls),typeof(grid)}(
+        sys, controls, grid, crit,  Dict()
     )
 end
 
@@ -257,6 +157,7 @@ function replace_costs!(prob::OEDProblemBuilder)
     return @set prob.system = sys
 end
 
+# TODO THIS IS TYPE PIRACY. WE NEED TO FIX THIS :D
 function LinearAlgebra.tr(A::Matrix{Symbolics.SymbolicUtils.BasicSymbolic{Real}})
     n = size(A,1)
     sum([A[i,i] for i=1:n])
@@ -289,33 +190,13 @@ function replace_constraints!(prob::OEDProblemBuilder)
     return @set prob.system.constraints = new_cs
 end
 
-function expand_lagrange!(prob::OEDProblemBuilder)
-    (; system, substitutions, grids) = prob
-    gridpoints = only(grids).timepoints
-    t = ModelingToolkit.get_iv(system)
-    constraints = ModelingToolkit.constraints(system)
-    new_constraints = map(constraints) do con
-        con = Symbolics.canonical_form(con)
-        new_lhs = collect_integrals!(substitutions, con.lhs, t, gridpoints)
-        new_lhs ≲ con.rhs
-    end
-    system = ModelingToolkit.add_accumulations(system,
-        [v[1] => only(k) for (k, v) in substitutions]
-    )
-    sys = @set system.constraints = new_constraints
-    return @set prob.system = sys
-end
 
 function (prob::OEDProblemBuilder)(; kwargs...)
-
     # Extend system with sensitivities, Fisher, and sampling controls
     prob = expand_equations!(prob)
-
     prob = replace_controls!(prob)
     prob = replace_constraints!(prob)
-
     prob = expand_lagrange!(prob)
-
     # Replace costs by criterion
     prob = replace_costs!(prob)
     # Extend the controls
@@ -326,46 +207,3 @@ function (prob::OEDProblemBuilder)(; kwargs...)
     return prob
 end
 
-function SciMLBase.OptimizationFunction{IIP}(prob::OEDProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
-    (; system) = prob
-    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
-    constraints = ModelingToolkit.constraints(system)
-    costs = ModelingToolkit.get_costs(system)
-    consolidate = ModelingToolkit.get_consolidate(system)
-    tspan = prob.crit.tspan
-    objective = OptimalControlFunction{true}(
-        costs, prob, alg, args...; consolidate=consolidate, tspan=tspan, kwargs...
-    )
-    if !isempty(constraints)
-        constraints = OptimalControlFunction{IIP}(
-            map(x -> x.lhs, constraints), prob, alg, args...; kwargs...
-        )
-    else
-        constraints = nothing
-    end
-    return OptimizationFunction{IIP}(
-        objective, adtype, cons=constraints,
-    )
-end
-
-function SciMLBase.OptimizationProblem{IIP}(prob::OEDProblemBuilder, adtype::SciMLBase.ADTypes.AbstractADType, alg::DEAlgorithm, args...; kwargs...) where {IIP}
-    (; system) = prob
-    @assert ModelingToolkit.iscomplete(system) "The system is not complete."
-    constraints = ModelingToolkit.constraints(system)
-    f = OptimizationFunction{IIP}(prob, adtype, alg, args...; kwargs...)
-    init = only(prob.initialization)
-    predictor = init(f.f.predictor)
-    u0 = get_p0(predictor)
-    lb, ub = get_bounds(predictor)
-    if !isempty(constraints)
-        lcons = zeros(eltype(u0), size(constraints, 1))
-        ucons = zeros(eltype(u0), size(constraints, 1))
-        for (i, c) in enumerate(constraints)
-            isa(c, Equation) && continue
-            lcons[i] = eltype(u0)(-Inf)
-        end
-    else
-        lcons = ucons = nothing
-    end
-    OptimizationProblem{IIP}(f, u0; lb=lb, ub=ub, lcons=lcons, ucons=ucons)
-end

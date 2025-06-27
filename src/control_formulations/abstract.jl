@@ -1,12 +1,3 @@
-"""
-$(TYPEDEF)
-
-Abstract type defining different formulation for piecewise constant control signals.
-
-All discrete implementations take in a list of variables and time points, which are in turn extended.
-"""
-abstract type AbstractControlFormulation end
-
 (x::AbstractControlFormulation)(sys) = expand_formulation(x, sys)
 
 function expand_formulation(x::AbstractControlFormulation, sys)

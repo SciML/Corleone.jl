@@ -68,7 +68,7 @@ control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.05:0.95)
 ```
 
 ```{julia}
-problem = OCProblemBuilder(aircraft, control, ShootingGrid([0.,]), ForwardSolveInitialization());
+problem = OCProblemBuilder(aircraft, control, ShootingGrid([0.,]));
 expandedproblem = problem()
 ```
 

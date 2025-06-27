@@ -13,6 +13,34 @@ using SymbolicIndexingInterface
 using Accessors
 using LinearAlgebra
 
+"""
+$(TYPEDEF)
+
+Abstract type defining different formulation for piecewise constant control signals.
+
+All discrete implementations take in a list of variables and time points, which are in turn extended.
+"""
+abstract type AbstractControlFormulation end
+
+"""
+$(TYPEDEF)
+
+An abstract builder which executes a series of transformations to transform the dynamical system and additional specifications into an optimal control problem.
+"""
+abstract type AbstractBuilder end
+
+"""
+$(TYPEDEF)
+
+Abstract type defining different formulations for initialization of shooting node variables.
+
+"""
+abstract type AbstractNodeInitialization end
+
+function (f::AbstractNodeInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
+    throw(ArgumentError("The initialization $f is not implemented."))
+end
+
 # The main symbolic metadata structure
 include("metadata.jl")
 export UncertainParameter, is_uncertain
@@ -33,7 +61,7 @@ export ShootingGrid
 include("predictor.jl")
 export OCPredictor
 
-include("node_initialization.jl")
+include("initialization/node_initialization.jl")
 export DefaultsInitialization, ForwardSolveInitialization, RandomInitialization
 export LinearInterpolationInitialization, CustomInitialization, ConstantInitialization
 export HybridInitialization
@@ -43,11 +71,15 @@ export AbstractOEDCriterion
 export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherDCriterion
 
-include("experimental_design.jl")
-export OEDProblemBuilder, InformationGain
-
-include("variable_substitution.jl")
+include("builders/abstract.jl")
+include("builders/variable_substitution.jl")
+include("builders/optimalcontrolfunction.jl")
+include("builders/ocbuilder.jl")
 export OCProblemBuilder
+include("builders/oedbuilder.jl")
+export OEDProblemBuilder
 
+include("analysis/information_criteria.jl")
+export InformationGain
 
 end
