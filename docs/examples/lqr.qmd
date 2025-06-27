@@ -169,7 +169,7 @@ This formulation adds callbacks at the provided `timepoints`.
 Finally we can combine our model, the control method, a shooting grid and initialization scheme into our problem.
 
 ```{julia}
-problem = OCProblemBuilder(lqr_model, control, ShootingGrid([0.,]), DefaultsInitialization())
+problem = OCProblemBuilder(lqr_model, control, ShootingGrid([0.,])) 
 ```
 
 ## Expanding the model

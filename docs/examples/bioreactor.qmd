@@ -65,7 +65,7 @@ control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:2.0:46.0))
 ```
 
 ```{julia}
-problem = OCProblemBuilder(reactor, control, ShootingGrid([0.,]), ForwardSolveInitialization());
+problem = OCProblemBuilder(reactor, control, ShootingGrid([0.,]));
 expandedproblem = problem()
 ```
 
