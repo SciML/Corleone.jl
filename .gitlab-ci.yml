@@ -6,8 +6,8 @@ variables:
     - |
       julia --project=@. -e '
         using Pkg
-        Pkg.build()
-        Pkg.test(coverage=true)'
+        Pkg.build("Corleone")
+        Pkg.test("Corleone"; coverage=true)'
     - | 
       julia -e 'using Pkg; Pkg.add("Coverage"); 
       import Corleone; cd(joinpath(dirname(pathof(Corleone)), ".."));
