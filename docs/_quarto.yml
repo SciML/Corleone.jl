@@ -1,6 +1,6 @@
 project:
   type: website
-  output-dir: _build
+  output-dir: ../public 
   execute-dir: project 
   render:
     - "*.qmd"
@@ -67,7 +67,7 @@ julia:
   exeflags: ["--project=."]
 
 execute:
-  freeze: false
+  freeze: auto
 
 format:
   html:    

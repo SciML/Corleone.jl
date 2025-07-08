@@ -1,0 +1,110 @@
+variables:
+  CACHE_PREFIX: "julia-env-cache"
+  JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
+  QUARTO_VERSION: "1.7.30"
+
+stages:
+  - prepare
+  - test 
+  - render
+  - deploy
+
+.test_template: &test_definition
+  script:
+    - |
+      julia --project=@. -e '
+        using Pkg
+        Pkg.build("Corleone")
+        Pkg.test("Corleone"; coverage=true)'
+    - | 
+      julia -e 'using Pkg; Pkg.add("Coverage"); 
+      using Coverage;
+      coverage = process_folder(); 
+      coverage = merge_coverage_counts(coverage, filter!(
+        let prefixes = (joinpath(pwd(), "src", ""),)
+        c -> any(p -> startswith(c.filename, p), prefixes)
+        end,
+        LCOV.readfolder("test")));
+      covered_lines, total_lines = get_summary(coverage);
+      println("Coverage $(covered_lines / total_lines)");'
+  cache: 
+    key:
+      files: 
+        - Project.toml 
+        - Manifest.toml
+      prefix: "${CACHE_PREFIX}-test"
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
+
+
+
+test:1.10:
+  stage: test
+  image: julia:1.10 
+  <<: *test_definition
+
+process-examples:
+  stage: prepare
+  image: julia:1.10
+  script:
+  - cd docs 
+  - julia --project=@. -e 'include("process_examples.jl")'
+  cache: 
+    key:
+      files: 
+        - docs/Project.toml 
+        - docs/Manifest.toml
+      prefix: "${CACHE_PREFIX}-doc"
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
+  artifacts:
+    paths:
+      - docs/examples/code 
+      - test/examples
+
+render-docs:
+  stage: render
+  image: julia:1.10
+  before_script:
+  - apt-get update  -y 
+  - apt-get install -y curl unzip 
+  - curl -LO https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-arm64.deb
+  - dpkg -i quarto-${QUARTO_VERSION}-linux-arm64.deb
+  - quarto check
+  script:
+    - cd docs
+    - julia --project=@. -e 'using Pkg; Pkg.develop(path=joinpath(pwd(), ".."))'
+    - quarto render 
+  cache: 
+    key:
+      files: 
+        - docs/Project.toml 
+        - docs/Manifest.toml
+      prefix: "${CACHE_PREFIX}-doc"
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
+  artifacts:
+    paths:
+      - docs/examples/code 
+      - test/examples
+  needs:
+    - job: process-examples 
+      artifacts: true
+  artifacts:
+    paths:
+      - public
+
+pages:
+  stage: deploy
+  image: alpine
+  script:
+    - echo "Deploying documentation"
+  artifacts:
+    paths:
+      - public 

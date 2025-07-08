@@ -1,0 +1,12 @@
+{
+  "hash": "08648fa5bcbda7e2465c5c19660ae70d",
+  "result": {
+    "engine": "julia",
+    "markdown": "---\ntitle: Script files\nauthor: Carl Julius Martensen\ndate: last-modified\n---\n\nMarkdown *content*.\n\n::: {#2 .cell execution_count=1}\n``` {.julia .cell-code}\n@info \"Script files\"\n```\n\n::: {.cell-output .cell-output-stdout}\n\n::: {.ansi-escaped-output}\n```{=html}\n<pre><span class=\"ansi-cyan-fg ansi-bold\">[ </span><span class=\"ansi-cyan-fg ansi-bold\">Info: </span>Script files\n</pre>\n```\n:::\n\n:::\n:::\n\n\n\n::: {#4 .cell execution_count=0}\n``` {.julia .cell-code}\nrand(10, 10)\n```\n:::\n\n\n\n",
+    "supporting": [
+      "testcode_files"
+    ],
+    "filters": [],
+    "includes": {}
+  }
+}
