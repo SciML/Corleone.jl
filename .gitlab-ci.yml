@@ -1,4 +1,4 @@
-test:
+.test_template: &test_definition
   image: julia:1.10
   script:
     - |
@@ -6,4 +6,13 @@ test:
         using Pkg
         Pkg.build()
         Pkg.test(coverage=true)'
+    - | 
+      julia -e 'using Pkg; Pkg.add("Coverage"); 
+      import GitlabJuliaDemo; cd(joinpath(dirname(pathof(GitlabJuliaDemo)), ".."));
+      using Coverage; cl, tl = get_summary(process_folder());
+      println("(", cl/tl*100, "%) covered")'
+
+test:1.10:
+  image: julia:1.10 
+  <<: *test_definition
 
