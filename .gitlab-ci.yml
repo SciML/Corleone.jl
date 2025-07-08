@@ -67,7 +67,7 @@ process-examples:
 
 render-docs:
   stage: render
-  image: quarto-dev/quarto:1.7
+  image: devxygmbh/alpine-quarto:1.7
   script:
     - quarto check
     - quarto render docs
