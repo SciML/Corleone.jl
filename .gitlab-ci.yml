@@ -1,5 +1,7 @@
+variables:
+  CACHE-PREFIX: "julia-env-cache"
+
 .test_template: &test_definition
-  image: julia:1.10
   script:
     - |
       julia --project=@. -e '
@@ -8,11 +10,25 @@
         Pkg.test(coverage=true)'
     - | 
       julia -e 'using Pkg; Pkg.add("Coverage"); 
-      import GitlabJuliaDemo; cd(joinpath(dirname(pathof(GitlabJuliaDemo)), ".."));
+      import Corleone; cd(joinpath(dirname(pathof(Corleone)), ".."));
       using Coverage; cl, tl = get_summary(process_folder());
       println("(", cl/tl*100, "%) covered")'
+  cache: 
+    key:
+      files: 
+        - Project.toml 
+        - Manifest.toml
+      prefix: "${CACHE-PREFIX}-test"
+      paths:
+        - .julia/artifacts
+        - .julia/packages
+        - .julia/compiled
+
+
 
 test:1.10:
   image: julia:1.10 
   <<: *test_definition
+
+
 
