@@ -19,7 +19,7 @@ variables:
         end,
         LCOV.readfolder("test")));
       covered_lines, total_lines = get_summary(coverage);
-      @show get_summary(process_file(joinpath("src", "Corleone.jl")));'
+      println("Coverage $(covered_lines / total_lines)");'
   cache: 
     key:
       files: 
