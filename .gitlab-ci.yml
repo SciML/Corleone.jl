@@ -1,5 +1,5 @@
 variables:
-  CACHE-PREFIX: "julia-env-cache"
+  CACHE_PREFIX: "julia-env-cache"
 
 .test_template: &test_definition
   script:
@@ -18,7 +18,7 @@ variables:
       files: 
         - Project.toml 
         - Manifest.toml
-      prefix: "${CACHE-PREFIX}-test"
+      prefix: "${CACHE_PREFIX}-test"
       paths:
         - .julia/artifacts
         - .julia/packages
