@@ -1,6 +1,6 @@
 project:
   type: website
-  output-dir: _build
+  output-dir: ../public 
   execute-dir: project 
   render:
     - "*.qmd"
