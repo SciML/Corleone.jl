@@ -10,9 +10,16 @@ variables:
         Pkg.test("Corleone"; coverage=true)'
     - | 
       julia -e 'using Pkg; Pkg.add("Coverage"); 
-      import Corleone; cd(joinpath(dirname(pathof(Corleone)), ".."));
-      using Coverage; cl, tl = get_summary(process_folder());
-      println("(", cl/tl*100, "%) covered")'
+      using Coverage;
+      coverage = process_folder(); 
+      coverage = merge_coverage_counts(coverage, filter!(
+        let prefixes = (joinpath(pwd(), "src", ""),
+                    joinpath(pwd(), "deps", ""))
+        c -> any(p -> startswith(c.filename, p), prefixes)
+        end,
+        LCOV.readfolder("test")));
+      covered_lines, total_lines = get_summary(coverage);
+      @show get_summary(process_file(joinpath("src", "Corleone.jl")));'
   cache: 
     key:
       files: 
