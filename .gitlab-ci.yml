@@ -19,10 +19,10 @@ variables:
         - Project.toml 
         - Manifest.toml
       prefix: "${CACHE_PREFIX}-test"
-      paths:
-        - .julia/artifacts
-        - .julia/packages
-        - .julia/compiled
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
 
 
 
