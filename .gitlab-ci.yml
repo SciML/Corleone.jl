@@ -3,9 +3,10 @@ variables:
   JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
 
 stages:
-  - test 
   - prepare
-  - documentation
+  - test 
+  - render
+  - deploy
 
 .test_template: &test_definition
   script:
@@ -64,4 +65,38 @@ process-examples:
       - docs/examples/code 
       - test/examples
 
+render-docs:
+  stage: render
+  image: quarto-dev/quarto:1.7
+  script:
+    - quarto check
+    - quarto render docs
+  cache: 
+    key:
+      files: 
+        - docs/Project.toml 
+        - docs/Manifest.toml
+      prefix: "${CACHE_PREFIX}-doc"
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
+  artifacts:
+    paths:
+      - docs/examples/code 
+      - test/examples
+  needs:
+    - job: process-examples 
+      artifacts: true
+  artifacts:
+    paths:
+      - public
 
+#pages:
+#  stage: deploy
+#  image: alpine
+#  script:
+#    - echo "Deploying documentation"
+#  artifacts:
+#    paths:
+#      - public 
