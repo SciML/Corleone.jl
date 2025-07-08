@@ -67,7 +67,7 @@ julia:
   exeflags: ["--project=."]
 
 execute:
-  freeze: false
+  freeze: auto
 
 format:
   html:    

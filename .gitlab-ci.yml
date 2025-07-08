@@ -2,6 +2,11 @@ variables:
   CACHE_PREFIX: "julia-env-cache"
   JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
 
+stages:
+  - test 
+  - prepare
+  - documentation
+
 .test_template: &test_definition
   script:
     - |
@@ -34,8 +39,29 @@ variables:
 
 
 test:1.10:
+  stage: test
   image: julia:1.10 
   <<: *test_definition
 
+process-examples:
+  stage: prepare
+  image: julia:1.10
+  script:
+  - cd docs 
+  - julia --project=@. -e 'include("process_examples.jl")'
+  cache: 
+    key:
+      files: 
+        - docs/Project.toml 
+        - docs/Manifest.toml
+      prefix: "${CACHE_PREFIX}-doc"
+    paths:
+      - .julia/artifacts
+      - .julia/packages
+      - .julia/compiled
+  artifacts:
+    paths:
+      - docs/examples/code 
+      - test/examples
 
 

@@ -1,5 +1,6 @@
 using Pkg
 Pkg.activate(@__DIR__)
+Pkg.develop(path = joinpath(@__DIR__, ".."))
 
 include("utils.jl")
 
@@ -9,12 +10,13 @@ const TESTPATH = joinpath(
     pwd(), "..", "test", "examples"
 )
 
-const EXAMPLEPATH = joinpath(
-    pwd(), "..", "examples"
-)
 
 const EXAMPLEDOCPATH = joinpath(
     pwd(), "examples"
+)
+
+const EXAMPLEPATH = joinpath(
+    EXAMPLEDOCPATH, "code"
 )
 
 # Find all examples 
@@ -33,10 +35,5 @@ for file in readdir(EXAMPLEDOCPATH)
         end
     end
 end
-
-@info "Rendering Quarto"
-# run(`quarto render $(@__DIR__)`)
-
-@info "Deployment"
 
 @info "Finished"
