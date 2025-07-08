@@ -100,11 +100,11 @@ render-docs:
     paths:
       - public
 
-#pages:
-#  stage: deploy
-#  image: alpine
-#  script:
-#    - echo "Deploying documentation"
-#  artifacts:
-#    paths:
-#      - public 
+pages:
+  stage: deploy
+  image: alpine
+  script:
+    - echo "Deploying documentation"
+  artifacts:
+    paths:
+      - public 
