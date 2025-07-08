@@ -1,7 +1,7 @@
 variables:
   CACHE_PREFIX: "julia-env-cache"
   JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
-  QUARTO_VERSION: "1.7"
+  QUARTO_VERSION: "1.7.30"
 
 stages:
   - prepare
