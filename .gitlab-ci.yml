@@ -1,6 +1,7 @@
 variables:
   CACHE_PREFIX: "julia-env-cache"
   JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
+  QUARTO_VERSION: "1.7"
 
 stages:
   - prepare
@@ -67,10 +68,16 @@ process-examples:
 
 render-docs:
   stage: render
-  image: devxygmbh/alpine-quarto:1.7
+  image: julia:1.10
+  before_script:
+  - apt-get update  -y 
+  - apt-get install -y curl unzip 
+  - curl -LO https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb
+  - dpkg -i quarto-${QUARTO_VERSION}-linux-amd64.deb
+  - quarto check
   script:
-    - quarto check
-    - quarto render docs
+    - cd docs
+    - quarto render 
   cache: 
     key:
       files: 
