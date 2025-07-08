@@ -1,5 +1,6 @@
 variables:
   CACHE_PREFIX: "julia-env-cache"
+  JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
 
 .test_template: &test_definition
   script:
@@ -13,8 +14,7 @@ variables:
       using Coverage;
       coverage = process_folder(); 
       coverage = merge_coverage_counts(coverage, filter!(
-        let prefixes = (joinpath(pwd(), "src", ""),
-                    joinpath(pwd(), "deps", ""))
+        let prefixes = (joinpath(pwd(), "src", ""),)
         c -> any(p -> startswith(c.filename, p), prefixes)
         end,
         LCOV.readfolder("test")));
