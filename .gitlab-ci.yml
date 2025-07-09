@@ -96,19 +96,22 @@ render-docs:
   needs:
     - job: process-examples 
       artifacts: true
-  artifacts:
-    paths:
-      - public
-
-deploy-pages:
-  stage: deploy
-  image: alpine
   pages: true
-  script:
-    - echo "Deploying documentation"
-  needs:
-    - job: render-docs
-      artifacts: true
-  artifacts:
-    paths:
-      - public 
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+#  artifacts:
+#    paths:
+#      - public
+
+#deploy-pages:
+#  stage: deploy
+#  image: alpine
+#  pages: true
+#  script:
+#    - echo "Deploying documentation"
+#  needs:
+#    - job: render-docs
+#      artifacts: true
+#  artifacts:
+#    paths:
+#      - public 
