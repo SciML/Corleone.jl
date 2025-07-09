@@ -100,11 +100,15 @@ render-docs:
     paths:
       - public
 
-pages:
+deploy-pages:
   stage: deploy
   image: alpine
+  pages: true
   script:
     - echo "Deploying documentation"
+  needs:
+    - job: render-docs
+      artifacts: true
   artifacts:
     paths:
       - public 
