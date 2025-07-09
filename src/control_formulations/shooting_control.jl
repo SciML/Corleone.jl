@@ -43,7 +43,8 @@ function expand_formulation(::ShootingControl, sys, spec::NamedTuple)
     u0_sym = Symbol(variable, Symbol(Char(0x2080)))
     N = length(timepoints)
     ps = @parameters begin
-        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true]
+        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true,
+                differentialcontrol = differential]
         ($timepoint_sym)[1:N] = timepoints, [shooting = true, tunable = false]
     end
     append!(new_parameters, ps[1:2])

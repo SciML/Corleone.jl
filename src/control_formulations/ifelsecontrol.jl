@@ -26,13 +26,13 @@ struct IfElseControl{D} <: AbstractControlFormulation
     end
 end
 
-function _expand_ifelse(t, ts, ps)
+function _expand_ifelse(t, ts, ps; shooting::Bool=false)
     eq = Num(0)
     for i in axes(ts, 1)
         eq += if i == lastindex(ts)
             ifelse(t >= ts[i], ps[i], 0)
         elseif i == firstindex(ts)
-            ifelse(t < ts[i+1], ps[i], 0)
+            shooting ? ifelse((t >= ts[i]) & (t < ts[i+1]), ps[i], 0) : ifelse(t < ts[i+1], ps[i], 0)
         else
             ifelse((t >= ts[i]) & (t < ts[i+1]), ps[i], 0)
         end
@@ -53,7 +53,8 @@ function expand_formulation(::IfElseControl, sys, spec::NamedTuple)
     timepoint_sym = Symbol(variable, :ₜ)
     N = length(timepoints)
     ps = @parameters begin
-        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true]
+        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true,
+                differentialcontrol = differential]
         ($timepoint_sym)[1:N] = timepoints, [tstop = true, tunable = false]
     end
     append!(new_parameters, ps[1:2])

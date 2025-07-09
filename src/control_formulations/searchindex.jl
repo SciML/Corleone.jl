@@ -53,7 +53,8 @@ function expand_formulation(::SearchIndexControl, sys, spec::NamedTuple)
     timepoint_sym = Symbol(variable, :ₜ)
     N = length(timepoints)
     ps = @parameters begin
-        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true]
+        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true,
+                differentialcontrol=differential]
         ($timepoint_sym)[1:N] = timepoints, [tstop = true, tunable=false]
     end
     append!(new_parameters, ps[1:2])

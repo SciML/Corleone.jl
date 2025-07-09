@@ -27,6 +27,26 @@ get_localcontrols(sys) = filter(is_localcontrol, parameters(sys))
 """
 $(TYPEDEF)
 
+A struct to annotate differential control variables.
+"""
+struct DifferentialControl end
+Symbolics.option_to_metadata_type(::Val{:differentialcontrol}) = DifferentialControl
+is_differentialcontrol(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, DifferentialControl) && getmetadata(x, DifferentialControl, false)
+get_differentialcontrols(sys) = filter(is_differentialcontrol, parameters(sys))
+
+"""
+$(TYPEDEF)
+
+A struct to annotate bounds for controls of differential control variables.
+"""
+struct DifferentialControlBounds end
+Symbolics.option_to_metadata_type(::Val{:controlbounds}) = DifferentialControlBounds
+has_differentialcontrolbounds(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, DifferentialControlBounds)
+get_differentialcontrolbounds(x) = getmetadata(x, DifferentialControlBounds, (-Inf, Inf))
+
+"""
+$(TYPEDEF)
+
 A struct for storing the active shooting timepoints of a variable.
 """
 struct ShootingTimepoint end

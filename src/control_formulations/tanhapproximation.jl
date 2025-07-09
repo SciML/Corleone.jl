@@ -59,7 +59,8 @@ function expand_formulation(::TanhControl, sys, spec::NamedTuple)
     N = length(timepoints)
     lower, upper = ModelingToolkit.getbounds(control_var)
     ps = @parameters begin
-        ($local_controlsym)[1:N] = defaults, [bounds = (lower, upper), localcontrol = true]
+        ($local_controlsym)[1:N] = defaults, [bounds = (lower, upper), localcontrol = true,
+                differentialcontrol = differential]
         ($timepoint_sym)[1:N] = timepoints, [tunable = false, tstop = true]
         ($transition_sym) = 50.0, [tunable = false, bounds = (0.0, Inf)]
     end
