@@ -3,12 +3,6 @@ variables:
   JULIA_DEPOT_PATH: "$CI_PROJECT_DIR/.julia"
   QUARTO_VERSION: "1.7.30"
 
-stages:
-  - prepare
-  - test 
-  - render
-  - deploy
-
 .test_template: &test_definition
   script:
     - |
@@ -38,15 +32,8 @@ stages:
       - .julia/packages
       - .julia/compiled
 
-
-
-test:1.10:
-  stage: test
-  image: julia:1.10 
-  <<: *test_definition
-
 process-examples:
-  stage: prepare
+  stage: test 
   image: julia:1.10
   script:
   - cd docs 
@@ -66,8 +53,16 @@ process-examples:
       - docs/examples/code 
       - test/examples
 
+test:1.10:
+  stage: test
+  image: julia:1.10 
+  needs:
+    - job: process-examples 
+      artifacts: true
+  <<: *test_definition
+
 render-docs:
-  stage: render
+  stage: deploy 
   image: julia:1.10
   before_script:
   - apt-get update  -y 
@@ -91,24 +86,10 @@ render-docs:
       - .julia/compiled
   artifacts:
     paths:
-      - docs/examples/code 
-      - test/examples
+      - public 
   needs:
     - job: process-examples 
       artifacts: true
-  artifacts:
-    paths:
-      - public
-
-deploy-pages:
-  stage: deploy
-  image: alpine
   pages: true
-  script:
-    - echo "Deploying documentation"
-  needs:
-    - job: render-docs
-      artifacts: true
-  artifacts:
-    paths:
-      - public 
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
