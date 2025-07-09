@@ -97,8 +97,8 @@ render-docs:
     - job: process-examples 
       artifacts: true
   pages: true
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+#  rules:
+#    - if: $CI_COMMIT_BRANCH == "main"
 #  artifacts:
 #    paths:
 #      - public
