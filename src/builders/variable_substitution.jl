@@ -64,9 +64,15 @@ function append_shooting_constraints!(builder::AbstractBuilder)
     vars = ModelingToolkit.unknowns(system)
     constraints = ModelingToolkit.constraints(system)
     for v in vars
-        (ModelingToolkit.isinput(v) || is_costvariable(v)) && continue
+        is_costvariable(v) && continue
         var = operation(Symbolics.unwrap(v))
-        ps = _maybecollect(ModelingToolkit.getvar(system, Symbol(var, :ₛ), namespace=false))
+        if isinput(v)
+            pp = _maybecollect(ModelingToolkit.getvar(system, Symbol(var, :ᵢ), namespace=false))
+            !all(is_differentialcontrol.(pp)) && continue
+            ps = _maybecollect(ModelingToolkit.getvar(system, Symbol(var, :ₛ), namespace=false))
+        else
+            ps = _maybecollect(ModelingToolkit.getvar(system, Symbol(var, :ₛ), namespace=false))
+        end
         for i in 2:size(ps, 1)
             push!(constraints,
                 ps[i] - var(gridpoints[i]) ~ 0
@@ -104,7 +110,7 @@ function replace_shooting_variables!(builder::AbstractBuilder)
     append!(ModelingToolkit.constraints(system), collect(Union{Equation,Inequality}, new_constraints))
     empty!(ModelingToolkit.get_costs(system))
     append!(ModelingToolkit.get_costs(system), new_costs)
-    return builder 
+    return builder
 end
 
 function collect_explicit_timepoints!(subs, ex, vars, iv)
@@ -140,4 +146,3 @@ function create_cost_substitutions(subs, vars)
     end
     return statevars, newsubs, timepoints
 end
-

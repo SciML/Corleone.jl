@@ -15,12 +15,11 @@ function extend_system(newsys, basesys; name=nameof(basesys),
 end
 
 function __fallbackdefault(x)
-    if ModelingToolkit.hasbounds(x)
+    if Symbolics.hasmetadata(x, Symbolics.VariableDefaultValue)
+        return Symbolics.getdefaultval(x)
+    elseif ModelingToolkit.hasbounds(x)
         lo, hi = ModelingToolkit.getbounds(x)
         return (hi - lo) / 2
-    else
-        Symbolics.hasmetadata(x, Symbolics.VariableDefaultValue)
-        return Symbolics.getdefaultval(x)
     end
     return zero(Symbolics.symtype(x))
 end

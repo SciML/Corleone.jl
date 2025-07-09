@@ -44,9 +44,10 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
     psym = Symbol(variable, :ₚ)
     N = length(timepoints)
     ps = @parameters begin
-        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true]
+        ($local_controlsym)[1:N] = defaults, [bounds = bounds, localcontrol = true,
+                differentialcontrol = differential]
         ($timepoint_sym)[1:N] = timepoints, [tstop = true, tunable = false]
-        ($psym) = 0.0
+        ($psym)(iv) = 0.0, [tunable=false]
     end
     if !differential
         append!(new_parameters, ps[1:2])
@@ -61,7 +62,9 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
     else
         append!(new_parameters, ps)
         for i in eachindex(timepoints)
-            push!(callback_eqs, (iv == ps[2][i]) => [ps[3] ~ ModelingToolkit.Pre(ps[1][i])])
+            push!(callback_eqs, ModelingToolkit.SymbolicDiscreteCallback(iv == ps[2][i]  => [ps[3] ~ ModelingToolkit.Pre(ps[1][i])]; discrete_parameters=ps[3], iv=iv,
+                initialize= [ps[3] ~ _expand_ifelse(iv, Pre(ps[2]), Pre(ps[1]))]
+                ))
         end
         append!(
             new_equations, [
@@ -69,6 +72,7 @@ function expand_formulation(::DirectControlCallback, sys, spec::NamedTuple)
             ]
         )
     end
+
     controlsys = System(
         new_equations,
         ModelingToolkit.get_iv(sys), [], new_parameters;

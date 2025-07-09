@@ -47,7 +47,12 @@ function collect_control_shooting!(new_ps, eqs, inits, x, sys, timepoints)
     varsym = Symbol(iscall(var) ? operation(var) : var)
     ps = ModelingToolkit.getvar(sys, Symbol(varsym, :ᵢ), namespace=false)
     ts = ModelingToolkit.getvar(sys, Symbol(varsym, :ₜ), namespace=false)
-    push!(inits, x ~ _expand_ifelse(ModelingToolkit.get_iv(sys), collect(ts), collect(ps)))
+    diff_control = all(is_differentialcontrol.(collect(ps)))
+    if diff_control
+        collect_variable_shooting!(new_ps, eqs, inits, x, sys, timepoints)
+    else
+        push!(inits, x ~ _expand_ifelse(ModelingToolkit.get_iv(sys), collect(ts), collect(ps); shooting=true))
+    end
 end
 
 function collect_variable_shooting!(new_ps, eqs, inits, x, sys, timepoints)

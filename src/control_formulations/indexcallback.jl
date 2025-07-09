@@ -6,27 +6,27 @@ Extends the system using a `DiscreteCallback` at the specified timepoints for ea
 # Fields
 $(FIELDS)
 
-# Formulations 
+# Formulations
 
-If the control signal `u` is a variable, the corresponding callback will be added directly 
-
-```math 
-u = u_i[k]
-``` 
-
-If the control signal acts on a differential variable, we use a dummy parameter `uₚ` 
+If the control signal `u` is a variable, the corresponding callback will be added directly
 
 ```math
-u_t = u_p, 
-u_p = u_i[k] 
-``` 
+u = u_i[k]
+```
+
+If the control signal acts on a differential variable, we use a dummy parameter `uₚ`
+
+```math
+u_t = u_p,
+u_p = u_i[k]
+```
 """
 struct IndexControlCallback{D} <: AbstractControlFormulation
     "The control specifications"
     controls::D
 end
 
-# TODO This does not work due to either system initialization or callbacks. 
+# TODO This does not work due to either system initialization or callbacks.
 # Maybe switch to imperative callbacks here.
 function (method::IndexControlCallback)(sys)
     throw(error("$(typeof(method)) is currently not implemented. Please switch to a different formulation."))
@@ -58,7 +58,8 @@ function (method::IndexControlCallback)(sys)
         indexsym = Symbol(usym, :ₖ)
         changepoint = Symbol(usym, :ₛ)
         ps = @parameters begin
-            ($localsym)[1:N] = defval, [bounds = (lower, upper), localcontrol = true]
+            ($localsym)[1:N] = defval, [bounds = (lower, upper), localcontrol = true,
+                    differentialcontrol = differential]
             ($tswitches)[1:N] = timepoints, [tstop = true]
             ($indexsym)(t)::Int = 1
         end
