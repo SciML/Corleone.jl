@@ -87,10 +87,9 @@ end
 function extract_test_blocks(text::AbstractString)
     output = ""
     for m in eachmatch(Regex("```julia\n(?s)(.*?)\n```"), text)
-        lines = split(m.captures[1], '\n')
-        filtered_lines = [line for line in lines if startswith(strip(line), "@test")]
-        # Split the content into lines
-        output *= join(filtered_lines, '\n')
+        if occursin("@test", m.captures[1])
+            output *= m.captures[1]
+        end
     end
     return output
 end
@@ -122,10 +121,10 @@ function parse_example_file_to_test(input, output; pattern="{julia}", exclude=de
     # Append Test
     fname = first(split(basename(input), "."))
     raw_code = "using Test\n" * raw_code * test_code
-    if isfile(output) && raw_code != read(output, String)
+    if (isfile(output) && raw_code != read(output, String)) || !isfile(output)
         write(output, raw_code)
         return true
     end
-    return false 
+    return false
 end
 

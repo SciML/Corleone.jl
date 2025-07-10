@@ -257,4 +257,15 @@ Additional tests which are exported:
 @test SciMLBase.ReturnCode.Success == optimization_solution.retcode
 @test isapprox(optimization_solution.objective, 1.5772524e+01)
 @test optimization_solution.stats.iterations == 3 
+final_system = optimization_problem.f.f.predictor.problem.f.sys
+@test ModelingToolkit.iscomplete(final_system)
+@test Corleone.get_shootingpoints(final_system) == [0.0]
+xshoot = Corleone.get_shootingpoint_variables(final_system)
+@test length(xshoot) == 1 
+@test length(only(xshoot)) == 1
+@test isequal(collect.(xshoot), collect.([final_system.xₛₜ]))
+ucontrol =  Corleone.get_localcontrols(final_system)
+@test length(ucontrol) == 1 
+@test length(only(ucontrol)) == 20
+@test isequal(collect.(ucontrol), collect.([final_system.uᵢ]))
 ```
