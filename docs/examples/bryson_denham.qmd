@@ -1,5 +1,5 @@
 ---
-title: Van der Pol 
+title: Bryson Denham 
 author: Carl Julius Martensen
 date: last-modified
 categories: 
@@ -23,19 +23,19 @@ using Corleone.Symbolics
 ```
 
 ```{julia}
-function VanDerPol(; name::Symbol)
+function BrysonDenham(; name::Symbol)
     vars = @variables begin
-        x₁(..) = 0., [tunable=false, bounds = (-0.25, Inf)]
-        x₂(..) = 1., [tunable = false]
-        u(..) = 0.0, [input = true, bounds = (0., 1.)]
+      x(..) = 0., [tunable=false, bounds = (-Inf, 1. / 9.)]
+      y(..) = 1., [tunable = false]
+      u(..) = 0.0, [input = true]
     end 
-    cons=[Inequality(-x₁(ti) - 0.25,  0.0, ≲) for ti in collect(0.0:0.5:10.0)]
+    cons=[x(1) ~ 0.0, -y(1) - 1. ~ 0.0]
     eqs = [
-        D(x₁(t)) ~ (1 - x₂(t)^2) * x₁(t) - x₂(t) + u(t)
-        D(x₂(t)) ~ x₁(t)
+        D(x(t)) ~ y(t)
+        D(y(t)) ~ u(t)
     ]
     costs = [ 
-        Symbolics.Integral(t in (0., 10.)).((x₁(t))^2 + (x₂(t))^2 + (u(t))^2)
+        0.5 * Symbolics.Integral(t in (0., 1.)).((u(t))^2)
     ]
     return ODESystem(
         eqs, t, costs = costs, constraints = cons, consolidate = (x...) -> first(x)[1], name = name
@@ -44,16 +44,16 @@ end
 ```
 
 ```{julia}
-oscillator = VanDerPol(; name = :VanDerPol)
+oscillator = BrysonDenham(; name = :BrysonDenham)
 ```
 
 ```{julia}
 u = ModelingToolkit.getvar(oscillator, :u, namespace = false)
-control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.25:10.0)));
+control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.025:1.0)));
 ```
 
 ```{julia}
-problem = OCProblemBuilder(oscillator, control, ShootingGrid(collect(0.:1.:9.)));
+problem = OCProblemBuilder(oscillator, control, ShootingGrid(collect(LinRange(0., 1., 11))));
 expandedproblem = problem()
 ```
 
@@ -79,13 +79,13 @@ optimization_solution = solve(optimization_problem, Ipopt.Optimizer(); max_iter 
 using CairoMakie
 
 
-function result_plot_vanderpol(problem, u)
+function result_plot_bryson_denham(problem, u)
   f = Figure(title = "Bryson Denham Results")
   ax = Axis(f[1,1], ylabel = "x(t)")
   ax2 = Axis(f[2, 1], ylabel = "u(t)")
   sol = problem.f.f.predictor(u, saveat = 0.01)[1]
   for i in collect(1:1:10)
-    plot!(sol[i], idxs = [:x₁, :x₂]) 
+    plot!(sol[i], idxs = [:x, :y]) 
     plot!(sol[i], idxs = [:u])
   end
   linkxaxes!(ax, ax2)
@@ -94,10 +94,10 @@ end
 
 # We want two outputs for the light and dark rendering. Hence we use display
 update_theme!(theme_light());
-f_light = result_plot_vanderpol(optimization_problem, optimization_solution.u)
+f_light = result_plot_bryson_denham(optimization_problem, optimization_solution.u)
 display(f_light)
 update_theme!(theme_dark());
-f_dark = result_plot_vanderpol(optimization_problem, optimization_solution.u)
+f_dark = result_plot_bryson_denham(optimization_problem, optimization_solution.u)
 
 ```
 
