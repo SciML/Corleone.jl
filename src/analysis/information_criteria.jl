@@ -14,30 +14,29 @@ struct InformationGain{L,G,T,M}
     μ::M
 end
 
-function Corleone.InformationGain(builder::OEDProblemBuilder, predictor::OCPredictor, u_opt; kwargs...)
+function Corleone.InformationGain(predictor::OCPredictor, u_opt; kwargs...)
     fwdsol = predictor(u_opt; kwargs...)[1];
 
+    system = predictor.problem.f.sys
+    ob = map(x -> x.rhs, ModelingToolkit.observed(system))
 
-    ob = map(x -> x.rhs, ModelingToolkit.observed(builder.system))
-
-    sts = filter(x -> Corleone.is_statevar(x) && !Corleone.is_fim(x) && !Corleone.is_sensitivity(x), unknowns(builder.system))
-    G_states = filter(Corleone.is_sensitivity, unknowns(builder.system))
+    sts = filter(x -> Corleone.is_statevar(x) && !Corleone.is_fim(x) && !Corleone.is_sensitivity(x), unknowns(system))
+    G_states = filter(Corleone.is_sensitivity, unknowns(system))
 
     nx = length(sts)
     np = Int(length(G_states)/nx)
 
     G_states = map(Iterators.product(Base.OneTo(2), Base.OneTo(np))) do (i,j)
-        ModelingToolkit.getvar(builder.system, Symbol("G", string(i), string(j)))
+        ModelingToolkit.getvar(system, Symbol("G", string(i), string(j)))
     end
 
     F_states = map(Iterators.product(Base.OneTo(np), Base.OneTo(np))) do (i,j)
         if i <= j
-            ModelingToolkit.getvar(builder.system, Symbol("F", string(i), string(j)))
+            ModelingToolkit.getvar(system, Symbol("F", string(i), string(j)))
         else
-            ModelingToolkit.getvar(builder.system, Symbol("F", string(j), string(i)))
+            ModelingToolkit.getvar(system, Symbol("F", string(j), string(i)))
         end
     end
-
 
     timepoints = reduce(vcat, map(fwdsol) do sol
         sol.t
@@ -49,12 +48,12 @@ function Corleone.InformationGain(builder::OEDProblemBuilder, predictor::OCPredi
         gram' * gram
     end
 
-
     Pi_eval = reduce(vcat, map(fwdsol) do sol
         SymbolicIndexingInterface.getsym(sol, Pi)(sol)
     end)
 
-    F_inv = inv(last(getsym(last(fwdsol), F_states)(last(fwdsol))))
+    F_tf = last(getsym(last(fwdsol), F_states)(last(fwdsol)))
+    F_inv = inv(F_tf)
 
     GIG_eval = map(Pi_eval) do Pit
         map(Pit) do Pii
@@ -67,5 +66,3 @@ function Corleone.InformationGain(builder::OEDProblemBuilder, predictor::OCPredi
     return Corleone.InformationGain{typeof(Pi_eval), typeof(GIG_eval), typeof(timepoints), typeof(multiplier)}(Pi_eval, GIG_eval,
                 timepoints, multiplier)
 end
-
-

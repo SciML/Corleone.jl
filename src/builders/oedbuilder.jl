@@ -17,7 +17,7 @@ struct OEDProblemBuilder{C,G} <: AbstractBuilder
 end
 
 # This makes it so that the OEDBuilder does not replace the costs with anything
-__process_costs(::OEDProblemBuilder) = false 
+__process_costs(::OEDProblemBuilder) = false
 __process_constraints(::OEDProblemBuilder) = true
 
 function OEDProblemBuilder(sys::ModelingToolkit.System, controls::C,
@@ -44,17 +44,13 @@ function expand_equations!(prob::OEDProblemBuilder)
     filter_p = findall(is_statevar, unknowns(system))
     sts = unknowns(system)[filter_p]
     eqs = equations(system)[filter_p]
-    _ff = map(eqs) do eq
-        if operation(eq.lhs) == Differential(t)
-            eq.rhs
-        else
-            throw(error("Equation is not in standard form ̇x=f(x)."))
-        end
-    end
-    dfdx = Symbolics.jacobian(_ff, sts)
+
+    eqf = [eq.lhs - eq.rhs for eq in eqs]
+    dfdx = Symbolics.jacobian(eqf, sts)
+    dfddx = Symbolics.jacobian(eqf, D.(sts))
     pp = reduce(vcat, filter(x -> is_uncertain(x) && !(is_shootingvariable(x) || is_shootingpoint(x) || is_localcontrol(x) || is_tstop(x)), parameters(system)))
     np, nx = length(pp), length(sts)
-    dfdp = Symbolics.jacobian(_ff, pp)
+    dfdp = Symbolics.jacobian(eqf, pp)
     G = reduce(vcat, map(1:np) do j
         reduce(vcat, map(1:nx) do i
             Gsym = Symbol("G", "$i", "$j")
@@ -75,14 +71,16 @@ function expand_equations!(prob::OEDProblemBuilder)
     _G = map(x -> x(t), reshape(G, (nx, np)))
     _F = map(x -> x(t), F)
 
-    dg = dfdp .+ dfdx * _G
-    sens_eqs = vec(D.(_G)) .~ vec(dg)
+    dg = dfdp .+ dfdx * _G .+ dfddx * D.(_G)
+    sens_eqs = 0 .~ vec(dg)
 
     obs_eqs = map(x -> x.rhs, ModelingToolkit.observed(system))
     nh = length(obs_eqs)
+    @assert nh > 0 "No observed equations given!"
+    w_bounds = map(x -> ModelingToolkit.hasbounds(x.lhs) ? ModelingToolkit.getbounds(x.lhs) : (0.0, 1.0), ModelingToolkit.observed(system))
     w = reduce(vcat, map(1:nh) do i
         wsym = Symbol("w", "$i")
-        @variables ($(wsym)(..) = 1.0, [input=true, bounds=(0.0,1.0), measurements=true])
+        @variables ($(wsym)(..) = 1.0, [input=true, bounds=w_bounds[i], measurements=true])
     end)
 
     upper_triangle = triu(trues(np, np))
@@ -110,7 +108,7 @@ function expand_equations!(prob::OEDProblemBuilder)
 end
 
 
-function replace_controls!(prob::OEDProblemBuilder)
+ function replace_controls!(prob::OEDProblemBuilder)
     (; controls, system) = prob
 
     controls = only(controls)
@@ -206,4 +204,3 @@ function (prob::OEDProblemBuilder)(; kwargs...)
     prob = @set prob.system = complete(prob.system; add_initial_parameters=false)
     return prob
 end
-
