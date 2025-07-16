@@ -96,19 +96,19 @@ using CairoMakie
 function result_plot_f8aircraft(problem, u)
   sol = problem.f.f.predictor(u, saveat = 0.01);
   # We add the right time scaling here
-  sol[1].t .*= optsol.u[end]
+  sol[1].t .*= u[end]
   f = Figure()
   ax1 = Axis(f[1,1], ylabel = "v(t)")
   plot!(sol[1], idxs = [:v])
   ax2 = Axis(f[1,2], ylabel = "x₁(t)")
   plot!(sol[1], idxs = [:x₁])
-  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  lines!([0., u[end]], [0., 0.], color = :black, linestyle = :dash)
   ax3 = Axis(f[2,1], ylabel = "x₂(t)", xlabel = "Time")
   plot!(sol[1], idxs = [:x₂])
-  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  lines!([0., u[end]], [0., 0.], color = :black, linestyle = :dash)
   ax4 = Axis(f[2,2], ylabel = "x₃(t)", xlabel = "Time")
   plot!(sol[1], idxs = [:x₃])
-  lines!([0., optsol.u[end]], [0., 0.], color = :black, linestyle = :dash)
+  lines!([0., u[end]], [0., 0.], color = :black, linestyle = :dash)
   linkxaxes!(ax1, ax2, ax3, ax4)
   return f
 end
