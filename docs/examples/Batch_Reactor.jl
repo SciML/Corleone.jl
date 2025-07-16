@@ -1,0 +1,96 @@
+
+using Corleone
+using Corleone.ModelingToolkit
+using Corleone.ModelingToolkit: t_nounits as t, D_nounits as D
+using CairoMakie
+
+
+
+function BatchReactor(; name::Symbol)
+    vars = @variables begin
+        x₁(..) = 1., [description = "Concentration Species 1", tunable = false]
+        x₂(..) = 0., [description = "Concentration Species 2", tunable = false]
+        u(t)=348.0, [description = "Temperature in K", input = true, bounds = (298., 398.)]
+        k₁(t), [description = "Rates"]
+        k₂(t), [description = "Rates"]
+    end 
+    params = @parameters begin 
+        c[1:2]=[4000., 620000.], [tunable=false]
+        E[1:2]=[2500., 5000.], [tunable=false]
+    end 
+    eqs = [
+        k₁ ~ c[1] * exp(-E[1] / u)
+        k₂ ~ c[2] * exp(-E[2] / u)
+        D(x₁(t)) ~ -k₁*x₁(t)^2
+        D(x₂(t)) ~ k₁*x₁(t)^2-k₂*x₂(t)
+    ]
+    costs = [ 
+        -x₂(1.0)
+    ]
+    ODESystem(
+        eqs, t, costs = costs, consolidate = (x...) -> first(x)[1], name = name
+    )    
+end
+
+
+
+reactor = BatchReactor(; name = :Batchreactor)
+
+
+u = ModelingToolkit.getvar(reactor, :u, namespace = false)
+control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:2.0:46.0)));
+
+
+
+problem = OCProblemBuilder(reactor, control, ShootingGrid([0.,]));
+expandedproblem = problem()
+
+
+
+using Optimization, OptimizationMOI, Ipopt
+using OrdinaryDiffEqTsit5, SciMLSensitivity
+
+
+
+optimization_problem = OptimizationProblem{true}(expandedproblem, AutoForwardDiff(), Tsit5())
+
+
+
+optimization_solution = solve(optimization_problem, Ipopt.Optimizer(),);
+
+
+## Solution 
+
+
+#| code-fold: true
+#| renderings: [light, dark]
+
+using CairoMakie
+
+function result_plot_batchreactor(problem, u)
+  sol = problem.f.f.predictor(u, saveat = 0.01);
+  f = Figure(title = "LQR Results")
+  ax = Axis(f[1,1], ylabel = "x(t)")
+  plot!(sol[1], idxs = [:x₁, :x₂])
+  lines!([0., sol[1].t[end]], [0.611715, 0.611715], color = :black, linestyle = :dash)
+  ax2 = Axis(f[2, 1], ylabel = "u(t)") 
+  plot!(sol[1], idxs = [:u])
+  linkxaxes!(ax, ax2)
+  return f
+end
+# We want two outputs for the light and dark rendering. Hence we use display
+update_theme!(theme_light());
+f_light = result_plot_batchreactor(optimization_problem, optimization_solution.u)
+display(f_light)
+update_theme!(theme_dark());
+f_dark = result_plot_batchreactor(optimization_problem, optimization_solution.u)
+
+
+## Appendix
+
+#| code-fold: true
+using Pkg
+
+versioninfo()
+
+Pkg.status() 

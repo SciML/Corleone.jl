@@ -1,0 +1,160 @@
+---
+title: Goddard Rocket
+author: Reinhold Wittmann
+date: last-modified
+categories: 
+  - ODE
+  - Aeronautics
+  - variable time horizon
+description: This example introduces a variable time horizon problem that is solved via multiple shooting.
+engines: ['julia']
+julia:
+  exeflags: ["--project=.."]
+format: 
+  html: default
+  ipynb: default
+---
+```{julia}
+using Corleone
+using Corleone.ModelingToolkit
+using Corleone.ModelingToolkit: t_nounits as t, D_nounits as D
+using UnPack
+```
+
+```{julia}
+function Goddard_Rocket(; name::Symbol = :Goddard_Rocket, custom_params::Dict{Symbol, Float64} = Dict{Symbol, Float64}())
+    default_params = Dict(
+        :rT => 1.01,
+        :b => 7.0,
+        :A => 310.0,
+        :k => 500.0,
+        :Tmax => 3.5,
+        :C => 0.6,
+        :x_init => [1.0, 0.0, 1.0]
+    )
+    model_params = merge(default_params, custom_params)
+    @unpack rT, b, A, k, Tmax, C, x_init = model_params
+    r0, v0, m0 = x_init
+    
+    vars = @variables begin
+        r(..) = r0, [description = "Scaled distance from earth center", tunable = false, bounds = (1., Inf)]
+        v(..) = v0, [description = "Scaled vertical speed", tunable = false, bounds = (0., Inf)]
+        m(..) = m0, [description = "Scaled mass", tunable = false, bounds = (0., Inf)]
+        u(..) = 0.8, [description = "Thrust control", input = true, bounds = (0., 1.)]
+    end
+    
+    # The problem has a variable time horizon.
+    # We transform it to a constant time horizon via a scaling parameter T
+    params = @parameters begin 
+        T = 1.0/7.0, [description = "Time scale", bounds = (0., Inf)]
+    end
+    
+    drag(r_,v_) = A*(v_^2) * exp(-k * (r_ - r0))
+    
+    # The time scale T is applied to the ODE
+    eqs = [
+        D(r(t)) ~ T * v(t)
+        D(v(t)) ~ T * (-1/r(t)^2 + (1/m(t)) * (Tmax*u(t) - drag(r(t), v(t))))
+        D(m(t)) ~ T * (-b*u(t))
+    ]
+    
+    # Maximize rocket weight at end time (~ minimize fuel consumption) ...
+    costs = [ 
+        -m(1.0)
+    ]
+    
+    # ... while reaching the scaled height rT = 1.01 from 1.0 ...
+    cons = vcat(
+        [r(1.0) ≳ rT],
+        [drag(r(ti), v(ti)) ≲ C for ti in 0.0:0.05:1.0]
+    )
+    # ... and keeping the maximum scaled atmospheric drag below C = 0.6
+    
+    ODESystem(
+        eqs, t, costs = costs, constraints = cons, consolidate = (x...) -> first(x)[1], name = name
+    )
+end
+```
+
+```{julia}
+rocket = Goddard_Rocket(;)
+```
+
+```{julia}
+u = ModelingToolkit.getvar(rocket, :u, namespace = false)
+control = DirectControlCallback(Num(u) => (; timepoints = collect(0.0:0.05:1.0)));
+problem = OCProblemBuilder(rocket, control, ShootingGrid(collect(0.:0.1:1.0)));
+expandedproblem = problem()
+print(expandedproblem)
+```
+
+```{julia}
+using Optimization, OptimizationMOI, Ipopt
+using OrdinaryDiffEqTsit5, SciMLSensitivity
+```
+
+```{julia}
+optimization_problem = OptimizationProblem{true}(expandedproblem, AutoForwardDiff(), Tsit5())
+optimization_solution = solve(optimization_problem, Ipopt.Optimizer();
+                                                        max_iter = 100,
+                                                        tol = 1e-6,
+                                                        hessian_approximation = "limited-memory");
+```
+
+## Solution 
+```{julia}
+using CairoMakie
+
+function result_plot_ensemble(problem, u; title = "Goddard's Rocket", backgroundcolor = nothing)
+    f = isnothing(backgroundcolor) ? Figure(title = title) : Figure(title = title; backgroundcolor = backgroundcolor)
+
+    sol = problem.f.f.predictor(u, saveat = 0.01)[1]
+    
+    # Result is an ensemble solution, one trajectory for each shooting interval,
+    # hence we need to call plot! for each.
+    ax_r = Axis(f[1,1], ylabel = "r(t)")
+    for i in 1:1:10
+        # u[end] contains the scaling parameter T.
+        # ~> scale time grid of each shooting interval.
+        sol[i].t .*= u[end]
+        
+        plot!(sol[i], idxs = [:r]; color = :green) 
+    end
+
+    ax_v = Axis(f[2,1], ylabel = "v(t)")
+    for i in 1:1:10
+        plot!(sol[i], idxs = [:v]; color = :blue) 
+    end
+
+    ax_m = Axis(f[3,1], ylabel = "m(t)")
+    for i in 1:1:10
+        plot!(sol[i], idxs = [:m]; color = :orange) 
+    end
+
+    ax_u = Axis(f[4,1], ylabel = "u(t)")
+    for i in 1:1:10
+        plot!(sol[i], idxs = [:u]; color = :red) 
+    end
+
+    linkxaxes!(ax_r, ax_v, ax_m, ax_u)
+    return f
+end
+```
+
+# We want two outputs for the light and dark rendering. Hence we use display
+
+```{julia}
+set_theme!(theme_light())
+f_light = result_plot_ensemble(optimization_problem, optimization_solution.u)
+display(f_light)
+
+set_theme!(theme_black())
+f_black = result_plot_ensemble(optimization_problem, optimization_solution.u)
+display(f_black)
+```
+
+## Appendix
+```{julia}
+using Pkg
+Pkg.status()
+``` 
