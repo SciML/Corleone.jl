@@ -31,7 +31,7 @@ A struct to annotate differential control variables.
 """
 struct DifferentialControl end
 Symbolics.option_to_metadata_type(::Val{:differentialcontrol}) = DifferentialControl
-is_differentialcontrol(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, DifferentialControl) && getmetadata(x, DifferentialControl, false)
+is_differentialcontrol(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, DifferentialControl, false)
 get_differentialcontrols(sys) = filter(is_differentialcontrol, parameters(sys))
 
 """
@@ -92,32 +92,32 @@ A struct to annotate added variables for sensitivities.
 """
 struct Sensitivities end
 Symbolics.option_to_metadata_type(::Val{:sensitivities}) = Sensitivities
-is_sensitivity(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Sensitivities)
+is_sensitivity(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, Sensitivities, false)
 
 """
 A struct to annotate added variables for Fisher information matrices.
 """
 struct FIM end
 Symbolics.option_to_metadata_type(::Val{:fim}) = FIM
-is_fim(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, FIM)
+is_fim(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, FIM, false)
 
 """
 A struct to annotate added variables for measurement variables for OED.
 """
 struct Measurement end
 Symbolics.option_to_metadata_type(::Val{:measurements}) = Measurement
-is_measurement(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Measurement)
+is_measurement(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, Measurement, false)
 
 """
 A struct to annotate parameters to consider for OED.
 """
 struct UncertainParameter end
 Symbolics.option_to_metadata_type(::Val{:uncertain}) = UncertainParameter
-is_uncertain(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, UncertainParameter)
+is_uncertain(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, UncertainParameter, false)
 
 """
 A struct to annotate parameters to consider for OED.
 """
 struct Regularization end
 Symbolics.option_to_metadata_type(::Val{:regularization}) = Regularization
-is_regularization(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = hasmetadata(x, Regularization)
+is_regularization(x::Union{Num,Symbolics.Arr,SymbolicUtils.Symbolic}) = getmetadata(x, Regularization, false)

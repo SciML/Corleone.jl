@@ -146,9 +146,10 @@ function replace_costs!(prob::OEDProblemBuilder)
     regu = ModelingToolkit.getvar(system, :ϵ; namespace=false)
 
     fim_states = sort(filter(is_fim, unknowns(system)), by=x->string(x))
+    pp = reduce(vcat, filter(x -> is_uncertain(x) && !(is_shootingvariable(x) || is_shootingpoint(x) || is_localcontrol(x) || is_tstop(x)), parameters(system)))
 
     fim_states_mayer = map(x->operation(x)(tf), fim_states)
-    F_mayer = __symmetric_from_vector(fim_states_mayer, regu)
+    F_mayer = _symmetric_from_vector(fim_states_mayer, Val(length(pp)), regu)
     new_costs = [crit(F_mayer) + regu]
 
     sys = @set system.costs = new_costs
