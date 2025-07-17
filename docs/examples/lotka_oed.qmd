@@ -65,7 +65,7 @@ controlmethod = DirectControlCallback(
     u(t) => (; timepoints=tpoints,
         defaults= collect(LinRange(0., 1., N))),
     h1(t) => (; timepoints=tpoints,
-        defaults= ones(N), bounds=(0.,1.)),
+        defaults= ones(N)),
     h2(t) => (; timepoints=tpoints,
         defaults= ones(N)
     )
