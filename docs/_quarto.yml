@@ -6,7 +6,9 @@ project:
     - "*.qmd"
     - "examples/*.qmd"
     - "examples/*.jl"
-
+  resources:
+    - "examples/code/"
+    
 manuscript:
   meca-bundle: true
 
@@ -19,7 +21,6 @@ crossref:
       reference-prefix: Doc # The text that will appear before the number in references (e.g., "Callout 1")
       
 fig-format: png
-
 
 website:
   title: "Corleone.jl"

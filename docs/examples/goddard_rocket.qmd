@@ -16,8 +16,8 @@ format:
 ---
 ```{julia}
 using Corleone
-using Corleone.ModelingToolkit
-using Corleone.ModelingToolkit: t_nounits as t, D_nounits as D
+using ModelingToolkit
+using ModelingToolkit: t_nounits as t, D_nounits as D
 using UnPack
 ```
 

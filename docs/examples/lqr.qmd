@@ -14,7 +14,7 @@ format:
   mediawiki: default
 format-links: 
   - text: Julia 
-    href: ../../examples/lqr.jl 
+    href: ./code/lqr.jl 
     icon: file-code 
   - ipynb
 ---
