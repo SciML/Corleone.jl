@@ -110,10 +110,10 @@ end
 
 # We want two outputs for the light and dark rendering. Hence we use display
 update_theme!(theme_light());
-f_light = plot_sol(sol.u)
+f_light = plot_sol(sol)
 display(f_light)
 update_theme!(theme_dark());
-f_dark = plot_sol(sol.u)
+f_dark = plot_sol(sol)
 
 ```
 
@@ -136,10 +136,10 @@ plot_ig(IG, mult) = begin
 end
 
 update_theme!(theme_light());
-f_light = plot_ig(IG, mult)
+f_light = plot_ig(IG, multiplier)
 display(f_light)
 update_theme!(theme_dark());
-f_dark = plot_ig(IG, mult)
+f_dark = plot_ig(IG, multiplier)
 
 
 ```
