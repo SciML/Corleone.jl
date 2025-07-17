@@ -1,5 +1,5 @@
 ---
-title: Egerstedt
+title: Lotka OED
 author: Christoph Plate
 date: last-modified
 categories: 
