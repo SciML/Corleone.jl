@@ -42,13 +42,17 @@ function replace_portion(x::AbstractArray{X}, y::AbstractArray{Y}, indices::Vect
     T = promote_type(X, Y)
     isempty(indices) && return T.(x)
     a, b = first.(indices), last.(indices)
-    finder = Base.Fix1(searchsortedfirst, b)
-    x_replaced = T.(map(eachindex(x)) do i
-        idx = finder(i)
-        idx > lastindex(a) && return x[i]
-        y_idx = a[idx]
-        y[y_idx]
-    end)
+    xreplace = [i ∈ b for i in eachindex(x)]
+    xkeep = .! xreplace 
+    ys = y[a]
+    xkeep .* x .+ xreplace .* ys
+    #finder = Base.Fix1(searchsortedfirst, b)
+    #x_replaced = T.(map(eachindex(x)) do i
+    #    idx = finder(i)
+    #    idx > lastindex(a) && return x[i]
+    #    y_idx = a[idx]
+    #    y[y_idx]
+    #end)
 end
 
 #==
@@ -138,17 +142,15 @@ function collect_parameters(prob, u0map, configuration)
 end
 
 # Test
-function lotka!(du, u, p, t)
-    du[1] = u[1] - u[1] * u[2] - p[1] * u[1]
-    du[2] = u[1] * u[2] - u[2] - p[2] * u[2]
-    return
+function lotka(u, p, t)
+    [u[1] - u[1] * u[2] - p[1] * u[1], u[1] * u[2] - u[2] - p[2] * u[2]]
 end
 
 u0 = ones(2)
 p0 = zeros(2)
 tspan = (0.0, 10.0)
 
-prob = ODEProblem{true, SciMLBase.FullSpecialize}(lotka!, u0, tspan, p0)
+prob = ODEProblem{false, SciMLBase.FullSpecialize}(lotka, u0, tspan, p0)
 
 using OrdinaryDiffEqTsit5
 
@@ -167,8 +169,10 @@ shoot = ShootingProblem(
 
 p0 = get_defaults(shoot)
 
-sol_1 = solve(shoot, Tsit5())
-@info sol_1.elapsedTime
+# First Call 
+@time sol_1 = solve(shoot, Tsit5())
+# Second Call 
+@time sol_1 = solve(shoot, Tsit5())
 plot(sol_1)
 
 p0[2:end] .= Float64.(rand(Bool, length(p0) - 1))
@@ -179,9 +183,9 @@ plot(sol)
 using SciMLSensitivity #, Zygote
 
 objective = let shoot = shoot 
-    (p) -> begin  
-        sol = solve(shoot, Tsit5(), p = p)
-        sum(abs2, 1 .- last(sol.u).u[end])
+    (p) -> begin 
+        sol = solve(prob, Tsit5(), p = p)
+        sum(abs2, 1 .- last(sol.u))
     end 
 end
 
@@ -189,7 +193,12 @@ objective(p0)
 
 using ForwardDiff
 
-ForwardDiff.gradient(objective, p0)
+ForwardDiff.gradient(objective, p0[1:2])
 
+@btime ForwardDiff.gradient($objective, $p0)
 
-Zygote.gradient(objective, p0)
+using Zygote
+Zygote.gradient(objective, p0[1:2])
+
+Zygote.gradient(sum ∘ replace_portion, ones(2), randn(3), [2 =>2])
+
