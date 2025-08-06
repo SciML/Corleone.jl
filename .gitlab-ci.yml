@@ -92,4 +92,4 @@ render-docs:
       artifacts: true
   pages: true
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "superduperstuffmain"
