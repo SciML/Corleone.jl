@@ -1,3 +1,8 @@
+name = "CorleoneCore"
+uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+authors = ["JuliusMartensen <julius.martensen@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 FindFirstFunctions = "64ca27bc-2ba2-4a57-88aa-44e436879224"
@@ -5,3 +10,4 @@ LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"

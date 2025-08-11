@@ -7,7 +7,7 @@ An approximation of the unknown control signal using a piecewise constant signal
 over time. 
 
 # Fields 
-$(FIELDNAMES)
+$(FIELDS)
 """
 struct PiecewiseConstant{T<:AbstractVector} <: AbstractLuxLayer
     "The timepoints of the approximation"

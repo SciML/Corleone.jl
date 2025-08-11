@@ -1,8 +1,7 @@
 """
 $(FUNCTIONNAME)
 
-Defines the initialization of the underlying model. Needs a custom dispatch for all models.
-
+Defines the initialization of the underlying model. Needs a custom dispatch for all models
 As a default it supports any `DEFunction` (which returns just the function itsself.)
 """
 wrap_model(model, args...) = throw(ArgumentError("The model $(model) has no initialization routine defined!"))
@@ -29,6 +28,19 @@ function (s::StatefulWrapper)(x, p)
     s.state = st 
     return y 
 end
+
+function (model::StatefulWrapper)(x::AbstractArray, ps, t)
+    model((x,t), ps)
+end
+
+function (model::StatefulWrapper)(dx, x::AbstractArray, ps, t)
+    model((dx, x,t), ps)
+end
+
+function (model::StatefulWrapper)(res, dx, x::AbstractArray, ps, t)
+    model((res, dx, x,t), ps)
+end
+
 
 wrap_model(f::SciMLBase.AbstractDiffEqFunction, args...) = StatefulWrapper(f, nothing)
 

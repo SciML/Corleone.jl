@@ -5,8 +5,6 @@ using DocStringExtensions
 using Random
 
 using SciMLBase
-using Accessors
-using LinearAlgebra
 
 using LuxCore
 import FindFirstFunctions: searchsortedfirstcorrelated, searchsortedlastcorrelated
@@ -30,6 +28,12 @@ include("approximators/container.jl")
 export SignalContainer 
 
 include("wrapper.jl")
-export Wrapper
+export StatefulWrapper
+
+include("dynamic/controlled.jl")
+export ControlledDynamics
+
+#include("dynamics.jl")
+#export DynamicsFunction
 
 end
