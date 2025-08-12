@@ -1,3 +1,5 @@
+struct ProblemLayer
+
 """
 $(TYPEDEF)
 
