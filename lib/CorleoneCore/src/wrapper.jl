@@ -23,6 +23,8 @@ end
 
 (x::StatefulWrapper{<:Any, Nothing})(args...) = x.model(args...)
 
+SciMLBase.isinplace(model::StatefulWrapper, args...; kwargs...) = SciMLBase.isinplace(model.model, args...; kwargs...)
+
 function (s::StatefulWrapper)(x, p)
     y, st = LuxCore.apply(s.model, x, p, s.state)
     s.state = st 

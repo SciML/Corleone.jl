@@ -5,6 +5,7 @@ using DocStringExtensions
 using Random
 
 using SciMLBase
+using CommonSolve
 
 using LuxCore
 import FindFirstFunctions: searchsortedfirstcorrelated, searchsortedlastcorrelated
@@ -32,6 +33,9 @@ export StatefulWrapper
 
 include("dynamic/controlled.jl")
 export ControlledDynamics
+
+include("dynamic/shooting.jl")
+export  ShootingProblem
 
 #include("dynamics.jl")
 #export DynamicsFunction
