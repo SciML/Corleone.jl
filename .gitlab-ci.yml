@@ -52,6 +52,8 @@ process-examples:
     paths:
       - docs/examples/code 
       - test/examples
+  rules:
+    - if: $CI_COMMIT_BRANCH == "superduperstuffmain"
 
 test:1.10:
   stage: test
