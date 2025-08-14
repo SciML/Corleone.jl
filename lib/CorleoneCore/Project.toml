@@ -5,6 +5,7 @@ version = "1.0.0-DEV"
 
 [deps]
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 FindFirstFunctions = "64ca27bc-2ba2-4a57-88aa-44e436879224"
 LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"

@@ -10,16 +10,8 @@ using CommonSolve
 using LuxCore
 import FindFirstFunctions: searchsortedfirstcorrelated, searchsortedlastcorrelated
 
-# Defines a consistent getindex for the 
-
-"""
-$(FUNCTIONNAME)
-
-Indicator if a [`AbstractTimeGridLayer`](@ref) omits `tstops``. Returns a `Bool`.
-"""
-has_tstops(::Any) = false
-
 is_extension_loaded(::Val) = false
+
 
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here

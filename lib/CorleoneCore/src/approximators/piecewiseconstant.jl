@@ -14,31 +14,33 @@ struct PiecewiseConstant{T<:AbstractVector} <: AbstractLuxLayer
     timepoints::T
 end
 
-__getindex(x::AbstractArray{<:Any,N}, idx) where {N} = selectdim(x, N, idx)
-has_tstops(::PiecewiseConstant) = true
-get_tstops(x::PiecewiseConstant) = getfield(x, :timepoints)
+function PiecewiseConstant(c::PiecewiseConstant, lo, hi)
+    idx = findall(lo .<= c.timepoints .< hi)
+    return PiecewiseConstant(c.timepoints[idx])
+end
 
 LuxCore.parameterlength(x::PiecewiseConstant) = length(x.timepoints)
-LuxCore.statelength(x::PiecewiseConstant) = 4
+LuxCore.statelength(x::PiecewiseConstant) = 4 + length(x.timepoints)
 
-LuxCore.initialstates(::Random.AbstractRNG, x::PiecewiseConstant) = (; method=Val{:searchsorted}(), guess=1, min_index=firstindex(x.timepoints), max_index=lastindex(x.timepoints))
+LuxCore.initialstates(::Random.AbstractRNG, x::PiecewiseConstant) = (; timepoints=copy(x.timepoints), method=Val{:searchsorted}(), guess=1, indexset = eachindex(x.timepoints), min_index=firstindex(x.timepoints), max_index=lastindex(x.timepoints))
 LuxCore.initialparameters(::Random.AbstractRNG, x::PiecewiseConstant) = (; local_controls=collect(LinRange(0.0, 1.0, LuxCore.parameterlength(x))))
 
+__getindex(x::AbstractArray{<:Any,N}, idx) where {N} = selectdim(x, N, idx)
+
 function __search_index(::Any, timepoints, t, guess)
-    searchsortedfirst(timepoints, t) - 1
+    searchsortedlast(timepoints, t + eps()) 
 end
 
 function __search_index(::Val{:correlated}, timepoints, t, guess)
-    searchsortedfirstcorrelated(timepoints, t, guess) - 1
+    searchsortedlastcorrelated(timepoints, t + eps(), guess) 
 end
 
 function (x::PiecewiseConstant)(args::Tuple, ps, st::NamedTuple)
-    (; method, guess, min_index, max_index) = st
-    (; timepoints) = x
+    (; timepoints, method, guess, min_index, max_index) = st
     (; local_controls) = ps
     t = Base.last(args)
-    idx = clamp(__search_index(method, timepoints, t, guess), min_index, max_index)
-    __getindex(local_controls, idx), (; method, guess=idx, min_index, max_index)
+    idx = min(max(__search_index(method, timepoints, t, guess), firstindex(timepoints)), lastindex(timepoints))
+    __getindex(local_controls, idx), merge(st, (; guess=idx))
 end
 
 

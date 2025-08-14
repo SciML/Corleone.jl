@@ -43,11 +43,13 @@ function (model::StatefulWrapper)(res, dx, x::AbstractArray, ps, t)
     model((res, dx, x,t), ps)
 end
 
-
+wrap_model(::Random.AbstractRNG, args...) = wrap_model(args...)
 wrap_model(f::SciMLBase.AbstractDiffEqFunction, args...) = StatefulWrapper(f, nothing)
 
 # This is overwritten / dispatch on
 function stateful_model end
+
+wrap_model(rng::Random.AbstractRNG, layer::LuxCore.AbstractLuxLayer) = wrap_model(layer, LuxCore.setup(rng, layer)...)
 
 function wrap_model(d::LuxCore.AbstractLuxLayer, ps, st::NamedTuple, args...)
     if is_extension_loaded(Val{:Lux}()) 
@@ -57,4 +59,3 @@ function wrap_model(d::LuxCore.AbstractLuxLayer, ps, st::NamedTuple, args...)
     @warn "Using internal wrapper to wrap function. Please load Lux.jl for using the StatefulLuxLayer." maxlog = 1
     StatefulWrapper(d, st)
 end
-
