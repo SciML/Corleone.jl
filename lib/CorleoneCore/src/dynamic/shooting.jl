@@ -21,8 +21,6 @@ function remake_timepoints(ps::NamedTuple, st::NamedTuple, (t0, tinf)::Tuple)
     ps, st
 end
 
-using ComponentArrays
-
 function controlled_remake(prob::P where P<:SciMLBase.DEProblem; kwargs...)
     prob = remake(prob; kwargs...)
     __isa_wrapped(prob.f.f) || return prob
@@ -84,6 +82,7 @@ struct MultipleShootingProblem{P<:NamedTuple} <: LuxCore.AbstractLuxContainerLay
     problems::P
 end
 
+
 function (prob::MultipleShootingProblem)(problem::Any, ps, st)
     (; problems) = prob
     remaker = let names = keys(problems), ps = ps.problems, st = st.problems, problems = problems
@@ -92,7 +91,7 @@ function (prob::MultipleShootingProblem)(problem::Any, ps, st)
             p_current = getproperty(ps, current)
             st_current = getproperty(st, current)
             prob_current = getproperty(problems, current)
-            first(prob_current(nothing, p_current, st_current))
+            first(prob_current(prob, p_current, st_current))
         end
     end
     return EnsembleProblem(problem, prob_func=remaker), st

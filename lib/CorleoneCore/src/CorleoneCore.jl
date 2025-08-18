@@ -4,6 +4,8 @@ using Reexport
 using DocStringExtensions
 using Random
 
+using ComponentArrays
+
 using SciMLBase
 using CommonSolve
 
