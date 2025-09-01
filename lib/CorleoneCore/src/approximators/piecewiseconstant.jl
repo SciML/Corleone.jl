@@ -37,6 +37,7 @@ end
 
 function (x::PiecewiseConstant)(args::Tuple, ps, st::NamedTuple)
     (; timepoints, method, guess, min_index, max_index) = st
+    #@info timepoints
     (; local_controls) = ps
     t = Base.last(args)
     idx = min(max(__search_index(method, timepoints, t, guess), firstindex(timepoints)), lastindex(timepoints))

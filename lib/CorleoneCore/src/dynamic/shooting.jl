@@ -91,7 +91,7 @@ function (prob::MultipleShootingProblem)(problem::Any, ps, st)
             p_current = getproperty(ps, current)
             st_current = getproperty(st, current)
             prob_current = getproperty(problems, current)
-            first(prob_current(prob, p_current, st_current))
+            first(prob_current(nothing, p_current, st_current))
         end
     end
     return EnsembleProblem(problem, prob_func=remaker), st
