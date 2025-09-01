@@ -14,7 +14,7 @@ remake_timepoints(x,y,z) = x,y
 function remake_timepoints(ps::NamedTuple, st::NamedTuple, (t0, tinf)::Tuple)
     :timepoints ∈ keys(st) || return ps, st
     idmin = searchsortedlast(st.timepoints, t0)
-    idmax = searchsortedlast(st.timepoints, tinf-eps())
+    idmax = searchsortedlast(st.timepoints, prevfloat(tinf))
     idx = idmin:idmax
     ps = merge(ps, (; local_controls=ps.local_controls[idx]))
     st = merge(st, (; timepoints=st.timepoints[idx], max_index=length(idx)))
@@ -74,7 +74,7 @@ function (prob::ShootingProblem)(problem::SciMLBase.DEProblem, ps, st)
     (; u0, p) = ps
     (; tunable) = st
     u0_ = merge_initials(problem.u0, u0, tunable)
-    problem = remake(problem; u0=u0_, p=p), st
+    problem = remake(problem; u0=u0_, p=p, prob.kwargs...), st
 end
 
 struct MultipleShootingProblem{P<:NamedTuple} <: LuxCore.AbstractLuxContainerLayer{(:problems,)}
