@@ -19,7 +19,7 @@ SciMLBase.isinplace(model::ControlledDynamics{<:Function}, nparams, args...; kwa
 function (model::ControlledDynamics{<: Function})(args::Tuple, ps, st)
     (; dynamics, controls) = model
     u, control_st = controls(args, ps.controls, st.controls)
-    out = dynamics(args..., ps.dynamics, u)
+    out = dynamics(Base.front(args)..., ps.dynamics, Base.last(args), u)
     return out, (; dynamics = st.dynamics, controls = control_st)
 end
 
