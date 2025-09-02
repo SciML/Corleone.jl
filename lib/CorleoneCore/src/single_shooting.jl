@@ -71,7 +71,6 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     return sol, st
 end
 
-
 @generated function sequential_solve(problem, alg, u0, param, ps, index_grid, tspans::NTuple{N, Tuple}) where N 
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
