@@ -36,7 +36,7 @@ function build_index_grid(controls::ControlParameter...; offset::Bool = true, ts
     ts = map(controls) do ci 
         clamp.(get_timegrid(ci), tspan...)
     end
-    time_grid = reduce(vcat, ts) |> sort! |> unique!
+    time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
     indices = zeros(Int64, length(ts), size(time_grid, 1))
     for i in axes(indices, 1), j in axes(indices, 2)
         indices[i,j] = clamp(
@@ -55,9 +55,11 @@ function build_index_grid(controls::ControlParameter...; offset::Bool = true, ts
     return indices
 end
 
-function collect_tspans(controls::ControlParameter...)
-    ts = map(get_timegrid, controls)
-    time_grid = reduce(vcat, ts) |> sort! |> unique!
+function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf))
+    ts = map(controls) do ci 
+        clamp.(get_timegrid(ci), tspan...)
+    end
+    time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
     tuple(collect(ti for ti in zip(time_grid[1:end-1], time_grid[2:end]))...)
 end
 

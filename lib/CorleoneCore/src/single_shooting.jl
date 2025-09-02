@@ -50,8 +50,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
         end
     end
     # Next we setup the tspans and the indices 
-    grid = build_index_grid(controls...)
-    tspans = collect_tspans(controls...)
+    grid = build_index_grid(controls...; tspan = problem.tspan)
+    tspans = collect_tspans(controls...; tspan = problem.tspan)
     (; 
        initial_condition, 
        index_grid = grid, 
@@ -67,8 +67,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     u0_ = initial_condition(u0)
     params = Base.Fix1(parameter_vector, p)
     solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans)
-    sol = EnsembleSolution(solutions, 0.0, true, nothing)
-    return sol, st
+    return solutions, st
 end
 
 @generated function sequential_solve(problem, alg, u0, param, ps, index_grid, tspans::NTuple{N, Tuple}) where N 
