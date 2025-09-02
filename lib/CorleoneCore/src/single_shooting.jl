@@ -80,7 +80,7 @@ end
     )
     for i in 1:N 
         push!(ex, 
-            :($(solutions[i]) = solve(problem, alg; u0 = $(u0s[i]), tspan = tspans[$(i)], p = param(ps[index_grid[:, $(i)]])))
+            :($(solutions[i]) = solve(problem, alg; u0 = $(u0s[i]), dense = false, save_start = $(i == 1), tspan = tspans[$(i)], p = param(ps[index_grid[:, $(i)]])))
         )
         if i < N 
         push!(ex,
