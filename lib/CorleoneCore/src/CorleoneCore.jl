@@ -9,6 +9,8 @@ using ComponentArrays
 using SciMLBase
 using CommonSolve
 
+using ChainRulesCore
+
 using LuxCore
 import FindFirstFunctions: searchsortedfirstcorrelated, searchsortedlastcorrelated
 

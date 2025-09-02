@@ -58,22 +58,40 @@ function ShootingProblem(problem::SciMLBase.DEProblem; tunable=eachindex(problem
 end
 
 
-LuxCore.initialparameters(rng::Random.AbstractRNG, interval::ShootingProblem) = (; u0=copy(interval.problem.u0), p=deepcopy(interval.problem.p))
+LuxCore.initialparameters(rng::Random.AbstractRNG, interval::ShootingProblem) = (; u0=copy(interval.problem.u0[interval.tunable]), p=deepcopy(interval.problem.p))
 LuxCore.initialstates(rng::Random.AbstractRNG, interval::ShootingProblem) = (;
-    tunable=copy(interval.tunable),
+    #tunable=copy(interval.tunable),
+    # TODO This can be faster
+    constants = [(j ∉ interval.tunable) && (j == i) for j in eachindex(interval.problem.u0), i in eachindex(interval.problem.u0)],
+    tunables = begin
+        x = zeros(Bool, size(interval.problem.u0, 1), size(interval.tunable, 1))
+        id = 0 
+        for i in axes(x, 1)
+            if i ∈ interval.tunable
+                id += 1 
+                x[i, id] = true 
+            end
+        end
+        @info x
+        x
+    end
 )
 
-function merge_initials(x, y, replaces)
-    @assert size(x) == size(y) "x and y have to be equally sized!"
-    [j ∈ replaces ? y[j] : x[j] for j in eachindex(x)]
+function merge_initials(x::AbstractArray{X}, y::AbstractArray{Y}, A, B) where {X, Y}
+    #@assert size(y) == size(replaces) "y and replace have to be equally sized!"
+    #P = Base.promote_eltype(x, y)
+    #id = 0
+    #[j ∈ replaces ? P(y[id+=1]) : P(x[j]) for j in eachindex(x)] 
+    #[j ∈ replaces ? P(y[j]) : P(x[j]) for j in eachindex(x)]
+    A*x + B*y
 end
 
 (prob::ShootingProblem)(::Any, ps, st) = prob(prob.problem, ps, st)
 
 function (prob::ShootingProblem)(problem::SciMLBase.DEProblem, ps, st)
     (; u0, p) = ps
-    (; tunable) = st
-    u0_ = merge_initials(problem.u0, u0, tunable)
+    (; constants, tunables) = st
+    u0_ = merge_initials(problem.u0, u0, constants, tunables)
     problem = remake(problem; u0=u0_, p=p, prob.kwargs...), st
 end
 

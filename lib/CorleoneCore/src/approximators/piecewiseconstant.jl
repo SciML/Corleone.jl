@@ -22,8 +22,8 @@ end
 LuxCore.parameterlength(x::PiecewiseConstant) = length(x.timepoints)
 LuxCore.statelength(x::PiecewiseConstant) = 4 + length(x.timepoints)
 
-LuxCore.initialstates(::Random.AbstractRNG, x::PiecewiseConstant) = (; timepoints=copy(x.timepoints), method=Val{:searchsorted}(), guess=1, indexset = eachindex(x.timepoints), min_index=firstindex(x.timepoints), max_index=lastindex(x.timepoints))
-LuxCore.initialparameters(::Random.AbstractRNG, x::PiecewiseConstant) = (; local_controls=collect(LinRange(0.0, 1.0, LuxCore.parameterlength(x))))
+LuxCore.initialstates(::Random.AbstractRNG, x::PiecewiseConstant) = (; timepoints=copy(x.timepoints), method=Val{:searchsorted}(), guess=1, indexset = eachindex(x.timepoints), min_index=firstindex(x.timepoints), max_index=lastindex(x.timepoints),)
+LuxCore.initialparameters(::Random.AbstractRNG, x::PiecewiseConstant) = (; local_controls=zeros(LuxCore.parameterlength(x)))
 
 __getindex(x::AbstractArray{<:Any,N}, idx) where {N} = selectdim(x, N, idx)
 
@@ -36,7 +36,7 @@ function __search_index(::Val{:correlated}, timepoints, t, guess)
 end
 
 function (x::PiecewiseConstant)(args::Tuple, ps, st::NamedTuple)
-    (; timepoints, method, guess, min_index, max_index) = st
+    (; timepoints, method, guess, min_index, max_index, ) = st
     #@info timepoints
     (; local_controls) = ps
     t = Base.last(args)
