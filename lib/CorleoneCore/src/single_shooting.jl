@@ -67,6 +67,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     u0_ = initial_condition(u0)
     params = Base.Fix1(parameter_vector, p)
     solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans)
+#    solutions = EnsembleSolution(solutions, 0.0, true, nothing)
     return solutions, st
 end
 
