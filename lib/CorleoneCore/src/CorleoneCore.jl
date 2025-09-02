@@ -8,30 +8,29 @@ using ComponentArrays
 
 using SciMLBase
 using CommonSolve
-
 using ChainRulesCore
 
 using LuxCore
-import FindFirstFunctions: searchsortedfirstcorrelated, searchsortedlastcorrelated
 
-is_extension_loaded(::Val) = false
-
+include("local_controls.jl")
+export ControlParameter
 
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here
-include("approximators/piecewiseconstant.jl")
-export PiecewiseConstant
-include("approximators/container.jl")
-export SignalContainer 
 
-include("wrapper.jl")
-export StatefulWrapper
+#include("approximators/piecewiseconstant.jl")
+#export PiecewiseConstant
+#include("approximators/container.jl")
+#export SignalContainer 
 
-include("dynamic/controlled.jl")
-export ControlledDynamics
+#include("wrapper.jl")
+#export StatefulWrapper
 
-include("dynamic/shooting.jl")
-export  ShootingProblem
+#include("dynamic/controlled.jl")
+#export ControlledDynamics
+
+#include("dynamic/shooting.jl")
+#export  ShootingProblem
 
 #include("dynamics.jl")
 #export DynamicsFunction
