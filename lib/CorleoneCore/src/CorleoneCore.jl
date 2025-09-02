@@ -4,9 +4,11 @@ using Reexport
 using DocStringExtensions
 using Random
 
-using ComponentArrays
+using LinearAlgebra
 
 using SciMLBase
+using SciMLStructures
+
 using CommonSolve
 using ChainRulesCore
 
@@ -14,6 +16,8 @@ using LuxCore
 
 include("local_controls.jl")
 export ControlParameter
+
+include("single_shooting.jl")
 
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here

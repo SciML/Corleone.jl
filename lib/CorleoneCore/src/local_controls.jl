@@ -32,8 +32,10 @@ function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter
     @assert all(lb .<= u .<= ub)  "Initial values are inconsistent"
 end
 
-function build_index_grid(controls::ControlParameter...; offset::Bool = true)
-    ts = map(get_timegrid, controls)
+function build_index_grid(controls::ControlParameter...; offset::Bool = true, tspan::Tuple = (-Inf, Inf))
+    ts = map(controls) do ci 
+        clamp.(get_timegrid(ci), tspan...)
+    end
     time_grid = reduce(vcat, ts) |> sort! |> unique!
     indices = zeros(Int64, length(ts), size(time_grid, 1))
     for i in axes(indices, 1), j in axes(indices, 2)
