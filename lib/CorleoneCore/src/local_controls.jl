@@ -1,11 +1,11 @@
-struct ControlParameter{T, C, B} 
-    name::Symbol 
+struct ControlParameter{T, C, B}
+    name::Symbol
     "The timepoints"
-    t::T 
+    t::T
     "The initial control parameters. Either a vector or a function (rng,t,bounds) -> u "
-    controls::C 
+    controls::C
     "The bounds as a tuple"
-    bounds::B 
+    bounds::B
 end
 
 default_u(rng, t, bounds) = zeros(eltype(t), size(t))
@@ -15,11 +15,23 @@ function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w), controls
     ControlParameter{typeof(t), typeof(controls), typeof(bounds)}(name, t, controls, bounds)
 end
 
+function restrict_controls(c::Tuple, lo, hi)
+    map(c) do ci
+        restrict_controls(ci, lo, hi)
+    end
+end
+
+function restrict_controls(c::ControlParameter, lo, hi)
+    idx = findall(lo .<= c.t .< hi)
+
+    return ControlParameter(c.t[idx], name = c.name)
+end
+
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
 get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}) = deepcopy(parameters.controls)
 get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:Function}) = parameters.controls(rng, parameters.t, parameters.bounds)
 get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}) = getfield(parameters, :bounds)
-get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Function}) = parameters.bounds(parameters.t) 
+get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Function}) = parameters.bounds(parameters.t)
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
     grid = get_timegrid(parameters)
@@ -33,14 +45,14 @@ function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter
 end
 
 function build_index_grid(controls::ControlParameter...; offset::Bool = true, tspan::Tuple = (-Inf, Inf))
-    ts = map(controls) do ci 
+    ts = map(controls) do ci
         clamp.(get_timegrid(ci), tspan...)
     end
     time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
     indices = zeros(Int64, length(ts), size(time_grid, 1))
     for i in axes(indices, 1), j in axes(indices, 2)
         indices[i,j] = clamp(
-            searchsortedlast(ts[i], time_grid[j]), 
+            searchsortedlast(ts[i], time_grid[j]),
             firstindex(ts[i]), lastindex(ts[i])
         )
     end
@@ -56,7 +68,7 @@ function build_index_grid(controls::ControlParameter...; offset::Bool = true, ts
 end
 
 function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf))
-    ts = map(controls) do ci 
+    ts = map(controls) do ci
         clamp.(get_timegrid(ci), tspan...)
     end
     time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)

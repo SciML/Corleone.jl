@@ -10,7 +10,7 @@ function MultipleShootingLayer(prob, alg, tunable, control_indices, controls, sh
     shooting_intervals = [(t0,t1) for (t0,t1) in zip(shooting_points[1:end-1], shooting_points[2:end])]
 
     _tunable = vcat(tunable, [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
-    layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, _tunable[i], control_indices, controls) for (i, tspani) in enumerate(shooting_intervals)]
+    layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, _tunable[i], control_indices, restrict_controls(controls, tspani...)) for (i, tspani) in enumerate(shooting_intervals)]
 
     MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg)}(layers, shooting_intervals, ensemble_alg)
 end
@@ -29,7 +29,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, mslayer::MultipleShootin
 end
 
 function (layer::MultipleShootingLayer)(::Any, ps, st)
-    prob = SingleShootingProblem(first(layer.layers), first(ps), first(st))
+    prob = SingleShootingProblem(first(layer.layers), ps.layer_1, st.layer_1)
     remaker = let ps = ps, st=st, names = keys(ps)
         function (prob, i, repeat)
             current = names[i]
@@ -39,8 +39,8 @@ function (layer::MultipleShootingLayer)(::Any, ps, st)
             prob_current
         end
     end
-    return solve(EnsembleProblem(prob, prob_func=remaker), DummySolve(),
-            layer.ensemble_alg; trajectories = length(ps)), st
+    return solve(EnsembleProblem(prob, prob_func=remaker, output_func = (sol, i) -> (sol[1], false)),
+            DummySolve(),layer.ensemble_alg; trajectories = length(layer.layers)), st
 end
 
 
