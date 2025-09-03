@@ -6,18 +6,18 @@ struct SingleShootingLayer{P,A,C} <: LuxCore.AbstractLuxLayer
     controls::C
 end
 
-function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer) 
+function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     (;
-        u0 = copy(layer.problem.u0[layer.tunable_ic]), 
+        u0 = copy(layer.problem.u0[layer.tunable_ic]),
         p = getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls = collect_local_controls(rng, layer.controls...) 
+        controls = collect_local_controls(rng, layer.controls...)
     )
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     (; tunable_ic, control_indices, problem, controls) = layer
-    # We first derive the initial condition function 
+    # We first derive the initial condition function
     constant_ic = [i ∉ tunable_ic for i in eachindex(problem.u0)]
     tunable_matrix = zeros(Bool, size(problem.u0, 1), size(tunable_ic, 1))
     id = 0
@@ -31,11 +31,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
              T.(u0) .+ B*u
         end
     end
-    # Setup the parameters 
+    # Setup the parameters
     p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     parameter_matrix = zeros(Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1))
     control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
-    param_id = 0 
+    param_id = 0
     control_id = 0
     for i in eachindex(p_vec)
         if i ∈ control_indices
@@ -49,49 +49,82 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
             repack(A * params .+ B * controls)
         end
     end
-    # Next we setup the tspans and the indices 
+    # Next we setup the tspans and the indices
     grid = build_index_grid(controls...; tspan = problem.tspan)
     tspans = collect_tspans(controls...; tspan = problem.tspan)
-    (; 
-       initial_condition, 
-       index_grid = grid, 
+    (;
+       initial_condition,
+       index_grid = grid,
        tspans,
-       parameter_vector, 
+       parameter_vector,
     )
 end
 
 function (layer::SingleShootingLayer)(::Any, ps, st)
-    (; problem, algorithm,) = layer 
+    (; problem, algorithm,) = layer
     (; u0, p, controls) = ps
-    (; index_grid, tspans, parameter_vector, initial_condition) = st 
+    (; index_grid, tspans, parameter_vector, initial_condition) = st
     u0_ = initial_condition(u0)
     params = Base.Fix1(parameter_vector, p)
     solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans)
-#    solutions = EnsembleSolution(solutions, 0.0, true, nothing)
-    return solutions, st
+    return SingleShootingSolution(solutions), st
 end
 
-@generated function sequential_solve(problem, alg, u0, param, ps, index_grid, tspans::NTuple{N, Tuple}) where N 
+@generated function sequential_solve(problem, alg, u0, param, ps, index_grid, tspans::NTuple{N, Tuple}) where N
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
     push!(ex,
-        :($(u0s[1]) = u0) 
+        :($(u0s[1]) = u0)
     )
-    for i in 1:N 
-        push!(ex, 
+    for i in 1:N
+        push!(ex,
             :($(solutions[i]) = solve(problem, alg; u0 = $(u0s[i]), dense = false, save_start = $(i == 1), tspan = tspans[$(i)], p = param(ps[index_grid[:, $(i)]])))
         )
-        if i < N 
+        if i < N
         push!(ex,
-            :($(u0s[i+1]) = $(solutions[i])[end]) 
+            :($(u0s[i+1]) = $(solutions[i])[end])
         )
         end
     end
-    push!(ex, 
-        :(return ($(solutions...),)) # Was kommt hier raus 
+    push!(ex,
+        :(return ($(solutions...),)) # Was kommt hier raus
     )
     return Expr(:block, ex...)
 end
 
+struct SingleShootingProblem{L,P,S}
+    layer::L
+    params::P
+    state::S
+end
 
+struct SingleShootingSolution{U,T}
+    states::U
+    time::T
+end
+
+function SingleShootingSolution(sols::NTuple)
+
+    states = reduce(hcat, map(Array, sols))
+    t = reduce(vcat, map(x -> x.t, sols))
+    SingleShootingSolution{typeof(states), typeof(t)}(states, t)
+end
+
+struct DummySolve end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::DummySolve; kwargs...)
+    prob
+end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::Any; kwargs...)
+    prob
+end
+
+function CommonSolve.solve!(prob::SingleShootingProblem)
+    prob.layer(nothing, prob.params, prob.state)
+end
+
+function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
+    SingleShootingProblem(prob.layer, ps, st)
+end
