@@ -37,7 +37,6 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     dfdx = Symbolics.jacobian(_dx, _x)
     dfdp = Symbolics.jacobian(_dx, _p[p_indices])
 
-    @info _dx dfdx dfdp
     dGdt = dfdp + dfdx * _G
     _obs = observed(_x, _p, _t)
     _w = Symbolics.variables(:w, 1:length(_obs))
@@ -54,4 +53,34 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     aug_p = vcat(prob.p, ones(length(_w)))
 
     ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
+end
+
+
+function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
+        observed::Function=(u,p,t) -> u,
+        dt = first(diff(first(get_controls(layer)[1]).t)))
+
+
+    prob = augment_dynamics_for_oed(layer; observed=observed)
+    controls, control_idxs = get_controls(layer)
+    tspan = get_tspan(layer)
+    nh = length(observed(prob.u0, prob.p, prob.tspan[1]))
+    np = length(prob.p)
+    control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
+
+
+    timegrid = first(tspan):dt:last(tspan)
+    sampling_controls = map(Tuple(1:nh)) do i
+        ControlParameter(timegrid,name=Symbol("w_$i"), controls=ones(length(timegrid)))
+    end
+
+    new_controls = (controls..., sampling_controls...)
+    if typeof(layer) <: SingleShootingLayer
+        return SingleShootingLayer(prob, layer.algorithm, layer.tunable_ic, control_indices, new_controls)
+    else
+        intervals = layer.shooting_intervals
+        points = vcat(first.(intervals), last.(intervals)) |> sort! |> unique!
+        return MultipleShootingLayer(prob, first(layer.layers).algorithm, first(layer.layers).tunable_ic, first(layer.layers).control_indices, new_controls, points)
+    end
+
 end

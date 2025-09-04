@@ -19,26 +19,33 @@ using Ipopt
 using blockSQP
 
 function lotka_dynamics(du, u, p, t)
-    du[1] = u[1] - prod(u[1:2]) - 0.4 * p[1] * u[1]
-    du[2] = -u[2] + prod(u[1:2]) - 0.2 * p[1] * u[2]
+    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
     du[3] = (u[1]-1.0)^2 + (u[2] - 1.0)^2
 end
 
 tspan = (0., 12.)
 u0 = [0.5, 0.7, 0.]
-p0 = [0.0]
+p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0,
     abstol = 1e-8, reltol = 1e-6, sensealg = ForwardDiffSensitivity()
     )
 control = ControlParameter(
-    0.0:0.1:11.9, name = :fishing
+    0.0:0.25:11.9, name = :fishing
 )
-
-CorleoneCore.restrict_controls(control, 0.0, 3.0)
-CorleoneCore.restrict_controls((control,), 0.0, 3.0)
+w1 = ControlParameter(
+    0.0:0.25:11.9, name = :w1, controls = ones(48)
+)
+w2 = ControlParameter(
+    0.0:0.25:11.9, name = :w2, controls=ones(48)
+)
 layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
+
+oedprob = CorleoneCore.augment_dynamics_for_oed(layer; observed = (u,p,t) -> u[1:2])
+psol = solve(oedprob, Tsit5())
+plot(psol)
 
 sprob = CorleoneCore.SingleShootingProblem(layer, ps, st)
 ssol, _ = solve(sprob, CorleoneCore.DummySolve());
@@ -52,6 +59,17 @@ f
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0] # cost
 mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(), Int64[], [1], (control,), shooting_points);
 
+oedprob = CorleoneCore.augment_dynamics_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
+oed_mslayer = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
+
+psol = solve(oedprob, Tsit5())
+plot(psol)
+
+
+oed_ss = CorleoneCore.SingleShootingLayer(oedprob, Tsit5(), Int64[], [1,4,5], (control,w1,w2))
+oed_ss = CorleoneCore.augment_layer_for_oed(layer; observed = (u,p,t) -> u[1:2])
+oed_ps, oed_st = LuxCore.setup(Random.default_rng(), oed_ss)
+
 ms_ps, ms_st = LuxCore.setup(Random.default_rng(), mslayer)
 mssol, _ = mslayer(nothing, ComponentArray(ms_ps), ms_st);
 
@@ -61,17 +79,19 @@ ax = CairoMakie.Axis(f[1,1])
 f
 
 ps = ComponentArray(ms_ps)
-
-loss = let mslayer = mslayer, st = ms_st, ax = getaxes(ps)
+ps = ComponentArray(oed_ps)
+using LinearAlgebra
+loss = let mslayer = oed_ss, st = oed_st, ax = getaxes(ps)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = mslayer(nothing, ps, st)
-        last(sols).states[end,end]
+        #inv(tr())
+        inv(tr(reshape(sols.states[end-3:end,end], (2,2))))
     end
 end
 
 p = ComponentArray(ms_ps)
-loss(p, nothing)
+loss(ps, nothing)
 
 loss(collect(p), nothing)
 
@@ -98,7 +118,8 @@ eq_cons(res, x, p) = res .= shooting_constraints(x, p)
 jac_fd = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), collect(p))
 spy(jac_fd)
 
-lb, ub = copy(p), copy(p)
+lb, ub = copy(ps), copy(ps)
+ub.controls .= 1.0
 lb.layer_2.u0 = zeros(3) .+ 0.05
 lb.layer_3.u0 = zeros(3) .+ 0.05
 lb.layer_4.u0 = zeros(3) .+ 0.05
@@ -117,11 +138,11 @@ scatter!(grad_zg)
 display(fig_grad)
 
 optfun = OptimizationFunction(
-    loss, AutoForwardDiff(), cons = eq_cons
+    loss, AutoForwardDiff(), #cons = eq_cons
 )
 
 optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons = zero(ll), ucons=zero(ll)
+    optfun, collect(ps), lb = collect(lb), ub = collect(ub)#, lcons = zero(ll), ucons=zero(ll)
 )
 
 
@@ -144,6 +165,12 @@ uopt = solve(optprob, BlockSQPOpt(),
     sparsity = blocks,
     maxiters = 300 # 165
 )
+
+popt = uopt + zero(ps)
+
+uopt = popt.controls[1:48]
+w1opt = popt.controls[49:48+48]
+w2opt = popt.controls[97:end]
 
 t = LinRange(0., 11.9, length(uopt))
 fcontrols = stairs(t, uopt)

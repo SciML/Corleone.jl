@@ -8,8 +8,7 @@ function MultipleShootingLayer(prob, alg, tunable, control_indices, controls, sh
     tspan = prob.tspan
     shooting_points = vcat(tspan..., shooting_points) |> unique! |> sort!
     shooting_intervals = [(t0,t1) for (t0,t1) in zip(shooting_points[1:end-1], shooting_points[2:end])]
-
-    _tunable = vcat(tunable, [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
+    _tunable = vcat([tunable], [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
     layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, _tunable[i], control_indices, restrict_controls(controls, tspani...)) for (i, tspani) in enumerate(shooting_intervals)]
 
     MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg)}(layers, shooting_intervals, ensemble_alg)
