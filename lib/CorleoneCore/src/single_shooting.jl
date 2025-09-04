@@ -9,15 +9,15 @@ end
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     (;
-        u0=copy(layer.problem.u0[layer.tunable_ic]),
-        p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls=collect_local_controls(rng, layer.controls...)
+        u0 = copy(layer.problem.u0[layer.tunable_ic]),
+        p = getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls = collect_local_controls(rng, layer.controls...)
     )
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     (; tunable_ic, control_indices, problem, controls) = layer
-    # We first derive the initial condition function 
+    # We first derive the initial condition function
     constant_ic = [i ∉ tunable_ic for i in eachindex(problem.u0)]
     tunable_matrix = zeros(Bool, size(problem.u0, 1), size(tunable_ic, 1))
     id = 0
@@ -31,7 +31,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
             T.(u0) .+ B * u
         end
     end
-    # Setup the parameters 
+    # Setup the parameters
     p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     parameter_matrix = zeros(Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1))
     control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
@@ -128,8 +128,43 @@ end
         end
     end
     push!(ex,
-        :(return ($(solutions...),)) # Was kommt hier raus 
+        :(return ($(solutions...),)) # Was kommt hier raus
     )
     return Expr(:block, ex...)
 end
 
+struct SingleShootingProblem{L,P,S}
+    layer::L
+    params::P
+    state::S
+end
+
+struct SingleShootingSolution{U,T}
+    states::U
+    time::T
+end
+
+function SingleShootingSolution(sols::NTuple)
+
+    states = reduce(hcat, map(Array, sols))
+    t = reduce(vcat, map(x -> x.t, sols))
+    SingleShootingSolution{typeof(states), typeof(t)}(states, t)
+end
+
+struct DummySolve end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::DummySolve; kwargs...)
+    prob
+end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::Any; kwargs...)
+    prob
+end
+
+function CommonSolve.solve!(prob::SingleShootingProblem)
+    prob.layer(nothing, prob.params, prob.state)
+end
+
+function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
+    SingleShootingProblem(prob.layer, ps, st)
+end

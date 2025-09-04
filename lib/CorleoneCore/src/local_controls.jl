@@ -1,4 +1,4 @@
-struct ControlParameter{T,C,B}
+struct ControlParameter{T, C, B}
     name::Symbol
     "The timepoints"
     t::T
@@ -15,11 +15,23 @@ function ControlParameter(t::AbstractVector; name::Symbol=gensym(:w), controls=d
     ControlParameter{typeof(t),typeof(controls),typeof(bounds)}(name, t, controls, bounds)
 end
 
+function restrict_controls(c::Tuple, lo, hi)
+    map(c) do ci
+        restrict_controls(ci, lo, hi)
+    end
+end
+
+function restrict_controls(c::ControlParameter, lo, hi)
+    idx = findall(lo .<= c.t .< hi)
+
+    return ControlParameter(c.t[idx], name = c.name)
+end
+
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
-get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}) = deepcopy(parameters.controls)
-get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:Function}) = parameters.controls(rng, parameters.t, parameters.bounds)
-get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}) = getfield(parameters, :bounds)
-get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}) = parameters.bounds(parameters.t)
+get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}) = deepcopy(parameters.controls)
+get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:Function}) = parameters.controls(rng, parameters.t, parameters.bounds)
+get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}) = getfield(parameters, :bounds)
+get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Function}) = parameters.bounds(parameters.t)
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
     grid = get_timegrid(parameters)
@@ -68,7 +80,7 @@ function build_index_grid(controls::ControlParameter...; offset::Bool=true, tspa
     time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
     indices = zeros(Int64, length(ts), size(time_grid, 1)-1)
     for i in axes(indices, 1), j in axes(indices, 2)
-        indices[i, j] = clamp(
+        indices[i,j] = clamp(
             searchsortedlast(ts[i], time_grid[j]),
             firstindex(ts[i]), lastindex(ts[i])
         )

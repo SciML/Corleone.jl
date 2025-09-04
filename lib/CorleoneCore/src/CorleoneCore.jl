@@ -18,14 +18,14 @@ include("local_controls.jl")
 export ControlParameter
 
 include("single_shooting.jl")
-
+include("multiple_shooting.jl")
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here
 
 #include("approximators/piecewiseconstant.jl")
 #export PiecewiseConstant
 #include("approximators/container.jl")
-#export SignalContainer 
+#export SignalContainer
 
 #include("wrapper.jl")
 #export StatefulWrapper
