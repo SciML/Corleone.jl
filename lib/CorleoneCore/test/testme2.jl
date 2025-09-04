@@ -31,13 +31,13 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0,
     abstol = 1e-8, reltol = 1e-6, sensealg = ForwardDiffSensitivity()
     )
 control = ControlParameter(
-    0.0:0.25:11.9, name = :fishing
+    0.0:0.1:11.9, name = :fishing
 )
 w1 = ControlParameter(
-    0.0:0.25:11.9, name = :w1, controls = ones(48)
+    0.0:0.1:11.9, name = :w1, controls = ones(48)
 )
 w2 = ControlParameter(
-    0.0:0.25:11.9, name = :w2, controls=ones(48)
+    0.0:0.1:11.9, name = :w2, controls=ones(48)
 )
 layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -58,35 +58,41 @@ f
 
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0] # cost
 mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(), Int64[], [1], (control,), shooting_points);
+oed_mslayer = CorleoneCore.MultipleShootingLayer(oedprob, Tsit5(), Int64[], [1,4,5], (control,w1,w2), shooting_points);
 
 oedprob = CorleoneCore.augment_dynamics_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
-oed_mslayer = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
 
 psol = solve(oedprob, Tsit5())
 plot(psol)
-
-
 oed_ss = CorleoneCore.SingleShootingLayer(oedprob, Tsit5(), Int64[], [1,4,5], (control,w1,w2))
+
+
 oed_ss = CorleoneCore.augment_layer_for_oed(layer; observed = (u,p,t) -> u[1:2])
+oed_mslayer1 = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
+
 oed_ps, oed_st = LuxCore.setup(Random.default_rng(), oed_ss)
 
-ms_ps, ms_st = LuxCore.setup(Random.default_rng(), mslayer)
-mssol, _ = mslayer(nothing, ComponentArray(ms_ps), ms_st);
+ms_ps, ms_st = LuxCore.setup(Random.default_rng(), oed_mslayer)
+ms_ps1, ms_st1 = LuxCore.setup(Random.default_rng(), oed_mslayer1)
+mssol, _ = oed_mslayer(nothing, ms_ps, ms_st);
+mssol1, _ = oed_mslayer1(nothing, ms_ps1, ms_st1);
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[plot!(ax,sol.time, sol.states[i,:],color=:grey) for sol in mssol for i in 1:3]
+ax1 = CairoMakie.Axis(f[2,1])
+[plot!(ax,sol.time, sol.states[i,:],color=:grey) for sol in mssol for i=1:size(sol.states,1)]
+[plot!(ax1,sol.time, sol.states[i,:],color=:grey) for sol in mssol1 for i=1:size(sol.states,1)]
 f
 
 ps = ComponentArray(ms_ps)
 ps = ComponentArray(oed_ps)
 using LinearAlgebra
-loss = let mslayer = oed_ss, st = oed_st, ax = getaxes(ps)
+loss = let mslayer = oed_mslayer, st = ms_st, ax = getaxes(ps)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = mslayer(nothing, ps, st)
         #inv(tr())
-        inv(tr(reshape(sols.states[end-3:end,end], (2,2))))
+        inv(tr(reshape(last(sols).states[end-3:end,end], (2,2))))
     end
 end
 
@@ -100,7 +106,7 @@ grad_fd = ForwardDiff.gradient(Base.Fix2(loss, nothing), collect(p))
 grad_zg = Zygote.gradient(Base.Fix2(loss, nothing), collect(p))[1]
 
 
-shooting_constraints = let mslayer = mslayer, st = ms_st, ax = getaxes(ps)
+shooting_constraints = let mslayer = oed_mslayer, st = ms_st, ax = getaxes(ps)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = mslayer(nothing, ps, st)
@@ -111,11 +117,11 @@ shooting_constraints = let mslayer = mslayer, st = ms_st, ax = getaxes(ps)
     end
 end
 
-ll = shooting_constraints(p, nothing)
+ll = shooting_constraints(ps, nothing)
 
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
 
-jac_fd = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), collect(p))
+jac_fd = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), collect(ps))
 spy(jac_fd)
 
 lb, ub = copy(ps), copy(ps)

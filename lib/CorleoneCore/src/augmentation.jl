@@ -4,6 +4,9 @@ get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indice
 get_controls(layer::MultipleShootingLayer) = get_controls(first(layer.layers))
 get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
 get_tspan(layer::MultipleShootingLayer) = (first(first(layer.layers).problem.tspan), last(last(layer.layers).problem.tspan))
+get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
+get_tunable(layer::MultipleShootingLayer) = get_tunable(first(layer.layers))
+
 
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                 observed::Function = (u,p,t) -> u)
@@ -68,19 +71,22 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     np = length(prob.p)
     control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
 
-
+    tunable_ic = get_tunable(layer)
     timegrid = first(tspan):dt:last(tspan)
     sampling_controls = map(Tuple(1:nh)) do i
         ControlParameter(timegrid,name=Symbol("w_$i"), controls=ones(length(timegrid)))
     end
 
-    new_controls = (controls..., sampling_controls...)
+    unrestricted_controls_old = map(controls) do ci
+        ControlParameter(timegrid, name=ci.name)
+    end
+    new_controls = (unrestricted_controls_old..., sampling_controls...,)
     if typeof(layer) <: SingleShootingLayer
-        return SingleShootingLayer(prob, layer.algorithm, layer.tunable_ic, control_indices, new_controls)
+        return SingleShootingLayer(prob, layer.algorithm, tunable_ic, control_indices, new_controls)
     else
         intervals = layer.shooting_intervals
         points = vcat(first.(intervals), last.(intervals)) |> sort! |> unique!
-        return MultipleShootingLayer(prob, first(layer.layers).algorithm, first(layer.layers).tunable_ic, first(layer.layers).control_indices, new_controls, points)
+        return MultipleShootingLayer(prob, first(layer.layers).algorithm, tunable_ic, control_indices, new_controls, points)
     end
 
 end
