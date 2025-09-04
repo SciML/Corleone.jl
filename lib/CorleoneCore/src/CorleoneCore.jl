@@ -13,12 +13,15 @@ using CommonSolve
 using ChainRulesCore
 
 using LuxCore
+using Symbolics
 
 include("local_controls.jl")
 export ControlParameter
 
 include("single_shooting.jl")
 include("multiple_shooting.jl")
+
+include("augmentation.jl")
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here
 

@@ -49,7 +49,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
             repack(A * params .+ B * controls)
         end
     end
-    # Next we setup the tspans and the indices 
+    # Next we setup the tspans and the indices
     grid = build_index_grid(controls...; tspan=problem.tspan, subdivide = 100)
     tspans = collect_tspans(controls...; tspan=problem.tspan, subdivide = 100)
     (;
@@ -66,7 +66,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     (; index_grid, tspans, parameter_vector, initial_condition) = st
     u0_ = initial_condition(u0)
     params = Base.Fix1(parameter_vector, p)
-    # Subdivide the grid and tspans 
+    # Subdivide the grid and tspans
     #N = length(tspans)
     #lower = 1:200:N
     #griddata = map(zip(lower, vcat(lower[2:end], N))) do (start, stop)
@@ -76,7 +76,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     #return solutions
      solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans)
     #    solutions = EnsembleSolution(solutions, 0.0, true, nothing)
-    return solutions, st
+    return SingleShootingSolution(solutions), st
 end
 
 @inline tuplejoin(x) = x
@@ -88,20 +88,20 @@ end
 
 sequential_solve(args...) = _sequential_solve(args...)
 
-@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N, Tuple}) where N 
+@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N, Tuple}) where N
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
-    ex = Expr[] 
-    push!(ex, 
+    ex = Expr[]
+    push!(ex,
         :($(u0s[1]) = u0)
     )
-    
-    for i in 1:N 
-        push!(ex, 
+
+    for i in 1:N
+        push!(ex,
             :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)]))
         )
-        if i < N 
-            push!(ex, 
+        if i < N
+            push!(ex,
                 :($(u0s[i+1]) = last($(solutions[i]))[end])
             )
         end
