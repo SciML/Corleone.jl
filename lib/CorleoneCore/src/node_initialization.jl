@@ -108,7 +108,6 @@ function (f::LinearInterpolationInitialization)(rng::Random.AbstractRNG, layer::
         else
             local_tspan = timespans[i]
             interpolated_u0 = map(x -> linear_initializer(u0[x], f.terminal_values[x], first(local_tspan), tspan), shooting_variables)
-            @info interpolated_u0
             pi.u0[shooting_variables] .= interpolated_u0
             pi
         end
@@ -209,31 +208,34 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
 
     defined_vars = [x.first for x in f.inits]
 
-    @info defined_vars
     forward_involved = [typeof(x.second) <: ForwardSolveInitialization for x in f.inits]
     forward_default = typeof(f.default_init) <: ForwardSolveInitialization
 
 
     any_forward = any(forward_involved) || forward_default
-    forward_vars = any(forward_involved) ? defined_vars[forward_involved] : Int64[]
+    forward_vars = any(forward_involved) ? reduce(vcat, defined_vars[forward_involved]) : Int64[]
 
     defined_vars = reduce(vcat, defined_vars)
     remaining_vars = [i for i in shooting_variables if i ∉ defined_vars]
 
     forward_vars = forward_default ? vcat(forward_vars, remaining_vars) : forward_vars
 
-    @info defined_vars forward_vars
-
     init_copy = copy(f.inits)
     init_copy = any_forward ? delete!(init_copy, ForwardSolveInitialization()) : init_copy
 
+    init_copy = begin
+        if forward_default
+            init_copy
+        else
+            merge(init_copy, Dict(remaining_vars => f.default_init))
+        end
+    end
+
     for p in init_copy
-        @info "Setting variables $(p.first) via $(p.second)"
         ps, st = p.second(rng, layer; shooting_variables=p.first, params = (ps, st))
     end
     ps, st = begin
         if any_forward
-            @info "Setting variables $forward_vars via ForwardSolveInitialization"
             ForwardSolveInitialization()(rng, layer; shooting_variables=forward_vars, params = (ps, st))
         else
             ps, st
