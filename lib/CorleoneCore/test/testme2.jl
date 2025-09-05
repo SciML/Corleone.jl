@@ -58,6 +58,34 @@ f
 
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0] # cost
 mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(), Int64[], [1], (control,), shooting_points);
+rng = Random.default_rng()
+ms_ps, ms_st = LuxCore.setup(rng, mslayer)
+ms_ps_def, _ = CorleoneCore.DefaultsInitialization()(rng, mslayer)
+ms_ps_rand, _ = CorleoneCore.RandomInitialization()(rng, mslayer)
+ms_ps_fwd, _ = CorleoneCore.ForwardSolveInitialization()(rng, mslayer)
+lin_init = CorleoneCore.LinearInterpolationInitialization(Dict(1 => 1.0, 2 => 1.0, 3 => 1.34))
+ms_ps_lin, _ = lin_init(rng, mslayer)
+
+custom_init = CorleoneCore.CustomInitialization(Dict(1 => ones(4), 2 => .5 * ones(4), 3=> rand(4)))
+ms_ps_custom, _ = custom_init(rng, mslayer)
+
+const_init = CorleoneCore.ConstantInitialization(Dict(1 => 1.0, 2 => 2.0, 3 => 1.34))
+ms_ps_const, _ = const_init(rng, mslayer)
+
+
+inits = Dict([1] => CorleoneCore.LinearInterpolationInitialization(Dict(1 => 1.0)),
+             [2] => CorleoneCore.CustomInitialization(Dict(2 => [0.7; 1.3; 0.9; 1.1])))
+
+hybrid_init = CorleoneCore.HybridInitialization(inits, CorleoneCore.ForwardSolveInitialization())
+ms_ps_hybrid, _ = hybrid_init(rng, mslayer)
+
+mssol, _ = mslayer(nothing, ms_ps_hybrid, ms_st);
+f = Figure()
+ax1 = CairoMakie.Axis(f[1,1])
+[plot!(ax1,sol.time, sol.states[i,:],color=:grey) for sol in mssol for i=1:size(sol.states,1)]
+f
+
+
 oed_mslayer = CorleoneCore.MultipleShootingLayer(oedprob, Tsit5(), Int64[], [1,4,5], (control,w1,w2), shooting_points);
 
 oedprob = CorleoneCore.augment_dynamics_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
@@ -72,7 +100,6 @@ oed_mslayer1 = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) ->
 
 oed_ps, oed_st = LuxCore.setup(Random.default_rng(), oed_ss)
 
-ms_ps, ms_st = LuxCore.setup(Random.default_rng(), oed_mslayer)
 ms_ps1, ms_st1 = LuxCore.setup(Random.default_rng(), oed_mslayer1)
 mssol, _ = oed_mslayer(nothing, ms_ps, ms_st);
 mssol1, _ = oed_mslayer1(nothing, ms_ps1, ms_st1);

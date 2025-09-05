@@ -22,6 +22,11 @@ include("single_shooting.jl")
 include("multiple_shooting.jl")
 
 include("augmentation.jl")
+
+include("node_initialization.jl")
+export DefaultsInitialization, ConstantInitialization
+export LinearInterpolationInitialization, ForwardSolveInitialization
+export HybridInitialization, RandomInitialization, CustomInitialization
 # Defines approximators for signals
 # TODO Add Linear, Quadratic and stuff here
 
