@@ -22,12 +22,11 @@ using LinearAlgebra
 
 function lotka_dynamics(u, p, t)
     return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
-            -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2];
-            (u[1]-1.0)^2 + (u[2] - 1.0)^2]
+            -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]]
 end
 
 tspan = (0., 12.)
-u0 = [0.5, 0.7, 0.]
+u0 = [0.5, 0.7, ]
 p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem{false}(lotka_dynamics, u0, tspan, p0,
     sensealg = ForwardDiffSensitivity()
@@ -42,6 +41,8 @@ oed_layer = CorleoneCore.augment_layer_for_oed(layer; observed = (u,p,t) -> u[1:
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
 
+nc, dt = length(control.t), diff(control.t)[1]
+
 loss = let layer = oed_layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
@@ -52,16 +53,26 @@ end
 
 loss(collect(p), nothing)
 
+sampling_cons = let layer = oed_layer, st = st, ax = getaxes(p)
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        res .= [sum(ps.controls[nc+1:2*nc]) * dt;
+          sum(ps.controls[2*nc+1:3*nc]) * dt  ]
+    end
+end
+
+sampling_cons(zeros(2),collect(p), nothing)
 
 optfun = OptimizationFunction(
-    loss, AutoForwardDiff(),
+    loss, AutoForwardDiff(), cons = sampling_cons
 )
 
 lb, ub = copy(p), copy(p)
+lb.controls .= 0.0
 ub.controls .= 1.0
 
 optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub)
+    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
@@ -77,9 +88,9 @@ ax = CairoMakie.Axis(f[1,1])
 ax1 = CairoMakie.Axis(f[2,1])
 ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
-[plot!(ax, optsol.time, sol) for sol in eachrow(optsol.states)[1:3]]
-[plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[4:9]]
-[plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[10:end]]
+[plot!(ax, optsol.time, sol) for sol in eachrow(optsol.states)[1:2]]
+[plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[3:8]]
+[plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[9:end]]
 stairs!(ax3, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
@@ -104,18 +115,23 @@ msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
     end
 end
 
+nc_ms = length(first(oed_mslayer.layers).controls[1].t)
 shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
+        matching_ = reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
             _u0 = getproperty(ps, name_i).u0
             sol.states[:,end] .-_u0
         end)
+        sampling_ = [sum(reduce(vcat, [ps["layer_$i"].controls[nc_ms+1:2*nc_ms] for i in 1:length(layer.layers)])) * dt;
+                    sum(reduce(vcat, [ps["layer_$i"].controls[2*nc_ms+1:3*nc_ms] for i in 1:length(layer.layers)])) *  dt]
+        return vcat(matching_, sampling_)
     end
 end
 
 matching = shooting_constraints(msp, nothing)
+jac_cons = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), msp)
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
 
 ms_lb = map(msps) do p_i
@@ -136,13 +152,10 @@ optfun = OptimizationFunction(
     msloss, AutoForwardDiff(), cons = eq_cons
 )
 
-p0 = map(msps) do pi
-    pi.controls .=1.0
-    pi
-end |> ComponentArray
-
+ucons = zero(matching)
+ucons[end-1:end] .= 4.0
 optprob = OptimizationProblem(
-    optfun, collect(p0), lb = collect(ms_lb), ub = collect(ms_ub), lcons = zero(matching), ucons=zero(matching)
+    optfun, collect(msp), lb = collect(ms_lb), ub = collect(ms_ub), lcons = zero(matching), ucons=ucons
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
