@@ -72,7 +72,7 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
 
     tunable_ic = get_tunable(layer)
-    timegrid = first(tspan):dt:last(tspan)
+    timegrid = collect(first(tspan):dt:last(tspan))[1:end-1]
     sampling_controls = map(Tuple(1:nh)) do i
         ControlParameter(timegrid,name=Symbol("w_$i"), controls=ones(length(timegrid)))
     end
