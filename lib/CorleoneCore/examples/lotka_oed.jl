@@ -164,11 +164,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 300 # 165
 )
 
-blocks = begin
-    l = map(x -> length(ComponentArray(x)), msps)
-    lc = cumsum(ComponentArray(l)[:])
-    vcat(0, lc)
-end
+blocks = CorleoneCore.get_block_structure(oed_mslayer)
 
 uopt = solve(optprob, BlockSQPOpt(),
     opttol = 1e-6,

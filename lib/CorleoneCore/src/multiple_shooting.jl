@@ -42,9 +42,7 @@ function (layer::MultipleShootingLayer)(::Any, ps, st)
             DummySolve(),layer.ensemble_alg; trajectories = length(layer.layers)), st
 end
 
-
-
-# MultipleShootingLayer ist Container für SingleShootingLayer, st müssen gefixt werden, ps nicht
-# Machen so wie Wrapper Struct, Common Solve für ShootingProblem
-# init() definieren init(layer,alg,ps,st) -> ShootingProblem() -> solve!(ShootingProblem...)::NTuple
-# Oder pmap? Gucken bei Lux?
+function get_block_structure(layer::MultipleShootingLayer)
+    ps_lengths = map(LuxCore.parameterlength, layer.layers)
+    vcat(0, cumsum(ps_lengths))
+end
