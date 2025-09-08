@@ -24,7 +24,7 @@ end
 function restrict_controls(c::ControlParameter, lo, hi)
     idx = findall(lo .<= c.t .< hi)
 
-    return ControlParameter(c.t[idx], name = c.name)
+    return ControlParameter(c.t[idx], name = c.name, controls = c.controls, bounds = c.bounds)
 end
 
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
@@ -93,9 +93,9 @@ function build_index_grid(controls::ControlParameter...; offset::Bool=true, tspa
             end
         end
     end
-    # Check the gridsize 
+    # Check the gridsize
     N = size(indices,2)
-    if N > subdivide 
+    if N > subdivide
         ranges = get_subvector_indices(N, subdivide)
         return Tuple(indices[:, i] for i in ranges)
     end
@@ -109,7 +109,7 @@ function collect_tspans(controls::ControlParameter...; tspan=(-Inf, Inf), subdiv
     time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
     fullgrid = collect(ti for ti in zip(time_grid[1:end-1], time_grid[2:end]))
     N = size(fullgrid,1)
-    if N > subdivide 
+    if N > subdivide
         ranges = get_subvector_indices(N, subdivide)
         return Tuple(tuple(fullgrid[i]...) for i in ranges)
     end
