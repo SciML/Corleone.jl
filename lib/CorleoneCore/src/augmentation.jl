@@ -1,11 +1,11 @@
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
+                params = get_params(layer),
                 observed::Function = (u,p,t) -> u)
 
     prob = get_problem(layer)
     u0, tspan = prob.u0, get_tspan(layer)
     controls, control_indices = get_controls(layer)
-    p_indices = [i for i in eachindex(prob.p) if i ∉ control_indices]
-    nx, np, nc = length(prob.u0), length(prob.p), length(control_indices)
+    nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
 
     iip = SciMLBase.isinplace(prob)
     _x = Symbolics.variables(:x, 1:nx)
@@ -23,12 +23,10 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     end
 
 
-    _G = Symbolics.variables(:G, 1:nx, 1:np-nc)
-    _F = Symbolics.variables(:F, 1:np-nc, 1:np-nc)
-
-
+    _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
+    _F = Symbolics.variables(:F, 1:np_considered, 1:np_considered)
     dfdx = Symbolics.jacobian(_dx, _x)
-    dfdp = Symbolics.jacobian(_dx, _p[p_indices])
+    dfdp = Symbolics.jacobian(_dx, _p[params])
 
     dGdt = dfdp + dfdx * _G
     _obs = observed(_x, _p, _t)
@@ -42,7 +40,7 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     iip_idx = iip ? 2 : 1
     aug_fun = Symbolics.build_function(vcat(_dx, dGdt[:], dFdt[:]), vcat(_x, _G[:], _F[:]), vcat(_p,_w), _t)[iip_idx]
     dfun = eval(aug_fun)
-    aug_u0 = vcat(u0, zeros(nx*(np-nc)+(np-nc)^2))
+    aug_u0 = vcat(u0, zeros(nx*np_considered+np_considered^2))
     aug_p = vcat(prob.p, ones(length(_w)))
 
     ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
@@ -50,11 +48,12 @@ end
 
 
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
+        params = get_params(layer),
         observed::Function=(u,p,t) -> u,
         dt = first(diff(first(get_controls(layer)[1]).t)))
 
 
-    prob = augment_dynamics_for_oed(layer; observed=observed)
+    prob = augment_dynamics_for_oed(layer; params = params, observed=observed)
     controls, control_idxs = get_controls(layer)
     tspan = get_tspan(layer)
     nh = length(observed(prob.u0, prob.p, prob.tspan[1]))
