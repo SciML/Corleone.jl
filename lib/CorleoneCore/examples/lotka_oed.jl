@@ -91,7 +91,7 @@ ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax, optsol.time, sol) for sol in eachrow(optsol.states)[1:2]]
 [plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[3:8]]
 [plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[9:end]]
-stairs!(ax3, control.t, (uopt + zero(p)).controls[1:length(control.t)])
+stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
 f
@@ -187,10 +187,15 @@ mssol, _ = oed_mslayer(nothing, uopt + zero(msp), msst)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
 ax1 = CairoMakie.Axis(f[2,1])
-[plot!(ax, sol.time, sol.states[i,:], color=i)  for sol in mssol for i =1:size(sol.states,1)]
+ax2 = CairoMakie.Axis(f[1,2])
+ax3 = CairoMakie.Axis(f[2,2])
+[plot!(ax,  sol.time, sol.states[i,:])  for sol in mssol for i in 1:2]
+[plot!(ax1, sol.time, sol.states[i,:])  for sol in mssol for i in 3:8]
+[plot!(ax2, sol.time, sol.states[i,:])  for sol in mssol for i in 9:size(sol.states,1)]
+f
 
-[stairs!(ax1, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax1, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[lc+1:2*lc], color=:red) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax1, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[2*lc+1:3*lc], color=:yellow) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax3, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax3, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(mslayer.layers)]
 
 f
