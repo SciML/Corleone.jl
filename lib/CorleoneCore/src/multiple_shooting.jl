@@ -4,6 +4,12 @@ struct MultipleShootingLayer{L,SI,E} <: LuxCore.AbstractLuxLayer
     ensemble_alg::E
 end
 
+get_problem(layer::MultipleShootingLayer) = get_problem(first(layer.layers))
+get_controls(layer::MultipleShootingLayer) = get_controls(first(layer.layers))
+get_tspan(layer::MultipleShootingLayer) = (first(first(layer.layers).problem.tspan), last(last(layer.layers).problem.tspan))
+get_tunable(layer::MultipleShootingLayer) = get_tunable(first(layer.layers))
+
+
 function MultipleShootingLayer(prob, alg, tunable, control_indices, controls, shooting_points; ensemble_alg = EnsembleSerial())
     tspan = prob.tspan
     shooting_points = vcat(tspan..., shooting_points) |> unique! |> sort!

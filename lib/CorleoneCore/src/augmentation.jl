@@ -1,13 +1,3 @@
-get_problem(layer::SingleShootingLayer) = layer.problem
-get_problem(layer::MultipleShootingLayer) = get_problem(first(layer.layers))
-get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indices)
-get_controls(layer::MultipleShootingLayer) = get_controls(first(layer.layers))
-get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
-get_tspan(layer::MultipleShootingLayer) = (first(first(layer.layers).problem.tspan), last(last(layer.layers).problem.tspan))
-get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
-get_tunable(layer::MultipleShootingLayer) = get_tunable(first(layer.layers))
-
-
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                 observed::Function = (u,p,t) -> u)
 

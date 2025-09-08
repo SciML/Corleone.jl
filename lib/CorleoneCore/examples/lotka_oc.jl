@@ -33,7 +33,7 @@ prob = ODEProblem{false}(lotka_dynamics, u0, tspan, p0,
     sensealg = ForwardDiffSensitivity()
     )
 control = ControlParameter(
-    collect(0.0:0.1:12.0)[1:end-1], name = :fishing
+    collect(0.0:0.1:11.9), name = :fishing
 )
 
 # Single Shooting

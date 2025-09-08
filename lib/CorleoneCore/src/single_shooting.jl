@@ -6,6 +6,11 @@ struct SingleShootingLayer{P,A,C} <: LuxCore.AbstractLuxLayer
     controls::C
 end
 
+get_problem(layer::SingleShootingLayer) = layer.problem
+get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indices)
+get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
+get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
+
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     (;
