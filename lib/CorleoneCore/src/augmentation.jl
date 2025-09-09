@@ -44,6 +44,8 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     aug_u0 = vcat(u0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
     aug_p = vcat(prob.p, ones(length(_w)))
 
+    scache = SymbolCache(vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), [_t])
+    dfun = ODEFunction(dfun, sys=scache)
     ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
 end
 
@@ -84,4 +86,20 @@ end
 function symmetric_from_vector(x::AbstractArray)
     n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
     [x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n]
+end
+
+function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
+    st = LuxCore.initialstates(Random.default_rng(), layer)
+    st = isa(layer, SingleShootingLayer) ? st : st.layer_1
+    keys_ = collect(keys(st.symcache.variables))
+    idx = findall(Base.Fix2(startswith, "F"), collect(string.(keys_)))
+    sort(keys_[idx], by=string) ## TODO: TEST IF THIS RETURNS THE RIGHT ORDER WHEN APPLYING SYMMETRIC_FROM_VECTOR
+end
+
+function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
+    st = LuxCore.initialstates(Random.default_rng(), layer)
+    st = isa(layer, SingleShootingLayer) ? st : st.layer_1
+    keys_ = collect(keys(st.symcache.variables))
+    idx = findall(Base.Fix2(startswith, "G"), collect(string.(keys_)))
+    sort(keys_[idx], by=string) ## TODO: TEST IF THIS RETURNS THE RIGHT ORDER WHEN APPLYING SYMMETRIC_FROM_VECTOR
 end

@@ -43,11 +43,11 @@ p = ComponentArray(ps)
 
 nc, dt = length(control.t), diff(control.t)[1]
 
-loss = let layer = oed_layer, st = st, ax = getaxes(p)
+loss = let layer = oed_layer, st = st, ax = getaxes(p), f_sym = CorleoneCore.fisher_variables(oed_layer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(CorleoneCore.symmetric_from_vector(sols.states[end-2:end,end])))
+        inv(tr(CorleoneCore.symmetric_from_vector(sols[f_sym][end])))
     end
 end
 
@@ -88,9 +88,9 @@ ax = CairoMakie.Axis(f[1,1])
 ax1 = CairoMakie.Axis(f[2,1])
 ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
-[plot!(ax, optsol.time, sol) for sol in eachrow(optsol.states)[1:2]]
-[plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[3:6]]
-[plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[7:end]]
+[plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
+[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.fisher_variables(oed_layer)])))]
 stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
@@ -107,14 +107,15 @@ msps, msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 msps, msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
 msp = ComponentArray(msps)
 
-msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
+msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp), f_sym = CorleoneCore.fisher_variables(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(CorleoneCore.symmetric_from_vector(last(sols).states[end-2:end,end])))
+        inv(tr(CorleoneCore.symmetric_from_vector(last(sols)[f_sym][end])))
     end
 end
 
+msloss(msp, nothing)
 nc_ms = length(first(oed_mslayer.layers).controls[1].t)
 shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
@@ -122,7 +123,7 @@ shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
         sols, _ = layer(nothing, ps, st)
         matching_ = reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
             _u0 = getproperty(ps, name_i).u0
-            sol.states[:,end] .-_u0
+            sol.u[end][1:end-3] .-_u0
         end)
         sampling_ = [sum(reduce(vcat, [ps["layer_$i"].controls[nc_ms+1:2*nc_ms] for i in 1:length(layer.layers)])) * dt;
                     sum(reduce(vcat, [ps["layer_$i"].controls[2*nc_ms+1:3*nc_ms] for i in 1:length(layer.layers)])) *  dt]
@@ -184,9 +185,9 @@ ax = CairoMakie.Axis(f[1,1])
 ax1 = CairoMakie.Axis(f[2,1])
 ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
-[plot!(ax,  sol.time, sol.states[i,:])  for sol in mssol for i in 1:2]
-[plot!(ax1, sol.time, sol.states[i,:])  for sol in mssol for i in 3:6]
-[plot!(ax2, sol.time, sol.states[i,:])  for sol in mssol for i in 7:size(sol.states,1)]
+[plot!(ax,  sol.t, Array(sol)[i,:])  for sol in mssol for i in 1:2]
+[plot!(ax1, sol.t, Array(sol)[i,:])  for sol in mssol for i in 3:6]
+[plot!(ax2, sol.t, Array(sol)[i,:])  for sol in mssol for i in 7:9]
 f
 
 [stairs!(ax, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
