@@ -33,14 +33,15 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     _w = Symbolics.variables(:w, 1:length(_obs))
     dobsdx = Symbolics.jacobian(_obs, _x)
 
+    upper_triangle = triu(trues(np_considered, np_considered))
     dFdt = sum(map(1:length(_obs)) do i
         _w[i] * (dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G)
-    end)
+    end)[upper_triangle]
 
     iip_idx = iip ? 2 : 1
-    aug_fun = Symbolics.build_function(vcat(_dx, dGdt[:], dFdt[:]), vcat(_x, _G[:], _F[:]), vcat(_p,_w), _t)[iip_idx]
+    aug_fun = Symbolics.build_function(vcat(_dx, dGdt[:], dFdt), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
     dfun = eval(aug_fun)
-    aug_u0 = vcat(u0, zeros(nx*np_considered+np_considered^2))
+    aug_u0 = vcat(u0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
     aug_p = vcat(prob.p, ones(length(_w)))
 
     ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
@@ -78,4 +79,25 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
         return MultipleShootingLayer(prob, first(layer.layers).algorithm, tunable_ic, control_indices, new_controls, points)
     end
 
+end
+
+
+function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}) where {T, N}
+    F = Array{T,2}(undef,N,N)
+    for j=1:N
+        for i=1:N
+            if i<= j
+                F[i,j] = x[Int(j * (j - 1) / 2 + i)]
+            else
+                F[i,j] = x[Int(i * (i - 1) / 2 + j)]
+            end
+        end
+    end
+    return F
+end
+
+
+function symmetric_from_vector(x::AbstractVector)
+    n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
+    _symmetric_from_vector(x, Val(n))
 end
