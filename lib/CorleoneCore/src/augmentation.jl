@@ -81,23 +81,7 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
 
 end
 
-
-function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}) where {T, N}
-    F = Array{T,2}(undef,N,N)
-    for j=1:N
-        for i=1:N
-            if i<= j
-                F[i,j] = x[Int(j * (j - 1) / 2 + i)]
-            else
-                F[i,j] = x[Int(i * (i - 1) / 2 + j)]
-            end
-        end
-    end
-    return F
-end
-
-
-function symmetric_from_vector(x::AbstractVector)
+function symmetric_from_vector(x::AbstractArray)
     n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
-    _symmetric_from_vector(x, Val(n))
+    [x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n]
 end
