@@ -47,7 +47,7 @@ loss = let layer = oed_layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(reshape(sols.states[end-1:end,end-1:end], (2,2))))
+        inv(tr(CorleoneCore.symmetric_from_vector(sols.states[end-2:end,end])))
     end
 end
 
@@ -89,8 +89,8 @@ ax1 = CairoMakie.Axis(f[2,1])
 ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax, optsol.time, sol) for sol in eachrow(optsol.states)[1:2]]
-[plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[3:8]]
-[plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[9:end]]
+[plot!(ax1, optsol.time, sol) for sol in eachrow(optsol.states)[3:6]]
+[plot!(ax2, optsol.time, sol) for sol in eachrow(optsol.states)[7:end]]
 stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
@@ -111,7 +111,7 @@ msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(reshape(last(sols).states[end-1:end,end-1:end], (2,2))))
+        inv(tr(CorleoneCore.symmetric_from_vector(last(sols).states[end-2:end,end])))
     end
 end
 
@@ -177,11 +177,6 @@ uopt = solve(optprob, BlockSQPOpt(),
 sol_u = uopt + zero(msp)
 lc = first(oed_mslayer.layers).controls[1].t |> length
 
-fishing_opt, w1_opt, w2_opt = map(1:length(oed_mslayer.layers)) do layer
-    u_local = sol_u["layer_$layer"].controls
-    u_local[1:lc], u_local[lc+1:2*lc], u_local[2*lc+1:3*lc]
-end
-
 mssol, _ = oed_mslayer(nothing, uopt + zero(msp), msst)
 
 f = Figure()
@@ -190,8 +185,8 @@ ax1 = CairoMakie.Axis(f[2,1])
 ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax,  sol.time, sol.states[i,:])  for sol in mssol for i in 1:2]
-[plot!(ax1, sol.time, sol.states[i,:])  for sol in mssol for i in 3:8]
-[plot!(ax2, sol.time, sol.states[i,:])  for sol in mssol for i in 9:size(sol.states,1)]
+[plot!(ax1, sol.time, sol.states[i,:])  for sol in mssol for i in 3:6]
+[plot!(ax2, sol.time, sol.states[i,:])  for sol in mssol for i in 7:size(sol.states,1)]
 f
 
 [stairs!(ax, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
