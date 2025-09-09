@@ -7,7 +7,7 @@ Initializes the problem using the default values of all shooting variables.
 """
 struct DefaultsInitialization <: AbstractNodeInitialization end
 function (f::DefaultsInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer), kwargs...)
+    params=LuxCore.setup(rng, layer), kwargs...)
     params
 end
 """
@@ -21,8 +21,8 @@ $(FIELDS)
 struct RandomInitialization <: AbstractNodeInitialization end
 
 function (f::RandomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0))
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0))
     ps, st = params
 
     i = 0
@@ -47,8 +47,8 @@ Initializes the problem using a single forward solve of the problem.
 struct ForwardSolveInitialization <: AbstractNodeInitialization end
 
 function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0))
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0))
 
     ps, st = params
 
@@ -56,10 +56,11 @@ function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::Multipl
     i = 0
     for (slayer, sps, sst) in zip(layer.layers, ps, st)
         i += 1
-        common_variables = i == 1 ?  [i for i in shooting_variables if i in first(layer.layers).tunable_ic] : shooting_variables
+        common_variables = i == 1 ? [i for i in shooting_variables if i in first(layer.layers).tunable_ic] : shooting_variables
         sps.u0[common_variables] .= last(u0s)[common_variables]
-        pred = slayer(nothing, sps, sst)[1].states[:,end]
-        push!(u0s, pred)
+        pred, _ = slayer(nothing, sps, sst)
+        u0_ = pred.u[end]
+        push!(u0s, u0_)
     end
 
     return ps, st
@@ -92,8 +93,8 @@ $(FUNCTIONNAME)
 Creates a (`FunctionInitialization`)[@ref] with linearly interpolates between u0 and the provided u_inf.
 """
 function (f::LinearInterpolationInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0))
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0))
 
     u0 = first(layer.layers).problem.u0
     @assert length(shooting_variables) == length(f.terminal_values)
@@ -132,8 +133,8 @@ struct CustomInitialization{I<:AbstractDict} <: AbstractNodeInitialization
 end
 
 function (f::CustomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0))
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0))
     ps, st = params
 
     i = 0
@@ -171,8 +172,8 @@ struct ConstantInitialization{I<:AbstractDict} <: AbstractNodeInitialization
 end
 
 function (f::ConstantInitialization)(rng::AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0))
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0))
     ps, st = params
 
     new_ps = map(ps) do pi
@@ -200,9 +201,9 @@ end
 
 
 function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-            params = LuxCore.setup(rng, layer),
-            shooting_variables = eachindex(first(layer.layers).problem.u0),
-            kwargs...)
+    params=LuxCore.setup(rng, layer),
+    shooting_variables=eachindex(first(layer.layers).problem.u0),
+    kwargs...)
 
     ps, st = params
 
@@ -232,11 +233,11 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
     end
 
     for p in init_copy
-        ps, st = p.second(rng, layer; shooting_variables=p.first, params = (ps, st))
+        ps, st = p.second(rng, layer; shooting_variables=p.first, params=(ps, st))
     end
     ps, st = begin
         if any_forward
-            ForwardSolveInitialization()(rng, layer; shooting_variables=forward_vars, params = (ps, st))
+            ForwardSolveInitialization()(rng, layer; shooting_variables=forward_vars, params=(ps, st))
         else
             ps, st
         end
