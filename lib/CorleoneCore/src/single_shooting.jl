@@ -15,10 +15,44 @@ get_params(layer::SingleShootingLayer) = setdiff(eachindex(layer.problem.p), lay
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     (;
-        u0 = copy(layer.problem.u0[layer.tunable_ic]),
-        p = getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls = collect_local_controls(rng, layer.controls...)
+        u0=copy(layer.problem.u0[layer.tunable_ic]),
+        p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls=collect_local_controls(rng, layer.controls...)
     )
+end
+
+function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
+    retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
+end
+
+function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
+    p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
+    state_symbols = [Symbol(:x, Symbol(Char(0x2080 + i))) for i in eachindex(u0)]
+    u_id = 0
+    p_id = 0
+    parameter_symbols = [i ∈ control_indices ? Symbol(:u, Symbol(Char(0x2080 + (u_id += 1)))) : Symbol(:p, Symbol(Char(0x2080 + (p_id += 1)))) for i in eachindex(p0)]
+    tsym = [:t]
+    _retrieve_symbol_cache(state_symbols, parameter_symbols, tsym, control_indices)
+end
+
+function retrieve_symbol_cache(cache::SymbolCache, u0, p, control_indices)
+    psym = parameter_symbols(cache)
+    vsym = variable_symbols(cache)
+    sort!(psym, by=xi -> SymbolicIndexingInterface.parameter_index(cache, xi))
+    sort!(vsym, by=xi -> SymbolicIndexingInterface.variable_index(cache, xi))
+    _retrieve_symbol_cache(
+        vsym,
+        psym,
+        independent_variable_symbols(cache),
+        control_indices
+    )
+end
+
+function _retrieve_symbol_cache(
+    xs, ps, t, idx
+)
+    nonidx = filter(∉(idx), eachindex(ps))
+    SymbolCache(vcat(xs, ps[idx]), ps[nonidx], t)
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
@@ -56,77 +90,81 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
         end
     end
     # Next we setup the tspans and the indices
-    grid = build_index_grid(controls...; tspan=problem.tspan, subdivide = 100)
-    tspans = collect_tspans(controls...; tspan=problem.tspan, subdivide = 100)
+    grid = build_index_grid(controls...; tspan=problem.tspan, subdivide=100)
+    tspans = collect_tspans(controls...; tspan=problem.tspan, subdivide=100)
+    symcache = retrieve_symbol_cache(problem, control_indices)
     (;
         initial_condition,
         index_grid=grid,
         tspans,
         parameter_vector,
+        symcache
     )
 end
 
 function (layer::SingleShootingLayer)(::Any, ps, st)
     (; problem, algorithm,) = layer
     (; u0, p, controls) = ps
-    (; index_grid, tspans, parameter_vector, initial_condition) = st
+    (; index_grid, tspans, parameter_vector, initial_condition, symcache) = st
     u0_ = initial_condition(u0)
     params = Base.Fix1(parameter_vector, p)
-    # Subdivide the grid and tspans
-    #N = length(tspans)
-    #lower = 1:200:N
-    #griddata = map(zip(lower, vcat(lower[2:end], N))) do (start, stop)
-    #    index_grid[:, start:stop], tuple(collect(tspans)[start:stop]...)
-    #end |> Tuple
-    #solutions = batched_sequential_solve(problem, algorithm, u0_, params, controls, first.(griddata), last.(griddata))
-    #return solutions
-     solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans)
-    #    solutions = EnsembleSolution(solutions, 0.0, true, nothing)
-    return SingleShootingSolution(solutions), st
+    # Returns the states as DiffEqArray
+    solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans, symcache)
+    return solutions, st
 end
 
-@inline tuplejoin(x) = x
-
-@inline tuplejoin(x, y) = (x..., y...)
-
-@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
-
+function build_optimal_control_solution(u, t, p, sys)
+    DiffEqArray(u, t, p, sys)
+end
 
 sequential_solve(args...) = _sequential_solve(args...)
 
-@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N, Tuple}) where N
+@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N,Tuple}, sys) where N
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
+    u_ret_expr = :(vcat())
+    t_ret_expr = :(vcat())
     push!(ex,
         :($(u0s[1]) = u0)
     )
 
     for i in 1:N
         push!(ex,
-            :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)]))
+            :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)], sys))
         )
+        push!(u_ret_expr.args, :($(solutions[i]).u))
+        push!(t_ret_expr.args, :($(solutions[i]).t))
         if i < N
             push!(ex,
-                :($(u0s[i+1]) = last($(solutions[i]))[end])
+                  :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
             )
         end
     end
-    push!(ex, :(return tuplejoin($(solutions...))))
+    push!(ex,
+        :(return build_optimal_control_solution($(u_ret_expr), $(t_ret_expr), param.x, sys)) # Was kommt hier raus
+    )
     return Expr(:block, ex...)
 end
 
-@generated function _sequential_solve(problem, alg, u0, param, ps, index_grid::AbstractArray, tspans::NTuple{N, Tuple{<:Real, <:Real}}) where N
+
+@generated function _sequential_solve(problem, alg, u0, param, ps, index_grid::AbstractArray, tspans::NTuple{N,Tuple{<:Real,<:Real}}, sys) where N
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
+    u_ret_expr = :(vcat())
+    t_ret_expr = :(vcat())
+    psym = [gensym() for _ in 1:N]
     push!(ex,
         :($(u0s[1]) = u0)
     )
     for i in 1:N
+        push!(ex, :($(psym[i]) = getindex(ps, index_grid[:, $(i)])))
         push!(ex,
-            :($(solutions[i]) = solve(problem, alg; u0=$(u0s[i]), dense=false, save_start=$(i == 1), save_end = true, tspan=tspans[$(i)], p=param(ps[index_grid[:, $(i)]])))
+            :($(solutions[i]) = solve(problem, alg; u0=$(u0s[i]), dense=false, save_start=$(i == 1), save_end=true, tspan=tspans[$(i)], p=param($(psym[i]))))
         )
+        push!(u_ret_expr.args, :(Base.Fix2(vcat, $(psym[i])).($(solutions[i]).u)))
+        push!(t_ret_expr.args, :($(solutions[i]).t))
         if i < N
             push!(ex,
                 :($(u0s[i+1]) = $(solutions[i])[end])
@@ -134,10 +172,11 @@ end
         end
     end
     push!(ex,
-        :(return ($(solutions...),)) # Was kommt hier raus
+        :(return build_optimal_control_solution($(u_ret_expr), $(t_ret_expr), param.x, sys)) # Was kommt hier raus
     )
     return Expr(:block, ex...)
 end
+
 
 struct SingleShootingProblem{L,P,S}
     layer::L
@@ -145,16 +184,11 @@ struct SingleShootingProblem{L,P,S}
     state::S
 end
 
-struct SingleShootingSolution{U,T}
-    states::U
-    time::T
-end
 
 function SingleShootingSolution(sols::NTuple)
-
     states = reduce(hcat, map(Array, sols))
     t = reduce(vcat, map(x -> x.t, sols))
-    SingleShootingSolution{typeof(states), typeof(t)}(states, t)
+    SingleShootingSolution{typeof(states),typeof(t)}(states, t)
 end
 
 struct DummySolve end
