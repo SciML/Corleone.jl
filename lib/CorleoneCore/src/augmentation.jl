@@ -72,7 +72,7 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
 
     aug_du0 = vcat(prob.du0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
     aug_diff_vars = vcat(prob.differential_vars, trues(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
-    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p, differential_vars = aug_diff_vars)
+    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p, differential_vars = aug_diff_vars; prob.kwargs...)
 end
 
 
