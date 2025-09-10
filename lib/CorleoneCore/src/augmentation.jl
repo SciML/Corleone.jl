@@ -3,50 +3,76 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
                 observed::Function = (u,p,t) -> u)
 
     prob = get_problem(layer)
+    is_dae = isa(prob, SciMLBase.DAEProblem)
     u0, tspan = prob.u0, get_tspan(layer)
     controls, control_indices = get_controls(layer)
     nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
 
     iip = SciMLBase.isinplace(prob)
+    _dx = Symbolics.variables(:dx, 1:nx)
     _x = Symbolics.variables(:x, 1:nx)
     _p = Symbolics.variables(:p, 1:np)
     _t = Symbolics.variable(:t)
 
-    _dx = begin
+    _dynamics = begin
         if iip
-            __dx = Symbolics.variables(:dx, 1:nx)
-            prob.f.f(__dx, _x, _p, _t)
-            __dx
+            if !is_dae
+                prob.f.f(_dx, _x, _p, _t)
+                _dx
+            else
+                out = Symbolics.variables(:out, 1:nx)
+                prob.f.f(out, _dx, _x, _p, _t)
+                out
+            end
         else
-            prob.f.f(_x, _p, _t)
+            if !is_dae
+                prob.f.f(_x, _p, _t)
+            else
+                prob.f.f(_dx, _x, _p, _t)
+            end
         end
     end
 
-
+    _dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
     _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
+    _dF = Symbolics.variables(:F, 1:np_considered, 1:np_considered)
     _F = Symbolics.variables(:F, 1:np_considered, 1:np_considered)
-    dfdx = Symbolics.jacobian(_dx, _x)
-    dfdp = Symbolics.jacobian(_dx, _p[params])
 
-    dGdt = dfdp + dfdx * _G
+    dfdx = Symbolics.jacobian(_dynamics, _x)
+    dfddx = Symbolics.jacobian(_dynamics, _dx)
+    dfdp = Symbolics.jacobian(_dynamics, _p[params])
+
+    dGdt = is_dae ?  dfdp + dfdx * _G  + dfddx * _dG : dfdp + dfdx * _G
     _obs = observed(_x, _p, _t)
     _w = Symbolics.variables(:w, 1:length(_obs))
     dobsdx = Symbolics.jacobian(_obs, _x)
 
     upper_triangle = triu(trues(np_considered, np_considered))
     dFdt = sum(map(1:length(_obs)) do i
-        _w[i] * (dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G)
+            _w[i] * (dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G)
     end)[upper_triangle]
+    dFdt = is_dae ? _dF[upper_triangle] .- dFdt : dFdt
 
     iip_idx = iip ? 2 : 1
-    aug_fun = Symbolics.build_function(vcat(_dx, dGdt[:], dFdt), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
+    aug_fun = begin
+        if !is_dae
+            Symbolics.build_function(vcat(_dynamics, dGdt[:], dFdt), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
+        else
+            Symbolics.build_function(vcat(_dynamics, dGdt[:], dFdt), vcat(_dx, _dG[:], _dF[upper_triangle]), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
+        end
+    end
     dfun = eval(aug_fun)
     aug_u0 = vcat(u0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
     aug_p = vcat(prob.p, ones(length(_w)))
 
     scache = SymbolCache(vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), [_t])
-    dfun = ODEFunction(dfun, sys=scache)
-    ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
+    dfun = is_dae ? DAEFunction(dfun, sys=scache) : ODEFunction(dfun, sys=scache)
+
+    !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
+
+    aug_du0 = vcat(prob.du0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
+    aug_diff_vars = vcat(prob.differential_vars, trues(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
+    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p, differential_vars = aug_diff_vars)
 end
 
 
@@ -66,10 +92,10 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     tunable_ic = get_tunable(layer)
     timegrid = collect(first(tspan):dt:last(tspan))[1:end-1]
     sampling_controls = map(Tuple(1:nh)) do i
-        ControlParameter(timegrid,name=Symbol("w_$i"), controls=ones(length(timegrid)))
+        ControlParameter(timegrid, name=Symbol("w_$i"), controls=ones(length(timegrid)))
     end
 
-    unrestricted_controls_old = map(controls) do ci
+    unrestricted_controls_old = isa(layer, SingleShootingLayer) ? controls : map(controls) do ci
         ControlParameter(timegrid, name=ci.name)
     end
     new_controls = (unrestricted_controls_old..., sampling_controls...,)
