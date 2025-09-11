@@ -1,11 +1,9 @@
-function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
-                params = get_params(layer),
-                observed::Function = (u,p,t) -> u)
+function augment_dynamics_for_oed(prob::SciMLBase.AbstractDEProblem;
+            tspan=prob.tspan, control_indices = Int64[],
+            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u)
 
-    prob = get_problem(layer)
     is_dae = isa(prob, SciMLBase.DAEProblem)
-    u0, tspan = prob.u0, get_tspan(layer)
-    controls, control_indices = get_controls(layer)
+    u0 = prob.u0
     nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
 
     iip = SciMLBase.isinplace(prob)
@@ -53,28 +51,43 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     end)[upper_triangle]
     dFdt = is_dae ? _dF[upper_triangle] .- dFdt : dFdt
 
+    differential_variables_ = vcat(_dx, _dG[:], _dF[upper_triangle])
+    variables_ = vcat(_x, _G[:], _F[upper_triangle])
+    parameters_ = vcat(_p,_w)
+    expressions_ = vcat(_dynamics, dGdt[:], dFdt)
+
     iip_idx = iip ? 2 : 1
     aug_fun = begin
         if !is_dae
-            Symbolics.build_function(vcat(_dynamics, dGdt[:], dFdt), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
+            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
         else
-            Symbolics.build_function(vcat(_dynamics, dGdt[:], dFdt), vcat(_dx, _dG[:], _dF[upper_triangle]), vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), _t)[iip_idx]
+            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t)[iip_idx]
         end
     end
-    dfun = eval(aug_fun)
-    aug_u0 = vcat(u0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
+    #dfun = eval(aug_fun)
+    aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
     aug_p = vcat(prob.p, ones(length(_w)))
 
-    scache = SymbolCache(vcat(_x, _G[:], _F[upper_triangle]), vcat(_p,_w), [_t])
-    dfun = is_dae ? DAEFunction(dfun, sys=scache) : ODEFunction(dfun, sys=scache)
+    scache = SymbolCache(variables_, parameters_, [_t])
+    dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
 
-    !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p)
+    !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
 
-    aug_du0 = vcat(prob.du0, zeros(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
-    aug_diff_vars = vcat(prob.differential_vars, trues(nx*np_considered+Int((np_considered*(np_considered+1)/2))))
-    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p, differential_vars = aug_diff_vars; prob.kwargs...)
+    aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
+    aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
+    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
+function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
+                params = get_params(layer),
+                observed::Function = (u,p,t) -> u)
+
+    prob = get_problem(layer)
+    tspan = get_tspan(layer)
+    _, control_indices = get_controls(layer)
+    augment_dynamics_for_oed(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
+
+end
 
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
         params = get_params(layer),
