@@ -61,7 +61,7 @@ function augment_dynamics_for_oed(prob::SciMLBase.AbstractDEProblem;
         if !is_dae
             Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
         else
-            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t)[iip_idx]
+            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
         end
     end
     #dfun = eval(aug_fun)

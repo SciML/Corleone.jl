@@ -44,7 +44,7 @@ control = ControlParameter(
 layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
- 
+
 layer(nothing, ps, st)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
@@ -103,14 +103,12 @@ msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     end
 end
 
-shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp)
+
+shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp), matching_constraint = CorleoneCore.get_shooting_constraints(mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
-            _u0 = getproperty(ps, name_i).u0
-            sol.u[end][1:3] .-_u0
-        end)
+        matching_constraint(sols, ps)
     end
 end
 
@@ -157,7 +155,7 @@ uopt = solve(optprob, BlockSQPOpt(),
 mssol, _ = mslayer(nothing, uopt + zero(msp), msst)
 
 f = Figure(size = (400,400))
-for j in 1:4 
+for j in 1:4
     ax = f[j, 1] = CairoMakie.Axis(f)
     for i in 1:4
         plt = i == 4 ? stairs! : lines!

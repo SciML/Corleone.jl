@@ -117,14 +117,11 @@ end
 
 msloss(msp, nothing)
 nc_ms = length(first(oed_mslayer.layers).controls[1].t)
-shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp)
+shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        matching_ = reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
-            _u0 = getproperty(ps, name_i).u0
-            sol.u[end][1:end-3] .-_u0
-        end)
+        matching_ = matching_constraint(sols, ps)
         sampling_ = [sum(reduce(vcat, [ps["layer_$i"].controls[nc_ms+1:2*nc_ms] for i in 1:length(layer.layers)])) * dt;
                     sum(reduce(vcat, [ps["layer_$i"].controls[2*nc_ms+1:3*nc_ms] for i in 1:length(layer.layers)])) *  dt]
         return vcat(matching_, sampling_)

@@ -6,7 +6,7 @@ using Random
 
 using RecursiveArrayTools
 using LinearAlgebra
-
+using ComponentArrays
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface

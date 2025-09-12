@@ -9,7 +9,21 @@ get_controls(layer::MultipleShootingLayer) = get_controls(first(layer.layers))
 get_tspan(layer::MultipleShootingLayer) = (first(first(layer.layers).problem.tspan), last(last(layer.layers).problem.tspan))
 get_tunable(layer::MultipleShootingLayer) = get_tunable(first(layer.layers))
 get_params(layer::MultipleShootingLayer) = get_params(first(layer.layers))
-
+get_shooting_constraints(layer::MultipleShootingLayer) = begin
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    ax = getaxes(ComponentArray(ps))
+    controls, control_indices = get_controls(layer)
+    matching = let ax = ax, nc = length(controls)
+        (sols, p) -> begin
+            _p = isa(p, Array) ? ComponentArray(p, ax) : p
+            reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
+                _u0 = getproperty(_p, name_i).u0
+                sol.u[end][1:end-nc] .-_u0
+            end)
+        end
+    end
+    return matching
+end
 
 function MultipleShootingLayer(prob, alg, tunable, control_indices, controls, shooting_points; ensemble_alg = EnsembleSerial())
     tspan = prob.tspan
