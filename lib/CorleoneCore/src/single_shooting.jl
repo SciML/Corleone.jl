@@ -1,9 +1,14 @@
-struct SingleShootingLayer{P,A,C} <: LuxCore.AbstractLuxLayer
+struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
     problem::P
     algorithm::A
-    tunable_ic::Vector{Int64}
     control_indices::Vector{Int64}
     controls::C
+    tunable_ic::Vector{Int64}
+    bounds_ic::B
+end
+
+function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic = Int64[], bounds_ic = nothing)
+    return SingleShootingLayer(prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
 get_problem(layer::SingleShootingLayer) = layer.problem
@@ -11,6 +16,21 @@ get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indice
 get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
 get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
 get_params(layer::SingleShootingLayer) = setdiff(eachindex(layer.problem.p), layer.control_indices)
+
+_get_bounds(layer::SingleShootingLayer, lower::Bool=true) = begin
+    p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+    (;
+        u0 = isnothing(layer.bounds_ic) ? eltype(layer.problem.u0)[] : (lower ? copy(layer.bounds_ic[1]) : copy(layer.bounds_ic[2])),
+        p = getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls = collect_local_control_bounds(lower,layer.controls...)
+    )
+end
+
+get_bounds(layer::SingleShootingLayer) = begin
+    lb = _get_bounds(layer, true)
+    ub = _get_bounds(layer, false)
+    return ComponentArray(lb), ComponentArray(ub)
+end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)

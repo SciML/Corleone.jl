@@ -31,19 +31,17 @@ p0 = [0.0, 1.0, 1.0]
 
 lotka_dynamics(u0, p0, tspan[1])
 
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0,
-    abstol = 1e-8, reltol = 1e-6,
-    # sensealg = ForwardDiffSensitivity()
-    )
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
 control = ControlParameter(
-    collect(0.0:0.1:11.9), name = :fishing
+    collect(0.0:0.1:11.9), name = :fishing, bounds=(0.0,1.0)
 )
 
 # Single Shooting
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(), [1], (control,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
+lb, ub = CorleoneCore.get_bounds(layer)
 
 layer(nothing, ps, st)
 
@@ -61,9 +59,6 @@ loss(collect(p), nothing)
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(),
 )
-
-lb, ub = copy(p), copy(p)
-ub.controls .= 1.0
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub)
@@ -88,12 +83,13 @@ f
 
 ## Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
-mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),Int64[],[1], (control,), shooting_points)
+mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points; bounds_ic = (.05 * ones(3), 10.0 * ones(3)))
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 # Or use any of the Initialization schemes
 msps, msst = ConstantInitialization(Dict(1=>1.0,2=>1.0,3=>1.0))(Random.default_rng(), mslayer)
 msps, msst = ForwardSolveInitialization()(Random.default_rng(), mslayer)
 msp = ComponentArray(msps)
+ms_lb, ms_ub = CorleoneCore.get_bounds(mslayer)
 
 msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
@@ -102,7 +98,6 @@ msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
         last(sols)[:x₃][end]
     end
 end
-
 
 shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp), matching_constraint = CorleoneCore.get_shooting_constraints(mslayer)
     (p, ::Any) -> begin
@@ -114,20 +109,6 @@ end
 
 matching = shooting_constraints(msp, nothing)
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
-
-ms_lb = map(msps) do p_i
-    p_i.controls .= 0.0
-    p_i.u0 .= 0.05
-    p_i
-end |> ComponentArray
-
-
-ms_ub = map(msps) do p_i
-    p_i.controls .= 1.0
-    p_i.u0 .= 10.0
-    p_i
-end |> ComponentArray
-
 
 optfun = OptimizationFunction(
     msloss, AutoForwardDiff(), cons = eq_cons

@@ -9,6 +9,13 @@ get_controls(layer::MultipleShootingLayer) = get_controls(first(layer.layers))
 get_tspan(layer::MultipleShootingLayer) = (first(first(layer.layers).problem.tspan), last(last(layer.layers).problem.tspan))
 get_tunable(layer::MultipleShootingLayer) = get_tunable(first(layer.layers))
 get_params(layer::MultipleShootingLayer) = get_params(first(layer.layers))
+get_bounds(layer::MultipleShootingLayer) = begin
+    layer_names = Tuple([Symbol("layer_$i") for i=1:length(layer.layers)])
+    layer_bounds = map(layer.layers) do _layer
+        get_bounds(_layer)
+    end
+    ComponentArray(NamedTuple{layer_names}(first.(layer_bounds))), ComponentArray(NamedTuple{layer_names}(last.(layer_bounds)))
+end
 get_shooting_constraints(layer::MultipleShootingLayer) = begin
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     ax = getaxes(ComponentArray(ps))
@@ -25,12 +32,13 @@ get_shooting_constraints(layer::MultipleShootingLayer) = begin
     return matching
 end
 
-function MultipleShootingLayer(prob, alg, tunable, control_indices, controls, shooting_points; ensemble_alg = EnsembleSerial())
+function MultipleShootingLayer(prob, alg, control_indices, controls, shooting_points;
+                tunable_ic = Int64[], bounds_ic = (prob.u0 .- 5*abs.(prob.u0), prob.u0 .+ 5*abs.(prob.u0)) ,ensemble_alg = EnsembleSerial())
     tspan = prob.tspan
     shooting_points = vcat(tspan..., shooting_points) |> unique! |> sort!
     shooting_intervals = [(t0,t1) for (t0,t1) in zip(shooting_points[1:end-1], shooting_points[2:end])]
-    _tunable = vcat([tunable], [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
-    layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, _tunable[i], control_indices, restrict_controls(controls, tspani...)) for (i, tspani) in enumerate(shooting_intervals)]
+    _tunable = vcat([tunable_ic], [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
+    layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, control_indices, restrict_controls(controls, tspani...); tunable_ic=_tunable[i], bounds_ic = i == 1 ? nothing : bounds_ic) for (i, tspani) in enumerate(shooting_intervals)]
 
     MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg)}(layers, shooting_intervals, ensemble_alg)
 end
