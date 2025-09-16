@@ -228,3 +228,7 @@ end
 function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
     SingleShootingProblem(prob.layer, ps, st)
 end
+
+function get_block_structure(layer::SingleShootingLayer)
+    vcat(0, LuxCore.parameterlength(layer))
+end

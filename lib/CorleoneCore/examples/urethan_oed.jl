@@ -115,11 +115,11 @@ sol_oed, _ = oed_layer(nothing, psoed, stoed)
 p = ComponentArray(psoed)
 lb, ub = CorleoneCore.get_bounds(oed_layer)
 
-loss = let layer = oed_layer, st = stoed, ax = getaxes(p), f_sym = CorleoneCore.fisher_variables(oed_layer)
+loss = let layer = oed_layer, st = stoed, ax = getaxes(p), crit=ACriterion()
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(CorleoneCore.symmetric_from_vector(sols[f_sym][end])))
+        crit(layer, sols)
     end
 end
 

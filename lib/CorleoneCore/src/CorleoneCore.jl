@@ -25,6 +25,10 @@ include("multiple_shooting.jl")
 
 include("augmentation.jl")
 
+include("criteria.jl")
+export ACriterion, DCriterion, ECriterion
+export FisherACriterion, FisherDCriterion, FisherECriterion
+
 include("node_initialization.jl")
 export DefaultsInitialization, ConstantInitialization
 export LinearInterpolationInitialization, ForwardSolveInitialization

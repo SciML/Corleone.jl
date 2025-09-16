@@ -138,7 +138,7 @@ end
 
 function symmetric_from_vector(x::AbstractArray)
     n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
-    [x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n]
+    Symmetric([x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n])
 end
 
 function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})

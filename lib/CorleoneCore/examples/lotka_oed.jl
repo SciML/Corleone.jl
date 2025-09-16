@@ -43,11 +43,17 @@ p = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(oed_layer)
 nc, dt = length(control.t), diff(control.t)[1]
 
-loss = let layer = oed_layer, st = st, ax = getaxes(p), f_sym = CorleoneCore.fisher_variables(oed_layer)
+sols, _ = oed_layer(nothing, ps, st)
+Acrit = ACriterion()
+Acrit(oed_layer, sols)
+Ecrit = ECriterion()
+Ecrit(oed_layer, sols)
+
+loss = let layer = oed_layer, st = st, ax = getaxes(p), crit= DCriterion()
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(CorleoneCore.symmetric_from_vector(sols[f_sym][end])))
+        crit(layer, sols)
     end
 end
 
@@ -111,13 +117,13 @@ oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
 oed_msp = ComponentArray(oed_msps)
 oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(oed_mslayer)
-oed_mslayer(nothing, oed_msp, oed_msst)
+oed_sols, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
-msloss = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), f_sym = CorleoneCore.fisher_variables(oed_mslayer)
+msloss = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), crit=ACriterion()
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        inv(tr(CorleoneCore.symmetric_from_vector(last(sols)[f_sym][end])))
+        crit(layer, sols)
     end
 end
 
