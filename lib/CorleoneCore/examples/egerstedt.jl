@@ -37,20 +37,19 @@ prob =  ODEProblem(egerstedt, u0, tspan, p)
 N = 20
 cgrid = collect(LinRange(tspan..., N+1))[1:end-1]
 c1 = ControlParameter(
-    cgrid, name = :u1, controls = zeros(N) .+ 1/2
+    cgrid, name = :u1, controls = zeros(N) .+ 1/2, bounds = (0.,1.)
 )
 c2 = ControlParameter(
-    cgrid, name = :u2, controls = zeros(N) .+ 1/3
+    cgrid, name = :u2, controls = zeros(N) .+ 1/3 , bounds = (0.,1.)
 )
 c3 = ControlParameter(
-    cgrid, name = :u3, controls = zeros(N) .+ 1/4
+    cgrid, name = :u3, controls = zeros(N) .+ 1/4, bounds = (0.,1.)
 )
 
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1,2,3], (c1,c2,c3))
-
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1,2,3], (c1,c2,c3))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-
+lb, ub = CorleoneCore.get_bounds(layer)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
@@ -73,11 +72,6 @@ optfun = OptimizationFunction(
     loss, AutoForwardDiff(), cons=sampling_cons
 )
 
-lb, ub = copy(p), copy(p)
-lb.controls .= 0.0
-ub.controls .= 1.0
-
-
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=ones(N), ucons=ones(N)
 )
@@ -86,7 +80,6 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
-
 
 optsol, _ = layer(nothing, uopt + zero(p), st)
 

@@ -98,16 +98,13 @@ plot(sol, idxs=[1,2,3,4,5,6])
 control_points = collect(0.0:8.0:80.0)[1:end-1]
 
 c1 = ControlParameter(
-    control_points, name = :c1, controls = 0.0125 * ones(length(control_points))
-)
+    control_points, name = :c1, controls = 0.0125 * ones(length(control_points)), bounds = (0., 0.0125))
 c2 = ControlParameter(
-    control_points, name = :c2, controls = 0.0125 * ones(length(control_points))
-)
+    control_points, name = :c2, controls = 0.0125 * ones(length(control_points)) , bounds = (0., 0.0125))
 cT = ControlParameter(
-    control_points, name = :cT, controls = [(-1)^i * 5.0 for i=1:length(control_points)]
-)
+    control_points, name = :cT, controls = [(-1)^i * 5.0 for i=1:length(control_points)], bounds = (-5.0,5.0))
 
-layer = CorleoneCore.SingleShootingLayer(prob_normal, Tsit5(), Int64[], [7,8,9], (cT,c1,c2,))
+layer = CorleoneCore.SingleShootingLayer(prob_normal, Tsit5(), [7,8,9], (cT,c1,c2,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 
 sol = layer(nothing, ps, st)
@@ -116,7 +113,7 @@ oed_layer = CorleoneCore.augment_layer_for_oed(layer; params = [1,2], observed =
 psoed, stoed = LuxCore.setup(Random.default_rng(), oed_layer)
 sol_oed, _ = oed_layer(nothing, psoed, stoed)
 p = ComponentArray(psoed)
-
+lb, ub = CorleoneCore.get_bounds(oed_layer)
 
 loss = let layer = oed_layer, st = stoed, ax = getaxes(p), f_sym = CorleoneCore.fisher_variables(oed_layer)
     (p, ::Any) -> begin
@@ -125,8 +122,6 @@ loss = let layer = oed_layer, st = stoed, ax = getaxes(p), f_sym = CorleoneCore.
         inv(tr(CorleoneCore.symmetric_from_vector(sols[f_sym][end])))
     end
 end
-
-
 
 
 loss(collect(p), nothing)
@@ -143,20 +138,6 @@ end
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(), cons = sampling_cons
 )
-
-lb, ub = copy(p), copy(p)
-
-#cT bounds
-lb.controls[1:nc] .= -5.0
-ub.controls[1:nc] .= 5.0
-
-#c1/c2 bounds
-lb.controls[nc+1:3*nc] .= 0.0
-ub.controls[nc+1:3*nc] .= 0.0125
-
-# Sampling bounds
-lb.controls[3*nc+1:end] .= 0.0
-ub.controls[3*nc+1:end] .= 1.0
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(3), ucons=[20.0, 20.0, 20.0]

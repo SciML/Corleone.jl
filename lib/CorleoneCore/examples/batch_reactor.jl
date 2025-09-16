@@ -34,13 +34,13 @@ prob =  ODEProblem(batch_reactor, u0, tspan, p)
 
 N = 20
 control = ControlParameter(
-    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N)
+    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N), bounds = (298.0,398.0)
 )
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-
+lb, ub = CorleoneCore.get_bounds(layer)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
@@ -52,15 +52,9 @@ end
 
 loss(collect(p), nothing)
 
-
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(),
 )
-
-lb, ub = copy(p), copy(p)
-lb.controls .= 298.0
-ub.controls .= 398.0
-
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub)

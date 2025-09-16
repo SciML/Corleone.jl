@@ -34,13 +34,13 @@ prob =  ODEProblem(catalyst_mixing, u0, tspan, p)
 
 N = 20
 control = ControlParameter(
-    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = zeros(N) .+ 0.5
+    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = zeros(N) .+ 0.5, bounds = (0.,1.)
 )
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-
+lb, ub = CorleoneCore.get_bounds(layer)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
@@ -52,15 +52,9 @@ end
 
 loss(collect(p), nothing)
 
-
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(),
 )
-
-lb, ub = copy(p), copy(p)
-lb.controls .= 0.0
-ub.controls .= 1.0
-
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub)
@@ -70,7 +64,6 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
-
 
 optsol, _ = layer(nothing, uopt + zero(p), st)
 

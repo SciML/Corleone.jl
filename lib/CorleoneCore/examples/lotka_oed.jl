@@ -32,15 +32,15 @@ prob = ODEProblem{false}(lotka_dynamics, u0, tspan, p0,
     sensealg = ForwardDiffSensitivity()
     )
 control = ControlParameter(
-    collect(0.0:0.25:11.75), name = :fishing
+    collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
 # Single Shooting
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,); tunable_ic = [1,2], bounds_ic=([0.3,0.3], [0.9,0.9]))
 oed_layer = CorleoneCore.augment_layer_for_oed(layer; observed = (u,p,t) -> u[1:2])
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
-
+lb, ub = CorleoneCore.get_bounds(oed_layer)
 nc, dt = length(control.t), diff(control.t)[1]
 
 loss = let layer = oed_layer, st = st, ax = getaxes(p), f_sym = CorleoneCore.fisher_variables(oed_layer)
@@ -66,10 +66,6 @@ sampling_cons(zeros(2),collect(p), nothing)
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(), cons = sampling_cons
 )
-
-lb, ub = copy(p), copy(p)
-lb.controls .= 0.0
-ub.controls .= 1.0
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
@@ -99,15 +95,25 @@ f
 
 ## Multiple Shooting
 shooting_points = [0.0,4.0, 8.0, 12.0]
-mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),Int64[],[1], (control,), shooting_points)
-oed_mslayer = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
-
-msps, msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
-# Or use any of the Initialization schemes
-msps, msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
+mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points;
+        bounds_nodes = (0.05 * ones(2), 10*ones(2)))#, tunable_ic = [1,2], bounds_ic = ([.3,.3], [.9,.9]))
+msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 msp = ComponentArray(msps)
+lb, ub = CorleoneCore.get_bounds(mslayer)
 
-msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp), f_sym = CorleoneCore.fisher_variables(oed_mslayer)
+mslayer(nothing, msps, msst)
+mslayer(nothing, lb, msst)
+
+# + OED
+oed_mslayer = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
+oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
+# Or use any of the provided Initialization schemes
+oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
+oed_msp = ComponentArray(oed_msps)
+oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(oed_mslayer)
+oed_mslayer(nothing, oed_msp, oed_msst)
+
+msloss = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), f_sym = CorleoneCore.fisher_variables(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
@@ -115,9 +121,10 @@ msloss = let layer = oed_mslayer, st = msst, ax = getaxes(msp), f_sym = Corleone
     end
 end
 
-msloss(msp, nothing)
+
+msloss(oed_msp, nothing)
 nc_ms = length(first(oed_mslayer.layers).controls[1].t)
-shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
+shooting_constraints = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
@@ -128,23 +135,9 @@ shooting_constraints = let layer = oed_mslayer, st = msst, ax = getaxes(msp), ma
     end
 end
 
-matching = shooting_constraints(msp, nothing)
-jac_cons = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), msp)
+matching = shooting_constraints(oed_msp, nothing)
+jac_cons = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), oed_msp)
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
-
-ms_lb = map(msps) do p_i
-    p_i.controls .= 0.0
-    p_i.u0 .= -500.0
-    p_i
-end |> ComponentArray
-
-
-ms_ub = map(msps) do p_i
-    p_i.controls .= 1.0
-    p_i.u0 .= 1000.0
-    p_i
-end |> ComponentArray
-
 
 optfun = OptimizationFunction(
     msloss, AutoForwardDiff(), cons = eq_cons
@@ -153,7 +146,7 @@ optfun = OptimizationFunction(
 ucons = zero(matching)
 ucons[end-1:end] .= 4.0
 optprob = OptimizationProblem(
-    optfun, collect(msp), lb = collect(ms_lb), ub = collect(ms_ub), lcons = zero(matching), ucons=ucons
+    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub), lcons = zero(matching), ucons=ucons
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
@@ -172,10 +165,10 @@ uopt = solve(optprob, BlockSQPOpt(),
 )
 
 
-sol_u = uopt + zero(msp)
+sol_u = uopt + zero(oed_msp)
 lc = first(oed_mslayer.layers).controls[1].t |> length
 
-mssol, _ = oed_mslayer(nothing, uopt + zero(msp), msst)
+mssol, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
@@ -187,8 +180,8 @@ ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax2, sol.t, Array(sol)[i,:])  for sol in mssol for i in 7:9]
 f
 
-[stairs!(ax, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax3, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax3, c.controls[1].t, (uopt + zero(msp))["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax, c.controls[1].t,  sol_u["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(mslayer.layers)]
 
 f
