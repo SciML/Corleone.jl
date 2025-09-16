@@ -23,9 +23,32 @@ end
 
 function restrict_controls(c::ControlParameter, lo, hi)
     idx = findall(lo .<= c.t .< hi)
-
-    return ControlParameter(c.t[idx], name = c.name, controls = c.controls, bounds = c.bounds)
+    controls = c.controls == default_u ? c.controls : c.controls[idx]
+    bounds = c.bounds == default_bounds ? c.bounds : (length(c.bounds[1]) == 1 ? c.bounds : (c.bounds[1][idx], c.bounds[2][idx]))
+    return ControlParameter(copy(c.t[idx]), name = c.name, controls = controls, bounds = bounds)
 end
+
+function unrestrict_controls(c::Tuple, tspan)
+    map(c) do ci
+        unrestrict_controls(ci, tspan)
+    end
+end
+
+function unsrestrict_controls(c::ControlParameter, tspan)
+    dt = first(diff(c.t))
+    timegrid = first(tspan):dt:last(tspan)
+    n_repeat = Int(length(timegrid)/length(c.t))
+    new_bounds = begin
+        if length(c.bounds[1]==1)
+            c.bounds
+        else
+            (c.bounds[1][1], c.bounds[2][1])
+        end
+    end
+    return ControlParameter(timegrid, name=c.name, controls=repeat(c.controls, n_repeat), bounds=new_bounds)
+end
+
+
 
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
 get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}) = deepcopy(parameters.controls)

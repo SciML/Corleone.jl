@@ -94,7 +94,6 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
         observed::Function=(u,p,t) -> u,
         dt = first(diff(first(get_controls(layer)[1]).t)))
 
-
     prob = augment_dynamics_for_oed(layer; params = params, observed=observed)
     controls, control_idxs = get_controls(layer)
     tspan = get_tspan(layer)
@@ -105,19 +104,34 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     tunable_ic = get_tunable(layer)
     timegrid = collect(first(tspan):dt:last(tspan))[1:end-1]
     sampling_controls = map(Tuple(1:nh)) do i
-        ControlParameter(timegrid, name=Symbol("w_$i"), controls=ones(length(timegrid)))
+        ControlParameter(timegrid, name=Symbol("w_$i"), controls=ones(length(timegrid)), bounds=(0.,1.))
     end
 
-    unrestricted_controls_old = isa(layer, SingleShootingLayer) ? controls : map(controls) do ci
-        ControlParameter(timegrid, name=ci.name)
+    unrestricted_controls_old = begin
+        if isa(layer, SingleShootingLayer)
+            controls
+        else
+            map(controls) do ci
+                ## This is not completely correct. The situation is that we have a MS-Layer with its controls and defaults and so on
+                ## And now we need to make a new MS-Layer but with the sampling controls added.
+                ## Hence we would need to collect all defaults and bounds from the controls of the different single shooting layers here.
+                ControlParameter(timegrid, name=ci.name, controls=zeros(length(timegrid)), bounds=ci.bounds)
+            end
+        end
     end
+
     new_controls = (unrestricted_controls_old..., sampling_controls...,)
     if typeof(layer) <: SingleShootingLayer
-        return SingleShootingLayer(prob, layer.algorithm, tunable_ic, control_indices, new_controls)
+        return SingleShootingLayer(prob, layer.algorithm, control_indices, new_controls;
+                    tunable_ic = tunable_ic, bounds_ic = layer.bounds_ic)
     else
         intervals = layer.shooting_intervals
         points = vcat(first.(intervals), last.(intervals)) |> sort! |> unique!
-        return MultipleShootingLayer(prob, first(layer.layers).algorithm, tunable_ic, control_indices, new_controls, points)
+        nodes_lb, nodes_ub = layer.bounds_nodes
+        aug_dim = length(setdiff(eachindex(prob.u0), eachindex(get_problem(layer).u0)))
+        aug_nodes_lb, aug_nodes_ub = vcat(nodes_lb, -Inf*ones(aug_dim)), vcat(nodes_ub, Inf*ones(aug_dim))
+        return MultipleShootingLayer(prob, first(layer.layers).algorithm, control_indices, new_controls, points;
+                    tunable_ic = tunable_ic, bounds_ic = first(layer.layers).bounds_ic, bounds_nodes = (aug_nodes_lb,aug_nodes_ub))
     end
 
 end
