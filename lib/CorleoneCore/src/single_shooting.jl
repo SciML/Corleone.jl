@@ -11,6 +11,10 @@ function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic = 
     return SingleShootingLayer(prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
+function SingleShootingLayer(prob, alg; control_indices = Int64[], controls=nothing, tunable_ic = Int64[], bounds_ic=nothing)
+    return SingleShootingLayer(prob, alg, control_indices, controls, tunable_ic, bounds_ic)
+end
+
 get_problem(layer::SingleShootingLayer) = layer.problem
 get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indices)
 get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
@@ -22,7 +26,7 @@ _get_bounds(layer::SingleShootingLayer, lower::Bool=true) = begin
     (;
         u0 = isnothing(layer.bounds_ic) ? eltype(layer.problem.u0)[] : (lower ? copy(layer.bounds_ic[1]) : copy(layer.bounds_ic[2])),
         p = getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls = collect_local_control_bounds(lower,layer.controls...)
+        controls = isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_control_bounds(lower,layer.controls...)
     )
 end
 
@@ -37,7 +41,7 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootin
     (;
         u0=copy(layer.problem.u0[layer.tunable_ic]),
         p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls=collect_local_controls(rng, layer.controls...)
+        controls= isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...)
     )
 end
 

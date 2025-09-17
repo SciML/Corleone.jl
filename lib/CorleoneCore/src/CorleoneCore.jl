@@ -29,6 +29,9 @@ include("criteria.jl")
 export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherDCriterion, FisherECriterion
 
+include("oed.jl")
+export OEDLayer
+
 include("node_initialization.jl")
 export DefaultsInitialization, ConstantInitialization
 export LinearInterpolationInitialization, ForwardSolveInitialization
