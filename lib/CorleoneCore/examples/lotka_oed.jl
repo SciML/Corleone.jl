@@ -35,21 +35,90 @@ control = ControlParameter(
     collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
+# Single Shooting with fixed controls and fixed u0
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5())
+oed_layer = CorleoneCore.augment_layer_for_oed(layer; params = [2,3], dt = 0.1, observed = (u,p,t) -> u[1:2])
+ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
+p = ComponentArray(ps)
+
+sols, _ = oed_layer(nothing, p, st)
+
+ol = OEDLayer(layer; params= [2,3], dt = 0.25)
+
+ps, st = LuxCore.setup(Random.default_rng(), ol)
+p = ComponentArray(ps)
+G_sorted = reshape(sort(CorleoneCore.sensitivity_variables(ol.layer), by= x -> split(string(x), "ˏ")[2]), (2,2))
+lb, ub = CorleoneCore.get_bounds(ol.layer)
+sols, _ = ol(nothing, ps, st)
+
+nc = vcat(0, cumsum(map(x -> length(x.t), ol.layer.controls))...)
+
+fisher_fixed = let ol = ol, sols = sols, sens = G_sorted, dims = ol.dimensions, hx = ol.observed.hx, ax = getaxes(p), nc=nc, crit = ACriterion()
+    (p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        F = Symmetric(sum(map(enumerate(ol.layer.controls)) do (widx, wi)
+            sum(map(enumerate(sols.t[1:end-1])) do (i, ti)
+                cidx = findlast(t -> ti >= t, wi.t)
+                hxG = hx(sols[i][1:dims.nx], oed_layer.problem.p, ti)[widx:widx,:] * sols[sens][i]
+                (sols.t[i+1] - ti) * ps.controls[nc[widx]+1:nc[widx+1]][cidx] * hxG' * hxG
+            end)
+        end))
+        crit(F)
+    end
+end
+
+fisher_fixed(p, nothing)
+sampling_cons = let ax = getaxes(p), nc = nc, dt = first(diff(ol.layer.controls[1].t))
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        res .= [sum(ps.controls[nc[i]+1:nc[i+1]]) * dt for i in eachindex(nc)[1:end-1]]
+    end
+end
+
+sampling_cons(zeros(2), p, nothing)
+
+
+optfun = OptimizationFunction(
+    fisher_fixed, AutoForwardDiff(), cons = sampling_cons
+)
+
+optprob = OptimizationProblem(
+    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
+)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+     tol = 1e-6,
+     hessian_approximation = "limited-memory",
+     max_iter = 300
+)
+
+
+
+optsol, _ = ol(nothing, uopt + zero(p), st)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12)
+ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
+ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12)
+[plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
+stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
+stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
+f
+
+
 # Single Shooting
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,); tunable_ic = [1,2], bounds_ic=([0.3,0.3], [0.9,0.9]))
-oed_layer = CorleoneCore.augment_layer_for_oed(layer; observed = (u,p,t) -> u[1:2])
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))#; tunable_ic = [1,2], bounds_ic=([0.3,0.3], [0.9,0.9]))
+oed_layer = CorleoneCore.augment_layer_for_oed(layer)
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(oed_layer)
 nc, dt = length(control.t), diff(control.t)[1]
+ub.controls[1:nc] .= 0.0
 
 sols, _ = oed_layer(nothing, ps, st)
-Acrit = ACriterion()
-Acrit(oed_layer, sols)
-Ecrit = ECriterion()
-Ecrit(oed_layer, sols)
 
-loss = let layer = oed_layer, st = st, ax = getaxes(p), crit= DCriterion()
+loss = let layer = oed_layer, st = st, ax = getaxes(p), crit= ACriterion()
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
@@ -86,10 +155,10 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 optsol, _ = oed_layer(nothing, uopt + zero(p), st)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1])
-ax1 = CairoMakie.Axis(f[2,1])
-ax2 = CairoMakie.Axis(f[1,2])
-ax3 = CairoMakie.Axis(f[2,2])
+ax = CairoMakie.Axis(f[1,1], xticks=0:2:12)
+ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12)
+ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12)
+ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12)
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
 [plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.fisher_variables(oed_layer)])))]

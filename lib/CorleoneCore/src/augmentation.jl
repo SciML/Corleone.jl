@@ -1,6 +1,6 @@
 function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
-            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u)
+            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
 
     is_dae = isa(prob, SciMLBase.DAEProblem)
     u0 = prob.u0
@@ -80,7 +80,7 @@ end
 
 function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
-            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u)
+            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
 
     is_dae = isa(prob, SciMLBase.DAEProblem)
     u0 = prob.u0
@@ -150,12 +150,12 @@ end
 
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                 params = get_params(layer),
-                observed::Function = (u,p,t) -> u)
+                observed::Function = (u,p,t) -> u[eachindex(get_problem(layer).u0)])
 
     prob = get_problem(layer)
     tspan = get_tspan(layer)
-    _, control_indices = get_controls(layer)
-    fixed = isempty(layer.tunable_ic) && isempty(control_indices)
+    controls, control_indices = get_controls(layer)
+    fixed = isempty(layer.tunable_ic) && (isempty(control_indices) || isnothing(controls))
     fixed && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
@@ -163,13 +163,14 @@ end
 
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
         params = get_params(layer),
-        observed::Function=(u,p,t) -> u,
+        observed::Function=(u,p,t) -> u[eachindex(get_problem(layer).u0)],
         dt = isnothing(layer.controls) ? (-)(reverse(get_tspan(layer))...)/100 : first(diff(first(get_controls(layer)[1]).t)))
 
+    prob_original = get_problem(layer)
+    nh = length(observed(prob_original.u0, prob_original.p, prob_original.tspan[1]))
     prob = augment_dynamics_for_oed(layer; params = params, observed=observed)
     controls, control_idxs = get_controls(layer)
     tspan = get_tspan(layer)
-    nh = length(observed(prob.u0, prob.p, prob.tspan[1]))
     np = length(prob.p)
     control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
 
