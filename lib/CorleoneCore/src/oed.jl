@@ -4,7 +4,38 @@ struct OEDLayer{fixed,L,O,D} <: LuxCore.AbstractLuxLayer
     dimensions::D
 end
 
-#TODO: Constructor for OEDLayer from AbstractDEPRoblem
+function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
+            control_indices = Int64[],
+            controls = nothing,
+            tunable_ic = Int64[],
+            bounds_ic = nothing,
+            observed = prob.f.observed == SciMLBase.DEFAULT_OBSERVED ? (u,p,t) -> u[eachindex(prob.u0)] : prob.f.observed,
+            dt = (-)(reverse(prob.tspan)...)/100,
+            params = setdiff(prob.p, control_indices))
+
+    layer = SingleShootingLayer(prob, alg; tunable_ic = tunable_ic, controls = controls,
+                                control_indices = control_indices, bounds_ic=bounds_ic)
+    OEDLayer(layer; observed = observed, params = params, dt =dt)
+end
+
+function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm,
+            shooting_points;
+            control_indices = Int64[],
+            controls = nothing,
+            tunable_ic = Int64[],
+            bounds_ic = nothing,
+            bounds_nodes = nothing,
+            observed = prob.f.observed == SciMLBase.DEFAULT_OBSERVED ? (u,p,t) -> u[eachindex(prob.u0)] : prob.f.observed,
+            ensemble_alg=EnsembleSerial(),
+            dt = (-)(reverse(prob.tspan)...)/100,
+            params = setdiff(prob.p, control_indices))
+
+    layer = MultipleShootingLayer(prob, alg, control_indices, controls, shooting_points;
+                        tunable_ic=tunable_ic, bounds_ic=bounds_ic, bounds_nodes=bounds_nodes,
+                        ensemble_alg=ensemble_alg)
+
+    OEDLayer(layer; observed = observed, params = params, dt =dt)
+end
 
 function OEDLayer(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                     observed = (u,p,t) -> u,
@@ -80,3 +111,5 @@ end
 get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
 get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
 get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
+sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
+fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)

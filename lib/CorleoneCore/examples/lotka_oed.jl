@@ -36,12 +36,12 @@ control = ControlParameter(
 )
 
 # Single Shooting with fixed controls and fixed u0
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5())
-ol = OEDLayer(layer; params= [2,3], dt = 0.25)
+ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.25)
 ps, st = LuxCore.setup(Random.default_rng(), ol)
 p = ComponentArray(ps)
-
+lb, ub = CorleoneCore.get_bounds(ol)
 crit= ACriterion()
+nc = (0,48,96)
 
 sampling_cons = let ax = getaxes(p), nc = nc, dt = first(diff(ol.layer.controls[1].t))
     (res, p, ::Any) -> begin
@@ -71,15 +71,15 @@ ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12)
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12)
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(ol)])))]
 stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
 f
 
 
 # Single Shooting
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))#; tunable_ic = [1,2], bounds_ic=([0.3,0.3], [0.9,0.9]))
-oed_layer = CorleoneCore.OEDLayer(layer; params= [2,3], dt = 0.25)
+oed_layer = CorleoneCore.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
+            control_indices = [1], dt = 0.25)
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(oed_layer)
@@ -132,9 +132,10 @@ f
 
 ## Multiple Shooting
 shooting_points = [0.0,4.0, 8.0, 12.0]
-mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points;
-        bounds_nodes = (0.05 * ones(2), 10*ones(2)))#, tunable_ic = [1,2], bounds_ic = ([.3,.3], [.9,.9]))
-oed_mslayer = OEDLayer(mslayer; params=[2,3], dt = 0.25)
+oed_mslayer = OEDLayer(prob, Tsit5(), shooting_points; params=[2,3], dt = 0.25,
+            control_indices = [1], controls=(control,),
+            bounds_nodes = (0.05 * ones(2), 10*ones(2)))
+
 
 oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 # Or use any of the provided Initialization schemes
@@ -164,11 +165,11 @@ eq_cons(res, x, p) = res .= shooting_constraints(x, p)
 optfun = OptimizationFunction(
     criterion, AutoForwardDiff(), cons = eq_cons
 )
-
-ucons = zero(matching)
+constraints_eval = shooting_constraints(oed_msp, nothing)
+ucons = zero(constraints_eval)
 ucons[end-1:end] .= 4.0
 optprob = OptimizationProblem(
-    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub), lcons = zero(matching), ucons=ucons
+    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub), lcons = zero(constraints_eval), ucons=ucons
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
@@ -202,8 +203,8 @@ ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax2, sol.t, Array(sol)[i,:])  for sol in mssol for i in 7:9]
 f
 
-[stairs!(ax, c.controls[1].t,  sol_u["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(mslayer.layers)]
-[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(mslayer.layers)]
+[stairs!(ax, c.controls[1].t,  sol_u["layer_$i"].controls[1:lc], color=:black) for (i,c) in enumerate(oed_mslayer.layer.layers)]
+[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
+[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
 
 f
