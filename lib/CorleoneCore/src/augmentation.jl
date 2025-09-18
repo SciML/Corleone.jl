@@ -155,7 +155,7 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     prob = get_problem(layer)
     tspan = get_tspan(layer)
     controls, control_indices = get_controls(layer)
-    fixed = isempty(layer.tunable_ic) && (isempty(control_indices) || isnothing(controls))
+    fixed = isempty(get_tunable(layer)) && (isempty(control_indices) || isnothing(controls))
     fixed && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
