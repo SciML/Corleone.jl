@@ -37,37 +37,12 @@ control = ControlParameter(
 
 # Single Shooting with fixed controls and fixed u0
 layer = CorleoneCore.SingleShootingLayer(prob, Tsit5())
-oed_layer = CorleoneCore.augment_layer_for_oed(layer; params = [2,3], dt = 0.1, observed = (u,p,t) -> u[1:2])
-ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
-p = ComponentArray(ps)
-
-sols, _ = oed_layer(nothing, p, st)
-
 ol = OEDLayer(layer; params= [2,3], dt = 0.25)
-
 ps, st = LuxCore.setup(Random.default_rng(), ol)
 p = ComponentArray(ps)
-G_sorted = reshape(sort(CorleoneCore.sensitivity_variables(ol.layer), by= x -> split(string(x), "ˏ")[2]), (2,2))
-lb, ub = CorleoneCore.get_bounds(ol.layer)
-sols, _ = ol(nothing, ps, st)
 
-nc = vcat(0, cumsum(map(x -> length(x.t), ol.layer.controls))...)
+crit= ACriterion()
 
-fisher_fixed = let ol = ol, sols = sols, sens = G_sorted, dims = ol.dimensions, hx = ol.observed.hx, ax = getaxes(p), nc=nc, crit = ACriterion()
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        F = Symmetric(sum(map(enumerate(ol.layer.controls)) do (widx, wi)
-            sum(map(enumerate(sols.t[1:end-1])) do (i, ti)
-                cidx = findlast(t -> ti >= t, wi.t)
-                hxG = hx(sols[i][1:dims.nx], oed_layer.problem.p, ti)[widx:widx,:] * sols[sens][i]
-                (sols.t[i+1] - ti) * ps.controls[nc[widx]+1:nc[widx+1]][cidx] * hxG' * hxG
-            end)
-        end))
-        crit(F)
-    end
-end
-
-fisher_fixed(p, nothing)
 sampling_cons = let ax = getaxes(p), nc = nc, dt = first(diff(ol.layer.controls[1].t))
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
@@ -75,11 +50,8 @@ sampling_cons = let ax = getaxes(p), nc = nc, dt = first(diff(ol.layer.controls[
     end
 end
 
-sampling_cons(zeros(2), p, nothing)
-
-
 optfun = OptimizationFunction(
-    fisher_fixed, AutoForwardDiff(), cons = sampling_cons
+    crit(ol), AutoForwardDiff(), cons = sampling_cons
 )
 
 optprob = OptimizationProblem(
@@ -91,8 +63,6 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
-
-
 
 optsol, _ = ol(nothing, uopt + zero(p), st)
 
