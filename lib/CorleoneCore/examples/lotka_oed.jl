@@ -79,26 +79,18 @@ f
 
 # Single Shooting
 layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))#; tunable_ic = [1,2], bounds_ic=([0.3,0.3], [0.9,0.9]))
-oed_layer = CorleoneCore.augment_layer_for_oed(layer)
+oed_layer = CorleoneCore.OEDLayer(layer; params= [2,3], dt = 0.25)
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(oed_layer)
 nc, dt = length(control.t), diff(control.t)[1]
-ub.controls[1:nc] .= 0.0
 
 sols, _ = oed_layer(nothing, ps, st)
 
-loss = let layer = oed_layer, st = st, ax = getaxes(p), crit= ACriterion()
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        crit(layer, sols)
-    end
-end
+criterion = crit(oed_layer)
+criterion(p, nothing)
 
-loss(collect(p), nothing)
-
-sampling_cons = let layer = oed_layer, st = st, ax = getaxes(p)
+sampling_cons = let layer = oed_layer.layer, st = st, ax = getaxes(p)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         res .= [sum(ps.controls[nc+1:2*nc]) * dt;
@@ -109,7 +101,7 @@ end
 sampling_cons(zeros(2),collect(p), nothing)
 
 optfun = OptimizationFunction(
-    loss, AutoForwardDiff(), cons = sampling_cons
+    criterion, AutoForwardDiff(), cons = sampling_cons
 )
 
 optprob = OptimizationProblem(
@@ -142,15 +134,8 @@ f
 shooting_points = [0.0,4.0, 8.0, 12.0]
 mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points;
         bounds_nodes = (0.05 * ones(2), 10*ones(2)))#, tunable_ic = [1,2], bounds_ic = ([.3,.3], [.9,.9]))
-msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
-msp = ComponentArray(msps)
-lb, ub = CorleoneCore.get_bounds(mslayer)
+oed_mslayer = OEDLayer(mslayer; params=[2,3], dt = 0.25)
 
-mslayer(nothing, msps, msst)
-mslayer(nothing, lb, msst)
-
-# + OED
-oed_mslayer = CorleoneCore.augment_layer_for_oed(mslayer; observed = (u,p,t) -> u[1:2])
 oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 # Or use any of the provided Initialization schemes
 oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
@@ -158,34 +143,26 @@ oed_msp = ComponentArray(oed_msps)
 oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(oed_mslayer)
 oed_sols, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
-msloss = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), crit=ACriterion()
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        crit(layer, sols)
-    end
-end
+crit = DCriterion()
+criterion = crit(oed_mslayer)
+criterion(oed_msp, nothing)
 
-
-msloss(oed_msp, nothing)
-nc_ms = length(first(oed_mslayer.layers).controls[1].t)
-shooting_constraints = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
+nc_ms = length(first(oed_mslayer.layer.layers).controls[1].t)
+shooting_constraints = let layer = oed_mslayer, dt = 0.25, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
         matching_ = matching_constraint(sols, ps)
-        sampling_ = [sum(reduce(vcat, [ps["layer_$i"].controls[nc_ms+1:2*nc_ms] for i in 1:length(layer.layers)])) * dt;
-                    sum(reduce(vcat, [ps["layer_$i"].controls[2*nc_ms+1:3*nc_ms] for i in 1:length(layer.layers)])) *  dt]
+        sampling_ = [sum(reduce(vcat, [ps["layer_$i"].controls[nc_ms+1:2*nc_ms] for i in 1:length(layer.layer.layers)])) * dt;
+                    sum(reduce(vcat, [ps["layer_$i"].controls[2*nc_ms+1:3*nc_ms] for i in 1:length(layer.layer.layers)])) *  dt]
         return vcat(matching_, sampling_)
     end
 end
 
-matching = shooting_constraints(oed_msp, nothing)
-jac_cons = ForwardDiff.jacobian(Base.Fix2(shooting_constraints, nothing), oed_msp)
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
 
 optfun = OptimizationFunction(
-    msloss, AutoForwardDiff(), cons = eq_cons
+    criterion, AutoForwardDiff(), cons = eq_cons
 )
 
 ucons = zero(matching)
@@ -211,7 +188,7 @@ uopt = solve(optprob, BlockSQPOpt(),
 
 
 sol_u = uopt + zero(oed_msp)
-lc = first(oed_mslayer.layers).controls[1].t |> length
+lc = first(oed_mslayer.layer.layers).controls[1].t |> length
 
 mssol, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 

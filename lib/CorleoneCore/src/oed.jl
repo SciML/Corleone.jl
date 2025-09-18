@@ -4,6 +4,7 @@ struct OEDLayer{fixed,L,O,D} <: LuxCore.AbstractLuxLayer
     dimensions::D
 end
 
+#TODO: Constructor for OEDLayer from AbstractDEPRoblem
 
 function OEDLayer(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                     observed = (u,p,t) -> u,
@@ -12,9 +13,10 @@ function OEDLayer(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                     )
 
     prob = get_problem(layer)
-    nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(layer.control_indices), length(params)
+    controls, control_indices = get_controls(layer)
+    nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
 
-    fixed = isempty(layer.control_indices) && isempty(layer.tunable_ic)
+    fixed = isempty(control_indices) && isempty(get_tunable(layer))
 
     oed_layer = augment_layer_for_oed(layer, params=params, observed=observed, dt=dt)
 
@@ -63,5 +65,18 @@ end
 end
 
 (crit::AbstractCriterion)(oedlayer::OEDLayer{false}) = begin
-
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), st = st, layer=oedlayer.layer
+        ps = ComponentArray(p, ax)
+        sol, _ = layer(nothing, ps, st)
+        crit(layer, sol)
+    end
 end
+
+function (init::AbstractNodeInitialization)(rng::AbstractRNG, layer::OEDLayer; kwargs...)
+    init(rng, layer.layer; kwargs...)
+end
+
+get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
+get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
+get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
