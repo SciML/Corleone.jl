@@ -94,11 +94,11 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
 
     _dynamics = begin
         if iip
+            out = Symbolics.variables(:out, 1:nx)
             if !is_dae
-                prob.f.f(_dx, _x, _p, _t)
-                _dx
+                prob.f.f(out, _x, _p, _t)
+                out
             else
-                out = Symbolics.variables(:out, 1:nx)
                 prob.f.f(out, _dx, _x, _p, _t)
                 out
             end
@@ -111,14 +111,14 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
         end
     end
 
-    _dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
+    _dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
     _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
 
-    dfdx = Symbolics.jacobian(_dynamics, _x)
+    dfdx  = Symbolics.jacobian(_dynamics, _x)
     dfddx = Symbolics.jacobian(_dynamics, _dx)
-    dfdp = Symbolics.jacobian(_dynamics, _p[params])
+    dfdp  = Symbolics.jacobian(_dynamics, _p[params])
 
-    dGdt = is_dae ?  dfdp + dfdx * _G  + dfddx * _dG : dfdp + dfdx * _G
+    dGdt = is_dae ?  dfdp .+ dfdx * _G  .+ dfddx * _dG : dfdp + dfdx * _G
     _obs = observed(_x, _p, _t)
     _w = Symbolics.variables(:w, 1:length(_obs))
 

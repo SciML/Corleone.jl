@@ -11,7 +11,7 @@ function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAl
             bounds_ic = nothing,
             observed = prob.f.observed == SciMLBase.DEFAULT_OBSERVED ? (u,p,t) -> u[eachindex(prob.u0)] : prob.f.observed,
             dt = (-)(reverse(prob.tspan)...)/100,
-            params = setdiff(prob.p, control_indices))
+            params = setdiff(eachindex(prob.p), control_indices))
 
     layer = SingleShootingLayer(prob, alg; tunable_ic = tunable_ic, controls = controls,
                                 control_indices = control_indices, bounds_ic=bounds_ic)
