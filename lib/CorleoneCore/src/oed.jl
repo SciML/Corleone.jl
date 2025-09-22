@@ -80,15 +80,13 @@ end
 (crit::AbstractCriterion)(oedlayer::OEDLayer{true, <:SingleShootingLayer, <:Any, <:Any}) = begin
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
-    hxG = reshape(sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer), by= x -> split(string(x), "ˏ")[2]), (oedlayer.dimensions.nh,oedlayer.dimensions.np_fisher))
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     tinf = last(oedlayer.layer.problem.tspan)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
+        Fi = reshape(sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3]), (oedlayer.dimensions.np_fisher,oedlayer.dimensions.np_fisher))
         wts= vcat(sampling.t, tinf) |> unique!
         idxs = findall(x -> x in wts, sols.t)
-        diff(map(sols[hxG][idxs]) do Ji
-            Ji[i:i,:]' * Ji[i:i,:]
-        end)
+        diff(sols[Fi][idxs])
     end
 
     (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc

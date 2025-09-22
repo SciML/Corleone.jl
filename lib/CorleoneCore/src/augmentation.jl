@@ -121,15 +121,21 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     dGdt = is_dae ?  dfdp .+ dfdx * _G  .+ dfddx * _dG : dfdp + dfdx * _G
     _obs = observed(_x, _p, _t)
     _w = Symbolics.variables(:w, 1:length(_obs))
-    _dhxG = Symbolics.variables(:dhxG, 1:length(_obs), 1:np_considered)
-    _hxG = Symbolics.variables(:hxG, 1:length(_obs), 1:np_considered)
-    dhxGdt = is_dae ? _dhxG .- Symbolics.jacobian(_obs, _x) * _G : Symbolics.jacobian(_obs, _x) * _G
+    _dhxG = Symbolics.variables(:dhxG, 1:length(_obs), 1:np_considered, 1:np_considered)
+    _hxG = Symbolics.variables(:hxG, 1:length(_obs), 1:np_considered, 1:np_considered)
+    dobsdx = Symbolics.jacobian(_obs, _x)
+    dhxGdt = map(1:length(_obs)) do i
+         if is_dae
+            _dhxG[i,:,:] .- (dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G)
+         else
+            (dobsdx[i:i,:] * _G)' *(dobsdx[i:i,:] * _G)
+         end
+    end
 
-    @info dhxGdt
-    differential_variables_ = vcat(_dx, _dG[:], _dhxG[:])
-    variables_ = vcat(_x, _G[:], _hxG[:])
+    differential_variables_ = vcat(_dx, _dG[:], reduce(vcat, [_dhxG[i,:,:][:] for i=1:length(_obs)]))
+    variables_ = vcat(_x, _G[:], reduce(vcat, [_hxG[i,:,:][:] for i=1:length(_obs)]))
     parameters_ = vcat(_p,_w)
-    expressions_ = vcat(_dynamics, dGdt[:], dhxGdt[:])
+    expressions_ = vcat(_dynamics, dGdt[:], reduce(vcat, [dhxGdt[i][:] for i=1:length(_obs)]))
 
     iip_idx = iip ? 2 : 1
     aug_fun = begin
@@ -148,7 +154,6 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
 
     aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
-    @info length(aug_du0) length(aug_u0)
     aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
@@ -237,10 +242,15 @@ function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootin
     sort(keys_[idx], by=string) ## TODO: TEST IF THIS RETURNS THE RIGHT ORDER WHEN APPLYING SYMMETRIC_FROM_VECTOR
 end
 
-function observed_sensitivity_product_variables(layer::SingleShootingLayer)
+function observed_sensitivity_product_variables(layer::SingleShootingLayer, observed_idx::Int)
+
+    string_idx = string(observed_idx)
+    char_idx = map(x -> only(x), string_idx)
+    subscripts_idx = map(x -> Symbolics.IndexMap[x], char_idx)
+
     st = LuxCore.initialstates(Random.default_rng(), layer)
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
-    idx = findall(Base.Fix2(startswith, "hxG"), collect(string.(keys_)))
+    idx = findall(Base.Fix2(startswith, string(Symbol("hxG", subscripts_idx))), collect(string.(keys_)))
     sort(keys_[idx], by=string)
 end

@@ -36,12 +36,14 @@ control = ControlParameter(
 )
 
 # Single Shooting with fixed controls and fixed u0
-ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.25)
+ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.2)
 ps, st = LuxCore.setup(Random.default_rng(), ol)
 p = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(ol)
 crit= ACriterion()
-nc = (0,48,96)
+ACrit = crit(ol)
+
+nc = (0,length(ol.layer.controls[1].t),2*length(ol.layer.controls[1].t))
 
 sampling_cons = let ax = getaxes(p), nc = nc, dt = first(diff(ol.layer.controls[1].t))
     (res, p, ::Any) -> begin
@@ -59,7 +61,7 @@ optprob = OptimizationProblem(
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-6,
+     #tol = 1e-10,
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
@@ -72,8 +74,8 @@ ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12)
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(ol)])))]
-stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
-stairs!(ax3, control.t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
+stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
+stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
 f
 
 
