@@ -80,15 +80,23 @@ end
 (crit::AbstractCriterion)(oedlayer::OEDLayer{true, <:SingleShootingLayer, <:Any, <:Any}) = begin
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
-    sens = reshape(sort(CorleoneCore.sensitivity_variables(oedlayer.layer), by= x -> split(string(x), "ˏ")[2]), (oedlayer.dimensions.nx,oedlayer.dimensions.np_fisher))
+    hxG = reshape(sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer), by= x -> split(string(x), "ˏ")[2]), (oedlayer.dimensions.nh,oedlayer.dimensions.np_fisher))
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
-    (p, ::Any) -> let sols = sols, prob_p = oedlayer.layer.problem.p, sampling = oedlayer.layer.controls, dims = oedlayer.dimensions, hx = oedlayer.observed.hx, ax = getaxes(ComponentArray(ps)), nc=nc
+    tinf = last(oedlayer.layer.problem.tspan)
+    Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
+        wts= vcat(sampling.t, tinf) |> unique!
+        idxs = findall(x -> x in wts, sols.t)
+        diff(map(sols[hxG][idxs]) do Ji
+            Ji[i:i,:]' * Ji[i:i,:]
+        end)
+    end
+
+    (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc
         ps = ComponentArray(p, ax)
-        F = Symmetric(sum(map(enumerate(sampling)) do (widx, wi)
-            sum(map(enumerate(sols.t[1:end-1])) do (i, ti)
-                cidx = findlast(t -> ti >= t, wi.t)
-                hxG = hx(sols[i][1:dims.nx], prob_p, ti)[widx:widx,:] * sols[sens][i]
-                (sols.t[i+1] - ti) * ps.controls[nc[widx]+1:nc[widx+1]][cidx] * hxG' * hxG
+        F = Symmetric(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+            local_sampling = ps.controls[idx_start+1:idx_end]
+            sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+                F_it * wit
             end)
         end))
         crit(F)

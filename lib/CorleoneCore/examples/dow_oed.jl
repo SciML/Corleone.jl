@@ -212,15 +212,15 @@ plot(sol)
 
 observed = (u,p,t) -> u[1:4]
 
-layer = OEDLayer(prob, DFBDF(); params = [1], observed = observed)
+layer = OEDLayer(prob, DFBDF(); params = [1,2], observed = observed)
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)
 lb, ub = CorleoneCore.get_bounds(layer)
 
 crit = ACriterion()
-
 ACrit = crit(layer)
+ACrit(pc, nothing)
 
 nc = length(layer.layer.controls[1].t)
 dt = (-)(reverse(tspan)...)/nc
@@ -240,16 +240,16 @@ optfun = OptimizationFunction(
 )
 
 optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(4), ucons=20.0 * ones(4)
+    optfun, collect(pc), lb = collect(lb), ub = collect(ub), lcons=zeros(4), ucons=20.0 * ones(4)
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-6,
+     tol = 1e-9,
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
 
-optsol, _ = layer(nothing, uopt + zero(p), st)
+optsol, _ = layer(nothing, uopt + zero(pc), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks = 0:20:200)
@@ -257,8 +257,8 @@ ax2 = CairoMakie.Axis(f[1,2], xticks = 0:20:200)
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:20:200)
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:10]]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(layer)])))]
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(p)).controls[1:nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(p)).controls[nc+1:2*nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(p)).controls[2*nc+1:3*nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(p)).controls[3*nc+1:4*nc])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[1:nc])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc+1:2*nc])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[2*nc+1:3*nc])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[3*nc+1:4*nc])
 f
