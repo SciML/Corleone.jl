@@ -36,12 +36,12 @@ end
 function MultipleShootingLayer(prob, alg, control_indices, controls, shooting_points;
                 tunable_ic = Int64[], bounds_ic = (-Inf*ones(length(tunable_ic)), Inf*length(tunable_ic)),
                 bounds_nodes = (-Inf * ones(length(prob.u0)), Inf*ones(length(prob.u0))),
-                ensemble_alg = EnsembleSerial())
+                ensemble_alg = EnsembleSerial(), kwargs...)
     tspan = prob.tspan
     shooting_points = vcat(tspan..., shooting_points) |> unique! |> sort!
     shooting_intervals = [(t0,t1) for (t0,t1) in zip(shooting_points[1:end-1], shooting_points[2:end])]
     _tunable = vcat([tunable_ic], [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
-    layers = [SingleShootingLayer(remake(prob, tspan = tspani), alg, control_indices, restrict_controls(controls, tspani...);
+    layers = [SingleShootingLayer(remake(prob, tspan = tspani, kwargs...), alg, control_indices, restrict_controls(controls, tspani...);
                 tunable_ic=_tunable[i], bounds_ic = (i == 1 ? (isempty(tunable_ic) ? nothing : bounds_ic) : bounds_nodes)) for (i, tspani) in enumerate(shooting_intervals)]
 
     MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg), typeof(bounds_nodes)}(layers, shooting_intervals, ensemble_alg, bounds_nodes)

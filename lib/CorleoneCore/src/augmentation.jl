@@ -89,24 +89,36 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     iip = SciMLBase.isinplace(prob)
     _dx = Symbolics.variables(:dx, 1:nx)
     _x = Symbolics.variables(:x, 1:nx)
-    _p = Symbolics.variables(:p, 1:np)
+    _p = Symbolics.variables(:p, 1:np_considered)
+    full_p = Symbolics.variables(:p, 1:np)
     _t = Symbolics.variable(:t)
 
+    counter_p = 0
+    p_vector = map(eachindex(prob.p)) do i
+        if i in params
+            counter_p +=1
+            _p[counter_p]
+        else
+            prob.p[i]
+        end
+    end
+    p_vector .= prob.p
+    p_vector[params] .= _p
     _dynamics = begin
         if iip
             out = Symbolics.variables(:out, 1:nx)
             if !is_dae
-                prob.f.f(out, _x, _p, _t)
+                prob.f.f(out, _x, p_vector, _t)
                 out
             else
-                prob.f.f(out, _dx, _x, _p, _t)
+                prob.f.f(out, _dx, _x, p_vector, _t)
                 out
             end
         else
             if !is_dae
-                prob.f.f(_x, _p, _t)
+                prob.f.f(_x, p_vector, _t)
             else
-                prob.f.f(_dx, _x, _p, _t)
+                prob.f.f(_dx, _x, p_vector, _t)
             end
         end
     end
@@ -116,9 +128,10 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
 
     dfdx  = Symbolics.jacobian(_dynamics, _x)
     dfddx = Symbolics.jacobian(_dynamics, _dx)
-    dfdp  = Symbolics.jacobian(_dynamics, _p[params])
+    dfdp  = Symbolics.jacobian(_dynamics, _p)
 
     dGdt = is_dae ?  dfdp .+ dfdx * _G  .+ dfddx * _dG : dfdp + dfdx * _G
+
     _obs = observed(_x, _p, _t)
     _w = Symbolics.variables(:w, 1:length(_obs))
     _dhxG = Symbolics.variables(:dhxG, 1:length(_obs), 1:np_considered, 1:np_considered)
@@ -134,7 +147,7 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
 
     differential_variables_ = vcat(_dx, _dG[:], reduce(vcat, [_dhxG[i,:,:][:] for i=1:length(_obs)]))
     variables_ = vcat(_x, _G[:], reduce(vcat, [_hxG[i,:,:][:] for i=1:length(_obs)]))
-    parameters_ = vcat(_p,_w)
+    parameters_ = vcat(p_vector,_w)
     expressions_ = vcat(_dynamics, dGdt[:], reduce(vcat, [dhxGdt[i][:] for i=1:length(_obs)]))
 
     iip_idx = iip ? 2 : 1
@@ -148,9 +161,8 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
     aug_p = vcat(prob.p, ones(length(_w)))
 
-    scache = SymbolCache(variables_, parameters_, [_t])
+    scache = SymbolCache(variables_, vcat(full_p, _w), [_t])
     dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
-
     !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
 
     aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
@@ -164,8 +176,8 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
 
     prob = get_problem(layer)
     tspan = get_tspan(layer)
-    controls, control_indices = get_controls(layer)
-    fixed = isempty(get_tunable(layer)) && (isempty(control_indices) || isnothing(controls))
+    _, control_indices = get_controls(layer)
+    fixed = is_fixed(layer)
     fixed && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)

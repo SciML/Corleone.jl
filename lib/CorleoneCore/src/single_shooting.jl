@@ -7,12 +7,14 @@ struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
     bounds_ic::B
 end
 
-function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic = Int64[], bounds_ic = nothing)
-    return SingleShootingLayer(prob, alg, control_indices, controls, tunable_ic, bounds_ic)
+function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic = Int64[], bounds_ic = nothing, kwargs...)
+    _prob = remake(prob; kwargs...)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
-function SingleShootingLayer(prob, alg; control_indices = Int64[], controls=nothing, tunable_ic = Int64[], bounds_ic=nothing)
-    return SingleShootingLayer(prob, alg, control_indices, controls, tunable_ic, bounds_ic)
+function SingleShootingLayer(prob, alg; control_indices = Int64[], controls=nothing, tunable_ic = Int64[], bounds_ic=nothing, kwargs...)
+    _prob = remake(prob; kwargs...)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
 get_problem(layer::SingleShootingLayer) = layer.problem

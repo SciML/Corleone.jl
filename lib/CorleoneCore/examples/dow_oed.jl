@@ -200,6 +200,15 @@ end
 tspan = (0.,200.0)
 du0 = zeros(10)
 prob = DAEProblem{false}(dow,du0,u0, tspan, p,
+            #initializealg = NoInit(),
+            abstol=1e-8, reltol=1e-6,
+            sensealg = ForwardDiffSensitivity(),
+            differential_vars = [true, true, true, true, true, true, false, false, false, false]
+            )
+
+init_dae = init(prob, DFBDF())
+
+prob = DAEProblem{false}(dow,init_dae.du, init_dae.u, tspan, p,
             initializealg = NoInit(),
             abstol=1e-8, reltol=1e-6,
             sensealg = ForwardDiffSensitivity(),
@@ -234,27 +243,27 @@ end
 
 sampling_cons(zeros(4), collect(pc), nothing)
 
+@elapsed begin
+    optfun = OptimizationFunction(
+        ACrit, AutoReverseDiff(), cons = sampling_cons
+    )
 
-optfun = OptimizationFunction(
-    ACrit, AutoForwardDiff(), cons = sampling_cons
-)
+    optprob = OptimizationProblem(
+        optfun, collect(pc), lb = collect(lb), ub = collect(ub), lcons=zeros(4), ucons=40.0 * ones(4)
+    )
 
-optprob = OptimizationProblem(
-    optfun, collect(pc), lb = collect(lb), ub = collect(ub), lcons=zeros(4), ucons=40.0 * ones(4)
-)
-
-uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-9,
-     hessian_approximation = "limited-memory",
-     max_iter = 300
-)
-
+    uopt = solve(optprob, Ipopt.Optimizer(),
+        tol = 1e-9,
+        hessian_approximation = "limited-memory",
+        max_iter = 300
+    )
+end
 optsol, _ = layer(nothing, uopt + zero(pc), st)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1], xticks = 0:25:200)
-ax2 = CairoMakie.Axis(f[1,2], xticks = 0:25:200)
-ax3 = CairoMakie.Axis(f[2,:], xticks = 0:25:200)
+ax = CairoMakie.Axis(f[1,1], xticks = 0:25:200, title="States")
+ax2 = CairoMakie.Axis(f[1,2], xticks = 0:25:200, title="Sensitivities")
+ax3 = CairoMakie.Axis(f[2,:], xticks = 0:25:200, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:10]]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(layer)])))]
 stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[1:nc])
