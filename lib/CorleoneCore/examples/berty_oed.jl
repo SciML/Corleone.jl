@@ -20,7 +20,7 @@ using Ipopt
 using blockSQP
 using LinearAlgebra
 
-feed = [0.0; 0.0256; 0.1082; 0.3059; 0.0; 0.5603]
+feed = [0.0; 0.0256; 0.2082; 0.6059; 0.0; 0.1603]
 feed_ch3oh, feed_c02, feed_c0, feed_h2, feed_h20, feed_n2 = feed
 
 T = 500.15
@@ -131,7 +131,7 @@ function berty(dy, y, p, t)
         zero(eltype(dy))
     )
     y_lhs = vcat(
-        nG *  dy[1:6] .+ (Pe * m_kat * q_sat) * (diagm(ones(6)) .- y[1:6]*ones(1,6)) * jacvec,
+        nG *  dy[1:6] .+ Pe * m_kat * q_sat * (diagm(ones(6)) .- y[1:6]*ones(1,6)) * jacvec,
         dy[7]
     )
 
@@ -171,35 +171,44 @@ end
 
 u0 = [0.00854, 0.02494, 0.22906, 0.55062, 0.00184, 0.18499, 0.9];
 du0 = zeros(7)
-tspan = (0.0, 7200)
+tspan = (0.0, 7200.0)
 
-prob = DAEProblem(berty, du0, u0, tspan, p_new, differential_vars = ones(Bool, 7))#, initializealg = NoInit())
+prob = DAEProblem{false}(berty, du0, u0, tspan, p_new,
+        initializealg = BrownFullBasicInit(),#CheckInit(),
+        differential_vars = ones(Bool, 7))
+        #, initializealg = BrownFullBasicInit())
 
-cgrid = collect(0.0:3600:7200)[1:end-1]
+sol = solve(prob, DFBDF(), dense=true, progress=true)
+init_dae = init(prob, DFBDF())
 
-feed_co = ControlParameter(cgrid, name = :feed_co, controls = feed[2] * ones(length(cgrid)))
-feed_co2 = ControlParameter(cgrid, name = :feed_co2, controls = feed[3] * ones(length(cgrid)))
-feed_h2 = ControlParameter(cgrid, name = :feed_h2, controls = feed[4] * ones(length(cgrid)))
-feed_n2 = ControlParameter(cgrid, name = :feed_n2, controls = feed[6] * ones(length(cgrid)))
-cT = ControlParameter([0.0], name = :temperature, controls = [T])
-V_N = ControlParameter(cgrid, name = :volume_flow, controls = last(VGas_mkat_VN_new) * ones(length(cgrid)))
-
-layer = CorleoneCore.SingleShootingLayer(prob, DFBDF(),Int64[],[1,4,5,6,8,15], (cT,feed_co,feed_co2,feed_h2,feed_n2,V_N,))
-ps, st = LuxCore.setup(Random.default_rng(), layer)
+prob = DAEProblem{false}(berty, init_dae.du, init_dae.u, tspan, p_new,
+        initializealg = NoInit(),
+        abstol=1e-8, reltol=1e-6,
+        sensealg = AutoFiniteDiff(),
+        differential_vars = ones(Bool, 7))
+        #, initializealg = BrownFullBasicInit())
 sol = solve(prob, DFBDF())
 plot(sol)
 
+layer = OEDLayer(prob, DFBDF(); params=[16], observed = (u,p,t) -> u[1:1]);
 
-sol, _ = layer(nothing, ps, st)
+ps, st = LuxCore.setup(Random.default_rng(), layer)
+pc = ComponentArray(ps)
+lb, ub = CorleoneCore.get_bounds(layer)
+@btime layer.layer.problem.f(layer.layer.problem.du0, layer.layer.problem.u0, layer.layer.problem.p, 0.0)
 
-p = ComponentArray(ps)
+sol = solve(layer.layer.problem, DFBDF())
 
-oed_berty = CorleoneCore.augment_layer_for_oed(layer; params = [16], observed = (u,p,t) -> [u[1]; u[2]; u[3]], dt=900.0)
+sols, _ = layer(nothing, pc, st)
 
-ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed_berty)
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+[plot!(ax, sols.t, solu) for solu in eachrow(sols.u)]
 
-sol, _ = oed_berty(nothing, ps_oed, st_oed)
-sol, _ = @btime oed_berty(nothing, ps_oed, st_oed)
+crit = ACriterion()
+ACrit = crit(layer)
+ACrit(pc, nothing)
+
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], title="States")
