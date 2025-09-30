@@ -137,16 +137,17 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     _dhxG = Symbolics.variables(:dhxG, 1:length(_obs), 1:np_considered, 1:np_considered)
     _hxG = Symbolics.variables(:hxG, 1:length(_obs), 1:np_considered, 1:np_considered)
     dobsdx = Symbolics.jacobian(_obs, _x)
+    upper_triangle = triu(trues(np_considered, np_considered))
     dhxGdt = map(1:length(_obs)) do i
          if is_dae
-            _dhxG[i,:,:] .- (dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G)
+            _dhxG[i,:,:][upper_triangle] .- ((dobsdx[i:i,:] * _G)' * (dobsdx[i:i,:] * _G))[upper_triangle]
          else
-            (dobsdx[i:i,:] * _G)' *(dobsdx[i:i,:] * _G)
+            ((dobsdx[i:i,:] * _G)' *(dobsdx[i:i,:] * _G))[upper_triangle]
          end
     end
 
-    differential_variables_ = vcat(_dx, _dG[:], reduce(vcat, [_dhxG[i,:,:][:] for i=1:length(_obs)]))
-    variables_ = vcat(_x, _G[:], reduce(vcat, [_hxG[i,:,:][:] for i=1:length(_obs)]))
+    differential_variables_ = vcat(_dx, _dG[:], reduce(vcat, [_dhxG[i,:,:][upper_triangle][:] for i=1:length(_obs)]))
+    variables_ = vcat(_x, _G[:], reduce(vcat, [_hxG[i,:,:][upper_triangle][:] for i=1:length(_obs)]))
     parameters_ = vcat(p_vector,_w)
     expressions_ = vcat(_dynamics, dGdt[:], reduce(vcat, [dhxGdt[i][:] for i=1:length(_obs)]))
 

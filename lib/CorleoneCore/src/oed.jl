@@ -99,7 +99,7 @@ end
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     tinf = last(oedlayer.layer.problem.tspan)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = reshape(sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3]), (oedlayer.dimensions.np_fisher,oedlayer.dimensions.np_fisher))
+        Fi = sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
         wts= vcat(sampling.t, tinf) |> unique!
         idxs = findall(x -> x in wts, sols.t)
         diff(sols[Fi][idxs])
@@ -107,7 +107,7 @@ end
 
     (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc
         ps = ComponentArray(p, ax)
-        F = Symmetric(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
             local_sampling = ps.controls[idx_start+1:idx_end]
             sum(map(zip(F_i, local_sampling)) do (F_it, wit)
                 F_it * wit
