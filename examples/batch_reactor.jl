@@ -1,8 +1,6 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
-using CorleoneCore
+Pkg.activate(@__DIR__)
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -10,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -36,11 +30,11 @@ N = 20
 control = ControlParameter(
     collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N), bounds = (298.0,398.0)
 )
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1], (control,))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1], (control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin

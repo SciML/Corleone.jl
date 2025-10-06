@@ -1,8 +1,4 @@
-using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
-using CorleoneCore
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -10,10 +6,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -39,7 +31,7 @@ control = ControlParameter(
 ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.2)
 ps, st = LuxCore.setup(Random.default_rng(), ol)
 p = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(ol)
+lb, ub = Corleone.get_bounds(ol)
 crit= ACriterion()
 ACrit = crit(ol)
 
@@ -73,18 +65,18 @@ ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(ol)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)])))]
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
 f
 
 
 # Single Shooting
-oed_layer = CorleoneCore.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
+oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
             control_indices = [1], dt = 0.25)
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 p = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(oed_layer)
+lb, ub = Corleone.get_bounds(oed_layer)
 nc, dt = length(control.t), diff(control.t)[1]
 
 sols, _ = oed_layer(nothing, ps, st)
@@ -124,8 +116,8 @@ ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
 ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="FIM")
 ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.fisher_variables(oed_layer)])))]
+[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.fisher_variables(oed_layer)])))]
 stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
@@ -143,7 +135,7 @@ oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 # Or use any of the provided Initialization schemes
 oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
 oed_msp = ComponentArray(oed_msps)
-oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(oed_mslayer)
+oed_ms_lb, oed_ms_ub = Corleone.get_bounds(oed_mslayer)
 oed_sols, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
 crit = ACriterion()
@@ -151,7 +143,7 @@ criterion = crit(oed_mslayer)
 criterion(oed_msp, nothing)
 
 nc_ms = length(first(oed_mslayer.layer.layers).controls[1].t)
-shooting_constraints = let layer = oed_mslayer, dt = 0.25, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = CorleoneCore.get_shooting_constraints(oed_mslayer)
+shooting_constraints = let layer = oed_mslayer, dt = 0.25, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = Corleone.get_shooting_constraints(oed_mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
@@ -180,7 +172,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 100
 )
 
-blocks = CorleoneCore.get_block_structure(oed_mslayer)
+blocks = Corleone.get_block_structure(oed_mslayer)
 
 uopt = solve(optprob, BlockSQPOpt(),
     opttol = 1e-6,

@@ -35,21 +35,21 @@ function (layer::MultiExperimentLayer{<:Any, <:Tuple})(::Any, ps, st)
 end
 
 (crit::AbstractCriterion)(multiexp::MultiExperimentLayer, sols::AbstractVector{<:DiffEqArray}) = begin
-    fsym = CorleoneCore.fisher_variables(multiexp.layers.layer)
+    fsym = Corleone.fisher_variables(multiexp.layers.layer)
     sumF = sum(map(sols) do sol
         Fi = sol[fsym][end]
         Fi
     end)
-    crit(CorleoneCore.symmetric_from_vector(sumF))
+    crit(Corleone.symmetric_from_vector(sumF))
 end
 
 (crit::AbstractCriterion)(multiexp::MultiExperimentLayer, sols::AbstractVector{<:EnsembleSolution}) = begin
-    fsym = CorleoneCore.fisher_variables(multiexp.layers.layer)
+    fsym = Corleone.fisher_variables(multiexp.layers.layer)
     sumF = sum(map(sols) do sol
         Fi = last(sol)[fsym][end]
         Fi
     end)
-    crit(CorleoneCore.symmetric_from_vector(sumF))
+    crit(Corleone.symmetric_from_vector(sumF))
 end
 
 (crit::AbstractCriterion)(multilayer::MultiExperimentLayer{true, OEDLayer}) = begin
@@ -59,7 +59,7 @@ end
     tinf = last(multilayer.layers.layer.problem.tspan)
     Fs = map(sols) do sol_i
             map(enumerate(multilayer.layers.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-            Fi = sort(CorleoneCore.observed_sensitivity_product_variables(multilayer.layers.layer, i), by= x -> split(string(x), "ˏ")[3])
+            Fi = sort(Corleone.observed_sensitivity_product_variables(multilayer.layers.layer, i), by= x -> split(string(x), "ˏ")[3])
             wts= vcat(sampling.t, tinf) |> unique!
             idxs = findall(x -> x in wts, sol_i.t)
             diff(sol_i[Fi][idxs])
@@ -88,7 +88,7 @@ end
     tinfs = [last(layer.layer.problem.tspan) for layer in multilayer.layers]
     Fs = map(enumerate(sols)) do (j,sol_i)
             map(enumerate(multilayer.layers[j].layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-            Fi = sort(CorleoneCore.observed_sensitivity_product_variables(multilayer.layers[j].layer, i), by= x -> split(string(x), "ˏ")[3])
+            Fi = sort(Corleone.observed_sensitivity_product_variables(multilayer.layers[j].layer, i), by= x -> split(string(x), "ˏ")[3])
             wts= vcat(sampling.t, tinfs[j]) |> unique!
             idxs = findall(x -> x in wts, sol_i.t)
             diff(sol_i[Fi][idxs])
@@ -212,12 +212,12 @@ function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiEx
         if isa(layer.layers, Tuple)
             map(enumerate(layer.layers)) do (i,_layer)
                 local_ps, local_st = getproperty(first(params), Symbol("experiment_$i")), getproperty(last(params), Symbol("experiment_$i"))
-                f(rng, _layer; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)
+                f(rng, _layer; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)[1]
             end
         else
             map(1:layer.n_exp) do i
                 local_ps, local_st = getproperty(first(params), Symbol("experiment_$i")), getproperty(last(params), Symbol("experiment_$i"))
-                f(rng, layer.layers; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)
+                f(rng, layer.layers; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)[1]
             end
         end
     end

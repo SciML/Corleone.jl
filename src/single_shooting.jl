@@ -1,204 +1,252 @@
-using CommonSolve, SciMLBase
-using OrdinaryDiffEqTsit5
-
-using SciMLStructures
-
-abstract type AbstractShootingProblem end
-
-struct ShootingProblem{P<:SciMLBase.DEProblem,U,C} <: AbstractShootingProblem
+struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
     problem::P
-    u0::U
-    controls::C
-end
-
-get_defaults(prob::ShootingProblem) = collect_parameters(prob.problem, prob.u0, prob.controls).p
-
-struct ShootingPredictor{P,Q,U,S,A,K}
-    problem::P
-    p0::Q
-    u0map::U
-    sequence::S
     algorithm::A
-    kwargs::K
+    control_indices::Vector{Int64}
+    controls::C
+    tunable_ic::Vector{Int64}
+    bounds_ic::B
 end
 
-
-function CommonSolve.init(prob::ShootingProblem, alg::SciMLBase.AbstractDEAlgorithm; kwargs...)
-    (; problem, u0, controls) = prob
-    conf = collect_parameters(problem, u0, controls)
-    ShootingPredictor(problem, conf.p, conf.u0, conf.controlsequence, alg, kwargs)
+function init_problem(prob, alg)
+    remake_problem(prob, SciMLBase.init(prob, alg))
 end
 
-function CommonSolve.solve!(prob::ShootingPredictor)
-    (; problem, p0, u0map, sequence, algorithm, kwargs) = prob
-    p = get(kwargs, :p, p0)
-    u0 = get(kwargs, :u0, u0map)
-    ensemble_sequential_solve(problem, algorithm, p, u0, sequence)
+function remake_problem(prob::ODEProblem, state)
+    remake(prob, u0=state.u)
 end
 
-replace_portion(x, y, ::Any) = x
-
-function replace_portion(x::AbstractArray{X}, y::AbstractArray{Y}, indices::Vector{Pair{Int,Int}}) where {X, Y}
-    T = promote_type(X, Y)
-    isempty(indices) && return T.(x)
-    a, b = first.(indices), last.(indices)
-    xreplace = [i ∈ b for i in eachindex(x)]
-    xkeep = .! xreplace 
-    ys = y[a]
-    xkeep .* x .+ xreplace .* ys
-    #finder = Base.Fix1(searchsortedfirst, b)
-    #x_replaced = T.(map(eachindex(x)) do i
-    #    idx = finder(i)
-    #    idx > lastindex(a) && return x[i]
-    #    y_idx = a[idx]
-    #    y[y_idx]
-    #end)
+function remake_problem(prob::DAEProblem, state)
+    remake(prob, u0=state.u, du0=state.du)
 end
 
-#==
-function __replace_portion(x::AbstractArray, y::AbstractArray, indices::Vector{Pair{Int,Int}})
-    replacement_map = Dict{Int, eltype(y)}()
-    sizehint!(replacement_map, length(indices))
-    for (yi, xi) in indices
-        replacement_map[xi] = y[yi]
-    end
-    return [get(replacement_map, i, x[i]) for i in eachindex(x)]
-end
-==#
-
-
-# No initial condition
-function sequential_solve(problem::SciMLBase.DEProblem, alg::SciMLBase.DEAlgorithm, q::AbstractArray, ::Nothing, sequences::Tuple)
-    sequential_solve(problem, alg, q, problem.u0, sequences)
+function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+    _prob = init_problem(remake(prob; kwargs...), alg)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
-# Tunable initial condition
-function sequential_solve(problem::SciMLBase.DEProblem, alg::SciMLBase.DEAlgorithm, q::AbstractArray, u0idx::Vector{<:Pair}, sequences::Tuple)
-    u0 = replace_portion(problem.u0, q, u0idx)
-    sequential_solve(problem, alg, q, u0, sequences)
+function SingleShootingLayer(prob, alg; control_indices=Int64[], controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+    _prob = init_problem(remake(prob; kwargs...), alg)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
-# TODO This does not handle the SciMLStructures interface. However, we just assume that we have a flat structure. (Or a wrapped type)
-# Controls
-function sequential_solve(problem::SciMLBase.DEProblem, alg::SciMLBase.DEAlgorithm, q::AbstractArray, u0, sequences::Tuple)
-    (idx, tspan) = Base.first(sequences)
-    new_problem = remake(problem, u0=u0, p=replace_portion(problem.p, q, idx), tspan=tspan)
-    solution = solve(new_problem, alg)
-    return (solution, sequential_solve(new_problem, alg, q, solution.u[end], Base.tail(sequences))...)
-end
+get_problem(layer::SingleShootingLayer) = layer.problem
+get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indices)
+get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
+get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
+get_params(layer::SingleShootingLayer) = setdiff(eachindex(layer.problem.p), layer.control_indices)
 
-# Last control
-function sequential_solve(problem::SciMLBase.DEProblem, alg::SciMLBase.DEAlgorithm, q::AbstractArray, u0, ::Tuple{})
-    return ()
-end
-
-# TODO Maybe use me !?
-function ensemble_sequential_solve(problem::SciMLBase.DEProblem, alg::SciMLBase.DEAlgorithm, q::AbstractArray, u0, sequences::Tuple)
-    #t0 = time()
-    solutions = reduce(vcat, sequential_solve(problem, alg, q, u0, sequences))
-    t = 0.0 #time() - t0
-    converged = all(SciMLBase.successful_retcode, solutions)
-    EnsembleSolution(solutions, (length(sequences),), t, converged, nothing)
-end
-
-function check_config(problem, (idx, config)::Pair)
-    @assert idx ∈ eachindex(problem.p)
-    @assert size(config.timepoints) == size(config.defaults)
-    return true
-end
-
-function collect_parameters(problem, config, poffset::Int=0)
-    stuff = reduce(vcat, map(config) do (idx, conf)
-        [(ti, idx, vi) for (ti, vi) in zip(conf.timepoints, conf.defaults)]
-    end)
-    sort!(stuff, by=Base.Fix2(getindex, 1:2))
-    q = last.(stuff)
-    # Merge common elements 
-    timepoints = first.(stuff)
-    append!(timepoints, collect(problem.tspan))
-    unique!(sort!(timepoints))
-    indexsets = map(enumerate(timepoints)) do (i, ti)
-        idxs = findall(x -> first(x) == ti, stuff)
-        Pair{Int,Int}[id + poffset => stuff[id][2] for id in idxs], (ti, i < lastindex(timepoints) ? timepoints[i+1] : last(problem.tspan))
-    end
-    q, tuple(indexsets...)
-end
-
-function collect_parameters(u0map)
-    u0map = sort(u0map, by=first)
-    idxs = first.(u0map)
-    q = last.(u0map)
-    q, [j => i for (i, j) in enumerate(idxs)]
-end
-
-
-u0 = [1 => 1.0,]
-
-
-function collect_parameters(prob, u0map, configuration)
-    qu0, idx0 = collect_parameters(u0map)
-    qu, idxs = collect_parameters(prob, configuration, length(qu0))
-    (; p=vcat(qu0, qu), u0=idx0, controlsequence=idxs)
-end
-
-# Test
-function lotka(u, p, t)
-    [u[1] - u[1] * u[2] - p[1] * u[1], u[1] * u[2] - u[2] - p[2] * u[2]]
-end
-
-u0 = ones(2)
-p0 = zeros(2)
-tspan = (0.0, 10.0)
-
-prob = ODEProblem{false, SciMLBase.FullSpecialize}(lotka, u0, tspan, p0)
-
-using OrdinaryDiffEqTsit5
-
-sol = solve(prob, Tsit5())
-
-shoot = ShootingProblem(
-    prob,
-    # Variable initial condition 1 
-    [1 => 3.0],
-    # Control specs for 1 and 2
-    (
-        1 => (; defaults=zeros(5), timepoints=LinRange(3.0, 10.0, 5)),
-        2 => (; defaults=zeros(10), timepoints=LinRange(3.0, 5.0, 10)),
+_get_bounds(layer::SingleShootingLayer, lower::Bool=true) = begin
+    p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+    (;
+        u0=isnothing(layer.bounds_ic) ? eltype(layer.problem.u0)[] : (lower ? copy(layer.bounds_ic[1]) : copy(layer.bounds_ic[2])),
+        p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_control_bounds(lower, layer.controls...)
     )
-)
-
-p0 = get_defaults(shoot)
-
-# First Call 
-@time sol_1 = solve(shoot, Tsit5())
-# Second Call 
-@time sol_1 = solve(shoot, Tsit5())
-plot(sol_1)
-
-p0[2:end] .= Float64.(rand(Bool, length(p0) - 1))
-sol = solve(shoot, Tsit5(), p=p0)
-@info sol.elapsedTime
-plot(sol)
-
-using SciMLSensitivity #, Zygote
-
-objective = let shoot = shoot 
-    (p) -> begin 
-        sol = solve(prob, Tsit5(), p = p)
-        sum(abs2, 1 .- last(sol.u))
-    end 
 end
 
-objective(p0)
+get_bounds(layer::SingleShootingLayer) = begin
+    lb = _get_bounds(layer, true)
+    ub = _get_bounds(layer, false)
+    return ComponentArray(lb), ComponentArray(ub)
+end
 
-using ForwardDiff
+function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
+    p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+    (;
+        u0=copy(layer.problem.u0[layer.tunable_ic]),
+        p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...)
+    )
+end
 
-ForwardDiff.gradient(objective, p0[1:2])
+function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
+    retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
+end
 
-@btime ForwardDiff.gradient($objective, $p0)
+function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
+    p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
+    state_symbols = [Symbol(:x, Symbol(Char(0x2080 + i))) for i in eachindex(u0)]
+    u_id = 0
+    p_id = 0
+    parameter_symbols = [i ∈ control_indices ? Symbol(:u, Symbol(Char(0x2080 + (u_id += 1)))) : Symbol(:p, Symbol(Char(0x2080 + (p_id += 1)))) for i in eachindex(p0)]
+    tsym = [:t]
+    _retrieve_symbol_cache(state_symbols, parameter_symbols, tsym, control_indices)
+end
 
-using Zygote
-Zygote.gradient(objective, p0[1:2])
+function retrieve_symbol_cache(cache::SymbolCache, u0, p, control_indices)
+    psym = parameter_symbols(cache)
+    vsym = variable_symbols(cache)
+    sort!(psym, by=xi -> SymbolicIndexingInterface.parameter_index(cache, xi))
+    sort!(vsym, by=xi -> SymbolicIndexingInterface.variable_index(cache, xi))
+    _retrieve_symbol_cache(
+        vsym,
+        psym,
+        independent_variable_symbols(cache),
+        control_indices
+    )
+end
 
-Zygote.gradient(sum ∘ replace_portion, ones(2), randn(3), [2 =>2])
+function _retrieve_symbol_cache(
+    xs, ps, t, idx
+)
+    nonidx = filter(∉(idx), eachindex(ps))
+    SymbolCache(vcat(xs, ps[idx]), ps[nonidx], t)
+end
 
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
+    (; tunable_ic, control_indices, problem, controls) = layer
+    # We first derive the initial condition function
+    constant_ic = [i ∉ tunable_ic for i in eachindex(problem.u0)]
+    tunable_matrix = zeros(Bool, size(problem.u0, 1), size(tunable_ic, 1))
+    id = 0
+    for i in axes(tunable_matrix, 1)
+        if i ∈ tunable_ic
+            tunable_matrix[i, id+=1] = true
+        end
+    end
+    initial_condition = let B = tunable_matrix, u0 = constant_ic .* copy(problem.u0)
+        function (u::AbstractArray{T}) where {T}
+            T.(u0) .+ B * u
+        end
+    end
+    # Setup the parameters
+    p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+    parameter_matrix = zeros(Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1))
+    control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
+    param_id = 0
+    control_id = 0
+    for i in eachindex(p_vec)
+        if i ∈ control_indices
+            control_matrix[i, control_id+=1] = true
+        else
+            parameter_matrix[i, param_id+=1] = true
+        end
+    end
+    parameter_vector = let repack = repack, A = parameter_matrix, B = control_matrix
+        function (params, controls)
+            repack(A * params .+ B * controls)
+        end
+    end
+    # Next we setup the tspans and the indices
+    grid = build_index_grid(controls...; tspan=problem.tspan, subdivide=100)
+    tspans = collect_tspans(controls...; tspan=problem.tspan, subdivide=100)
+    symcache = retrieve_symbol_cache(problem, control_indices)
+    (;
+        initial_condition,
+        index_grid=grid,
+        tspans,
+        parameter_vector,
+        symcache
+    )
+end
+
+function (layer::SingleShootingLayer)(::Any, ps, st)
+    (; problem, algorithm,) = layer
+    (; u0, p, controls) = ps
+    (; index_grid, tspans, parameter_vector, initial_condition, symcache) = st
+    u0_ = initial_condition(u0)
+    params = Base.Fix1(parameter_vector, p)
+    # Returns the states as DiffEqArray
+    solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans, symcache)
+    return solutions, st
+end
+
+function build_optimal_control_solution(u, t, p, sys)
+    DiffEqArray(u, t, p, sys)
+end
+
+sequential_solve(args...) = _sequential_solve(args...)
+
+@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N,Tuple}, sys) where {N}
+    solutions = [gensym() for _ in 1:N]
+    u0s = [gensym() for _ in 1:N]
+    ex = Expr[]
+    u_ret_expr = :(vcat())
+    t_ret_expr = :(vcat())
+    push!(ex,
+        :($(u0s[1]) = u0)
+    )
+
+    for i in 1:N
+        push!(ex,
+            :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)], sys))
+        )
+        push!(u_ret_expr.args, :($(solutions[i]).u))
+        push!(t_ret_expr.args, :($(solutions[i]).t))
+        if i < N
+            push!(ex,
+                :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
+            )
+        end
+    end
+    push!(ex,
+        :(return build_optimal_control_solution($(u_ret_expr), $(t_ret_expr), param.x, sys)) # Was kommt hier raus
+    )
+    return Expr(:block, ex...)
+end
+
+
+@generated function _sequential_solve(problem, alg, u0, param, ps, index_grid::AbstractArray, tspans::NTuple{N,Tuple{<:Real,<:Real}}, sys) where {N}
+    solutions = [gensym() for _ in 1:N]
+    u0s = [gensym() for _ in 1:N]
+    ex = Expr[]
+    u_ret_expr = :(vcat())
+    t_ret_expr = :(vcat())
+    psym = [gensym() for _ in 1:N]
+    push!(ex,
+        :($(u0s[1]) = u0)
+    )
+    for i in 1:N
+        push!(ex, :($(psym[i]) = getindex(ps, index_grid[:, $(i)])))
+        push!(ex,
+            :($(solutions[i]) = solve(problem, alg; u0=$(u0s[i]), dense=false, save_start=$(i == 1), save_end=true, tspan=tspans[$(i)], p=param($(psym[i]))))
+        )
+        push!(u_ret_expr.args, :(Base.Fix2(vcat, $(psym[i])).($(solutions[i]).u)))
+        push!(t_ret_expr.args, :($(solutions[i]).t))
+        if i < N
+            push!(ex,
+                :($(u0s[i+1]) = $(solutions[i])[end])
+            )
+        end
+    end
+    push!(ex,
+        :(return build_optimal_control_solution($(u_ret_expr), $(t_ret_expr), param.x, sys)) # Was kommt hier raus
+    )
+    return Expr(:block, ex...)
+end
+
+
+struct SingleShootingProblem{L,P,S}
+    layer::L
+    params::P
+    state::S
+end
+
+
+function SingleShootingSolution(sols::NTuple)
+    states = reduce(hcat, map(Array, sols))
+    t = reduce(vcat, map(x -> x.t, sols))
+    SingleShootingSolution{typeof(states),typeof(t)}(states, t)
+end
+
+struct DummySolve end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::DummySolve; kwargs...)
+    prob
+end
+
+function CommonSolve.init(prob::SingleShootingProblem, ::Any; kwargs...)
+    prob
+end
+
+function CommonSolve.solve!(prob::SingleShootingProblem)
+    prob.layer(nothing, prob.params, prob.state)
+end
+
+function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
+    SingleShootingProblem(prob.layer, ps, st)
+end
+
+function get_block_structure(layer::SingleShootingLayer)
+    vcat(0, LuxCore.parameterlength(layer))
+end

@@ -1,8 +1,6 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
-using CorleoneCore
+Pkg.activate(@__DIR__)
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -10,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -194,7 +188,7 @@ layer = OEDLayer(prob, DFBDF(); params=[16], observed = (u,p,t) -> u[1:1]);
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer)
 @btime layer.layer.problem.f(layer.layer.problem.du0, layer.layer.problem.u0, layer.layer.problem.p, 0.0)
 
 sol = solve(layer.layer.problem, DFBDF())
@@ -216,8 +210,8 @@ ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
 ax2 = CairoMakie.Axis(f[1,2], title="FIM")
 ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax, sol.t,  _sol) for _sol in eachrow(Array(sol))[1:7]]
-[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[CorleoneCore.sensitivity_variables(oed_berty)])))]
-[plot!(ax2, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[CorleoneCore.fisher_variables(oed_berty)])))]
+[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.sensitivity_variables(oed_berty)])))]
+[plot!(ax2, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.fisher_variables(oed_berty)])))]
 #stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 #stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
 #stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])

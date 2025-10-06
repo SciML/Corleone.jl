@@ -99,7 +99,7 @@ end
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     tinf = last(oedlayer.layer.problem.tspan)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = sort(CorleoneCore.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
+        Fi = sort(Corleone.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
         wts= vcat(sampling.t, tinf) |> unique!
         idxs = findall(x -> x in wts, sols.t)
         diff(sols[Fi][idxs])

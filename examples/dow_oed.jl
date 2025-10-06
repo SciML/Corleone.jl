@@ -1,6 +1,6 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-using CorleoneCore
+Pkg.activate(@__DIR__)
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -8,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -134,7 +130,7 @@ layer = OEDLayer(probs[1], DFBDF(); params = [4,5,6], observed = observed, dt=1.
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer)
 
 crit = ACriterion()
 ACrit = crit(layer)
@@ -173,7 +169,7 @@ ax = CairoMakie.Axis(f[1,1], xticks = 0:25:200, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:25:200, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:25:200, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:10]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(layer)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(layer)])))]
 stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[1:nc])
 stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc+1:2*nc])
 stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[2*nc+1:3*nc])
@@ -185,12 +181,12 @@ oedlayers = map(probs) do prob
     OEDLayer(prob, DFBDF(); params = [4,5,6], observed = observed, dt=1.0)
 end
 
-multi_layer = CorleoneCore.MultiExperimentLayer(oedlayers...)
-#multi_layer = CorleoneCore.MultiExperimentLayer(oedlayers[1], 3)
+multi_layer = Corleone.MultiExperimentLayer(oedlayers...)
+#multi_layer = Corleone.MultiExperimentLayer(oedlayers[1], 3)
 
 ps, st = LuxCore.setup(Random.default_rng(), multi_layer)
 ps_multi = ComponentArray(ps)
-lb_multi, ub_multi = CorleoneCore.get_bounds(multi_layer)
+lb_multi, ub_multi = Corleone.get_bounds(multi_layer)
 
 crit = ACriterion()
 ACrit = crit(multi_layer)
@@ -245,7 +241,7 @@ for i=1:3
     ax2 = CairoMakie.Axis(f[2,i], xticks = 0:25:200, title="Sensitivities")
     ax3 = CairoMakie.Axis(f[3,i], limits=(nothing, (-0.05,1.05)), xticks = 0:25:200, title="Sampling")
     [plot!(ax, optsol[i].t, sol) for sol in eachrow(Array(optsol[i]))[1:10]]
-    [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][CorleoneCore.sensitivity_variables(multi_layer.layers[i])])))]
+    [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_layer.layers[i])])))]
     local_sampling = getproperty(uopt + zero(ps_multi), Symbol("experiment_$i"))
 
     stairs!(ax3, 0.0:199, local_sampling.controls[1:200])
