@@ -48,8 +48,6 @@ function unsrestrict_controls(c::ControlParameter, tspan)
     return ControlParameter(timegrid, name=c.name, controls=repeat(c.controls, n_repeat), bounds=new_bounds)
 end
 
-
-
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
 get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}) = deepcopy(parameters.controls)
 get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:Function}) = parameters.controls(rng, parameters.t, parameters.bounds)

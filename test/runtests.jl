@@ -11,13 +11,29 @@ using SafeTestsets
     #@testset "Code linting (JET.jl)" begin
     #    JET.test_package(Corleone; target_defined_modules=true)
     #end
-    #@safetestset "Control Formulations" begin
-    #    include("control_formulations.jl")
-    #end
-    #@safetestset "Shooting Grid" begin
-    #    include("shooting_grid.jl")
-    #end
+    @testset "OED augmentation" begin
+        include("augmentation.jl")
+    end
 end
+
+# What to test?
+# augmentation.jl:
+#   - dimensions, expressions?,
+#   - sorting of Fisher variables when sorting and applying symmetric_from_vector
+# local_controls.jl:
+#   - different constructors + functions, bounds, timegrids and so on
+#   - construction of index_grid, get_subvector_indices -> Julius
+# node_initialization.jl:
+#   - test different init strategies on simple example
+#   - for different layers (single / multiple shooting, OEDLayer, MultiExperimentLayer)
+# multiple_shooting.jl:
+#   - block structure of simple examples
+# multi_experiments.jl:
+#   - constructors
+#   - inits, bounds, block structure
+# general:
+#   - prediction of layers: single shooting / multiple shooting / OED / MultiExperiment
+#   - convergence? Lotka OC + Lotka OED
 
 @generated function test_examples()
     expr = []
