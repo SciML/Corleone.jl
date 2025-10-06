@@ -38,6 +38,7 @@ export HybridInitialization, RandomInitialization, CustomInitialization
 
 include("oed.jl")
 export OEDLayer
+include("multi_experiments.jl")
 export MultiExperimentLayer
 
 end

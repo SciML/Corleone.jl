@@ -59,9 +59,9 @@ function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
     iip_idx = iip ? 2 : 1
     aug_fun = begin
         if !is_dae
-            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
+            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
         else
-            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
+            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
         end
     end
     #dfun = eval(aug_fun)
@@ -154,9 +154,9 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     iip_idx = iip ? 2 : 1
     aug_fun = begin
         if !is_dae
-            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
+            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
         else
-            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false})[iip_idx]
+            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
         end
     end
     aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
