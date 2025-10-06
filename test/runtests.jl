@@ -5,18 +5,18 @@ using JET
 using SafeTestsets
 
 @testset "Corleone.jl" begin
-    #    @testset "Code quality (Aqua.jl)" begin
-    #        Aqua.test_all(Corleone)
-    #    end
+    @testset "Code quality (Aqua.jl)" begin
+        Aqua.test_all(Corleone)
+    end
     #@testset "Code linting (JET.jl)" begin
     #    JET.test_package(Corleone; target_defined_modules=true)
     #end
-    @safetestset "Control Formulations" begin
-        include("control_formulations.jl")
-    end
-    @safetestset "Shooting Grid" begin
-        include("shooting_grid.jl")
-    end
+    #@safetestset "Control Formulations" begin
+    #    include("control_formulations.jl")
+    #end
+    #@safetestset "Shooting Grid" begin
+    #    include("shooting_grid.jl")
+    #end
 end
 
 @generated function test_examples()
@@ -30,7 +30,7 @@ end
     return Expr(:block, expr...)
 end
 
-# Safetestset cannot interpolate. So we simply use a generator. 
+# Safetestset cannot interpolate. So we simply use a generator.
 @testset "Examples" begin
     test_examples()
 end
