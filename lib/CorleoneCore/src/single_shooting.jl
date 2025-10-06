@@ -1,9 +1,32 @@
-struct SingleShootingLayer{P,A,C} <: LuxCore.AbstractLuxLayer
+struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
     problem::P
     algorithm::A
-    tunable_ic::Vector{Int64}
     control_indices::Vector{Int64}
     controls::C
+    tunable_ic::Vector{Int64}
+    bounds_ic::B
+end
+
+function init_problem(prob, alg)
+    remake_problem(prob, SciMLBase.init(prob, alg))
+end
+
+function remake_problem(prob::ODEProblem, state)
+    remake(prob, u0=state.u)
+end
+
+function remake_problem(prob::DAEProblem, state)
+    remake(prob, u0=state.u, du0=state.du)
+end
+
+function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+    _prob = init_problem(remake(prob; kwargs...), alg)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
+end
+
+function SingleShootingLayer(prob, alg; control_indices=Int64[], controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+    _prob = init_problem(remake(prob; kwargs...), alg)
+    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
 
 get_problem(layer::SingleShootingLayer) = layer.problem
@@ -12,12 +35,27 @@ get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
 get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
 get_params(layer::SingleShootingLayer) = setdiff(eachindex(layer.problem.p), layer.control_indices)
 
+_get_bounds(layer::SingleShootingLayer, lower::Bool=true) = begin
+    p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+    (;
+        u0=isnothing(layer.bounds_ic) ? eltype(layer.problem.u0)[] : (lower ? copy(layer.bounds_ic[1]) : copy(layer.bounds_ic[2])),
+        p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
+        controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_control_bounds(lower, layer.controls...)
+    )
+end
+
+get_bounds(layer::SingleShootingLayer) = begin
+    lb = _get_bounds(layer, true)
+    ub = _get_bounds(layer, false)
+    return ComponentArray(lb), ComponentArray(ub)
+end
+
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     (;
         u0=copy(layer.problem.u0[layer.tunable_ic]),
         p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-        controls=collect_local_controls(rng, layer.controls...)
+        controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...)
     )
 end
 
@@ -67,7 +105,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
         end
     end
     initial_condition = let B = tunable_matrix, u0 = constant_ic .* copy(problem.u0)
-        function (u::AbstractArray{T}) where T
+        function (u::AbstractArray{T}) where {T}
             T.(u0) .+ B * u
         end
     end
@@ -119,7 +157,7 @@ end
 
 sequential_solve(args...) = _sequential_solve(args...)
 
-@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N,Tuple}, sys) where N
+@generated function _sequential_solve(problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N,Tuple}, sys) where {N}
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
@@ -137,7 +175,7 @@ sequential_solve(args...) = _sequential_solve(args...)
         push!(t_ret_expr.args, :($(solutions[i]).t))
         if i < N
             push!(ex,
-                  :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
+                :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
             )
         end
     end
@@ -148,7 +186,7 @@ sequential_solve(args...) = _sequential_solve(args...)
 end
 
 
-@generated function _sequential_solve(problem, alg, u0, param, ps, index_grid::AbstractArray, tspans::NTuple{N,Tuple{<:Real,<:Real}}, sys) where N
+@generated function _sequential_solve(problem, alg, u0, param, ps, index_grid::AbstractArray, tspans::NTuple{N,Tuple{<:Real,<:Real}}, sys) where {N}
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
@@ -207,4 +245,8 @@ end
 
 function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
     SingleShootingProblem(prob.layer, ps, st)
+end
+
+function get_block_structure(layer::SingleShootingLayer)
+    vcat(0, LuxCore.parameterlength(layer))
 end

@@ -31,20 +31,21 @@ p0 = [0.0, 1.0, 1.0]
 
 lotka_dynamics(u0, p0, tspan[1])
 
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0,
-    abstol = 1e-8, reltol = 1e-6,
-    # sensealg = ForwardDiffSensitivity()
-    )
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
 control = ControlParameter(
-    collect(0.0:0.1:11.9), name = :fishing
+    collect(0.0:0.1:11.9), name = :fishing, bounds=(0.0,1.0)
 )
 
 # Single Shooting
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),Int64[],[1], (control,))
+layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(), [1], (control,);
+            # uncomment and adapt the following line if (parts of) u0 need to be optimized as well
+            #tunable_ic = [1], bounds_ic = (0.3, 0.9)
+            )
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
- 
+lb, ub = CorleoneCore.get_bounds(layer)
+
 layer(nothing, ps, st)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
@@ -61,9 +62,6 @@ loss(collect(p), nothing)
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(),
 )
-
-lb, ub = copy(p), copy(p)
-ub.controls .= 1.0
 
 optprob = OptimizationProblem(
     optfun, collect(p), lb = collect(lb), ub = collect(ub)
@@ -88,12 +86,17 @@ f
 
 ## Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
-mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),Int64[],[1], (control,), shooting_points)
+mslayer = CorleoneCore.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points;
+            bounds_nodes = ([0.05,0.05, 0.0], 10*ones(3)),
+            # uncomment and adapt the following line if (parts of) u0 need to be optimized as well
+            #tunable_ic = [1,2], bounds_ic = (.3 * ones(2), .9*ones(2))
+            )
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 # Or use any of the Initialization schemes
 msps, msst = ConstantInitialization(Dict(1=>1.0,2=>1.0,3=>1.0))(Random.default_rng(), mslayer)
 msps, msst = ForwardSolveInitialization()(Random.default_rng(), mslayer)
 msp = ComponentArray(msps)
+ms_lb, ms_ub = CorleoneCore.get_bounds(mslayer)
 
 msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
@@ -103,33 +106,16 @@ msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     end
 end
 
-shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp)
+shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp), matching_constraint = CorleoneCore.get_shooting_constraints(mslayer)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
-            _u0 = getproperty(ps, name_i).u0
-            sol.u[end][1:3] .-_u0
-        end)
+        matching_constraint(sols, ps)
     end
 end
 
 matching = shooting_constraints(msp, nothing)
 eq_cons(res, x, p) = res .= shooting_constraints(x, p)
-
-ms_lb = map(msps) do p_i
-    p_i.controls .= 0.0
-    p_i.u0 .= 0.05
-    p_i
-end |> ComponentArray
-
-
-ms_ub = map(msps) do p_i
-    p_i.controls .= 1.0
-    p_i.u0 .= 10.0
-    p_i
-end |> ComponentArray
-
 
 optfun = OptimizationFunction(
     msloss, AutoForwardDiff(), cons = eq_cons
@@ -157,7 +143,7 @@ uopt = solve(optprob, BlockSQPOpt(),
 mssol, _ = mslayer(nothing, uopt + zero(msp), msst)
 
 f = Figure(size = (400,400))
-for j in 1:4 
+for j in 1:4
     ax = f[j, 1] = CairoMakie.Axis(f)
     for i in 1:4
         plt = i == 4 ? stairs! : lines!

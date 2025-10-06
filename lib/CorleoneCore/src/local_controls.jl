@@ -23,14 +23,47 @@ end
 
 function restrict_controls(c::ControlParameter, lo, hi)
     idx = findall(lo .<= c.t .< hi)
-
-    return ControlParameter(c.t[idx], name = c.name, controls = c.controls, bounds = c.bounds)
+    controls = c.controls == default_u ? c.controls : c.controls[idx]
+    bounds = c.bounds == default_bounds ? c.bounds : (length(c.bounds[1]) == 1 ? c.bounds : (c.bounds[1][idx], c.bounds[2][idx]))
+    return ControlParameter(copy(c.t[idx]), name = c.name, controls = controls, bounds = bounds)
 end
+
+function unrestrict_controls(c::Tuple, tspan)
+    map(c) do ci
+        unrestrict_controls(ci, tspan)
+    end
+end
+
+function unsrestrict_controls(c::ControlParameter, tspan)
+    dt = first(diff(c.t))
+    timegrid = first(tspan):dt:last(tspan)
+    n_repeat = Int(length(timegrid)/length(c.t))
+    new_bounds = begin
+        if length(c.bounds[1]==1)
+            c.bounds
+        else
+            (c.bounds[1][1], c.bounds[2][1])
+        end
+    end
+    return ControlParameter(timegrid, name=c.name, controls=repeat(c.controls, n_repeat), bounds=new_bounds)
+end
+
+
 
 get_timegrid(parameters::ControlParameter) = collect(parameters.t)
 get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}) = deepcopy(parameters.controls)
 get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:Function}) = parameters.controls(rng, parameters.t, parameters.bounds)
-get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}) = getfield(parameters, :bounds)
+get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}) = begin
+    _bounds = getfield(parameters, :bounds)
+    nc = length(parameters.t)
+    if length(_bounds[1]) == length(_bounds[2]) == 1
+        return (repeat([_bounds[1]], nc), repeat([_bounds[2]], nc))
+    elseif length(_bounds[1]) == length(_bounds[2]) == nc
+        return _bounds
+    else
+        throw("Incompatible control bound definition. Got $(length(_bounds[1])) elements, expected $nc.")
+    end
+end
 get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Function}) = parameters.bounds(parameters.t)
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
@@ -118,4 +151,8 @@ end
 
 function collect_local_controls(rng, controls::ControlParameter...)
     reduce(vcat, map(vec ∘ Base.Fix1(get_controls, rng), controls))
+end
+
+function collect_local_control_bounds(lower::Bool, controls::ControlParameter...)
+    reduce(vcat, map(vec ∘ (lower ? first : last) ∘ get_bounds, controls))
 end
