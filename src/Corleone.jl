@@ -1,4 +1,4 @@
-module CorleoneCore
+module Corleone
 
 using Reexport
 using DocStringExtensions

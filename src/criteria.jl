@@ -33,11 +33,11 @@ function (crit::FisherECriterion)(F::Symmetric)
 end
 
 (crit::AbstractCriterion)(layer::SingleShootingLayer, sols::DiffEqArray) = begin
-    f_sym = CorleoneCore.fisher_variables(layer)
-    crit((CorleoneCore.symmetric_from_vector(sols[f_sym][end])))
+    f_sym = Corleone.fisher_variables(layer)
+    crit((Corleone.symmetric_from_vector(sols[f_sym][end])))
 end
 
 (crit::AbstractCriterion)(layer::MultipleShootingLayer, sols::EnsembleSolution) = begin
-    f_sym = CorleoneCore.fisher_variables(layer)
-    crit(CorleoneCore.symmetric_from_vector(last(sols)[f_sym][end]))
+    f_sym = Corleone.fisher_variables(layer)
+    crit(Corleone.symmetric_from_vector(last(sols)[f_sym][end]))
 end

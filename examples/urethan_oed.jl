@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, "../"))
 
 
-using CorleoneCore
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -104,16 +104,16 @@ c2 = ControlParameter(
 cT = ControlParameter(
     control_points, name = :cT, controls = [(-1)^i * 5.0 for i=1:length(control_points)], bounds = (-5.0,5.0))
 
-layer = CorleoneCore.SingleShootingLayer(prob_normal, Tsit5(), [7,8,9], (cT,c1,c2,))
+layer = Corleone.SingleShootingLayer(prob_normal, Tsit5(), [7,8,9], (cT,c1,c2,))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 
 sol = layer(nothing, ps, st)
 
-oed_layer = CorleoneCore.augment_layer_for_oed(layer; params = [1,2], observed = prob_normal.f.observed)
+oed_layer = Corleone.augment_layer_for_oed(layer; params = [1,2], observed = prob_normal.f.observed)
 psoed, stoed = LuxCore.setup(Random.default_rng(), oed_layer)
 sol_oed, _ = oed_layer(nothing, psoed, stoed)
 p = ComponentArray(psoed)
-lb, ub = CorleoneCore.get_bounds(oed_layer)
+lb, ub = Corleone.get_bounds(oed_layer)
 
 loss = let layer = oed_layer, st = stoed, ax = getaxes(p), crit=ACriterion()
     (p, ::Any) -> begin
@@ -158,8 +158,8 @@ ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
 ax4 = CairoMakie.Axis(f[3,2])
 [plot!(ax, sol_oed.t, sol) for sol in eachrow(Array(sol_oed))[1:6]]
-[plot!(ax1, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[CorleoneCore.sensitivity_variables(oed_layer)])))]
-[plot!(ax2, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[CorleoneCore.fisher_variables(oed_layer)])))]
+[plot!(ax1, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax2, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[Corleone.fisher_variables(oed_layer)])))]
 stairs!(ax3, c1.t, (uopt + zero(p)).controls[1:length(c1.t)])
 stairs!(ax3, c2.t, (uopt + zero(p)).controls[length(c1.t)+1:2*length(c1.t)])
 stairs!(ax3, cT.t, (uopt + zero(p)).controls[2*length(c1.t)+1:3*length(c1.t)])

@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, "../"))
 
 
-using CorleoneCore
+using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -46,10 +46,10 @@ c3 = ControlParameter(
     cgrid, name = :u3, controls = zeros(N) .+ 1/4, bounds = (0.,1.)
 )
 
-layer = CorleoneCore.SingleShootingLayer(prob, Tsit5(),[1,2,3], (c1,c2,c3))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1,2,3], (c1,c2,c3))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-lb, ub = CorleoneCore.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer)
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
