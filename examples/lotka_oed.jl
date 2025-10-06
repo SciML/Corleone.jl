@@ -1,7 +1,3 @@
-using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
 using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
@@ -10,10 +6,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt

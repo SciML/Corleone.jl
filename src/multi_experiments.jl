@@ -212,12 +212,12 @@ function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiEx
         if isa(layer.layers, Tuple)
             map(enumerate(layer.layers)) do (i,_layer)
                 local_ps, local_st = getproperty(first(params), Symbol("experiment_$i")), getproperty(last(params), Symbol("experiment_$i"))
-                f(rng, _layer; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)
+                f(rng, _layer; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)[1]
             end
         else
             map(1:layer.n_exp) do i
                 local_ps, local_st = getproperty(first(params), Symbol("experiment_$i")), getproperty(last(params), Symbol("experiment_$i"))
-                f(rng, layer.layers; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)
+                f(rng, layer.layers; params=(local_ps, local_st), shooting_variables=shooting_variables, kwargs...)[1]
             end
         end
     end

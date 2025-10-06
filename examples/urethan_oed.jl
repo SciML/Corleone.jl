@@ -1,7 +1,5 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
+Pkg.activate(@__DIR__)
 using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
@@ -10,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -22,7 +16,7 @@ using LinearAlgebra
 
 tspan = (0.0,80.0)
 
-const M    = [ 0.11911, 0.07412, 0.19323, 0.31234, 0.35733, 0.07806 ]
+const M    = [0.11911, 0.07412, 0.19323, 0.31234, 0.35733, 0.07806]
 const rho  = [1095.0, 809.0, 1415.0, 1528.0, 1451.0, 1101.0]
 
 Rg   = 8.314;

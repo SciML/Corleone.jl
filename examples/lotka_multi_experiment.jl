@@ -1,7 +1,5 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
+Pkg.activate(@__DIR__)
 using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
@@ -10,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -119,8 +113,6 @@ sols, _ = multi_exp(nothing, ps, st)
 
 criterion = DCriterion()(multi_exp)
 criterion(p, nothing)
-
-ForwardDiff.gradient(Base.Fix2(criterion, nothing), p)
 
 sampling_cons = let ax = getaxes(p)
     (res, p, ::Any) -> begin
@@ -297,8 +289,6 @@ uopt = solve(optprob, BlockSQPOpt(),
 
 
 sol_u = uopt + zero(oed_msp)
-
-
 
 mssol, _ = multi_exp(nothing, sol_u, oed_msst)
 

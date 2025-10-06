@@ -1,7 +1,5 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "../"))
-
-
+Pkg.activate(@__DIR__)
 using Corleone
 using OrdinaryDiffEq
 using SciMLSensitivity
@@ -10,10 +8,6 @@ using LuxCore
 using Random
 
 using CairoMakie
-using BenchmarkTools
-using Zygote
-using ForwardDiff
-
 using Optimization
 using OptimizationMOI
 using Ipopt
@@ -30,7 +24,7 @@ tspan = (0., 1.0)
 u0 = [1.0, 0.0]
 p = [300.0]
 
-prob =  ODEProblem(catalyst_mixing, u0, tspan, p)
+prob = ODEProblem(catalyst_mixing, u0, tspan, p)
 
 N = 20
 control = ControlParameter(
