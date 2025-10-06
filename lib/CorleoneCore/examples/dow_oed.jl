@@ -18,14 +18,10 @@ using Ipopt
 using blockSQP
 using LinearAlgebra
 
-temperature = 40
 T₀ = 69 + 273.15
 R = 1.987204258640
 Q = 0.0131
 
-#######################
-# given starting values for the first four states
-#######################
 
 temperatures = [40., 67., 100.] # °C
 temperatures .+= 273.15 # K
@@ -35,12 +31,11 @@ states_inits = [[1.7066, 8.32, 0.01, 0],
                 [1.6749, 8.2262, 0.0104, 0.0017],
                 [1.5608, 8.3546, 0.0082, 0.0086]]
 
-
-
 #######################
 # initial parameter estimates
 #######################
-p_init = [1.3978e12,3.1760e12,4.8880e28,1.847e4,1.882e4,2.636e4,1.4681e-17,6.4115e-7,1.e-17]
+p_init = [1.3978e12, 3.1760e12, 4.8880e28, 1.847e4, 1.882e4,
+            2.636e4, 1.4681e-17, 6.4115e-7, 1.e-17]
 
 function par_transform(p)
     R = 1.987204258640
@@ -135,7 +130,7 @@ f
 
 observed = (u,p,t) -> u[1:4]
 
-layer = OEDLayer(probs[3], DFBDF(); params = [4,5,6], observed = observed, dt=1.0)
+layer = OEDLayer(probs[1], DFBDF(); params = [4,5,6], observed = observed, dt=1.0)
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)

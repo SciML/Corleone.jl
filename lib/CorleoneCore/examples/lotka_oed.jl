@@ -69,9 +69,9 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 optsol, _ = ol(nothing, uopt + zero(p), st)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12)
-ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
-ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12)
+ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
+ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
+ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(ol)])))]
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
@@ -119,10 +119,10 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 optsol, _ = oed_layer(nothing, uopt + zero(p), st)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1], xticks=0:2:12)
-ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12)
-ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12)
-ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12)
+ax = CairoMakie.Axis(f[1,1], xticks=0:2:12, title="States + control")
+ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
+ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="FIM")
+ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
 [plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.sensitivity_variables(oed_layer)])))]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[CorleoneCore.fisher_variables(oed_layer)])))]
@@ -146,7 +146,7 @@ oed_msp = ComponentArray(oed_msps)
 oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(oed_mslayer)
 oed_sols, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
-crit = DCriterion()
+crit = ACriterion()
 criterion = crit(oed_mslayer)
 criterion(oed_msp, nothing)
 
@@ -177,7 +177,7 @@ optprob = OptimizationProblem(
 uopt = solve(optprob, Ipopt.Optimizer(),
      tol = 1e-6,
      hessian_approximation = "limited-memory",
-     max_iter = 300 # 165
+     max_iter = 100
 )
 
 blocks = CorleoneCore.get_block_structure(oed_mslayer)
@@ -186,7 +186,7 @@ uopt = solve(optprob, BlockSQPOpt(),
     opttol = 1e-6,
     options = blockSQP.sparse_options(),
     sparsity = blocks,
-    maxiters = 300 # 165
+    maxiters = 100
 )
 
 
@@ -196,10 +196,10 @@ lc = first(oed_mslayer.layer.layers).controls[1].t |> length
 mssol, _ = oed_mslayer(nothing, oed_msp, oed_msst)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1])
-ax1 = CairoMakie.Axis(f[2,1])
-ax2 = CairoMakie.Axis(f[1,2])
-ax3 = CairoMakie.Axis(f[2,2])
+ax = CairoMakie.Axis(f[1,1], title="States + control")
+ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
+ax2 = CairoMakie.Axis(f[1,2], title="FIM")
+ax3 = CairoMakie.Axis(f[2,2], title="Sampling")
 [plot!(ax,  sol.t, Array(sol)[i,:])  for sol in mssol for i in 1:2]
 [plot!(ax1, sol.t, Array(sol)[i,:])  for sol in mssol for i in 3:6]
 [plot!(ax2, sol.t, Array(sol)[i,:])  for sol in mssol for i in 7:9]

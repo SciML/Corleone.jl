@@ -96,7 +96,7 @@ ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
 ax3 = CairoMakie.Axis(f[2,1], xticks = 0:2:12, title="Experiment 1")
 ax4 = CairoMakie.Axis(f[2,2], xticks = 0:2:12, title="Experiment 2")
 [plot!(ax, optsol[1].t, sol) for sol in eachrow(Array(optsol[1]))[1:2]]
-[plot!(ax2, optsol[1].t, sol) for sol in eachrow(reduce(hcat, (optsol[1][CorleoneCore.sensitivity_variables(multi_exp.layer)])))]
+[plot!(ax2, optsol[1].t, sol) for sol in eachrow(reduce(hcat, (optsol[1][CorleoneCore.sensitivity_variables(multi_exp.layers)])))]
 [stairs!(ax3, last(ol.layer.controls).t, sampling_opt.experiment_1.controls[nc[i]+1:nc[i+1]]) for i=1:2]
 [stairs!(ax4, last(ol.layer.controls).t, sampling_opt.experiment_2.controls[nc[i]+1:nc[i+1]]) for i=1:2]
 f
@@ -149,24 +149,33 @@ optprob = OptimizationProblem(
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     #tol = 1e-10,
+     tol = 1e-10,
      hessian_approximation = "limited-memory",
      max_iter = 300
+)
+
+block_structure = CorleoneCore.get_block_structure(multi_exp)
+
+uopt = solve(optprob, BlockSQPOpt(),
+    opttol = 1e-8,
+    options = blockSQP.sparse_options(),
+    sparsity = block_structure,
+    maxiters = 300 # 165
 )
 
 optu = uopt + zero(p)
 
 optsol, _ = multi_exp(nothing, optu, st)
 
-f = Figure()
+f = Figure(size = (800,800))
 for i = 1:nexp
     ax = CairoMakie.Axis(f[1,i], xticks=0:2:12, title="Experiment $i")
     ax1 = CairoMakie.Axis(f[2,i], xticks=0:2:12)
     ax2 = CairoMakie.Axis(f[3,i], xticks=0:2:12)
     ax3 = CairoMakie.Axis(f[4,i], xticks=0:2:12, limits=(nothing, (-0.05,1.05)))
     [plot!(ax, optsol[i].t, sol) for sol in eachrow(Array(optsol[i]))[1:2]]
-    [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][CorleoneCore.sensitivity_variables(multi_exp.layer)])))]
-    [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][CorleoneCore.fisher_variables(multi_exp.layer)])))]
+    [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][CorleoneCore.sensitivity_variables(multi_exp.layers)])))]
+    [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][CorleoneCore.fisher_variables(multi_exp.layers)])))]
     stairs!(ax, control.t,  getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[1:length(control.t)], color=:black)
     stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[length(control.t)+1:2*length(control.t)])
     stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[2*length(control.t)+1:3*length(control.t)])
@@ -187,12 +196,12 @@ multi_exp = MultiExperimentLayer(oed_mslayer, nexp)
 oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
 oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), multi_exp)
 # Or use any of the provided Initialization schemes
-#oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
+oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), multi_exp)
 oed_msp = ComponentArray(oed_msps)
 oed_ms_lb, oed_ms_ub = CorleoneCore.get_bounds(multi_exp)
 oed_sols, _ = multi_exp(nothing, oed_msp, oed_msst)
 
-crit = DCriterion()
+crit = ACriterion()
 criterion = crit(multi_exp)
 criterion(oed_msp, nothing)
 
@@ -231,7 +240,7 @@ function extract_and_join_controls(layer::CorleoneCore.MultiExperimentLayer, p)
     _p = isa(p, Array) ? ComponentArray(_p, getaxes(ComponentArray(ps))) : p
     joined_controls = map(1:layer.n_exp) do i
         local_ps = getproperty(_p, Symbol("experiment_$i"))
-        extract_and_join_controls(layer.layer, local_ps)
+        extract_and_join_controls(layer.layers, local_ps)
     end
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
     NamedTuple{exp_names}(Tuple(joined_controls))
@@ -263,6 +272,7 @@ shooting_constraints(oed_msp, nothing)
 optfun = OptimizationFunction(
     criterion, AutoForwardDiff(), cons = eq_cons
 )
+
 constraints_eval = shooting_constraints(oed_msp, nothing)
 ucons = zero(constraints_eval)
 ucons[end-3:end] .= 4.0
@@ -276,14 +286,14 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 300 # 165
 )
 
-#blocks = CorleoneCore.get_block_structure(oed_mslayer)
+block_structure_ms = CorleoneCore.get_block_structure(multi_exp)
 
-#uopt = solve(optprob, BlockSQPOpt(),
-#    opttol = 1e-6,
-#    options = blockSQP.sparse_options(),
-#    sparsity = blocks,
-#    maxiters = 300 # 165
-#)
+uopt = solve(optprob, BlockSQPOpt(),
+    opttol = 1e-6,
+    options = blockSQP.sparse_options(),
+    sparsity = block_structure_ms,
+    maxiters = 300 # 165
+)
 
 
 sol_u = uopt + zero(oed_msp)
