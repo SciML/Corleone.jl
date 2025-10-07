@@ -4,6 +4,7 @@ using Test
 using Random
 using LuxCore
 using ComponentArrays
+using LinearAlgebra
 
 function lotka_dynamics(u, p, t)
     return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
@@ -15,7 +16,7 @@ tspan = (0., 12.)
 u0 = [0.5, 0.7, 0.]
 p0 = [0.0, 1.0, 1.0]
 
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
 
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)
@@ -42,4 +43,16 @@ lb, ub = Corleone.get_bounds(layer)
 
     blocks = cumsum(vcat(0, Ni+np_without_controls, [Ni+np_without_controls+nx for _ = 2:4]))
     @test Corleone.get_block_structure(layer) == blocks
+end
+
+@testset "Initialization methods" begin
+    # ForwardSolve
+    sol_at_shooting_points = solve(prob, Tsit5(), saveat=shooting_points)
+    fwd_init = ForwardSolveInitialization()
+    ps_fwd, _ = fwd_init(Random.default_rng(), layer)
+    @test all([isapprox(sol_at_shooting_points[i], getproperty(ps_fwd, Symbol("layer_$i")).u0, atol=1e-5) for i=2:4])
+
+    matching_constraints = Corleone.get_shooting_constraints(layer)
+    sol_fwd, _ = layer(nothing, ps_fwd, st)
+    @test norm(matching_constraints(sol_fwd, ps_fwd)) < 1e-8
 end
