@@ -14,6 +14,9 @@ using SafeTestsets
     @testset "OED augmentation" begin
         include("augmentation.jl")
     end
+    @testset "Multiple shooting" begin
+        include("multiple_shooting.jl")
+    end
 end
 
 # What to test?

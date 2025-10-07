@@ -25,6 +25,8 @@ oedlayer_w_c = OEDLayer(prob, Tsit5(); params=[1], observed=observed,
                     control_indices = [2], controls=(control,))
 
 @testset "Dimensions" begin
+    @test Corleone.is_fixed(oedlayer_wo_c) == true
+    @test Corleone.is_fixed(oedlayer_w_c) == false
     @test oedlayer_w_c.dimensions.np == oedlayer_wo_c.dimensions.np == 2
     @test oedlayer_w_c.dimensions.np_fisher == oedlayer_wo_c.dimensions.np_fisher == 1
     @test oedlayer_w_c.dimensions.nx == oedlayer_wo_c.dimensions.nx == 2
@@ -39,8 +41,8 @@ end
     params_w_c = LuxCore.setup(rng, oedlayer_w_c)
     sol_wo_c, _ = oedlayer_wo_c(nothing, params_wo_c...)
     sol_w_c, _ = oedlayer_w_c(nothing, params_w_c...)
-    @test isapprox(sol[end], sol_wo_c.u[end][1:2], atol=1e-7)
-    @test isapprox(sol[end], sol_w_c.u[end][1:2] , atol=1e-7)
+    @test isapprox(sol.u[end], sol_wo_c.u[end][1:2], atol=1e-7)
+    @test isapprox(sol.u[end], sol_w_c.u[end][1:2] , atol=1e-7)
     @test isapprox(sol_w_c.u[end][3:5], sol_wo_c.u[end][3:5], atol=1e-7)
 end
 
