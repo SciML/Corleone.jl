@@ -96,8 +96,9 @@ function (f::LinearInterpolationInitialization)(rng::Random.AbstractRNG, layer::
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0))
 
+    @info shooting_variables
     u0 = first(layer.layers).problem.u0
-    @assert length(shooting_variables) == length(f.terminal_values)
+    @assert all([x in keys(f.terminal_values) for x in shooting_variables])
     ps, st = params
     tspan = get_tspan(layer)
     timespans = layer.shooting_intervals
@@ -109,7 +110,8 @@ function (f::LinearInterpolationInitialization)(rng::Random.AbstractRNG, layer::
         else
             local_tspan = timespans[i]
             interpolated_u0 = map(x -> linear_initializer(u0[x], f.terminal_values[x], first(local_tspan), tspan), shooting_variables)
-            pi.u0[shooting_variables] .= interpolated_u0
+            @info pi.u0 interpolated_u0
+            pi.u0[shooting_variables] = interpolated_u0
             pi
         end
     end
