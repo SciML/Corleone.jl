@@ -244,7 +244,29 @@ function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLaye
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, "F"), collect(string.(keys_)))
-    sort(keys_[idx], by=string) ## TODO: TEST IF THIS RETURNS THE RIGHT ORDER WHEN APPLYING SYMMETRIC_FROM_VECTOR
+    reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
+    fsym = keys_[idx]
+    isempty(fsym) && return nothing
+    indices_F = last.(split.(string.(fsym), "F"))
+
+    indices_rows, indices_columns = first.(split.(indices_F, "ˏ")), last.(split.(indices_F, "ˏ"))
+    indices_integer = map(eachindex(indices_rows)) do i
+        idxs = map(zip(collect(indices_rows[i]), collect(indices_columns[i]))) do (row_char, col_char)
+            reverse_index_map[row_char], reverse_index_map[col_char]
+        end
+        first.(idxs) .* [10^(i-1) for i=1:length(first.(idxs))], last.(idxs) .* [10^(i-1) for i=1:length(last.(idxs))]
+    end
+    I, J = reduce(vcat, first.(indices_integer)), reduce(vcat, last.(indices_integer))
+
+    sortbyJ = sortperm(J)
+    fsym_sorted_by_J = fsym[sortbyJ]
+    J = J[sortbyJ]
+    I = I[sortbyJ]
+    return reduce(vcat, map(sort(unique(J))) do col
+        idxs = J .== col
+        sortbyI_for_given_col = sortperm(I[idxs])
+        fsym_sorted_by_J[idxs][sortbyI_for_given_col]
+    end)
 end
 
 function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
