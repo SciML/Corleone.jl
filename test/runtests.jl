@@ -11,6 +11,9 @@ using SafeTestsets
     #@testset "Code linting (JET.jl)" begin
     #    JET.test_package(Corleone; target_defined_modules=true)
     #end
+    @testset "Optimal control" begin
+        include("oc.jl")
+    end
     @testset "OED augmentation" begin
         include("augmentation.jl")
     end
@@ -20,23 +23,27 @@ using SafeTestsets
 end
 
 # What to test?
-# augmentation.jl:
-#   - dimensions, expressions?,
-#   - sorting of Fisher variables when sorting and applying symmetric_from_vector
 # local_controls.jl:
 #   - different constructors + functions, bounds, timegrids and so on
 #   - construction of index_grid, get_subvector_indices -> Julius
 # node_initialization.jl:
-#   - test different init strategies on simple example
 #   - for different layers (single / multiple shooting, OEDLayer, MultiExperimentLayer)
-# multiple_shooting.jl:
-#   - block structure of simple examples
 # multi_experiments.jl:
 #   - constructors
 #   - inits, bounds, block structure
 # general:
 #   - prediction of layers: single shooting / multiple shooting / OED / MultiExperiment
 #   - convergence? Lotka OC + Lotka OED
+
+# using Coverage;
+#coverage = process_folder();
+#coverage = merge_coverage_counts(coverage, filter!(
+#    let prefixes = (joinpath(pwd(), "src", ""),)
+#        c -> any(p -> startswith(c.filename, p), prefixes)
+#    end,
+#LCOV.readfolder("test")));
+#covered_lines, total_lines = get_summary(coverage);
+#println("Coverage $(covered_lines / total_lines)");
 
 @generated function test_examples()
     expr = []

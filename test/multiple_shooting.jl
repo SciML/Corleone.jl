@@ -99,3 +99,76 @@ end
     matching_hybrid = matching_constraints(sol_hybrid, ps_hybrid)
     @test norm(matching_hybrid[3:3:end]) < 1e-9
 end
+
+
+@testset "Construction and initialization of OEDLayer / MultiExperimentLayer" begin
+    oed_ms_layer = @test_nowarn OEDLayer(layer, observed = (u,p,t) -> u[1:2],
+                                    params = [2,3], dt=0.25);
+    oed_multiexperiment = @test_nowarn MultiExperimentLayer(oed_ms_layer, 3)
+
+    ps_ms, st_ms = LuxCore.setup(rng, oed_ms_layer)
+    ps_multi, st_multi = LuxCore.setup(rng, oed_multiexperiment)
+
+    @test length(ps_ms) == length(shooting_points)
+    @test length(ps_multi) == 3
+    @test length(ps_multi.experiment_1) == length(ps_ms)
+    @test ps_multi.experiment_1 == ps_ms
+
+    ps_def, st_def = @test_nowarn DefaultsInitialization()(rng, oed_ms_layer)
+    ps_def_multi, st_def = @test_nowarn DefaultsInitialization()(rng, oed_multiexperiment)
+    @test ps_def == ps_ms
+    @test all([getproperty(ps_def_multi, Symbol("experiment_$i")) == ps_def for i=1:3])
+
+    dims = oed_ms_layer.dimensions
+    aug_u0 = first(oed_ms_layer.layer.layers).problem.u0
+    nx_augmented = dims.nx + dims.nx*dims.np_fisher + (dims.np_fisher+1)*dims.np_fisher/2 |> Int
+    @test length(aug_u0) == nx_augmented
+
+    fwd_init = ForwardSolveInitialization()
+    lin_init = LinearInterpolationInitialization(Dict(1:nx_augmented .=> 2.0))
+    const_init = ConstantInitialization(Dict(1:nx_augmented .=> 1.0))
+    rands = [rand(3) for i=1:nx_augmented]
+    custom_init = CustomInitialization(Dict(1:nx_augmented .=> map(i -> vcat(aug_u0[i], rands[i]), 1:nx_augmented)))
+    hybrid_init = HybridInitialization(Dict(1 => const_init,
+                                            2 => custom_init,
+                                            3 => lin_init), fwd_init)
+
+
+    testhybrid(p) = begin
+        inits = vcat(
+        p.layer_2.u0[1:3] == [1.0, rands[2][1], aug_u0[3] + 3/12 * (2.0 - aug_u0[3])],
+        p.layer_3.u0[1:3] == [1.0, rands[2][2], aug_u0[3] + 6/12 * (2.0 - aug_u0[3])]
+        )
+    end
+    testlin(p) = all([isapprox(getproperty(p, Symbol("layer_$i")).u0, aug_u0 + (2.0 .- aug_u0) * 3*(i-1)/12, atol=1e-4) for i=2:length(shooting_points)])
+    testconst(p) = all([isapprox(getproperty(p, Symbol("layer_$i")).u0, ones(nx_augmented), atol=1e-8) for i=2:length(shooting_points)])
+    testcustom(p) = all([isapprox(getproperty(p, Symbol("layer_$i")).u0, reduce(vcat, [x[i-1] for x in rands]), atol=1e-8) for i=2:length(shooting_points)])
+
+    for _layer in [oed_ms_layer, oed_multiexperiment]
+        for (init, test) in zip([hybrid_init, fwd_init, lin_init, const_init, custom_init], [testhybrid, nothing, testlin, testconst, testcustom])
+            ps_init, st_init = init(rng, _layer)
+            if init in [fwd_init, hybrid_init]
+                shooting_constraints = Corleone.get_shooting_constraints(_layer)
+                sols_fwd, _ = _layer(nothing, ps_init, st_init)
+                if init == fwd_init
+                    @test norm(shooting_constraints(sols_fwd, ps_init)) < 1e-8
+                else
+                    eval_shooting = shooting_constraints(sols_fwd, ps_init)
+                    indices_fwd = trues(length(eval_shooting))
+                    indices_fwd[1:nx_augmented:end] .= false
+                    indices_fwd[2:nx_augmented:end] .= false
+                    indices_fwd[3:nx_augmented:end] .= false
+                    @test norm(shooting_constraints(sols_fwd, ps_init)[indices_fwd]) < 1e-8
+                end
+            else
+                if _layer == oed_ms_layer
+                    @test test(ps_init)
+                else
+                    @test all([test(getproperty(ps_init, Symbol("experiment_$i"))) for i=1:3])
+                end
+            end
+        end
+    end
+
+
+end

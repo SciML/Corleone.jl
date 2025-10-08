@@ -20,8 +20,8 @@ sol = solve(prob, Tsit5())
 
 control = ControlParameter(0.0:0.01:0.99, name=:control, bounds=(-1.,1.), controls=zeros(100))
 observed = (u,p,t) -> [u[1]]
-oedlayer_wo_c = OEDLayer(prob, Tsit5(); params=[1], observed=observed)
-oedlayer_w_c = OEDLayer(prob, Tsit5(); params=[1], observed=observed,
+oedlayer_wo_c = OEDLayer(prob, Tsit5(); params=[1], dt=0.1, observed=observed)
+oedlayer_w_c = OEDLayer(prob, Tsit5(); params=[1], dt=0.1, observed=observed,
                     control_indices = [2], controls=(control,))
 
 @testset "Dimensions" begin
@@ -33,6 +33,18 @@ oedlayer_w_c = OEDLayer(prob, Tsit5(); params=[1], observed=observed,
     @test oedlayer_w_c.dimensions.nh == oedlayer_wo_c.dimensions.nh == 1
     @test oedlayer_w_c.dimensions.nc == 1
     @test oedlayer_wo_c.dimensions.nc == 0
+end
+
+@testset "Bounds" begin
+    lb_wo_c, ub_wo_c = Corleone.get_bounds(oedlayer_wo_c)
+    lb_w_c, ub_w_c = Corleone.get_bounds(oedlayer_w_c)
+
+    @test length(lb_wo_c.controls) == length(ub_wo_c.controls) == 10
+    @test length(lb_w_c.controls) == length(ub_w_c.controls) == 110
+    @test all(lb_wo_c.controls .== 0.0)
+    @test all(ub_wo_c.controls .== 1.0)
+    @test all(lb_w_c.controls[1:100] .== -1.0)
+    @test all(lb_w_c.controls[101:end] .== 0.0)
 end
 
 @testset "Predictions" begin
