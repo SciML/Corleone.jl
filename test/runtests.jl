@@ -8,9 +8,6 @@ using SafeTestsets
     @testset "Code quality (Aqua.jl)" begin
         Aqua.test_all(Corleone)
     end
-    #@testset "Code linting (JET.jl)" begin
-    #    JET.test_package(Corleone; target_defined_modules=true)
-    #end
     @testset "Local controls" begin
         include("local_controls.jl")
     end
@@ -41,9 +38,7 @@ end
 #   - criteria
 #   - block_structure of oedlayer
 # augmentation.jl
-#   - all fixed
-#   - DAE augmentation + solve for sensitivities and check against FD
-#   - sensitivity_variables and observed_sensitivity_product_variables
+#   - observed_sensitivity_product_variables
 
 #using Coverage;
 #coverage = process_folder();

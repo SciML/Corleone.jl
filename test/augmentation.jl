@@ -1,9 +1,12 @@
 using Corleone
 using OrdinaryDiffEqTsit5
+using OrdinaryDiffEqBDF
 using Test
 using Random
 using LuxCore
 using Symbolics
+using ForwardDiff
+using LinearAlgebra
 
 # Linear system with control p[2] and Mayer objective
 function lin1d(u,p,t)
@@ -87,4 +90,63 @@ end
         @test all([string(F[i,j]) == F_symbols[i,j] for i in 1:i for j in 1:i])
     end
 
+end
+
+@testset "DAE augmentation" begin
+    T₀ = 69 + 273.15
+    R = 1.987204258640
+    Q = 0.0131
+
+    function dow(du, u, p, t)
+
+        y₁,y₂,y₃,y₄,y₅,y₆,y₇ ,y₈ ,y₉ ,y₁₀ = u
+        dy₁,dy₂,dy₃,dy₄,dy₅,dy₆,dy₇ ,dy₈ ,dy₉ ,dy₁₀ = du
+        temperature = p[10]
+        k₁  = exp(p[1]) * exp(-p[4] * 1.e4/(R) * (1/temperature - 1/T₀))
+        k₂  = exp(p[2]) * exp(-p[5] * 1.e4/(R) * (1/temperature - 1/T₀))
+        k₋₁ = exp(p[3]) * exp(-p[6] * 1.e4/(R) * (1/temperature - 1/T₀))
+
+        # abbreviation of ODE
+        f₁ = -k₂ * y₈ * y₂
+        f₂ = -k₁ * y₆ * y₂ + k₋₁ * y₁₀ - k₂ * y₈ * y₂
+        f₃ = k₂ * y₈ * y₂ + k₁ * y₆ * y₄ - 0.5 * k₋₁ * y₉
+        f₄ = -k₁ * y₆ * y₄ + 0.5 * k₋₁ * y₉
+        f₅ = k₁ * y₆ * y₂ - k₋₁ * y₁₀
+        f₆ = -k₁ * (y₆ * y₂ + y₆ * y₄) + k₋₁ * (y₁₀ + 0.5 * y₉)
+
+        return [
+        -dy₁ +  f₁;
+        -dy₂ +  f₂;
+        -dy₃ +  f₃;
+        -dy₄ +  f₄;
+        -dy₅ +  f₅;
+        -dy₆ +  f₆;
+            - y₇ - Q + y₆ + y₈ + y₉ + y₁₀;
+            - y₈ + (exp(p[8]) * y₁) / (exp(p[8]) + y₇);
+            - y₉ + (exp(p[9]) * y₃) / (exp(p[9]) + y₇);
+            - y₁₀ + (exp(p[7]) * y₅) / (exp(p[7]) + y₇)
+        ]
+    end
+
+    p = [0.8010374972073442, 1.1069954919870142, 27.29000930653549, 1.847, 1.882, 2.636, -38.7599775331355, -14.260002398041287, -39.14394658089878]
+    u0 = [1.7066, 8.32, 0.01, 0.0, 0.0, 0.0131, 0.0010457132164084471, 0.0010457132164084471, 0.0, 0.0]
+    tspan = (0.,200.0)
+    du0 = zeros(10)
+
+    prob = DAEProblem(dow, du0, u0, tspan, vcat(p, 40.0 + 273.15), abstol=1e-8, reltol=1e-6)
+
+    oedlayer = OEDLayer(prob, DFBDF(); params =1:9, observed = (u,p,t) -> u[1:4])
+    ps, st = LuxCore.setup(rng, oedlayer)
+
+    sols, _ = oedlayer(nothing, ps, st)
+    sensitivities = Corleone.sensitivity_variables(oedlayer)
+    idx_t10 = findfirst(x -> x ==10.0, sols.t)
+    G_aug = sols[sensitivities][idx_t10]
+    pred_(p) = begin
+        Array(solve(remake(prob, p=vcat(p, 40.0+273.15)), DFBDF(), saveat=[10.0]))
+    end
+
+    G_fd = ForwardDiff.jacobian(pred_, p)
+
+    @test norm(G_aug .- G_fd, Inf) < 1e-3
 end

@@ -239,34 +239,44 @@ function symmetric_from_vector(x::AbstractArray)
     Symmetric([x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n])
 end
 
+function sort_variables(keys, identifier="F", reshape=false)
+    reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
+    indices_F = last.(split.(string.(keys), identifier))
+    indices_rows, indices_columns = first.(split.(indices_F, "ˏ")), last.(split.(indices_F, "ˏ"))
+    indices_integer = map(eachindex(indices_rows)) do i
+        idxs_rows = map(collect(indices_rows[i])) do row_char
+            reverse_index_map[row_char]
+        end
+        idx_cols = map(collect(indices_columns[i])) do col_char
+            reverse_index_map[col_char]
+        end
+        sum(idxs_rows .* [10^(length(idxs_rows)-i) for i=1:length(idxs_rows)]), sum(idx_cols .* [10^(length(idx_cols)-i) for i=1:length(idx_cols)])
+    end
+
+    I, J = reduce(vcat, first.(indices_integer)), reduce(vcat, last.(indices_integer))
+    sortbyJ = sortperm(J)
+    fsym_sorted_by_J = fsym[sortbyJ]
+    J = J[sortbyJ]
+    I = I[sortbyJ]
+    sorted_vars = reduce(vcat, map(sort(unique(J))) do col
+        idxs = J .== col
+        sortbyI_for_given_col = isa(Int, I[idxs]) ? I[idxs] : sortperm(I[idxs])
+        fsym_sorted_by_J[idxs][sortbyI_for_given_col]
+    end)
+
+    !reshape && return sorted_vars
+    nx, np = maximum(I), maximum(J)
+    return reduce(hcat, [sorted_vars[(i-1)*nx+1:i*nx] for i=1:np])
+end
+
 function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
     st = LuxCore.initialstates(Random.default_rng(), layer)
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, "F"), collect(string.(keys_)))
-    reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
     fsym = keys_[idx]
     isempty(fsym) && return nothing
-    indices_F = last.(split.(string.(fsym), "F"))
-
-    indices_rows, indices_columns = first.(split.(indices_F, "ˏ")), last.(split.(indices_F, "ˏ"))
-    indices_integer = map(eachindex(indices_rows)) do i
-        idxs = map(zip(collect(indices_rows[i]), collect(indices_columns[i]))) do (row_char, col_char)
-            reverse_index_map[row_char], reverse_index_map[col_char]
-        end
-        first.(idxs) .* [10^(i-1) for i=1:length(first.(idxs))], last.(idxs) .* [10^(i-1) for i=1:length(last.(idxs))]
-    end
-    I, J = reduce(vcat, first.(indices_integer)), reduce(vcat, last.(indices_integer))
-
-    sortbyJ = sortperm(J)
-    fsym_sorted_by_J = fsym[sortbyJ]
-    J = J[sortbyJ]
-    I = I[sortbyJ]
-    return reduce(vcat, map(sort(unique(J))) do col
-        idxs = J .== col
-        sortbyI_for_given_col = sortperm(I[idxs])
-        fsym_sorted_by_J[idxs][sortbyI_for_given_col]
-    end)
+    return sort_variables(fsym, "F")
 end
 
 function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
@@ -274,18 +284,18 @@ function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootin
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, "G"), collect(string.(keys_)))
-    sort(keys_[idx], by=string) ## TODO: TEST IF THIS RETURNS THE RIGHT ORDER WHEN APPLYING SYMMETRIC_FROM_VECTOR
+    Gsym = keys_[idx]
+    isempty(Gsym) && return nothing
+    sort_variables(Gsym, "G", true)
 end
 
 function observed_sensitivity_product_variables(layer::SingleShootingLayer, observed_idx::Int)
-
     string_idx = string(observed_idx)
     char_idx = map(x -> only(x), string_idx)
     subscripts_idx = map(x -> Symbolics.IndexMap[x], char_idx)
-
     st = LuxCore.initialstates(Random.default_rng(), layer)
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, string(Symbol("hxG", subscripts_idx))), collect(string.(keys_)))
-    sort(keys_[idx], by=string)
+    return sort_variables(keys_[idx], "hxG")
 end
