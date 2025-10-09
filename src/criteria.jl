@@ -8,6 +8,10 @@ struct FisherACriterion <: AbstractCriterion end
 struct FisherDCriterion <: AbstractCriterion end
 struct FisherECriterion <: AbstractCriterion end
 
+function (crit::AbstractCriterion)(F::AbstractMatrix)
+    crit(Symmetric(F))
+end
+
 function (crit::ACriterion)(F::Symmetric)
     tr(inv(F))
 end

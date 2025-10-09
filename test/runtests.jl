@@ -17,9 +17,12 @@ using SafeTestsets
     @testset "Multiple shooting" begin
         include("multiple_shooting.jl")
     end
-    #@testset "Optimal control" begin
-    #    include("oc.jl")
-    #end
+    @testset "OED criteria" begin
+        include("criteria.jl")
+    end
+    @testset "Optimal control" begin
+        include("oc.jl")
+    end
 end
 
 # What to test?
@@ -32,10 +35,8 @@ end
 #   - inits, bounds, block structure
 #   - criteria
 # general:
-#   - prediction of layers: single shooting / multiple shooting / OED / MultiExperiment
 #   - convergence? Lotka OC + Lotka OED
 # oed.jl:
-#   - criteria
 #   - block_structure of oedlayer
 # augmentation.jl
 #   - observed_sensitivity_product_variables
