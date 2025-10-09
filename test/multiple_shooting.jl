@@ -108,22 +108,36 @@ end
 
     ps_ms, st_ms = LuxCore.setup(rng, oed_ms_layer)
     ps_multi, st_multi = LuxCore.setup(rng, oed_multiexperiment)
-
-    @test length(ps_ms) == length(shooting_points)
-    @test length(ps_multi) == 3
-    @test length(ps_multi.experiment_1) == length(ps_ms)
-    @test ps_multi.experiment_1 == ps_ms
-
     ps_def, st_def = @test_nowarn DefaultsInitialization()(rng, oed_ms_layer)
     ps_def_multi, st_def = @test_nowarn DefaultsInitialization()(rng, oed_multiexperiment)
     @test ps_def == ps_ms
     @test all([getproperty(ps_def_multi, Symbol("experiment_$i")) == ps_def for i=1:3])
 
+
+    # Testing dimensions
+    @test length(ps_ms) == length(shooting_points)
+    @test length(ps_multi) == 3
+    @test length(ps_multi.experiment_1) == length(ps_ms)
+    @test ps_multi.experiment_1 == ps_ms
     dims = oed_ms_layer.dimensions
     aug_u0 = first(oed_ms_layer.layer.layers).problem.u0
     nx_augmented = dims.nx + dims.nx*dims.np_fisher + (dims.np_fisher+1)*dims.np_fisher/2 |> Int
     @test length(aug_u0) == nx_augmented
 
+    # Testing criteria
+    crit = ACriterion()
+    ACrit_single = crit(oed_ms_layer)
+    ACrit_multi = crit(oed_multiexperiment)
+    @test isapprox(ACrit_single(ComponentArray(ps_def), nothing), 3 * ACrit_multi(ComponentArray(ps_def_multi), nothing))
+
+    # Testing block structures
+    block_structure_ms = Corleone.get_block_structure(oed_ms_layer)
+    block_structure_multi_calculated = vcat(block_structure_ms, block_structure_ms[2:end] .+ last(block_structure_ms))
+    block_structure_multi_calculated = vcat(block_structure_multi_calculated, block_structure_ms[2:end] .+ last(block_structure_multi_calculated))
+    block_structure_multi_evaluated = Corleone.get_block_structure(oed_multiexperiment)
+    @test block_structure_multi_calculated == block_structure_multi_evaluated
+
+    # Testing initializations
     fwd_init = ForwardSolveInitialization()
     lin_init = LinearInterpolationInitialization(Dict(1:nx_augmented .=> 2.0))
     const_init = ConstantInitialization(Dict(1:nx_augmented .=> 1.0))
@@ -132,7 +146,6 @@ end
     hybrid_init = HybridInitialization(Dict(1 => const_init,
                                             2 => custom_init,
                                             3 => lin_init), fwd_init)
-
 
     testhybrid(p) = begin
         inits = vcat(

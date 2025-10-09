@@ -149,4 +149,9 @@ end
     G_fd = ForwardDiff.jacobian(pred_, p)
 
     @test norm(G_aug .- G_fd, Inf) < 1e-3
+
+    h1xG = Corleone.observed_sensitivity_product_variables(oedlayer,1)
+
+    @test all(Base.Fix2(startswith, "hxG₁ˏ").(string.(h1xG)))
+    @test length(h1xG) == 9*(9+1)/2
 end

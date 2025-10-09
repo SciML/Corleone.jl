@@ -38,20 +38,23 @@ end
     oedlayer_w_c = OEDLayer(prob, Tsit5(); params=[1], dt=0.1, observed=observed,
                         control_indices = [2], controls=(control,))
     rng = Random.default_rng()
-    ps_wo_c, st_w_c = LuxCore.setup(rng, oedlayer_wo_c)
-    ps_w_c, st_wo_c = LuxCore.setup(rng, oedlayer_w_c)
+    ps_wo_c, st_wo_c = LuxCore.setup(rng, oedlayer_wo_c)
+    ps_w_c, st_w_c = LuxCore.setup(rng, oedlayer_w_c)
     p_wo_c = ComponentArray(ps_wo_c)
     p_w_c = ComponentArray(ps_w_c)
 
     F_init = 49.48602824180152
 
     for crit in crits
+        sols_w_c, _ = oedlayer_w_c(nothing, p_w_c, st_w_c)
         if crit in [ACriterion(), DCriterion(), ECriterion()]
             @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), F_init, atol=1e-6)
             @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), F_init, atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), F_init, atol=1e-6)
         else
             @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), -inv(F_init), atol=1e-6)
             @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), -inv(F_init), atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), -inv(F_init), atol=1e-6)
         end
     end
 

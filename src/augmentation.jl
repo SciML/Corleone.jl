@@ -300,5 +300,5 @@ function observed_sensitivity_product_variables(layer::SingleShootingLayer, obse
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, string(Symbol("hxG", subscripts_idx))), collect(string.(keys_)))
-    return sort_variables(keys_[idx], "hxG")
+    return sort_variables(keys_[idx], string(Symbol("hxG", subscripts_idx, "ˏ")))
 end

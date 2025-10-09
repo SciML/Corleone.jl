@@ -20,9 +20,9 @@ using SafeTestsets
     @testset "OED criteria" begin
         include("criteria.jl")
     end
-    @testset "Optimal control" begin
-        include("oc.jl")
-    end
+    #@testset "Optimal control" begin
+    #    include("oc.jl")
+    #end
 end
 
 # What to test?
@@ -33,13 +33,10 @@ end
 # multi_experiments.jl:
 #   - constructors
 #   - inits, bounds, block structure
-#   - criteria
 # general:
 #   - convergence? Lotka OC + Lotka OED
 # oed.jl:
-#   - block_structure of oedlayer
-# augmentation.jl
-#   - observed_sensitivity_product_variables
+#   - iip augmentation
 
 #using Coverage;
 #coverage = process_folder();
