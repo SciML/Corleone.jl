@@ -45,7 +45,7 @@ optfun = OptimizationFunction(objective, AutoForwardDiff())
 
 optprob = OptimizationProblem(optfun, collect(p), lb=collect(lb), ub=collect(ub))
 
-sol = solve(optprob, Ipopt.Optimizer(), max_iter=150, tol = 5e-6,
+sol = solve(optprob, Ipopt.Optimizer(), max_iter=100, tol = 5e-6,
         hessian_approximation="limited-memory")
 
 @test SciMLBase.successful_retcode(sol)

@@ -20,9 +20,6 @@ using SafeTestsets
     @testset "OED criteria" begin
         include("criteria.jl")
     end
-    #@testset "Optimal control" begin
-    #    include("oc.jl")
-    #end
 end
 
 # What to test?
