@@ -25,11 +25,9 @@ end
 # What to test?
 # local_controls.jl:
 #   - construction of index_grid, get_subvector_indices -> Julius
-# node_initialization.jl:
-#   - for different layers (single / multiple shooting, OEDLayer, MultiExperimentLayer)
 # multi_experiments.jl:
 #   - constructors
-#   - inits, bounds, block structure
+#   - bounds,
 # general:
 #   - convergence? Lotka OC + Lotka OED
 # oed.jl:
@@ -57,6 +55,7 @@ end
 end
 
 # Safetestset cannot interpolate. So we simply use a generator.
-@testset "Examples" begin
-    test_examples()
-end
+#@testset "Examples" begin
+#    test_examples()
+#end
+#

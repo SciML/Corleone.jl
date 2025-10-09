@@ -61,6 +61,26 @@ end
     @test isapprox(sol_w_c.u[end][3:5], sol_wo_c.u[end][3:5], atol=1e-7)
 end
 
+@testset "IIP augmentation ODE" begin
+    function lin1d_iip(du, u,p,t)
+        du[1] = - p[1] * u[1] + p[2]
+        du[2] = (u[1]-1.0)^2
+    end
+
+    u0 = [0.5, 0.0]
+    p = [1.0, 0.0]
+    tspan = (0.,1.)
+
+    prob = ODEProblem{true}(lin1d_iip, u0, tspan, p)
+    sol = solve(prob, Tsit5())
+
+    control = ControlParameter(0.0:0.01:0.99, name=:control, bounds=(-1.,1.), controls=zeros(100))
+    observed = (u,p,t) -> [u[1]]
+    oedlayer_wo_c = @test_nowarn OEDLayer(prob, Tsit5(); params=[1], dt=0.1, observed=observed)
+    oedlayer_w_c = @test_nowarn OEDLayer(prob, Tsit5(); params=[1], dt=0.1, observed=observed,
+                        control_indices = [2], controls=(control,))
+end
+
 @testset "Fisher variables and symmetric_from_vector" begin
     f_sym_wo_c = Corleone.fisher_variables(oedlayer_wo_c)
     f_sym_w_c = Corleone.fisher_variables(oedlayer_w_c)
@@ -92,12 +112,12 @@ end
 
 end
 
-@testset "DAE augmentation" begin
+@testset "DAE augmentation OOP/IIP" begin
     T₀ = 69 + 273.15
     R = 1.987204258640
     Q = 0.0131
 
-    function dow(du, u, p, t)
+    function dow_oop(du, u, p, t)
 
         y₁,y₂,y₃,y₄,y₅,y₆,y₇ ,y₈ ,y₉ ,y₁₀ = u
         dy₁,dy₂,dy₃,dy₄,dy₅,dy₆,dy₇ ,dy₈ ,dy₉ ,dy₁₀ = du
@@ -128,30 +148,33 @@ end
         ]
     end
 
+    dow_iip(res, du, u, p, t) = res .= dow_oop(du, u, p, t)
     p = [0.8010374972073442, 1.1069954919870142, 27.29000930653549, 1.847, 1.882, 2.636, -38.7599775331355, -14.260002398041287, -39.14394658089878]
     u0 = [1.7066, 8.32, 0.01, 0.0, 0.0, 0.0131, 0.0010457132164084471, 0.0010457132164084471, 0.0, 0.0]
     tspan = (0.,200.0)
     du0 = zeros(10)
 
-    prob = DAEProblem(dow, du0, u0, tspan, vcat(p, 40.0 + 273.15), abstol=1e-8, reltol=1e-6)
+    for (fun, iip) in zip([dow_oop, dow_iip], [false, true])
+        prob = DAEProblem{iip}(fun, du0, u0, tspan, vcat(p, 40.0 + 273.15), abstol=1e-8, reltol=1e-6)
 
-    oedlayer = OEDLayer(prob, DFBDF(); params =1:9, observed = (u,p,t) -> u[1:4])
-    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+        oedlayer = OEDLayer(prob, DFBDF(); params =1:9, observed = (u,p,t) -> u[1:4])
+        ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
 
-    sols, _ = oedlayer(nothing, ps, st)
-    sensitivities = Corleone.sensitivity_variables(oedlayer)
-    idx_t10 = findfirst(x -> x ==10.0, sols.t)
-    G_aug = sols[sensitivities][idx_t10]
-    pred_(p) = begin
-        Array(solve(remake(prob, p=vcat(p, 40.0+273.15)), DFBDF(), saveat=[10.0]))
+        sols, _ = oedlayer(nothing, ps, st)
+        sensitivities = Corleone.sensitivity_variables(oedlayer)
+        idx_t10 = findfirst(x -> x ==10.0, sols.t)
+        G_aug = sols[sensitivities][idx_t10]
+        pred_(p) = begin
+            Array(solve(remake(prob, p=vcat(p, 40.0+273.15)), DFBDF(), saveat=[10.0]))
+        end
+
+        G_fd = ForwardDiff.jacobian(pred_, p)
+
+        @test norm(G_aug .- G_fd, Inf) < 1e-3
+
+        h1xG = Corleone.observed_sensitivity_product_variables(oedlayer,1)
+
+        @test all(Base.Fix2(startswith, "hxG₁ˏ").(string.(h1xG)))
+        @test length(h1xG) == 9*(9+1)/2
     end
-
-    G_fd = ForwardDiff.jacobian(pred_, p)
-
-    @test norm(G_aug .- G_fd, Inf) < 1e-3
-
-    h1xG = Corleone.observed_sensitivity_product_variables(oedlayer,1)
-
-    @test all(Base.Fix2(startswith, "hxG₁ˏ").(string.(h1xG)))
-    @test length(h1xG) == 9*(9+1)/2
 end
