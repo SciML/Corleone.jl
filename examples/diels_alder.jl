@@ -78,7 +78,7 @@ pp = ComponentArray(ps)
 
 # Bounds on the concentration of the catalyst
 lb.p[6] = 0.0
-ub.p[6] = 10.0
+ub.p[6] = 6.0
 
 nc = vcat(0, cumsum(reduce(vcat, [length(x.t)] for x in oed_layer.layer.controls)))
 
