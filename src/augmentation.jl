@@ -242,6 +242,9 @@ end
 function sort_variables(keys, identifier="F", reshape=false)
     reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
     indices_F = last.(split.(string.(keys), identifier))
+    length(keys) == 1 && begin
+        return reshape ? reshape(keys, (1,1)) : keys
+    end
     indices_rows, indices_columns = first.(split.(indices_F, "ˏ")), last.(split.(indices_F, "ˏ"))
     indices_integer = map(eachindex(indices_rows)) do i
         idxs_rows = map(collect(indices_rows[i])) do row_char
@@ -255,13 +258,13 @@ function sort_variables(keys, identifier="F", reshape=false)
 
     I, J = reduce(vcat, first.(indices_integer)), reduce(vcat, last.(indices_integer))
     sortbyJ = sortperm(J)
-    fsym_sorted_by_J = fsym[sortbyJ]
+    keys_sorted_by_J = keys[sortbyJ]
     J = J[sortbyJ]
     I = I[sortbyJ]
     sorted_vars = reduce(vcat, map(sort(unique(J))) do col
         idxs = J .== col
-        sortbyI_for_given_col = isa(Int, I[idxs]) ? I[idxs] : sortperm(I[idxs])
-        fsym_sorted_by_J[idxs][sortbyI_for_given_col]
+        sortbyI_for_given_col = sortperm(I[idxs])
+        keys_sorted_by_J[idxs][sortbyI_for_given_col]
     end)
 
     !reshape && return sorted_vars

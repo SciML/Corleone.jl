@@ -136,7 +136,7 @@ end
     prob = DAEProblem(dow, du0, u0, tspan, vcat(p, 40.0 + 273.15), abstol=1e-8, reltol=1e-6)
 
     oedlayer = OEDLayer(prob, DFBDF(); params =1:9, observed = (u,p,t) -> u[1:4])
-    ps, st = LuxCore.setup(rng, oedlayer)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
 
     sols, _ = oedlayer(nothing, ps, st)
     sensitivities = Corleone.sensitivity_variables(oedlayer)
