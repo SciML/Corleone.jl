@@ -72,6 +72,87 @@ stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]]
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
 f
 
+sols, _ = ol(nothing, uopt + zero(p), st)
+
+vars = ol.layer.problem.f.sys.variables
+
+sort(collect(keys(vars)), by =x->vars[x])
+
+
+F_tf = begin
+    if Corleone.is_fixed(ol)
+        F_vars = [Corleone.observed_sensitivity_product_variables(ol.layer, i) for i=1:ol.dimensions.nh]
+        if isa(sols, EnsembleSolution)
+            symmetric_from_vector(sum([last(sols)[F_var][end] for F_var in F_vars]))
+        else
+            Corleone.symmetric_from_vector(sum([sols[F_var][end] for F_var in F_vars]))
+        end
+    else
+        fim(ol.layer, sols)
+    end
+end
+
+Gvars = Corleone.sensitivity_variables(ol)
+
+G_states = begin
+    if isa(sols, EnsembleSolution)
+        map(sols) do sol
+            sol[Gvars]
+        end
+    else
+        sols[Gvars]
+    end
+end
+
+timepoints = begin
+    if isa(sols, EnsembleSolution)
+        reduce(vcat, map(sols) do sol
+            sol.t
+        end)
+    else
+        sols.t
+    end
+end
+
+Pi = begin
+    if isa(sols, EnsembleSolution)
+    else
+        map(1:ol.dimensions.nh) do i
+            map(zip(sols, sols.t, G_states)) do (sol,t, Gi)
+                gram = ol.observed.hx(sol, ol.layer.problem.p, t)[i:i,:] * Gi
+                gram' * gram
+            end
+        end
+    end
+end
+
+C = inv(F_tf)
+Fi = begin
+    if isa(sols, EnsembleSolution)
+    else
+        map(Pi) do Ph
+            map(Ph) do Ph_ti
+                C' * Ph_ti * C
+            end
+        end
+    end
+end
+
+multiplier = uopt.original.inner.mult_g
+
+IG = InformationGain(ol, uopt)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+CairoMakie.hlines!(ax, multiplier[1:1])
+
+ax1 = CairoMakie.Axis(f[1,2])
+scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+CairoMakie.hlines!(ax1, multiplier[2:2])
+CairoMakie.linkyaxes!(ax1, ax)
+f
+
 
 # Single Shooting
 oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
@@ -174,6 +255,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 100
 )
 
+
 blocks = Corleone.get_block_structure(oed_mslayer)
 
 uopt = solve(optprob, BlockSQPOpt(),
@@ -203,4 +285,18 @@ f
 [stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
 [stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
 
+f
+
+IG = InformationGain(oed_mslayer, uopt)
+multiplier = uopt.original.multiplier[end-1:end]
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+CairoMakie.hlines!(ax, multiplier[1:1])
+
+ax1 = CairoMakie.Axis(f[1,2])
+scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+CairoMakie.hlines!(ax1, multiplier[2:2])
+CairoMakie.linkyaxes!(ax1, ax)
 f
