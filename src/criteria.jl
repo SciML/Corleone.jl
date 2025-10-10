@@ -17,7 +17,7 @@ function (crit::ACriterion)(F::Symmetric)
 end
 
 function (crit::DCriterion)(F::Symmetric)
-    det(inv(F))
+    inv(det(F))
 end
 
 function (crit::ECriterion)(F::Symmetric)
@@ -36,12 +36,20 @@ function (crit::FisherECriterion)(F::Symmetric)
     -minimum(eigvals(F))
 end
 
-(crit::AbstractCriterion)(layer::SingleShootingLayer, sols::DiffEqArray) = begin
+function fim(layer::SingleShootingLayer, sols::DiffEqArray)
     f_sym = Corleone.fisher_variables(layer)
-    crit((Corleone.symmetric_from_vector(sols[f_sym][end])))
+    Corleone.symmetric_from_vector(sols[f_sym][end])
+end
+
+function fim(layer::MultipleShootingLayer, sols::EnsembleSolution)
+    f_sym = Corleone.fisher_variables(layer)
+    Corleone.symmetric_from_vector(last(sols)[f_sym][end])
+end
+
+(crit::AbstractCriterion)(layer::SingleShootingLayer, sols::DiffEqArray) = begin
+    crit(fim(layer, sols))
 end
 
 (crit::AbstractCriterion)(layer::MultipleShootingLayer, sols::EnsembleSolution) = begin
-    f_sym = Corleone.fisher_variables(layer)
-    crit(Corleone.symmetric_from_vector(last(sols)[f_sym][end]))
+    crit(fim(layer, sols))
 end

@@ -20,18 +20,16 @@ using SafeTestsets
     @testset "OED criteria" begin
         include("criteria.jl")
     end
+    @testset "Multiexperiments" begin
+        include("multi_experiments.jl")
+    end
 end
 
 # What to test?
 # local_controls.jl:
 #   - construction of index_grid, get_subvector_indices -> Julius
-# multi_experiments.jl:
-#   - constructors
-#   - bounds,
 # general:
-#   - convergence? Lotka OC + Lotka OED
-# oed.jl:
-#   - iip augmentation
+#   - more convergence? Lotka OED
 
 #using Coverage;
 #coverage = process_folder();
@@ -55,7 +53,6 @@ end
 end
 
 # Safetestset cannot interpolate. So we simply use a generator.
-#@testset "Examples" begin
-#    test_examples()
-#end
-#
+@testset "Examples" begin
+    test_examples()
+end
