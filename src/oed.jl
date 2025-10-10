@@ -135,3 +135,4 @@ get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, 
 get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
 sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
 fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
+observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)

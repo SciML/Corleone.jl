@@ -5,19 +5,41 @@ using JET
 using SafeTestsets
 
 @testset "Corleone.jl" begin
-    #    @testset "Code quality (Aqua.jl)" begin
-    #        Aqua.test_all(Corleone)
-    #    end
-    #@testset "Code linting (JET.jl)" begin
-    #    JET.test_package(Corleone; target_defined_modules=true)
-    #end
-    @safetestset "Control Formulations" begin
-        include("control_formulations.jl")
+    @testset "Code quality (Aqua.jl)" begin
+        Aqua.test_all(Corleone)
     end
-    @safetestset "Shooting Grid" begin
-        include("shooting_grid.jl")
+    @testset "Local controls" begin
+        include("local_controls.jl")
+    end
+    @testset "OED augmentation" begin
+        include("augmentation.jl")
+    end
+    @testset "Multiple shooting" begin
+        include("multiple_shooting.jl")
+    end
+    @testset "OED criteria" begin
+        include("criteria.jl")
+    end
+    @testset "Multiexperiments" begin
+        include("multi_experiments.jl")
     end
 end
+
+# What to test?
+# local_controls.jl:
+#   - construction of index_grid, get_subvector_indices -> Julius
+# general:
+#   - more convergence? Lotka OED
+
+#using Coverage;
+#coverage = process_folder();
+#coverage = merge_coverage_counts(coverage, filter!(
+#    let prefixes = (joinpath(pwd(), "src", ""),)
+#        c -> any(p -> startswith(c.filename, p), prefixes)
+#    end,
+#LCOV.readfolder("test")));
+#covered_lines, total_lines = get_summary(coverage);
+#println("Coverage $(covered_lines / total_lines)");
 
 @generated function test_examples()
     expr = []
@@ -30,7 +52,7 @@ end
     return Expr(:block, expr...)
 end
 
-# Safetestset cannot interpolate. So we simply use a generator. 
+# Safetestset cannot interpolate. So we simply use a generator.
 @testset "Examples" begin
     test_examples()
 end
