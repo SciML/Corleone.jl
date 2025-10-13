@@ -4,13 +4,13 @@ struct InformationGain{T,L,G}
     global_information_gain::G
 end
 
-function InformationGain(layer::OEDLayer, u_opt; kwargs...)
+function InformationGain(layer::OEDLayer, u_opt; F=nothing, kwargs...)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
 
     sols, _ = layer(nothing, p, st)
 
-    F_tf = begin
+    F_tf = !isnothing(F) ? F : begin
         if is_fixed(layer)
             F_vars = [observed_sensitivity_product_variables(layer.layer, i) for i=1:layer.dimensions.nh]
             if isa(sols, EnsembleSolution)
@@ -85,9 +85,15 @@ function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_op
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])
     ps, st = LuxCore.setup(Random.default_rng(), multilayer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
+    fsym = Corleone.fisher_variables(multilayer.layers)
+    sols, _ = multilayer(nothing, p, st)
+    F = symmetric_from_vector(sum(map(sols) do sol
+        isa(sol, EnsembleSolution) ? last(sol)[fsym][end] : sol[fsym][end]
+    end))
+    @info F
     exp_IG = map(1:multilayer.n_exp) do i
         u_local = getproperty(p, Symbol("experiment_$i"))
-        InformationGain(multilayer.layers, u_local)
+        InformationGain(multilayer.layers, u_local; F=F)
     end
     return NamedTuple{exp_names}(exp_IG)
 end
@@ -97,9 +103,15 @@ function InformationGain(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, u_opt
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])
     ps, st = LuxCore.setup(Random.default_rng(), multilayer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
+    sols, _ = multilayer(nothing, p, st)
+    F = symmetric_from_vector(sum(map(zip(sols, multilayer.layers)) do (sol, layer)
+        fsym = Corleone.fisher_variables(layer)
+        isa(sol, EnsembleSolution) ? last(sol)[fsym][end] : sol[fsym][end]
+    end))
+
     exp_IG = map(multilayer.layers) do layer
         u_local = getproperty(p, Symbol("experiment_$i"))
-        InformationGain(layer, u_local)
+        InformationGain(layer, u_local; F=F)
     end
     return NamedTuple{exp_names}(exp_IG)
 end

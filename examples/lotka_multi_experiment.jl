@@ -90,7 +90,7 @@ ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
 ax3 = CairoMakie.Axis(f[2,1], xticks = 0:2:12, title="Experiment 1")
 ax4 = CairoMakie.Axis(f[2,2], xticks = 0:2:12, title="Experiment 2")
 [plot!(ax, optsol[1].t, sol) for sol in eachrow(Array(optsol[1]))[1:2]]
-[plot!(ax2, optsol[1].t, sol) for sol in eachrow(reduce(hcat, (optsol[1][Corleone.sensitivity_variables(multi_exp.layers)])))]
+[plot!(ax2, optsol[1].t, sol) for sol in eachrow(reduce(hcat, (optsol[1][Corleone.sensitivity_variables(multi_exp.layers)[:]])))]
 [stairs!(ax3, last(ol.layer.controls).t, sampling_opt.experiment_1.controls[nc[i]+1:nc[i+1]]) for i=1:2]
 [stairs!(ax4, last(ol.layer.controls).t, sampling_opt.experiment_2.controls[nc[i]+1:nc[i+1]]) for i=1:2]
 f
@@ -323,3 +323,20 @@ for i=1:nexp
 
 end
 f
+
+
+IG = Corleone.InformationGain(multi_exp, uopt.u)
+multiplier = uopt.original.inner.mult_g[end-3:end] #multiplier
+multiplier = uopt.original.multiplier
+
+f_IG = Figure(size = (800,800))
+for i = 1:nexp
+    local_IG = getproperty(IG, Symbol("experiment_$i"))
+    ax = CairoMakie.Axis(f_IG[1,i], xticks=0:2:12, title="Experiment $i")
+    ax1 = CairoMakie.Axis(f_IG[2,i], xticks=0:2:12)
+    lines!(ax, local_IG.t, tr.(local_IG.global_information_gain[1]))
+    hlines!(ax, multiplier[(i-1)*2+1], color=:black)
+    lines!(ax1, local_IG.t, tr.(local_IG.global_information_gain[2]))
+    hlines!(ax1, multiplier[(i-1)*2+2], color=:black)
+end
+display(f_IG)
