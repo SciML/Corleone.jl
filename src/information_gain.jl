@@ -4,7 +4,7 @@ struct InformationGain{T,L,G}
     global_information_gain::G
 end
 
-function InformationGain(layer::OEDLayer, u_opt; F=nothing, kwargs...)
+function InformationGain(layer::OEDLayer, u_opt; F=nothing)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
 
