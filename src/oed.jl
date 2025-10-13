@@ -68,13 +68,13 @@ function OEDLayer(layer::Union{SingleShootingLayer,MultipleShootingLayer};
     oed_layer = augment_layer_for_oed(layer, params=params, observed=observed, dt=dt)
 
     obs = begin
-            x, p, t = Symbolics.variables(:x, 1:nx), Symbolics.variables(:p, 1:np), Symbolics.variable(:t)
+        x, p, t = Symbolics.variables(:x, 1:nx), Symbolics.variables(:p, 1:np), Symbolics.variable(:t)
 
-            h = observed(x,p,t)
-            hx = Symbolics.jacobian(h, x)
-            hx_fun = Symbolics.build_function(hx, x, p, t, expression = Val{false})[1]
+        h = observed(x,p,t)
+        hx = Symbolics.jacobian(h, x)
+        hx_fun = Symbolics.build_function(hx, x, p, t, expression = Val{false}, cse=true)[1]
 
-            (h = observed, hx = hx_fun)
+        (h = observed, hx = hx_fun)
     end
 
     dimensions = (np = np, nh = length(observed(prob.u0, prob.p, first(prob.tspan))),
@@ -95,7 +95,7 @@ end
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     tinf = last(oedlayer.layer.problem.tspan)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = sort(Corleone.observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
+        Fi = sort(observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
         wts= vcat(sampling.t, tinf) |> unique!
         idxs = findall(x -> x in wts, sols.t)
         diff(sols[Fi][idxs])

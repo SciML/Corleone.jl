@@ -111,7 +111,7 @@ nc, dt = length(control.t), diff(control.t)[1]
 
 sols, _ = multi_exp(nothing, ps, st)
 
-criterion = DCriterion()(multi_exp)
+criterion = ACriterion()(multi_exp)
 criterion(p, nothing)
 
 sampling_cons = let ax = getaxes(p)
@@ -119,13 +119,9 @@ sampling_cons = let ax = getaxes(p)
         ps = ComponentArray(p, ax)
         res .= [
             sum(ps.experiment_1.controls[nc+1:2*nc]) * dt;
-            sum(ps.experiment_2.controls[nc+1:2*nc]) * dt;
-            #sum(ps.experiment_3.controls[nc+1:2*nc]) * dt;
-           # sum(ps.experiment_4.controls[nc+1:2*nc]) * dt;
             sum(ps.experiment_1.controls[2*nc+1:3*nc]) * dt  ;
+            sum(ps.experiment_2.controls[nc+1:2*nc]) * dt;
             sum(ps.experiment_2.controls[2*nc+1:3*nc]) * dt  ;
-            #sum(ps.experiment_3.controls[2*nc+1:3*nc]) * dt  ;
-            #sum(ps.experiment_4.controls[2*nc+1:3*nc]) * dt  ;
           ]
     end
 end
@@ -166,14 +162,29 @@ for i = 1:nexp
     ax2 = CairoMakie.Axis(f[3,i], xticks=0:2:12)
     ax3 = CairoMakie.Axis(f[4,i], xticks=0:2:12, limits=(nothing, (-0.05,1.05)))
     [plot!(ax, optsol[i].t, sol) for sol in eachrow(Array(optsol[i]))[1:2]]
-    [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_exp.layers)])))]
+    [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_exp.layers)[:]])))]
     [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.fisher_variables(multi_exp.layers)])))]
     stairs!(ax, control.t,  getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[1:length(control.t)], color=:black)
     stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[length(control.t)+1:2*length(control.t)])
     stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[2*length(control.t)+1:3*length(control.t)])
 end
-f
+display(f)
 
+IG = Corleone.InformationGain(multi_exp, uopt.u)
+multiplier = uopt.original.inner.mult_g #multiplier
+multiplier = uopt.original.multiplier
+
+f_IG = Figure(size = (800,800))
+for i = 1:nexp
+    local_IG = getproperty(IG, Symbol("experiment_$i"))
+    ax = CairoMakie.Axis(f_IG[1,i], xticks=0:2:12, title="Experiment $i")
+    ax1 = CairoMakie.Axis(f_IG[2,i], xticks=0:2:12)
+    lines!(ax, local_IG.t, tr.(local_IG.global_information_gain[1]))
+    hlines!(ax, multiplier[(i-1)*2+1], color=:black)
+    lines!(ax1, local_IG.t, tr.(local_IG.global_information_gain[2]))
+    hlines!(ax1, multiplier[(i-1)*2+2], color=:black)
+end
+display(f_IG)
 
 ## Multiple Shooting
 shooting_points = [0.0,4.0, 8.0, 12.0]

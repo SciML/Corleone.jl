@@ -4,8 +4,7 @@ struct InformationGain{T,L,G}
     global_information_gain::G
 end
 
-
-function Corleone.InformationGain(layer::OEDLayer, u_opt; kwargs...)
+function InformationGain(layer::OEDLayer, u_opt; kwargs...)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
 
@@ -21,11 +20,11 @@ function Corleone.InformationGain(layer::OEDLayer, u_opt; kwargs...)
             end
         else
             fvars = fisher_variables(layer.layer)
-            symmetric_from_vector(last(sols)[fvars][end])
+            isa(sols, EnsembleSolution) ? symmetric_from_vector(last(sols)[fvars][end]) : symmetric_from_vector(sols[fvars][end])
         end
     end
 
-    Gvars = sensitivity_variables(layer)
+    Gvars = Corleone.sensitivity_variables(layer)
 
     G_states = begin
         if isa(sols, EnsembleSolution)
@@ -78,6 +77,29 @@ function Corleone.InformationGain(layer::OEDLayer, u_opt; kwargs...)
         end
     end
 
-
     return InformationGain{typeof(timepoints), typeof(Pi), typeof(Fi)}(timepoints, Pi, Fi)
+end
+
+
+function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_opt; kwargs...)
+    exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])
+    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
+    p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
+    exp_IG = map(1:multilayer.n_exp) do i
+        u_local = getproperty(p, Symbol("experiment_$i"))
+        InformationGain(multilayer.layers, u_local)
+    end
+    return NamedTuple{exp_names}(exp_IG)
+end
+
+
+function InformationGain(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, u_opt; kwargs...)
+    exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])
+    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
+    p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
+    exp_IG = map(multilayer.layers) do layer
+        u_local = getproperty(p, Symbol("experiment_$i"))
+        InformationGain(layer, u_local)
+    end
+    return NamedTuple{exp_names}(exp_IG)
 end

@@ -239,11 +239,11 @@ function symmetric_from_vector(x::AbstractArray)
     Symmetric([x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n])
 end
 
-function sort_variables(keys, identifier="F", reshape=false)
+function sort_variables(keys; identifier="F", _reshape=false)
     reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
     indices_F = last.(split.(string.(keys), identifier))
     length(keys) == 1 && begin
-        return reshape ? reshape(keys, (1,1)) : keys
+        return _reshape ? reshape(keys, (1,1)) : keys
     end
     indices_rows, indices_columns = first.(split.(indices_F, "ˏ")), last.(split.(indices_F, "ˏ"))
     indices_integer = map(eachindex(indices_rows)) do i
@@ -267,9 +267,12 @@ function sort_variables(keys, identifier="F", reshape=false)
         keys_sorted_by_J[idxs][sortbyI_for_given_col]
     end)
 
-    !reshape && return sorted_vars
-    nx, np = maximum(I), maximum(J)
-    return reduce(hcat, [sorted_vars[(i-1)*nx+1:i*nx] for i=1:np])
+    if _reshape
+        nx, np = maximum(I), maximum(J)
+        return reduce(hcat, [sorted_vars[(i-1)*nx+1:i*nx] for i=1:np])
+    else
+         return sorted_vars
+    end
 end
 
 function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
@@ -279,7 +282,7 @@ function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLaye
     idx = findall(Base.Fix2(startswith, "F"), collect(string.(keys_)))
     fsym = keys_[idx]
     isempty(fsym) && return nothing
-    return sort_variables(fsym, "F")
+    return sort_variables(fsym; identifier="F")
 end
 
 function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
@@ -289,7 +292,7 @@ function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootin
     idx = findall(Base.Fix2(startswith, "G"), collect(string.(keys_)))
     Gsym = keys_[idx]
     isempty(Gsym) && return nothing
-    sort_variables(Gsym, "G", true)
+    sort_variables(Gsym; identifier="G", _reshape=true)
 end
 
 function observed_sensitivity_product_variables(layer::SingleShootingLayer, observed_idx::Int)
@@ -300,5 +303,5 @@ function observed_sensitivity_product_variables(layer::SingleShootingLayer, obse
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
     keys_ = collect(keys(st.symcache.variables))
     idx = findall(Base.Fix2(startswith, string(Symbol("hxG", subscripts_idx))), collect(string.(keys_)))
-    return sort_variables(keys_[idx], string(Symbol("hxG", subscripts_idx, "ˏ")))
+    return sort_variables(keys_[idx]; identifier=string(Symbol("hxG", subscripts_idx, "ˏ")))
 end
