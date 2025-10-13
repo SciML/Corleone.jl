@@ -90,7 +90,6 @@ function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_op
     F = symmetric_from_vector(sum(map(sols) do sol
         isa(sol, EnsembleSolution) ? last(sol)[fsym][end] : sol[fsym][end]
     end))
-    @info F
     exp_IG = map(1:multilayer.n_exp) do i
         u_local = getproperty(p, Symbol("experiment_$i"))
         InformationGain(multilayer.layers, u_local; F=F)
