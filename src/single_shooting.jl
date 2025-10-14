@@ -1,3 +1,15 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that integrates the `AbstractDEProblem` `prob` using the specified
+`algorithm`. Controls are assumed to impact differential equation via its parameters at the
+positions indicated via `control_indices` and are itself specified via `controls`.
+Moreover, initial conditions of `prob` that are degrees of freedom to be optimized can be
+specified by their indices via `tunable_ic` along with their upper and lower bounds via `bounds_ic`.
+
+
+Note: The orders of both `controls` and `control_indices`, and `bounds_ic` and `tunable_ic`
+are assumed to be identical!
+"""
 struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
     problem::P
     algorithm::A
