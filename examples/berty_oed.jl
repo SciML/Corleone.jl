@@ -210,7 +210,7 @@ ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
 ax2 = CairoMakie.Axis(f[1,2], title="FIM")
 ax3 = CairoMakie.Axis(f[2,2])
 [plot!(ax, sol.t,  _sol) for _sol in eachrow(Array(sol))[1:7]]
-[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.sensitivity_variables(oed_berty)])))]
+[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.sensitivity_variables(oed_berty)[:]])))]
 [plot!(ax2, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.fisher_variables(oed_berty)])))]
 #stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 #stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])

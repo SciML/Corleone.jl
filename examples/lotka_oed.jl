@@ -67,7 +67,7 @@ ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)[:]])))]
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
 f
@@ -133,7 +133,7 @@ ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
 ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="FIM")
 ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)[:]])))]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.fisher_variables(oed_layer)])))]
 stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
