@@ -1,3 +1,12 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that consists of several [``SingleShootingLayer``](@ref) collected
+in `layers` that are applied on disjunct time intervals given in `shooting_intervals`.
+Integration of the layers is separated as initial conditions are degrees of freedom (except
+perhaps for the first layer). Thus, parallelization is possible, for which a suitable
+`ensemble_alg` can be specified. Additionally, `bounds_nodes` define the bounds on the
+multiple shooting nodes.
+"""
 struct MultipleShootingLayer{L,SI,E,B} <: LuxCore.AbstractLuxLayer
     layers::L
     shooting_intervals::SI
@@ -75,6 +84,12 @@ function (layer::MultipleShootingLayer)(::Any, ps, st)
             DummySolve(),layer.ensemble_alg; trajectories = length(layer.layers)), st
 end
 
+"""
+    get_block_structure(layer)
+
+Compute the block structure of the hessian of the Lagrangian of an optimal control problem
+as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
+"""
 function get_block_structure(layer::MultipleShootingLayer)
     ps_lengths = map(LuxCore.parameterlength, layer.layers)
     vcat(0, cumsum(ps_lengths))
