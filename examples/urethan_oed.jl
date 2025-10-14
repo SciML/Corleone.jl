@@ -152,7 +152,7 @@ ax2 = CairoMakie.Axis(f[1,2])
 ax3 = CairoMakie.Axis(f[2,2])
 ax4 = CairoMakie.Axis(f[3,2])
 [plot!(ax, sol_oed.t, sol) for sol in eachrow(Array(sol_oed))[1:6]]
-[plot!(ax1, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax1, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[Corleone.sensitivity_variables(oed_layer)[:]])))]
 [plot!(ax2, sol_oed.t, sol) for sol in eachrow(reduce(hcat, (sol_oed[Corleone.fisher_variables(oed_layer)])))]
 stairs!(ax3, c1.t, (uopt + zero(p)).controls[1:length(c1.t)])
 stairs!(ax3, c2.t, (uopt + zero(p)).controls[length(c1.t)+1:2*length(c1.t)])

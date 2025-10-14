@@ -126,7 +126,7 @@ ax3 = CairoMakie.Axis(f[2,1], xticks = 0:5:20, title="Temperature")
 ax4 = CairoMakie.Axis(f[2,2], xticks = 0:5:20, title="Sampling")
 [plot!(ax, optsol.t, sol, label=label_species[i]) for (i,sol) in enumerate(eachrow(Array(optsol))[1:4])]
 axislegend(ax)
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)[:]])))]
 stairs!(ax3, tgrid, optu.controls[nc[1]+1:nc[2]])
 stairs!(ax4, 0.0:dt:last(tspan)-dt, optu.controls[nc[2]+1:nc[3]])
 f

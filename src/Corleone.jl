@@ -40,5 +40,7 @@ include("oed.jl")
 export OEDLayer
 include("multi_experiments.jl")
 export MultiExperimentLayer
+include("information_gain.jl")
+export InformationGain
 
 end

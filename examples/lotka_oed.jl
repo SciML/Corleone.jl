@@ -67,9 +67,24 @@ ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)])))]
+[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)[:]])))]
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
 stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
+f
+
+multiplier = uopt.original.inner.mult_g
+
+IG = InformationGain(ol, uopt)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+CairoMakie.hlines!(ax, multiplier[1:1])
+
+ax1 = CairoMakie.Axis(f[1,2])
+scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+CairoMakie.hlines!(ax1, multiplier[2:2])
+CairoMakie.linkyaxes!(ax1, ax)
 f
 
 
@@ -118,7 +133,7 @@ ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
 ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="FIM")
 ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)])))]
+[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)[:]])))]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.fisher_variables(oed_layer)])))]
 stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
 stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
@@ -174,6 +189,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 100
 )
 
+
 blocks = Corleone.get_block_structure(oed_mslayer)
 
 uopt = solve(optprob, BlockSQPOpt(),
@@ -203,4 +219,18 @@ f
 [stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[lc+1:2*lc], color=Makie.wong_colors()[1]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
 [stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[2*lc+1:3*lc], color=Makie.wong_colors()[2]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
 
+f
+
+IG = InformationGain(oed_mslayer, uopt)
+multiplier = uopt.original.multiplier[end-1:end]
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+CairoMakie.hlines!(ax, multiplier[1:1])
+
+ax1 = CairoMakie.Axis(f[1,2])
+scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+CairoMakie.hlines!(ax1, multiplier[2:2])
+CairoMakie.linkyaxes!(ax1, ax)
 f
