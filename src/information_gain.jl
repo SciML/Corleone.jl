@@ -10,19 +10,7 @@ function InformationGain(layer::OEDLayer, u_opt; F=nothing)
 
     sols, _ = layer(nothing, p, st)
 
-    F_tf = !isnothing(F) ? F : begin
-        if is_fixed(layer)
-            F_vars = [observed_sensitivity_product_variables(layer.layer, i) for i=1:layer.dimensions.nh]
-            if isa(sols, EnsembleSolution)
-                symmetric_from_vector(sum([last(sols)[F_var][end] for F_var in F_vars]))
-            else
-                symmetric_from_vector(sum([sols[F_var][end] for F_var in F_vars]))
-            end
-        else
-            fvars = fisher_variables(layer.layer)
-            isa(sols, EnsembleSolution) ? symmetric_from_vector(last(sols)[fvars][end]) : symmetric_from_vector(sols[fvars][end])
-        end
-    end
+    F_tf = fim(layer, u_opt)
 
     Gvars = Corleone.sensitivity_variables(layer)
 
@@ -46,7 +34,7 @@ function InformationGain(layer::OEDLayer, u_opt; F=nothing)
         end
     end
 
-    Pi = begin
+    LIG = begin
         if isa(sols, EnsembleSolution)
             map(1:layer.dimensions.nh) do i
                 reduce(vcat, map(sols) do sol
@@ -69,15 +57,15 @@ function InformationGain(layer::OEDLayer, u_opt; F=nothing)
 
     C = inv(F_tf)
 
-    Fi = begin
-        map(Pi) do Ph
-            map(Ph) do Ph_ti
-                C' * Ph_ti * C
+    GIG = begin
+        map(LIG) do Pi
+            map(Pi) do Pi_ti
+                C' * Pi_ti * C
             end
         end
     end
 
-    return InformationGain{typeof(timepoints), typeof(Pi), typeof(Fi)}(timepoints, Pi, Fi)
+    return InformationGain{typeof(timepoints), typeof(LIG), typeof(GIG)}(timepoints, LIG, GIG)
 end
 
 

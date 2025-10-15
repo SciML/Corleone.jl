@@ -95,7 +95,7 @@ end
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     tinf = last(oedlayer.layer.problem.tspan)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = sort(observed_sensitivity_product_variables(oedlayer.layer, i), by= x -> split(string(x), "ˏ")[3])
+        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
         wts= vcat(sampling.t, tinf) |> unique!
         idxs = findall(x -> x in wts, sols.t)
         diff(sols[Fi][idxs])
@@ -132,3 +132,43 @@ get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
 sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
 fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
 observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
+
+function fim(oedlayer::OEDLayer{true, <:Any, <:Any, <:Any}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    sols, _ = oedlayer(nothing, ps, st)
+    nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
+    tinf = last(oedlayer.layer.problem.tspan)
+    Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
+        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
+        wts= vcat(sampling.t, tinf) |> unique!
+        idxs = findall(x -> x in wts, sols.t)
+        diff(sols[Fi][idxs])
+    end
+
+    ax = getaxes(ComponentArray(ps))
+    ps = ComponentArray(p, ax)
+    F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        local_sampling = ps.controls[idx_start+1:idx_end]
+        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+            F_it * wit
+        end)
+    end))
+
+    return F
+end
+
+function fim(layer::OEDLayer{false}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    sols, _ = layer(nothing, p + zero(ComponentArray(ps)), st)
+    fim(layer.layers, sols)
+end
+
+function fim(layer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
+    fim(layer.layers, sols)
+end
+
+function fim(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
+    sum(map(enumerate(layer.layers)) do (i,_layer)
+        fim(_layer, sols[i])
+    end)
+end
