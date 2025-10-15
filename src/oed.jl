@@ -160,11 +160,11 @@ end
 function fim(layer::OEDLayer{false}, p::AbstractArray)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     sols, _ = layer(nothing, p + zero(ComponentArray(ps)), st)
-    fim(layer.layers, sols)
+    fim(layer.layer, sols)
 end
 
 function fim(layer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
-    fim(layer.layers, sols)
+    fim(layer.layer, sols)
 end
 
 function fim(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
