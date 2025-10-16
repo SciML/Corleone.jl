@@ -205,7 +205,7 @@ end
         push!(t_ret_expr.args, :($(solutions[i]).t))
         if i < N
             push!(ex,
-                :($(u0s[i+1]) = $(solutions[i])[end])
+                :($(u0s[i+1]) = $(solutions[i]).u[end])
             )
         end
     end
