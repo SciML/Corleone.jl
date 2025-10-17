@@ -1,9 +1,30 @@
+"""
+$(TYPEDEF)
+Defines a callable layer for optimal experimental design purposes following a linearization-based
+approach, augmenting the original system dynamics with the forward sensitivities of the
+parameters of interest and the Fisher information matrix.
+Boolean `fixed` describes whether states and sensitivities are constant, e.g., due to fixed
+initial conditions and controls. In this case, the OED problem is much simpler.
+
+# Fields
+$(FIELDS)
+"""
 struct OEDLayer{fixed,L,O,D} <: LuxCore.AbstractLuxLayer
+    "Either a SingleShootingLayer or a MultipleShootingLayer."
     layer::L
+    "Callable observed function h(u,p,t) and its jacobian hx(u,p,t)."
     observed::O
+    "Statistics on the number of states, number of parameters, etc."
     dimensions::D
 end
 
+"""
+$(SIGNATURES)
+Constructs a single shooting OEDLayer from an AbstractDEProblem.
+Parameters of interest are supplied via indices of `prob.p` and the oberved function
+is supplied via `observed` with signature (u,p,t).
+Keyword `dt` specifies the sampling grid discretization.
+"""
 function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
             control_indices = Int64[],
             controls = nothing,
@@ -20,6 +41,14 @@ function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAl
     OEDLayer(layer; observed = observed, params = params, dt =dt)
 end
 
+"""
+$(SIGNATURES)
+Constructs a multiple shooting OEDLayer from an AbstractDEProblem, where the starts of
+the shooting intervals are supplied via `shooting_points`.
+Parameters of interest are supplied via indices of `prob.p` and the oberved function
+is supplied via `observed` with signature (u,p,t).
+Keyword `dt` specifies the sampling grid discretization.
+"""
 function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm,
             shooting_points;
             control_indices = Int64[],
@@ -40,11 +69,23 @@ function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAl
     OEDLayer(layer; observed = observed, params = params, dt =dt)
 end
 
+"""
+    is_fixed(layer)
+
+Returns whether states of dynamical system of layer are constant due to fixed initial conditions
+in the absence of controls.
+"""
 function is_fixed(layer::Union{SingleShootingLayer, MultipleShootingLayer})
     controls, control_indices = get_controls(layer)
     isempty(get_tunable(layer)) && (isempty(control_indices) || isnothing(controls))
 end
 
+"""
+    is_fixed(layer)
+
+Returns whether states and sensitivities OEDLayer are constant due to fixed initial conditions
+and an absence of controls.
+"""
 function is_fixed(layer::OEDLayer{true, <:Any, <:Any, <:Any})
     true
 end
@@ -53,6 +94,10 @@ function is_fixed(layer::OEDLayer{false, <:Any, <:Any, <:Any})
     false
 end
 
+"""
+$(SIGNATURES)
+General constructor for OEDLayer from a SingleShootingLayer or MultipleShootingLayer.
+"""
 function OEDLayer(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                     observed = (u,p,t) -> u,
                     params = get_params(layer),
@@ -125,7 +170,10 @@ end
 function (init::AbstractNodeInitialization)(rng::AbstractRNG, layer::OEDLayer; kwargs...)
     init(rng, layer.layer; kwargs...)
 end
-
+"""
+    get_bounds(layer)
+Return lower and upper bounds of all variables associated to `layer`.
+"""
 get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
 get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
 get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
@@ -133,6 +181,10 @@ sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
 fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
 observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
+"""
+$(METHODLIST)
+Compute Fisher information matrix for given iterate `p`.
+"""
 function fim(oedlayer::OEDLayer{true, <:Any, <:Any, <:Any}, p::AbstractArray)
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
@@ -157,18 +209,21 @@ function fim(oedlayer::OEDLayer{true, <:Any, <:Any, <:Any}, p::AbstractArray)
     return F
 end
 
-function fim(layer::OEDLayer{false}, p::AbstractArray)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sols, _ = layer(nothing, p + zero(ComponentArray(ps)), st)
-    fim(layer.layer, sols)
+function fim(oedlayer::OEDLayer{false}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    sols, _ = oedlayer(nothing, p + zero(ComponentArray(ps)), st)
+    fim(oedlayer.layer, sols)
+end
+"""
+$(METHODLIST)
+Compute Fisher information matrix for given solution of layer `sols`.
+"""
+function fim(oedlayer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
+    fim(oedlayer.layer, sols)
 end
 
-function fim(layer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
-    fim(layer.layer, sols)
-end
-
-function fim(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
-    sum(map(enumerate(layer.layers)) do (i,_layer)
+function fim(oedlayer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
+    sum(map(enumerate(oedlayer.layers)) do (i,_layer)
         fim(_layer, sols[i])
     end)
 end
