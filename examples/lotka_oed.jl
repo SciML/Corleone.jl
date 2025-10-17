@@ -78,11 +78,11 @@ IG = InformationGain(ol, uopt)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+scatter!(ax, IG.t, tr.(IG.global_information_gain[1]))
 CairoMakie.hlines!(ax, multiplier[1:1])
 
 ax1 = CairoMakie.Axis(f[1,2])
-scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+scatter!(ax1, IG.t, tr.(IG.global_information_gain[2]))
 CairoMakie.hlines!(ax1, multiplier[2:2])
 CairoMakie.linkyaxes!(ax1, ax)
 f
@@ -226,11 +226,11 @@ multiplier = uopt.original.multiplier[end-1:end]
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-scatter!(ax, timepoints, tr.(IG.global_information_gain[1]))
+scatter!(ax, IG.t, tr.(IG.global_information_gain[1]))
 CairoMakie.hlines!(ax, multiplier[1:1])
 
 ax1 = CairoMakie.Axis(f[1,2])
-scatter!(ax1, timepoints, tr.(IG.global_information_gain[2]))
+scatter!(ax1, IG.t, tr.(IG.global_information_gain[2]))
 CairoMakie.hlines!(ax1, multiplier[2:2])
 CairoMakie.linkyaxes!(ax1, ax)
 f
