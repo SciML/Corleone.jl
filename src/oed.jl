@@ -35,8 +35,8 @@ function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAl
             params = setdiff(eachindex(prob.p), control_indices),
             kwargs...)
 
-    layer = SingleShootingLayer(prob, alg; tunable_ic = tunable_ic, controls = controls,
-                                control_indices = control_indices, bounds_ic=bounds_ic,
+    layer = SingleShootingLayer(prob, alg, control_indices, controls;
+                                tunable_ic = tunable_ic, bounds_ic=bounds_ic,
                                 kwargs...)
     OEDLayer(layer; observed = observed, params = params, dt =dt)
 end

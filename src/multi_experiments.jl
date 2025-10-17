@@ -1,15 +1,31 @@
-
-
+"""
+$(TYPEDEF)
+Generalization of OEDLayer to multiple experiments that can be jointly optimized.
+# Fields
+$(FIELDS)
+"""
 struct MultiExperimentLayer{fixed, L} <: LuxCore.AbstractLuxLayer
+    "Layers defining multiexperiments"
     layers::L
+    "Number of experiments"
     n_exp::Int
 end
 
-function MultiExperimentLayer(layer::OEDLayer, n_exp::Int)
-    fixed = is_fixed(layer)
-    MultiExperimentLayer{fixed, OEDLayer}(layer, n_exp)
+"""
+    MultiExperimentLayer(oedlayer, n_exp)
+Constructs a MultiExperimentLayer with `n_exp` experiments from a single `OEDLayer`, i.e.,
+all experiments have the same degrees of freedom specified in `oedlayer`.
+"""
+function MultiExperimentLayer(oedlayer::OEDLayer, n_exp::Int)
+    fixed = is_fixed(oedlayer)
+    MultiExperimentLayer{fixed, OEDLayer}(oedlayer, n_exp)
 end
 
+"""
+    MultiExperimentLayer(oedlayers...)
+Constructs a MultiExperimentLayer several `OEDLayer`, i.e., different experiments may have
+different degrees of freedom specified in their respective `OEDLayer`.
+"""
 function MultiExperimentLayer(layers::OEDLayer...)
     fixed = all(is_fixed.(layers))
     n = length(layers)
@@ -120,47 +136,50 @@ end
     end
 end
 
-
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, OEDLayer})
+function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_ps    = Tuple([LuxCore.initialparameters(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+    exp_ps = begin
+        if isa(multiexp.layers, Tuple)
+            Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialparameters(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        end
+    end
     NamedTuple{exp_names}(exp_ps)
 end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, OEDLayer})
+function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_st    = Tuple([LuxCore.initialstates(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+    exp_st = begin
+        if isa(multiexp.layers, Tuple)
+            Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialstates(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        end
+    end
     NamedTuple{exp_names}(exp_st)
 end
 
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, <:Tuple})
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_ps    = Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_ps)
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, <:Tuple})
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_st    = Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_st)
-end
-
-get_bounds(layer::MultiExperimentLayer{<:Any, OEDLayer}) = begin
+get_bounds(layer::MultiExperimentLayer) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do _
-        get_bounds(layer.layers)
+    exp_bounds = begin
+        if isa(layer.layers, Tuple)
+            map(Tuple(1:layer.n_exp)) do i
+                get_bounds(layer.layers[i])
+            end
+        else
+            map(Tuple(1:layer.n_exp)) do _
+                get_bounds(layer.layers)
+            end
+        end
     end
     ComponentArray(NamedTuple{exp_names}(first.(exp_bounds))), ComponentArray(NamedTuple{exp_names}(last.(exp_bounds)))
 end
 
-get_bounds(layer::MultiExperimentLayer{<:Any, <:Tuple}) = begin
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        get_bounds(layer.layers[i])
-    end
-    ComponentArray(NamedTuple{exp_names}(first.(exp_bounds))), ComponentArray(NamedTuple{exp_names}(last.(exp_bounds)))
-end
-
+"""
+$(METHODLIST)
+Returns the function to evaluate shooting constraints for the `MultiExperimentLayer`.
+"""
 function get_shooting_constraints(layer::MultiExperimentLayer)
     @assert typeof(layer.layers.layer) <: MultipleShootingLayer "Shooting constraints are only available for MultipleShootingLayer."
     shooting_contraints = get_shooting_constraints(layer.layers)
@@ -177,7 +196,12 @@ function get_shooting_constraints(layer::MultiExperimentLayer)
     return matching
 end
 
-
+"""
+$(METHODLIST)
+Computes the block structure as defined by the `MultiExperimentLayer`, which may come from
+two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
+experiment level.
+"""
 function get_block_structure(layer::MultiExperimentLayer)
     blocks = begin
         if isa(layer.layers, Tuple)
@@ -200,6 +224,11 @@ function get_block_structure(layer::MultiExperimentLayer)
 end
 
 
+"""
+$(METHODLIST)
+Initializes all variables of the different experiments defined in the `MultiExperimentLayer`
+according to the used initialization `f`.
+"""
 function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiExperimentLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables= isa(layer.layers, Tuple) ? eachindex(first(layer.layers).problem.u0) : eachindex(get_problem(layer.layers.layer).u0),

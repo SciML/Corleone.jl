@@ -19,6 +19,8 @@ end
 """
     InformationGain(oedlayer, u_opt; F=nothing)
 Computes local and global information gain matrices for single `OEDLayer` and the solution `u_opt`.
+If `F` is supplied it will be used for the scaling in the global information gain, otherwise
+will be calculated from the solution.
 """
 function InformationGain(layer::OEDLayer, u_opt; F=nothing)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
