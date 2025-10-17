@@ -177,42 +177,132 @@ init_dae = init(prob, DFBDF())
 
 prob = DAEProblem{false}(berty, init_dae.du, init_dae.u, tspan, p_new,
         initializealg = NoInit(),
-        abstol=1e-8, reltol=1e-6,
+        #abstol=1e-8, reltol=1e-6,
         sensealg = AutoFiniteDiff(),
         differential_vars = ones(Bool, 7))
-        #, initializealg = BrownFullBasicInit())
 sol = solve(prob, DFBDF())
 plot(sol)
 
+## Optimize only sampling times with all else fixed
 layer = OEDLayer(prob, DFBDF(); params=[16], observed = (u,p,t) -> u[1:1]);
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
-@btime layer.layer.problem.f(layer.layer.problem.du0, layer.layer.problem.u0, layer.layer.problem.p, 0.0)
+layer.layer.problem.f(layer.layer.problem.du0, layer.layer.problem.u0, layer.layer.problem.p, 0.0)
 
 sol = solve(layer.layer.problem, DFBDF())
+plot(sol)
 
 sols, _ = layer(nothing, pc, st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[plot!(ax, sols.t, solu) for solu in eachrow(sols.u)]
+[plot!(ax, sols.t, solu) for solu in eachrow(Array(sols))]
+f
 
 crit = ACriterion()
 ACrit = crit(layer)
 ACrit(pc, nothing)
 
 
+sampling_cons = let ax = getaxes(pc), dt = diff(first(layer.layer.controls).t)[1]
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        res .= sum(ps.controls) * dt
+    end
+end
+
+optfun = OptimizationFunction(
+    ACrit, AutoForwardDiff(), cons = sampling_cons
+)
+
+optprob = OptimizationProblem(
+    optfun, collect(pc), lb = collect(lb), ub = collect(ub), lcons=zeros(1), ucons=[360.0]
+)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+     tol = 1e-10,
+     hessian_approximation = "limited-memory",
+     max_iter = 300
+)
+
+
+IG = InformationGain(layer, uopt)
+multiplier = uopt.original.inner.mult_g
+
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], title="States")
 ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
-ax2 = CairoMakie.Axis(f[1,2], title="FIM")
-ax3 = CairoMakie.Axis(f[2,2])
+ax2 = CairoMakie.Axis(f[1,2], title="Information Gain")
+ax3 = CairoMakie.Axis(f[2,2], title="Sampling")
 [plot!(ax, sol.t,  _sol) for _sol in eachrow(Array(sol))[1:7]]
-[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.sensitivity_variables(oed_berty)[:]])))]
-[plot!(ax2, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.fisher_variables(oed_berty)])))]
-#stairs!(ax, control.t, (uopt + zero(p)).controls[1:length(control.t)])
-#stairs!(ax3, control.t, (uopt + zero(p)).controls[length(control.t)+1:2*length(control.t)])
-#stairs!(ax3, control.t, (uopt + zero(p)).controls[2*length(control.t)+1:3*length(control.t)])
+[plot!(ax1, sol.t, _sol) for _sol in eachrow(reduce(hcat, (sol[Corleone.sensitivity_variables(layer)[:]])))]
+plot!(ax2, IG.t, tr.(IG.global_information_gain[1]))
+hlines!(ax2, multiplier)
+stairs!(ax3, first(layer.layer.controls).t, (uopt + zero(pc)).controls)
+f
+
+## Optimize temperature and feeds along with sampling times
+control = ControlParameter(0.:600:6600., name=:temperature, controls = T * ones(12), bounds=(470.,530.))
+
+co_feed = ControlParameter(0.:900:6300.0, name=:feed_co, controls = feed_c0 * ones(8), bounds=(0.,1.))
+co2_feed = ControlParameter(0.:900:6300.0, name=:feed_co2, controls = feed_c02 * ones(8), bounds=(0.,1.))
+h2_feed = ControlParameter(0.:900:6300.0, name=:feed_h2, controls = feed_h2 * ones(8), bounds=(0.,1.))
+n2_feed = ControlParameter(0.:900:6300.0, name=:feed_n2, controls = feed_n2 * ones(8), bounds=(0.,1.))
+
+layer = OEDLayer(prob, DFBDF(); params=[18,20], observed = (u,p,t) -> u[1:4],
+             controls=(control, co2_feed, co_feed, h2_feed, n2_feed), control_indices = [1,4,5,6,8]);
+ps, st = LuxCore.setup(Random.default_rng(), layer)
+pc = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(layer)
+
+nc = map(x -> length(x.t), layer.layer.controls)
+
+
+sampling_cons_with_T = let ax = getaxes(pc), dt = diff(layer.layer.controls[end].t)[1]
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        feed = [ps.controls[12+i] + ps.controls[20+i] + ps.controls[28+i] + ps.controls[36+i] for i=1:8]
+        sampling = [sum(ps.controls[44+(i-1)*100+1:44+i*100]) * dt for i=1:layer.dimensions.nh]
+        res .= vcat(feed, sampling)
+    end
+end
+
+sampling_cons_with_T(zeros(12), pc, nothing)
+
+optfun = OptimizationFunction(
+    ACriterion()(layer), AutoForwardDiff(), cons = sampling_cons_with_T
+)
+
+lbc = vcat(ones(8), zeros(4))
+ubc = vcat(ones(8), zeros(4) .+ 1200)
+
+optprob = OptimizationProblem(
+    optfun, collect(ComponentArray(ps)), lb = collect(lb), ub = collect(ub), lcons=lbc, ucons=ubc
+)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+     #tol = 1e-10,
+     hessian_approximation = "limited-memory",
+     max_iter = 5
+)
+
+Corleone.fim(layer, uopt)
+sols, _ = layer(nothing, uopt + zero(pc), st)
+IG = InformationGain(layer, uopt)
+multiplier = uopt.original.inner.mult_g
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1], title="States")
+ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
+ax2 = CairoMakie.Axis(f[1,2], title="Information Gain")
+ax3 = CairoMakie.Axis(f[2,2], title="Sampling")
+ax4 = CairoMakie.Axis(f[3,1], title="Temperature")
+[plot!(ax, sols.t,  _sol) for _sol in eachrow(Array(sols))[1:7]]
+[plot!(ax1, sols.t, _sol) for _sol in eachrow(reduce(hcat, (sols[Corleone.sensitivity_variables(layer)[:]])))]
+[plot!(ax2, IG.t, tr.(GIG)) for GIG in IG.global_information_gain]
+hlines!(ax2, multiplier)
+stairs!(ax4, layer.layer.controls[1].t, (uopt + zero(pc)).controls[1:12])
+[stairs!(ax3, layer.layer.controls[2].t, (uopt + zero(pc)).controls[nc[i]+1:nc[i]+nc[i+1]]) for i=1:length(nc)-1]
 f
