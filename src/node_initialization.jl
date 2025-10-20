@@ -1,3 +1,8 @@
+"""
+$(TYPEDEF)
+
+Basetype for all initialization methods for multiple shooting node variables.
+"""
 abstract type AbstractNodeInitialization end
 
 """

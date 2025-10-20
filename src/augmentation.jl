@@ -1,3 +1,10 @@
+"""
+$(METHODLIST)
+
+Augments the `prob` with the equations for the sensitivities of `params` and the Fisher
+information matrix. This method is used in cases, when the states and sensitivities are
+not constant.
+"""
 function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
@@ -78,6 +85,14 @@ function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
+"""
+$(METHODLIST)
+
+Augments the `prob` with the equations for the sensitivities of `params` and the Fisher
+information matrix. This method is used in cases when the states and sensitivities are
+constant. Thus, unweighted contributions of all measurement
+functions to the FIM need to be added for a simplified optimization problem later on.
+"""
 function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
@@ -333,7 +348,6 @@ end
 Returns the symbols of all unweighted Fisher information matrix variables of observation
 function `observed_idx` in `layer`.
 Used for indexing of solutions in cases, when `layer` is fixed.
-See also [``Corleone.is_fixed``](@ref).
 """
 function observed_sensitivity_product_variables(layer::SingleShootingLayer, observed_idx::Int)
     string_idx = string(observed_idx)
