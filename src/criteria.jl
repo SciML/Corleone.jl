@@ -1,32 +1,32 @@
 abstract type AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the ACriterion, e.g., tr(F^-1))
+Implements the ACriterion, i.e., ``\\textrm{tr}(F^{-1})\``.
 """
 struct ACriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the DCriterion, e.g., det(F^-1))
+Implements the DCriterion, i.e., ``\\det(F^{-1})\``.
 """
 struct DCriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the ECriterion, e.g., max{λ: λ is eigenvalue of F^-1}
+Implements the ECriterion, i.e., ``\\max\\{\\lambda: \\lambda \\textrm{ is eigenvalue of } F^{-1}\\}\``.
 """
 struct ECriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the FisherACriterion, e.g., -tr(F))
+Implements the FisherACriterion, i.e., ``-\\textrm{tr}(F)\``
 """
 struct FisherACriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the FisherDCriterion, e.g., -det(F))
+Implements the FisherDCriterion, i.e., -``\\det(F)\``.
 """
 struct FisherDCriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Implements the FisherECriterion, e.g., -min{λ: λ is eigenvalue of F}
+Implements the FisherECriterion, i.e., -``\\min\\{\\lambda: \\lambda \\textrm{ is eigenvalue of } F\\}\``.
 """
 struct FisherECriterion <: AbstractCriterion end
 
