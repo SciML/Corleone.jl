@@ -57,21 +57,3 @@ end
 function (crit::FisherECriterion)(F::Symmetric)
     -minimum(eigvals(F))
 end
-
-function fim(layer::SingleShootingLayer, sols::DiffEqArray)
-    f_sym = Corleone.fisher_variables(layer)
-    Corleone.symmetric_from_vector(sols[f_sym][end])
-end
-
-function fim(layer::MultipleShootingLayer, sols::EnsembleSolution)
-    f_sym = Corleone.fisher_variables(layer)
-    Corleone.symmetric_from_vector(last(sols)[f_sym][end])
-end
-
-(crit::AbstractCriterion)(layer::SingleShootingLayer, sols::DiffEqArray) = begin
-    crit(fim(layer, sols))
-end
-
-(crit::AbstractCriterion)(layer::MultipleShootingLayer, sols::EnsembleSolution) = begin
-    crit(fim(layer, sols))
-end

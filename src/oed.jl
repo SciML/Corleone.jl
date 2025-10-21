@@ -133,7 +133,22 @@ LuxCore.initialstates(rng::Random.AbstractRNG, layer::OEDLayer) = LuxCore.initia
 function (layer::OEDLayer)(::Any, ps, st)
     layer.layer(nothing, ps, st)
 end
+function (init::AbstractNodeInitialization)(rng::AbstractRNG, layer::OEDLayer; kwargs...)
+    init(rng, layer.layer; kwargs...)
+end
+"""
+    get_bounds(layer)
+Return lower and upper bounds of all variables associated to `layer`.
+"""
+get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
+get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
+get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
+sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
+fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
+observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
+
+### Methods to evaluate an AbstractCriterion for an OEDLayer
 (crit::AbstractCriterion)(oedlayer::OEDLayer{true, <:SingleShootingLayer, <:Any, <:Any}) = begin
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
@@ -167,20 +182,11 @@ end
     end
 end
 
-function (init::AbstractNodeInitialization)(rng::AbstractRNG, layer::OEDLayer; kwargs...)
-    init(rng, layer.layer; kwargs...)
+(crit::AbstractCriterion)(layer::Union{SingleShootingLayer,MultipleShootingLayer}, sols::Union{DiffEqArray,EnsembleSolution}) = begin
+    crit(fim(layer, sols))
 end
-"""
-    get_bounds(layer)
-Return lower and upper bounds of all variables associated to `layer`.
-"""
-get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
-get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
-get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
-sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
-fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
-observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
+### Methods to predict the Fisher information matrix for an OEDLayer
 """
 $(METHODLIST)
 Compute Fisher information matrix for given iterate `p`.
@@ -223,7 +229,5 @@ function fim(oedlayer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sol
 end
 
 function fim(oedlayer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
-    sum(map(enumerate(oedlayer.layers)) do (i,_layer)
-        fim(_layer, sols[i])
-    end)
+    fim(last(oedlayer.layer.layers), last(sols))
 end
