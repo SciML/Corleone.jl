@@ -250,7 +250,5 @@ function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiEx
             end
         end
     end
-
     return NamedTuple{exp_names}(ps_init), st
-
 end

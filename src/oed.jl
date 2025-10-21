@@ -147,9 +147,68 @@ sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
 fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
 observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
+### Methods to evaluate the Fisher information matrix for an OEDLayer
+"""
+$(METHODLIST)
+Compute Fisher information matrix for given iterate `p`.
+"""
+function fim(oedlayer::OEDLayer{true, <:Any, <:Any, <:Any}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    sols, _ = oedlayer(nothing, ps, st)
+    nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
+    tinf = last(oedlayer.layer.problem.tspan)
+    Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
+        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
+        wts= vcat(sampling.t, tinf) |> unique!
+        idxs = findall(x -> x in wts, sols.t)
+        diff(sols[Fi][idxs])
+    end
+
+    ax = getaxes(ComponentArray(ps))
+    ps = ComponentArray(p, ax)
+    F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        local_sampling = ps.controls[idx_start+1:idx_end]
+        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+            F_it * wit
+        end)
+    end))
+
+    return F
+end
+
+function fim(layer::SingleShootingLayer, sols::DiffEqArray)
+    f_sym = Corleone.fisher_variables(layer)
+    Corleone.symmetric_from_vector(sols[f_sym][end])
+end
+
+function fim(layer::MultipleShootingLayer, sols::EnsembleSolution)
+    f_sym = Corleone.fisher_variables(layer)
+    Corleone.symmetric_from_vector(last(sols)[f_sym][end])
+end
+
+function fim(oedlayer::OEDLayer{false}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    sols, _ = oedlayer(nothing, p + zero(ComponentArray(ps)), st)
+    fim(oedlayer.layer, sols)
+end
+"""
+$(METHODLIST)
+Compute Fisher information matrix for given solution of layer `sols`.
+"""
+function fim(oedlayer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
+    fim(oedlayer.layer, sols)
+end
+
+function fim(oedlayer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
+    fim(last(oedlayer.layer.layers), last(sols))
+end
 
 ### Methods to evaluate an AbstractCriterion for an OEDLayer
-(crit::AbstractCriterion)(oedlayer::OEDLayer{true, <:SingleShootingLayer, <:Any, <:Any}) = begin
+(crit::AbstractCriterion)(layer::Union{SingleShootingLayer,MultipleShootingLayer}, sols::Union{DiffEqArray,EnsembleSolution}) = begin
+    crit(fim(layer, sols))
+end
+
+(crit::AbstractCriterion)(oedlayer::OEDLayer{true}) = begin
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
@@ -180,54 +239,4 @@ end
         sol, _ = layer(nothing, ps, st)
         crit(layer, sol)
     end
-end
-
-(crit::AbstractCriterion)(layer::Union{SingleShootingLayer,MultipleShootingLayer}, sols::Union{DiffEqArray,EnsembleSolution}) = begin
-    crit(fim(layer, sols))
-end
-
-### Methods to predict the Fisher information matrix for an OEDLayer
-"""
-$(METHODLIST)
-Compute Fisher information matrix for given iterate `p`.
-"""
-function fim(oedlayer::OEDLayer{true, <:Any, <:Any, <:Any}, p::AbstractArray)
-    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
-    sols, _ = oedlayer(nothing, ps, st)
-    nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
-    tinf = last(oedlayer.layer.problem.tspan)
-    Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
-        wts= vcat(sampling.t, tinf) |> unique!
-        idxs = findall(x -> x in wts, sols.t)
-        diff(sols[Fi][idxs])
-    end
-
-    ax = getaxes(ComponentArray(ps))
-    ps = ComponentArray(p, ax)
-    F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
-        local_sampling = ps.controls[idx_start+1:idx_end]
-        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
-            F_it * wit
-        end)
-    end))
-
-    return F
-end
-
-function fim(oedlayer::OEDLayer{false}, p::AbstractArray)
-    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
-    sols, _ = oedlayer(nothing, p + zero(ComponentArray(ps)), st)
-    fim(oedlayer.layer, sols)
-end
-"""
-$(METHODLIST)
-Compute Fisher information matrix for given solution of layer `sols`.
-"""
-function fim(oedlayer::OEDLayer{false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
-    fim(oedlayer.layer, sols)
-end
-
-function fim(oedlayer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
-    fim(last(oedlayer.layer.layers), last(sols))
 end
