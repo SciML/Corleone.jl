@@ -120,43 +120,61 @@ end
     end
 end
 
-
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, OEDLayer})
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_ps    = Tuple([LuxCore.initialparameters(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_ps)
+function fim(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
+    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
+    sum(map(1:multilayer.n_exp) do i
+        local_p = getproperty(_p, Symbol("experiment_$i"))
+        fim(multilayer.layers, local_p)
+    end)
 end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, OEDLayer})
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_st    = Tuple([LuxCore.initialstates(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_st)
+function fim(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
+    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
+    sum(map(1:multilayer.n_exp) do i
+        local_p = getproperty(_p, Symbol("experiment_$i"))
+        fim(multilayer.layers[i], local_p)
+    end)
 end
 
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, <:Tuple})
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_ps    = Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_ps)
-end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer{<:Any, <:Tuple})
+function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_st    = Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-    NamedTuple{exp_names}(exp_st)
-end
-
-get_bounds(layer::MultiExperimentLayer{<:Any, OEDLayer}) = begin
-    exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do _
-        get_bounds(layer.layers)
+    exp_ps    = begin
+        if isa(multiexp.layers, OEDLayer)
+            Tuple([LuxCore.initialparameters(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
+        end
     end
-    ComponentArray(NamedTuple{exp_names}(first.(exp_bounds))), ComponentArray(NamedTuple{exp_names}(last.(exp_bounds)))
+    NamedTuple{exp_names}(exp_ps)
 end
 
-get_bounds(layer::MultiExperimentLayer{<:Any, <:Tuple}) = begin
+function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
+    exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
+    exp_st    = begin
+        if isa(multiexp.layers, OEDLayer)
+            Tuple([LuxCore.initialstates(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
+        end
+    end
+    NamedTuple{exp_names}(exp_st)
+end
+
+get_bounds(layer::MultiExperimentLayer) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        get_bounds(layer.layers[i])
+    exp_bounds = begin
+        if isa(layer.layers, OEDLayer)
+            map(Tuple(1:layer.n_exp)) do _
+                get_bounds(layer.layers)
+            end
+        else
+            map(Tuple(1:layer.n_exp)) do i
+                get_bounds(layer.layers[i])
+            end
+        end
     end
     ComponentArray(NamedTuple{exp_names}(first.(exp_bounds))), ComponentArray(NamedTuple{exp_names}(last.(exp_bounds)))
 end
