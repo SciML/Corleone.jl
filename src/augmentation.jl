@@ -173,13 +173,15 @@ end
 
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                 params = get_params(layer),
-                observed::Function = (u,p,t) -> u[eachindex(get_problem(layer).u0)])
+                observed::Function = (u,p,t) -> u[eachindex(get_problem(layer).u0)],
+                measurement_points=nothing)
 
     prob = get_problem(layer)
     tspan = get_tspan(layer)
     _, control_indices = get_controls(layer)
     fixed = is_fixed(layer)
-    fixed && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
+    discrete = !isnothing(measurement_points)
+    (fixed || discrete) && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 end
@@ -187,18 +189,19 @@ end
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
         params = get_params(layer),
         observed::Function=(u,p,t) -> u[eachindex(get_problem(layer).u0)],
-        dt = isnothing(layer.controls) ? (-)(reverse(get_tspan(layer))...)/100 : first(diff(first(get_controls(layer)[1]).t)))
+        dt = isnothing(layer.controls) ? (-)(reverse(get_tspan(layer))...)/100 : first(diff(first(get_controls(layer)[1]).t)),
+        measurement_points = nothing)
 
     prob_original = get_problem(layer)
     nh = length(observed(prob_original.u0, prob_original.p, prob_original.tspan[1]))
-    prob = augment_dynamics_for_oed(layer; params = params, observed=observed)
+    prob = augment_dynamics_for_oed(layer; params = params, observed=observed, measurement_points=measurement_points)
     controls, control_idxs = get_controls(layer)
     tspan = get_tspan(layer)
     np = length(prob.p)
     control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
 
     tunable_ic = get_tunable(layer)
-    timegrid = collect(first(tspan):dt:last(tspan))[1:end-1]
+    timegrid = isnothing(measurement_points) ? collect(first(tspan):dt:last(tspan))[1:end-1] : measurement_points
     sampling_controls = map(Tuple(1:nh)) do i
         ControlParameter(timegrid, name=Symbol("w_$i"), controls=ones(length(timegrid)), bounds=(0.,1.))
     end
@@ -208,12 +211,7 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
             isnothing(controls) ? [] : controls
         else
             if !isnothing(controls)
-                map(controls) do ci
-                    ## This is not completely correct. The situation is that we have a MS-Layer with its controls and defaults and so on
-                    ## And now we need to make a new MS-Layer but with the sampling controls added.
-                    ## Hence we would need to collect all defaults and bounds from the controls of the different single shooting layers here.
-                    ControlParameter(timegrid, name=ci.name, controls=zeros(length(timegrid)), bounds=ci.bounds)
-                end
+                merge_ms_controls(layer)
             end
         end
     end
@@ -231,7 +229,6 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
         return MultipleShootingLayer(prob, first(layer.layers).algorithm, control_indices, new_controls, points;
                     tunable_ic = tunable_ic, bounds_ic = first(layer.layers).bounds_ic, bounds_nodes = (aug_nodes_lb,aug_nodes_ub))
     end
-
 end
 
 function symmetric_from_vector(x::AbstractArray)
