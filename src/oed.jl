@@ -130,45 +130,54 @@ end
 
 function fim(oedlayer::OEDLayer{true, true}, p::AbstractArray)
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
-    sols, _ = oedlayer(nothing, ps, st)
+    ax = getaxes(ComponentArray(ps))
+    _p = ComponentArray(p, ax)
+    sols, _ = oedlayer(nothing, _p, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
+        Gi = sensitivity_variables(oedlayer)
         idxs = findall(x -> x in sampling.t, sols.t)
-        sols[Fi][idxs]
+        sol_t = sols[idxs]
+        sol_Gs = sols[Gi][idxs]
+        map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
+            gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], oedlayer.layer.problem.p, ti)[i:i,:] * sol_Gi
+            gram' * gram
+        end
     end
 
-    ax = getaxes(ComponentArray(ps))
-    ps = ComponentArray(p, ax)
-    F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+    F = sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
         local_sampling = ps.controls[idx_start+1:idx_end]
         sum(map(zip(F_i, local_sampling)) do (F_it, wit)
             F_it * wit
         end)
-    end))
+    end)
 
     return F
 end
 
-function fim(layer::OEDLayer{false, true}, p::AbstractArray)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sols, _ = layer(nothing, p + zero(ComponentArray(ps)), st)
-    nc = vcat(0, cumsum(map(x -> length(x.t), layer.layer.controls))...)
-    nh = layer.dimensions.nh
-    Fs = map(enumerate(layer.layer.controls[end-nh+1:end])) do (i,sampling) # Last nh controls are sampling
-        Fi = observed_sensitivity_product_variables(layer.layer, i)
+function fim(oedlayer::OEDLayer{false, true}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
+    sols, _ = oedlayer(nothing, _p, st)
+    nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
+    nh = oedlayer.dimensions.nh
+    Fs = map(enumerate(oedlayer.layer.controls[end-nh+1:end])) do (i,sampling) # Last nh controls are sampling
+        Gi = sensitivity_variables(oedlayer)
         idxs = findall(x -> x in sampling.t, sols.t)
-        sols[Fi][idxs]
+        sol_t = sols[idxs]
+        sol_Gs = sols[Gi][idxs]
+        map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
+            gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], oedlayer.layer.problem.p, ti)[i:i,:] * sol_Gi
+            gram' * gram
+        end
     end
 
-    ax = getaxes(ComponentArray(ps))
-    ps = ComponentArray(p, ax)
-    F = symmetric_from_vector(sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
-        local_sampling = ps.controls[idx_start+1:idx_end]
+    F = sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
+        local_sampling = _p.controls[idx_start+1:idx_end]
         sum(map(zip(F_i, local_sampling)) do (F_it, wit)
             F_it * wit
         end)
-    end))
+    end)
 
     return F
 end
@@ -227,20 +236,32 @@ end
     sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-        Fi = observed_sensitivity_product_variables(oedlayer.layer, i)
+        Gi = sensitivity_variables(oedlayer)
         idxs = findall(x -> x in sampling.t, sols.t)
-        sols[Fi][idxs]
+        sol_t = sols[idxs]
+        sol_Gs = sols[Gi][idxs]
+        map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
+            gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], oedlayer.layer.problem.p, ti)[i:i,:] * sol_Gi
+            gram' * gram
+        end
     end
 
     (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc
         ps = ComponentArray(p, ax)
-        F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        F = sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
             local_sampling = ps.controls[idx_start+1:idx_end]
             sum(map(zip(F_i, local_sampling)) do (F_it, wit)
                 F_it * wit
             end)
-        end))
+        end)
         crit(F)
+    end
+end
+
+
+function (crit::AbstractCriterion)(oedlayer::OEDLayer{false, true})
+    (p, ::Any) -> let layer=oedlayer
+        crit(fim(layer, p))
     end
 end
 
