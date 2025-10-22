@@ -43,21 +43,22 @@ end
     p_wo_c = ComponentArray(ps_wo_c)
     p_w_c = ComponentArray(ps_w_c)
 
-    F_init = 49.48602824180152
+    C_init = 49.48602824180152
 
     for crit in crits
         sols_w_c, _ = oedlayer_w_c(nothing, p_w_c, st_w_c)
+        @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
+        @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
         if crit in [ACriterion(), DCriterion(), ECriterion()]
-            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), F_init, atol=1e-6)
-            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), F_init, atol=1e-6)
-            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), F_init, atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), C_init, atol=1e-6)
+            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), C_init, atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), C_init, atol=1e-6)
         else
-            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), -inv(F_init), atol=1e-6)
-            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), -inv(F_init), atol=1e-6)
-            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), -inv(F_init), atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), -inv(C_init), atol=1e-6)
+            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), -inv(C_init), atol=1e-6)
+            @test isapprox(crit(oedlayer_w_c.layer, sols_w_c), -inv(C_init), atol=1e-6)
         end
     end
-
 end
 
 @testset "Discrete OED: fixed and with controls" begin
@@ -86,16 +87,19 @@ end
     p_wo_c = ComponentArray(ps_wo_c)
     p_w_c = ComponentArray(ps_w_c)
 
-    F_init = 43.49250925534693
+    C_init = 43.49250925534693
 
     for crit in crits
         sols_w_c, _ = oedlayer_w_c(nothing, p_w_c, st_w_c)
+        @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
+        @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
+
         if crit in [ACriterion(), DCriterion(), ECriterion()]
-            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), F_init, atol=1e-4)
-            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), F_init, atol=1e-4)
+            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), C_init, atol=1e-4)
+            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), C_init, atol=1e-4)
         else
-            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), -inv(F_init), atol=1e-4)
-            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), -inv(F_init), atol=1e-4)
+            @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), -inv(C_init), atol=1e-4)
+            @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), -inv(C_init), atol=1e-4)
         end
     end
 
