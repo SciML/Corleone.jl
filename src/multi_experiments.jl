@@ -39,7 +39,7 @@ end
 
     pred_fim = fim(multilayer.layers)
 
-    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), nexp = multilayer.n_exp
+    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), nexp = multilayer.n_exp, pred_fim=pred_fim
         ps = ComponentArray(p, ax)
         F = sum(map(1:nexp) do i
             local_p = getproperty(ps, Symbol("experiment_$i"))
@@ -55,10 +55,10 @@ end
         fim(layer)
     end
 
-    (p, ::Any) -> let ax = getaxes(ComponentArray(ps))
-        ps = ComponentArray(p, ax)
+    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), fims=fims
+        _p = ComponentArray(p, ax)
         F = sum(map(enumerate(fims)) do (i,local_fim)
-            local_p = getproperty(ps, Symbol("experiment_$i"))
+            local_p = getproperty(_p, Symbol("experiment_$i"))
             local_fim(local_p, nothing)
         end)
         return crit(F)
