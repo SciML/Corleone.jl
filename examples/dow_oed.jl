@@ -190,9 +190,11 @@ lb_multi, ub_multi = Corleone.get_bounds(multi_layer)
 
 crit = ACriterion()
 ACrit = crit(multi_layer)
-ACrit(ps_multi, st)
+ACrit(ps_multi, nothing)
 
-sampling_cons_single = let nexp = multi_layer.n_exp, nc=ACrit.nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
+nc = [vcat(0, cumsum([length(x.t) for x in layer.layer.controls])) for layer in multi_layer.layers]
+
+sampling_cons_single = let nexp = multi_layer.n_exp, nc=nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         samplings = reduce(vcat, map(1:nexp) do i
@@ -203,7 +205,7 @@ sampling_cons_single = let nexp = multi_layer.n_exp, nc=ACrit.nc, st = st, dt = 
     end
 end
 
-sampling_cons_multi = let nexp = multi_layer.n_exp, nc=ACrit.nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
+sampling_cons_multi = let nexp = multi_layer.n_exp, nc=nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         samplings = reduce(vcat, map(1:nexp) do i
