@@ -145,7 +145,7 @@ end
 Return lower and upper bounds of all variables associated to `layer`.
 """
 get_bounds(layer::OEDLayer) = get_bounds(layer.layer)
-get_shooting_constraints(layer::OEDLayer{false, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
+get_shooting_constraints(layer::OEDLayer{false, <:Any, <:MultipleShootingLayer, <:Any, <:Any}) = get_shooting_constraints(layer.layer)
 get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
 sensitivity_variables(layer::OEDLayer) = sensitivity_variables(layer.layer)
 fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
