@@ -50,99 +50,63 @@ function (layer::MultiExperimentLayer{<:Any, <:Tuple})(::Any, ps, st)
     return sols, st
 end
 
-(crit::AbstractCriterion)(multiexp::MultiExperimentLayer, sols::AbstractVector{<:DiffEqArray}) = begin
-    fsym = Corleone.fisher_variables(multiexp.layers.layer)
-    sumF = sum(map(sols) do sol
-        Fi = sol[fsym][end]
-        Fi
-    end)
-    crit(Corleone.symmetric_from_vector(sumF))
-end
-
-(crit::AbstractCriterion)(multiexp::MultiExperimentLayer, sols::AbstractVector{<:EnsembleSolution}) = begin
-    fsym = Corleone.fisher_variables(multiexp.layers.layer)
-    sumF = sum(map(sols) do sol
-        Fi = last(sol)[fsym][end]
-        Fi
-    end)
-    crit(Corleone.symmetric_from_vector(sumF))
-end
-
-(crit::AbstractCriterion)(multilayer::MultiExperimentLayer{true, OEDLayer}) = begin
+(crit::AbstractCriterion)(multilayer::MultiExperimentLayer{<:Any, OEDLayer}) = begin
     ps, st = LuxCore.setup(Random.default_rng(), multilayer)
-    sols, _ = multilayer(nothing, ps, st)
-    nc = vcat(0, cumsum(map(x -> length(x.t), multilayer.layers.layer.controls))...)
-    tinf = last(multilayer.layers.layer.problem.tspan)
-    Fs = map(sols) do sol_i
-            map(enumerate(multilayer.layers.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-            Fi = sort(Corleone.observed_sensitivity_product_variables(multilayer.layers.layer, i), by= x -> split(string(x), "ˏ")[3])
-            wts= vcat(sampling.t, tinf) |> unique!
-            idxs = findall(x -> x in wts, sol_i.t)
-            diff(sol_i[Fi][idxs])
-        end
-    end
 
-    (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc
+    pred_fim = fim(multilayer.layers)
+
+    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), nexp = multilayer.n_exp, pred_fim=pred_fim
         ps = ComponentArray(p, ax)
-        F = symmetric_from_vector(sum(map((enumerate(Fs))) do (i,Fi)
+        F = sum(map(1:nexp) do i
             local_p = getproperty(ps, Symbol("experiment_$i"))
-            sum(map(zip(Fi, nc[1:end-1], nc[2:end])) do (F_hi, idx_start, idx_end)
-                local_sampling = local_p.controls[idx_start+1:idx_end]
-                sum(map(zip(F_hi, local_sampling)) do (F_it, wit)
-                    F_it * wit
-                end)
-            end)
-        end))
+            pred_fim(local_p, nothing)
+        end)
         crit(F)
     end
 end
 
-(crit::AbstractCriterion)(multilayer::MultiExperimentLayer{true, <:Tuple}) = begin
-    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
-    sols, _ = multilayer(nothing, ps, st)
-    nc = [vcat(0, cumsum(map(x -> length(x.t), layer.layer.controls))...) for layer in multilayer.layers]
-    tinfs = [last(layer.layer.problem.tspan) for layer in multilayer.layers]
-    Fs = map(enumerate(sols)) do (j,sol_i)
-            map(enumerate(multilayer.layers[j].layer.controls)) do (i,sampling) # All fixed -> only sampling controls
-            Fi = sort(Corleone.observed_sensitivity_product_variables(multilayer.layers[j].layer, i), by= x -> split(string(x), "ˏ")[3])
-            wts= vcat(sampling.t, tinfs[j]) |> unique!
-            idxs = findall(x -> x in wts, sol_i.t)
-            diff(sol_i[Fi][idxs])
-        end
+(crit::AbstractCriterion)(multilayer::MultiExperimentLayer{<:Any, <:Tuple}) = begin
+    ps, _ = LuxCore.setup(Random.default_rng(), multilayer)
+    fims = map(multilayer.layers) do layer
+        fim(layer)
     end
 
-    (p, ::Any) -> let Fs = Fs, ax = getaxes(ComponentArray(ps)), nc=nc
-        ps = ComponentArray(p, ax)
-        F = symmetric_from_vector(sum(map((enumerate(Fs))) do (i,Fi)
-            local_p = getproperty(ps, Symbol("experiment_$i"))
-            sum(map(zip(Fi, nc[i][1:end-1], nc[i][2:end])) do (F_hi, idx_start, idx_end)
-                local_sampling = local_p.controls[idx_start+1:idx_end]
-                sum(map(zip(F_hi, local_sampling)) do (F_it, wit)
-                    F_it * wit
-                end)
-            end)
-        end))
-        crit(F)
+    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), fims=fims
+        _p = ComponentArray(p, ax)
+        F = sum(map(enumerate(fims)) do (i,local_fim)
+            local_p = getproperty(_p, Symbol("experiment_$i"))
+            local_fim(local_p, nothing)
+        end)
+        return crit(F)
     end
 end
 
-
-(crit::AbstractCriterion)(multilayer::MultiExperimentLayer{false}) = begin
+function fim(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, p::AbstractArray)
     ps, st = LuxCore.setup(Random.default_rng(), multilayer)
-    (p, ::Any) -> let ax = getaxes(ComponentArray(ps)), st = st, layer=multilayer
-        ps = ComponentArray(p, ax)
-        sol, _ = layer(nothing, ps, st)
-        crit(layer, sol)
-    end
+    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
+    sum(map(1:multilayer.n_exp) do i
+        local_p = getproperty(_p, Symbol("experiment_$i"))
+        fim(multilayer.layers, local_p)
+    end)
 end
+
+function fim(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, p::AbstractArray)
+    ps, st = LuxCore.setup(Random.default_rng(), multilayer)
+    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
+    sum(map(1:multilayer.n_exp) do i
+        local_p = getproperty(_p, Symbol("experiment_$i"))
+        fim(multilayer.layers[i], local_p)
+    end)
+end
+
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_ps = begin
-        if isa(multiexp.layers, Tuple)
-            Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-        else
+    exp_ps    = begin
+        if isa(multiexp.layers, OEDLayer)
             Tuple([LuxCore.initialparameters(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialparameters(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
         end
     end
     NamedTuple{exp_names}(exp_ps)
@@ -150,11 +114,11 @@ end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
-    exp_st = begin
-        if isa(multiexp.layers, Tuple)
-            Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
-        else
+    exp_st    = begin
+        if isa(multiexp.layers, OEDLayer)
             Tuple([LuxCore.initialstates(rng, multiexp.layers) for _ in 1:multiexp.n_exp])
+        else
+            Tuple([LuxCore.initialstates(rng, multiexp.layers[i]) for i in 1:multiexp.n_exp])
         end
     end
     NamedTuple{exp_names}(exp_st)
@@ -163,13 +127,13 @@ end
 get_bounds(layer::MultiExperimentLayer) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
     exp_bounds = begin
-        if isa(layer.layers, Tuple)
-            map(Tuple(1:layer.n_exp)) do i
-                get_bounds(layer.layers[i])
-            end
-        else
+        if isa(layer.layers, OEDLayer)
             map(Tuple(1:layer.n_exp)) do _
                 get_bounds(layer.layers)
+            end
+        else
+            map(Tuple(1:layer.n_exp)) do i
+                get_bounds(layer.layers[i])
             end
         end
     end
@@ -222,7 +186,6 @@ function get_block_structure(layer::MultiExperimentLayer)
 
     return block_structure
 end
-
 
 """
 $(METHODLIST)
