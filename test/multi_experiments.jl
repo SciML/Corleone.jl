@@ -87,5 +87,4 @@ end
     F_p1_p2 = Corleone.fim(multilayer_p1_p2, ComponentArray(ps1))
 
     @test isapprox(tr(F_all_p),tr(F_p1_p2), atol=1e-5)
-
 end

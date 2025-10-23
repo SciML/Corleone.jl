@@ -45,10 +45,12 @@ end
 
     C_init = 49.48602824180152
 
+    @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
+    @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
+
     for crit in crits
         sols_w_c, _ = oedlayer_w_c(nothing, p_w_c, st_w_c)
-        @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
-        @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
+
         if crit in [ACriterion(), DCriterion(), ECriterion()]
             @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), C_init, atol=1e-6)
             @test isapprox(crit(oedlayer_wo_c)(p_wo_c, nothing), C_init, atol=1e-6)
@@ -89,10 +91,11 @@ end
 
     C_init = 43.49250925534693
 
+    @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
+    @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
+
     for crit in crits
         sols_w_c, _ = oedlayer_w_c(nothing, p_w_c, st_w_c)
-        @test isapprox(Corleone.fim(oedlayer_w_c, p_w_c)[1,1], inv(C_init), atol=1e-4)
-        @test isapprox(Corleone.fim(oedlayer_wo_c, p_wo_c)[1,1], inv(C_init), atol=1e-4)
 
         if crit in [ACriterion(), DCriterion(), ECriterion()]
             @test isapprox(crit(oedlayer_w_c)(p_w_c, nothing), C_init, atol=1e-4)

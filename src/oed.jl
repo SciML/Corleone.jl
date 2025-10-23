@@ -104,7 +104,7 @@ fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
 observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
 ### Functions to evaluate Fisher information matrices
-function fim(oedlayer::OEDLayer{true, false}, p::AbstractArray)
+function fim(oedlayer::OEDLayer{true, false})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
@@ -116,23 +116,20 @@ function fim(oedlayer::OEDLayer{true, false}, p::AbstractArray)
         diff(sols[Fi][idxs])
     end
 
-    ax = getaxes(ComponentArray(ps))
-    ps = ComponentArray(p, ax)
-    F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
-        local_sampling = ps.controls[idx_start+1:idx_end]
-        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
-            F_it * wit
-        end)
-    end))
-
-    return F
+    (p, ::Any) -> let Fs=Fs, ax=getaxes(ComponentArray(ps)), nc=nc
+        ps = ComponentArray(p, ax)
+        F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+            local_sampling = ps.controls[idx_start+1:idx_end]
+            sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+                F_it * wit
+            end)
+        end))
+    end
 end
 
-function fim(oedlayer::OEDLayer{true, true}, p::AbstractArray)
+function fim(oedlayer::OEDLayer{true, true})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
-    ax = getaxes(ComponentArray(ps))
-    _p = ComponentArray(p, ax)
-    sols, _ = oedlayer(nothing, _p, st)
+    sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     Fs = map(enumerate(oedlayer.layer.controls)) do (i,sampling) # All fixed -> only sampling controls
         Gi = sensitivity_variables(oedlayer)
@@ -145,40 +142,51 @@ function fim(oedlayer::OEDLayer{true, true}, p::AbstractArray)
         end
     end
 
-    F = sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
-        local_sampling = ps.controls[idx_start+1:idx_end]
-        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
-            F_it * wit
+    (p, ::Any) -> let Fs=Fs, ax=getaxes(ComponentArray(ps)), nc=nc
+        ps = ComponentArray(p, ax)
+        F = sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+            local_sampling = ps.controls[idx_start+1:idx_end]
+            sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+                F_it * wit
+            end)
         end)
-    end)
-
-    return F
+    end
 end
 
-function fim(oedlayer::OEDLayer{false, true}, p::AbstractArray)
+function fim(oedlayer::OEDLayer{false, true})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
-    _p = ComponentArray(p, getaxes(ComponentArray(ps)))
-    sols, _ = oedlayer(nothing, _p, st)
+    ax = getaxes(ComponentArray(ps))
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
     nh = oedlayer.dimensions.nh
-    Fs = map(enumerate(oedlayer.layer.controls[end-nh+1:end])) do (i,sampling) # Last nh controls are sampling
-        Gi = sensitivity_variables(oedlayer)
-        idxs = findall(x -> x in sampling.t, sols.t)
-        sol_t = sols[idxs]
-        sol_Gs = sols[Gi][idxs]
-        map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
-            gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], oedlayer.layer.problem.p, ti)[i:i,:] * sol_Gi
-            gram' * gram
+    (p, ::Any) -> let ax=ax, oedlayer=oedlayer, nc=nc, nh=nh
+        ps = ComponentArray(p, ax)
+        sols, _ = oedlayer(nothing, ps, st)
+
+        Fs = map(enumerate(oedlayer.layer.controls[end-nh+1:end])) do (i,sampling) # Last nh controls are sampling
+            Gi = sensitivity_variables(oedlayer)
+            idxs = findall(x -> x in sampling.t, sols.t)
+            sol_t = sols[idxs]
+            sol_Gs = sols[Gi][idxs]
+            map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
+                gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], oedlayer.layer.problem.p, ti)[i:i,:] * sol_Gi
+                gram' * gram
+            end
         end
-    end
 
-    F = sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
-        local_sampling = _p.controls[idx_start+1:idx_end]
-        sum(map(zip(F_i, local_sampling)) do (F_it, wit)
-            F_it * wit
+        F = sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
+            local_sampling = ps.controls[idx_start+1:idx_end]
+            sum(map(zip(F_i, local_sampling)) do (F_it, wit)
+                F_it * wit
+            end)
         end)
-    end)
 
+        return F
+    end
+end
+
+function fim(oedlayer::Union{OEDLayer{true,false},OEDLayer{false,true},OEDLayer{true,true}}, p::AbstractArray)
+    feval = fim(oedlayer)
+    F = feval(p, nothing)
     return F
 end
 
@@ -190,6 +198,15 @@ end
 function fim(layer::MultipleShootingLayer, sols::EnsembleSolution)
     f_sym = Corleone.fisher_variables(layer)
     Corleone.symmetric_from_vector(last(sols)[f_sym][end])
+end
+
+function fim(layer::OEDLayer{false, false})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    (p, ::Any) -> let ax=getaxes(ComponentArray(ps)), oedlayer=layer
+        ps = ComponentArray(p, ax)
+        sols, _ = oedlayer(nothing, ps, st)
+        fim(oedlayer.layer, sols)
+    end
 end
 
 function fim(layer::OEDLayer{false, false}, p::AbstractArray)
