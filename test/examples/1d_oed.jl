@@ -46,24 +46,27 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
+@testset "Convergence" begin
+    @test SciMLBase.successful_retcode(uopt)
+end
 
-@test SciMLBase.successful_retcode(uopt)
+@testset "Information gain: Optimality criteria" begin
+    IG = InformationGain(ol, uopt.u)
 
-IG = InformationGain(ol, uopt.u)
+    multiplier = uopt.original.inner.mult_g
 
-multiplier = uopt.original.inner.mult_g
+    optimality = tr.(IG.global_information_gain[1])
 
-optimality = tr.(IG.global_information_gain[1])
+    idxs_opt = optimality .> multiplier[1]
+    t_optimality = IG.t[idxs_opt]
+    @test !isempty(t_optimality)
+    @test all(0.4 .<= t_optimality .<= 0.6)
 
-idxs_opt = optimality .> multiplier[1]
-t_optimality = IG.t[idxs_opt]
-@test !isempty(t_optimality)
-@test all(0.4 .<= t_optimality .<= 0.6)
+    wopt = (uopt + zero(p)).controls
 
-wopt = (uopt + zero(p)).controls
+    idxs_w = wopt .> 0.99
 
-idxs_w = wopt .> 0.99
+    t_sampling = ol.layer.controls[1].t[idxs_w]
 
-t_sampling = ol.layer.controls[1].t[idxs_w]
-
-@test all( 0.4 .<= t_sampling .<= 0.6)
+    @test all( 0.4 .<= t_sampling .<= 0.6)
+end
