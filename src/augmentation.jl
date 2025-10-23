@@ -78,7 +78,7 @@ function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
-function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
+function augment_dynamics_unweighted_fisher(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
 
@@ -171,34 +171,108 @@ function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
+function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
+            tspan=prob.tspan, control_indices = Int64[],
+            params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
+
+   is_dae = isa(prob, SciMLBase.DAEProblem)
+    u0 = prob.u0
+    nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
+
+    iip = SciMLBase.isinplace(prob)
+    _dx = Symbolics.variables(:dx, 1:nx)
+    _x = Symbolics.variables(:x, 1:nx)
+    _p = Symbolics.variables(:p, 1:np)
+    _t = Symbolics.variable(:t)
+
+    _dynamics = begin
+        if iip
+            if !is_dae
+                prob.f.f(_dx, _x, _p, _t)
+                _dx
+            else
+                out = Symbolics.variables(:out, 1:nx)
+                prob.f.f(out, _dx, _x, _p, _t)
+                out
+            end
+        else
+            if !is_dae
+                prob.f.f(_x, _p, _t)
+            else
+                prob.f.f(_dx, _x, _p, _t)
+            end
+        end
+    end
+
+    _dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
+    _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
+
+    dfdx = Symbolics.jacobian(_dynamics, _x)
+    dfddx = Symbolics.jacobian(_dynamics, _dx)
+    dfdp = Symbolics.jacobian(_dynamics, _p[params])
+
+    dGdt = is_dae ?  dfdp + dfdx * _G  + dfddx * _dG : dfdp + dfdx * _G
+    _obs = observed(_x, _p, _t)
+    _w = Symbolics.variables(:w, 1:length(_obs))
+
+    differential_variables_ = vcat(_dx, _dG[:])
+    variables_ = vcat(_x, _G[:])
+    parameters_ = vcat(_p,_w)
+    expressions_ = vcat(_dynamics, dGdt[:])
+
+    iip_idx = iip ? 2 : 1
+    aug_fun = begin
+        if !is_dae
+            Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
+        else
+            Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
+        end
+    end
+    #dfun = eval(aug_fun)
+    aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
+    aug_p = vcat(prob.p, ones(length(_w)))
+
+    scache = SymbolCache(variables_, parameters_, [_t])
+    dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
+
+    !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
+
+    aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
+    aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
+    return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
+end
+
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
                 params = get_params(layer),
-                observed::Function = (u,p,t) -> u[eachindex(get_problem(layer).u0)])
+                observed::Function = (u,p,t) -> u[eachindex(get_problem(layer).u0)],
+                measurement_points=nothing)
 
     prob = get_problem(layer)
     tspan = get_tspan(layer)
     _, control_indices = get_controls(layer)
     fixed = is_fixed(layer)
-    fixed && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
-
+    discrete = !isnothing(measurement_points)
+    discrete && return augment_dynamics_only_sensitivities(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
+    fixed && return augment_dynamics_unweighted_fisher(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 end
 
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
         params = get_params(layer),
         observed::Function=(u,p,t) -> u[eachindex(get_problem(layer).u0)],
-        dt = isnothing(layer.controls) ? (-)(reverse(get_tspan(layer))...)/100 : first(diff(first(get_controls(layer)[1]).t)))
+        dt = isnothing(layer.controls) ? (-)(reverse(get_tspan(layer))...)/100 : first(diff(first(get_controls(layer)[1]).t)),
+        measurement_points = nothing)
 
     prob_original = get_problem(layer)
     nh = length(observed(prob_original.u0, prob_original.p, prob_original.tspan[1]))
-    prob = augment_dynamics_for_oed(layer; params = params, observed=observed)
+    prob = augment_dynamics_for_oed(layer; params = params, observed=observed, measurement_points=measurement_points)
     controls, control_idxs = get_controls(layer)
     tspan = get_tspan(layer)
     np = length(prob.p)
     control_indices = vcat(control_idxs, [i for i=1:np if i > np - nh])
 
     tunable_ic = get_tunable(layer)
-    timegrid = collect(first(tspan):dt:last(tspan))[1:end-1]
+    timegrid = isnothing(measurement_points) ? collect(first(tspan):dt:last(tspan))[1:end-1] : measurement_points
     sampling_controls = map(Tuple(1:nh)) do i
         ControlParameter(timegrid, name=Symbol("w_$i"), controls=ones(length(timegrid)), bounds=(0.,1.))
     end
@@ -208,12 +282,7 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
             isnothing(controls) ? [] : controls
         else
             if !isnothing(controls)
-                map(controls) do ci
-                    ## This is not completely correct. The situation is that we have a MS-Layer with its controls and defaults and so on
-                    ## And now we need to make a new MS-Layer but with the sampling controls added.
-                    ## Hence we would need to collect all defaults and bounds from the controls of the different single shooting layers here.
-                    ControlParameter(timegrid, name=ci.name, controls=zeros(length(timegrid)), bounds=ci.bounds)
-                end
+                merge_ms_controls(layer)
             end
         end
     end
@@ -231,7 +300,6 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
         return MultipleShootingLayer(prob, first(layer.layers).algorithm, control_indices, new_controls, points;
                     tunable_ic = tunable_ic, bounds_ic = first(layer.layers).bounds_ic, bounds_nodes = (aug_nodes_lb,aug_nodes_ub))
     end
-
 end
 
 function symmetric_from_vector(x::AbstractArray)

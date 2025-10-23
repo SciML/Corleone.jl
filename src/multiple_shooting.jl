@@ -79,3 +79,21 @@ function get_block_structure(layer::MultipleShootingLayer)
     ps_lengths = map(LuxCore.parameterlength, layer.layers)
     vcat(0, cumsum(ps_lengths))
 end
+
+
+function merge_ms_controls(layer::MultipleShootingLayer)
+    nc = length(layer.layers[1].controls)
+
+    map(1:nc) do i
+        defs_control = map(layer.layers) do _l
+            ci = _l.controls[i]
+
+            (get_timegrid(ci), get_controls(Random.default_rng(), ci), get_bounds(ci))
+        end
+        name = first(layer.layers).controls[i].name
+        new_timegrid = reduce(vcat, first.(defs_control))
+        new_controls = reduce(vcat, [x[2] for x in defs_control])
+        new_bounds = (reduce(vcat, first.(last.(defs_control))), reduce(vcat, last.(last.(defs_control))))
+        ControlParameter(new_timegrid, name=name, controls=new_controls, bounds=new_bounds)
+    end
+end
