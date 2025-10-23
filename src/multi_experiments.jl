@@ -189,8 +189,8 @@ end
 
 """
 $(METHODLIST)
-Initializes all variables of the different experiments defined in the `MultiExperimentLayer`
-according to the used initialization `f`.
+Initializes all multiple shooting node variables of the different experiments defined in
+the `MultiExperimentLayer` according to the used initialization `f`.
 """
 function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiExperimentLayer;
     params=LuxCore.setup(rng, layer),

@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
-Collects local and global information gain matrices for solutions of OEDProblems, that
-can be used to gain insights into solutions via the problems' optimality conditions
+Collects local and global information gain matrices for solutions of OED problems, that
+can be used to gain insights into solutions via the problems optimality conditions
 and for a-posteriori analyses and visualisations.
 
 # Fields
@@ -18,9 +18,9 @@ end
 
 """
     InformationGain(oedlayer, u_opt; F=nothing)
-Computes local and global information gain matrices for single `OEDLayer` and the solution `u_opt`.
-If `F` is supplied it will be used for the scaling in the global information gain, otherwise
-will be calculated from the solution.
+Computes local and global information gain matrices for single `OEDLayer` and a solution `u_opt`.
+If `F` is supplied, it will be used for the scaling in the global information gain, otherwise
+the Fisher information matrix will be calculated from the `u_opt`.
 """
 function InformationGain(layer::OEDLayer, u_opt; F=nothing)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -88,7 +88,7 @@ end
 
 """
     InformationGain(multilayer, u_opt)
-Computes local and global information gain matrices for different experiments of the
+Computes local and global information gain matrices for all experiments of the
 `MultiExperimentlayer` and the solution `u_opt`.
 """
 function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_opt; kwargs...)

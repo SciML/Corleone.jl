@@ -3,7 +3,9 @@ $(METHODLIST)
 
 Augments the `prob` with the equations for the sensitivities of `params` and the Fisher
 information matrix. This method is used in cases when the states and sensitivities are
-not constant.
+not constant, i.e., there are other controls or initial conditions to be optimized jointly
+with the sampling decisions.
+Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
 """
 function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
@@ -89,10 +91,12 @@ end
 $(METHODLIST)
 
 Augments the `prob` with the equations for the sensitivities of `params` and the unweighted
-contributions of each measurement function to the Fisher information matrix. 
-This method is used in cases when the states and sensitivities are
-constant. Thus, unweighted contributions of all measurement
-functions to the FIM need to be added for a simplified optimization problem later on.
+contributions of each measurement function to the Fisher information matrix.
+This method is used in cases when the states and sensitivities are constant.
+Thus, unweighted contributions of all measurement functions to the FIM need to be
+added for a simplified optimization problem later on.
+Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
+
 """
 function augment_dynamics_unweighted_fisher(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
@@ -189,8 +193,9 @@ end
 
 """
 $(METHODLIST)
-Augments dynamics with the differential equations for sensitivities of parameters `params`. 
-This method is used in cases when measurements are taken at discrete time points. 
+
+Augments dynamics with the differential equations for sensitivities of parameters `params`.
+This method is used in cases when measurements are taken at discrete time points.
 Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
 """
 function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;

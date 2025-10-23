@@ -5,6 +5,8 @@ approach, augmenting the original system dynamics with the forward sensitivities
 parameters of interest and the Fisher information matrix.
 Boolean `fixed` describes whether states and sensitivities are constant, e.g., due to fixed
 initial conditions and controls. In this case, the OED problem is much simpler.
+Boolean `discrete` (default false) describes whether measurements are taken at discrete
+time points.
 
 # Fields
 $(FIELDS)
@@ -22,7 +24,9 @@ $(SIGNATURES)
 Constructs a single shooting OEDLayer from an AbstractDEProblem.
 Parameters of interest are supplied via indices of `prob.p` and the oberved function
 is supplied via `observed` with signature (u,p,t).
-Keyword `dt` specifies the sampling grid discretization.
+Per default, continuous measurements are taken for which the keyword `dt` specifies
+the sampling grid discretization.
+If `measurement_points` are supplied, discrete measurements can be taken at these points.
 """
 function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
             measurement_points = nothing,
@@ -47,7 +51,9 @@ Constructs a multiple shooting OEDLayer from an AbstractDEProblem, where the sta
 the shooting intervals are supplied via `shooting_points`.
 Parameters of interest are supplied via indices of `prob.p` and the oberved function
 is supplied via `observed` with signature (u,p,t).
-Keyword `dt` specifies the sampling grid discretization.
+Per default, continuous measurements are taken for which the keyword `dt` specifies
+the sampling grid discretization.
+If `measurement_points` are supplied, discrete measurements can be taken at these points.
 """
 function OEDLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm,
             shooting_points;

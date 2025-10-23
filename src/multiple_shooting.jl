@@ -2,10 +2,10 @@
 $(TYPEDEF)
 Defines a callable layer that consists of several [``SingleShootingLayer``](@ref) collected
 in `layers` that are applied on disjunct time intervals given in `shooting_intervals`.
-Integration of the layers is separated as initial conditions are degrees of freedom (except
-perhaps for the first layer). Thus, parallelization is possible, for which a suitable
-`ensemble_alg` can be specified. Additionally, `bounds_nodes` define the bounds on the
-multiple shooting nodes.
+Numerical integration of the differential equations of the layers is separated as
+initial conditions are degrees of freedom (except perhaps for the first layer).
+Thus, parallelization is possible, for which a suitable `ensemble_alg` can be specified.
+Additionally, `bounds_nodes` define the bounds on the multiple shooting nodes.
 
 # Fields
 $(FIELDS)
@@ -124,7 +124,12 @@ function get_block_structure(layer::MultipleShootingLayer)
     vcat(0, cumsum(ps_lengths))
 end
 
+"""
+    merge_ms_controls(layer)
 
+Merges corresponding control definitions of the several `SingleShootingLayer` layers
+collected in the `MultipleShootingLayer` into one control definition.
+"""
 function merge_ms_controls(layer::MultipleShootingLayer)
     nc = length(layer.layers[1].controls)
 
