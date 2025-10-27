@@ -66,7 +66,7 @@ oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[1,2],
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
 lb, ub = Corleone.get_bounds(oed_layer)
 p = ComponentArray(ps)
-oed_layer(nothing, p, st)
+oed_layer # hide
 ```
 
 To see what happens in more detail we can have a closer look at the defined controls in the `OEDLayer` and we see that there is the specified control from above, and two new sampling controls.
@@ -164,6 +164,7 @@ p = ComponentArray(ps)
 
 nc = vcat(0, cumsum([length(x.t) for x in oed_layer.layer.controls]))
 criterion = crit(oed_layer)
+oed_layer # hide
 ```
 
 As the measurements are now discrete, instead of constraining the maximum time of measurements we need to constrain the number of measurements. Let's say we can pick a maximum of 3 measurement points of each quantity.

@@ -59,6 +59,7 @@ layer = Corleone.MultipleShootingLayer(prob, Tsit5(), [1], (control,), shooting_
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
+layer # hide 
 ```
 
 Let's have a look at the solution of the system.

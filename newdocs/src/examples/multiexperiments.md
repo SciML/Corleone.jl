@@ -39,17 +39,17 @@ With this `OEDLayer` we construct a `MultiExperimentLayer` with 2 experiments th
 ```@example lotka_multi
 nexp = 2
 multi_exp = MultiExperimentLayer(oed_layer, nexp)
-
-ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(multi_exp)
-
-multi_exp(nothing, p, st)
 ```
 
 To set up the `OptimizationProblem`, we need to define the objective function and the sampling constraints, i.e., the upper bound on the measurements. Again, the objective can be easily set up by calling one of the provided criteria on the `MultiExperimentLayer`.
 
 ```@example lotka_multi
+ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
+p = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(multi_exp)
+
+multi_exp(nothing, p, st)
+
 crit = ACriterion()
 criterion = crit(multi_exp)
 criterion(p, nothing)

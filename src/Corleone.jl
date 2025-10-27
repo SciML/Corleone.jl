@@ -42,4 +42,6 @@ export MultiExperimentLayer
 include("information_gain.jl")
 export InformationGain
 
+include("abstract.jl")
+
 end

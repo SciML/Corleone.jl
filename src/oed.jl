@@ -101,6 +101,14 @@ function is_fixed(layer::OEDLayer{false})
     false
 end
 
+function is_discrete(layer::OEDLayer{<:Any, true})
+    true
+end
+
+function is_discrete(layer::OEDLayer{<:Any, false})
+    false
+end
+
 """
 $(SIGNATURES)
 General constructor for OEDLayer from a SingleShootingLayer or MultipleShootingLayer.

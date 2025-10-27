@@ -69,6 +69,7 @@ p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
 layer(nothing, ps, st)
+layer # hide
 ```
 
 
