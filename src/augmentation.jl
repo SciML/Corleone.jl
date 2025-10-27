@@ -337,7 +337,7 @@ end
 
 """
     symmetric_from_vector(x)
-Computes the symmetric matrix encoded in the vector `x`. It is assumed that x contains
+Computes the symmetric matrix encoded in the vector `x`. It is assumed that `x` contains
 the upper triangle matrix.
 """
 function symmetric_from_vector(x::AbstractArray)
