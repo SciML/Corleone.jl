@@ -1,7 +1,23 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that consists of several [``SingleShootingLayer``](@ref) collected
+in `layers` that are applied on disjunct time intervals given in `shooting_intervals`.
+Numerical integration of the differential equations of the layers is separated as
+initial conditions are degrees of freedom (except perhaps for the first layer).
+Thus, parallelization is possible, for which a suitable `ensemble_alg` can be specified.
+Additionally, `bounds_nodes` define the bounds on the multiple shooting nodes.
+
+# Fields
+$(FIELDS)
+"""
 struct MultipleShootingLayer{L,SI,E,B} <: LuxCore.AbstractLuxLayer
+    "Collection of multiple SingleShootingLayer"
     layers::L
+    "Collection of tspans for individual layers"
     shooting_intervals::SI
+    "Ensemble method to solve EnsembleProblem"
     ensemble_alg::E
+    "Bounds on the multiple shooting nodes"
     bounds_nodes::B
 end
 
@@ -17,6 +33,19 @@ get_bounds(layer::MultipleShootingLayer) = begin
     end
     ComponentArray(NamedTuple{layer_names}(first.(layer_bounds))), ComponentArray(NamedTuple{layer_names}(last.(layer_bounds)))
 end
+"""
+    get_shooting_constraints(layer)
+Returns function to evaluate matching conditions of MultpipleShootingLayer.
+The signature of the function is (sols,p).
+
+# Examples
+```julia-repl
+julia> shooting_constraint = get_shooting_constraints(layer)
+julia> sols, _ = layer(nothing, p, st)
+julia> shooting_constraint(sols, p)
+[0.7626323782771849, 1.118278846482416, 1.2309540387687008, -3.0538497395734483, -2.6549931647655867, -0.4674885764266593]
+```
+"""
 get_shooting_constraints(layer::MultipleShootingLayer) = begin
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     ax = getaxes(ComponentArray(ps))
@@ -33,6 +62,15 @@ get_shooting_constraints(layer::MultipleShootingLayer) = begin
     return matching
 end
 
+"""
+$(SIGNATURES)
+
+Constructs a MultipleShootingLayer from an `AbstractDEProblem`. Argument `shooting_points`
+denote start of shooting intervals, and bounds of shooting nodes can be specified via
+`bounds_nodes`. Integration can be parallelized via providing a suitable `ensemble_alg`,
+however, `EnsembleSerial()` is used per default.
+See also [``SingleShootingLayer``](@ref) for information on further arguments.
+"""
 function MultipleShootingLayer(prob, alg, control_indices, controls, shooting_points;
                 tunable_ic = Int64[], bounds_ic = (-Inf*ones(length(tunable_ic)), Inf*length(tunable_ic)),
                 bounds_nodes = (-Inf * ones(length(prob.u0)), Inf*ones(length(prob.u0))),
@@ -75,12 +113,23 @@ function (layer::MultipleShootingLayer)(::Any, ps, st)
             DummySolve(),layer.ensemble_alg; trajectories = length(layer.layers)), st
 end
 
+"""
+    get_block_structure(layer)
+
+Compute the block structure of the hessian of the Lagrangian of an optimal control problem
+as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
+"""
 function get_block_structure(layer::MultipleShootingLayer)
     ps_lengths = map(LuxCore.parameterlength, layer.layers)
     vcat(0, cumsum(ps_lengths))
 end
 
+"""
+    merge_ms_controls(layer)
 
+Merges corresponding control definitions of the several `SingleShootingLayer` layers
+collected in the `MultipleShootingLayer` into one control definition.
+"""
 function merge_ms_controls(layer::MultipleShootingLayer)
     nc = length(layer.layers[1].controls)
 

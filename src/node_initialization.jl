@@ -1,25 +1,36 @@
+"""
+$(TYPEDEF)
+
+Basetype for all initialization methods for multiple shooting node variables.
+"""
 abstract type AbstractNodeInitialization end
 
 """
 $(TYPEDEF)
 
-Initializes the problem using the default values of all shooting variables.
+Initializes all shooting nodes with their default value, i.e., their initial value in
+the underlying problem.
+```
 """
 struct DefaultsInitialization <: AbstractNodeInitialization end
 function (f::DefaultsInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer), kwargs...)
     params
 end
+
 """
 $(TYPEDEF)
 
-Initializes the problem with random values in the bounds of the variables.
-
-# Fields
-$(FIELDS)
+Initializes all shooting nodes with random values.
+```
 """
 struct RandomInitialization <: AbstractNodeInitialization end
 
+"""
+    (f::RandomInitialization)(rng, layer)
+
+Initialize shooting nodes of `layer` using randomly drawn values.
+"""
 function (f::RandomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0))
@@ -42,10 +53,17 @@ end
 """
 $(TYPEDEF)
 
-Initializes the problem using a single forward solve of the problem.
+Initializes the problem using a forward solve of the problem. This results in a continuous
+trajectory.
 """
 struct ForwardSolveInitialization <: AbstractNodeInitialization end
 
+"""
+    (f::LinearInterpolationInitialization)(rng, layer)
+
+Initializes shooting nodes of `layer` with values obtained via a forward integration of
+the `layer` using the default values of all specified controls.
+"""
 function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0))
@@ -66,7 +84,11 @@ function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::Multipl
     return ps, st
 end
 
+"""
+    linear_initializer(u0, u_inf, t, tspan)
 
+Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
+"""
 function linear_initializer(u0, u_inf, t, tspan)
     t0, t_inf = tspan
     slope = u_inf .- u0
@@ -77,10 +99,19 @@ end
 """
 $(TYPEDEF)
 
-Initializes the problem using a custom function which returns a vector for all variables.
+Initializes all shooting nodes with linearly-interpolated values. Linear interpolation
+is calculated using the initial values of the underlying problem and the user-specified
+terminal values. These are given as a Dictionary with variable indices as keys and
+the corresponding terminal value.
 
 # Fields
 $(FIELDS)
+
+# Examples
+```julia-repl
+julia> LinearInterpolationInitialization(Dict(1=>2.0, 2=>3.0))
+LinearInterpolationInitialization{Dict{Int64, Float64}}(Dict(2 => 3.0, 1 => 2.0))
+```
 """
 struct LinearInterpolationInitialization{T<:AbstractDict} <: AbstractNodeInitialization
     "Terminal values for linear interpolation of initial and terminal values."
@@ -88,9 +119,10 @@ struct LinearInterpolationInitialization{T<:AbstractDict} <: AbstractNodeInitial
 end
 
 """
-$(FUNCTIONNAME)
+    (f::LinearInterpolationInitialization)(rng, layer)
 
-Creates a (`FunctionInitialization`)[@ref] with linearly interpolates between u0 and the provided u_inf.
+Initialize shooting nodes of `layer` using linearly interpolated values between initial values
+of underlying problem and terminal values given in `f.terminal_values`.
 """
 function (f::LinearInterpolationInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
@@ -119,19 +151,29 @@ end
 """
 $(TYPEDEF)
 
-Initializes the system with a custom vector of points provided as a Dictionary of variable => values.
+Initializes all shooting nodes with user-provided values. Initial values are given as
+Dictionary with variable indices as keys and the corresponding vector of initial values
+of adequate length.
 
 # Fields
 $(FIELDS)
 
-# Note
-If the variable is not present in the dictionary, we use the fallback value.
+# Examples
+```julia-repl
+julia> CustomInitialization(Dict(1=>ones(3), 2=>zeros(3)))
+CustomInitialization{Dict{Int64, Vector{Float64}}}(Dict(2 => [0.0, 0.0, 0.0], 1 => [1.0, 1.0, 1.0]))
+```
 """
 struct CustomInitialization{I<:AbstractDict} <: AbstractNodeInitialization
     "The init values for all dependent variables"
     initial_values::I
 end
 
+"""
+    (f::CustomtInitialization)(rng, layer)
+
+Initialize shooting nodes of `layer` using custom values specified in `f.initial_values`.
+"""
 function (f::CustomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0))
@@ -158,19 +200,28 @@ end
 """
 $(TYPEDEF)
 
-Initializes the system with a custom single value provided as a Dictionary of variable => values.
+Initializes all shooting nodes using a constant value specified via the dictionary
+of indices of variables and the corresponding initialization value.
 
 # Fields
 $(FIELDS)
 
-# Note
-If the variable is not present in the dictionary, we use the fallback value.
+# Examples
+```julia-repl
+julia> ConstantInitialization(Dict(1=>1.0, 2=>2.0))
+ConstantInitialization{Dict{Int64, Float64}}(Dict(2 => 2.0, 1 => 1.0))
+```
 """
 struct ConstantInitialization{I<:AbstractDict} <: AbstractNodeInitialization
     "The init values for all dependent variables"
     initial_values::I
 end
 
+"""
+    (f::ConstantInitialization)(rng, layer)
+
+Initialize shooting nodes of `layer` using constant values specified in `f.initial_values`.
+"""
 function (f::ConstantInitialization)(rng::AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0))
@@ -191,14 +242,40 @@ function (f::ConstantInitialization)(rng::AbstractRNG, layer::MultipleShootingLa
     return new_ps, st
 end
 
+"""
+$(TYPEDEF)
+
+Initializes the shooting nodes in a hybrid method.
+Initialization of specific variables is done via a dictionary of variable indices of
+the underlying problem and the `AbstractNodeInitialization` for their initalization.
+Variables not present in the keys of `inits` are initialized using the fallback
+initialization method given in `default_init`.
+# Fields
+$(FIELDS)
+
+# Examples
+```julia-repl
+julia> HybridInitialization(Dict(1=>ConstantInitialization(Dict(1=>1.0)),
+                                 2=>LinearInterpolationInitialization(Dict(2=>2.0))),
+                            ForwardSolveInitialization())
+HybridInitialization{Dict{Int64, Corleone.AbstractNodeInitialization}}(Dict{Int64, Corleone.AbstractNodeInitialization}(2 => LinearInterpolationInitialization{Dict{Int64, Float64}}(Dict(2 => 2.0)), 1 => ConstantInitialization{Dict{Int64, Float64}}(Dict(1 => 1.0))), ForwardSolveInitialization())
+```
+"""
 struct HybridInitialization{P<:Dict} <: AbstractNodeInitialization
-    "Pair of variables and corresponding AbstractNodeInitialization methods"
+    "Dictionary of indices of variables and their corresponding initialization methods"
     inits::P
-    "Init method for remaining variables"
+    "Fallback initialization method for variables not considered in `inits`"
     default_init::AbstractNodeInitialization
 end
 
+"""
+    (f::HybridInitialization)(rng, layer)
 
+Initialize the shooting nodes of `layer` in a hybrid method consisting of different
+`AbstractNodeInitialization` methods applied to different subsets of the variables.
+Variables that are not treated via the initialization methods in `f.inits` are initialized
+via the fallback method `f.default_init`.
+"""
 function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables=eachindex(first(layer.layers).problem.u0),

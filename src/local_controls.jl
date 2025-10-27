@@ -1,8 +1,16 @@
+"""
+$(TYPEDEF)
+Implements a piecewise constant control discretization.
+
+# Fields
+$(FIELDS)
+"""
 struct ControlParameter{T, C, B}
+    "The name of the control"
     name::Symbol
-    "The timepoints"
+    "The timepoints at which discretized variables are introduced"
     t::T
-    "The initial control parameters. Either a vector or a function (rng,t,bounds) -> u "
+    "The initial values for the controls. Either a vector or a function (rng,t,bounds) -> u"
     controls::C
     "The bounds as a tuple"
     bounds::B
@@ -11,16 +19,50 @@ end
 default_u(rng, t, bounds) = zeros(eltype(t), size(t))
 default_bounds(t::AbstractVector{T}) where T<:Real = (fill(typemin(T), size(t)), fill(typemax(T), size(t)))
 
+"""
+$(METHODLIST)
+
+Constructs a `ControlParameter` with piecewise constant discretizations introduced at
+timepoints `t`. Optionally
+
+```julia-repl
+julia> ControlParameter(0:1.0:4.0, name=:c)
+ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, typeof(Corleone.default_u), typeof(Corleone.default_bounds)}(:c, 0.0:1.0:10.0, Corleone.default_u, Corleone.default_bounds)
+```
+
+```julia-repl
+julia> ControlParameter(0.0:1.0:4.0, name=:c, controls = zeros(5))
+ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, typeof(Corleone.default_bounds)}(:c, 0.0:1.0:4.0, [0.0, 0.0, 0.0, 0.0, 0.0], Corleone.default_bounds)
+```
+
+
+```julia-repl
+julia> ControlParameter(0:1.0:9.0, name=:c1, controls=zeros(5), bounds=(0.0,1.0))
+ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, Tuple{Float64, Float64}}(:c1, 0.0:1.0:9.0, [0.0, 0.0, 0.0, 0.0, 0.0], (0.0, 1.0))
+```
+The latter is functionally equivalent to the following example, specifying all bounds individually:
+```julia-repl
+julia> ControlParameter(0:1.0:9.0, name=:c1, controls=zeros(5), bounds=(zeros(5),ones(5)))
+ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, Tuple{Vector{Float64}, Vector{Float64}}}(:c1, 0.0:1.0:9.0, [0.0, 0.0, 0.0, 0.0, 0.0], ([0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]))
+```
+"""
 function ControlParameter(t::AbstractVector; name::Symbol=gensym(:w), controls=default_u, bounds=default_bounds)
     ControlParameter{typeof(t),typeof(controls),typeof(bounds)}(name, t, controls, bounds)
 end
 
+"""
+Computes and returns a new tuple of `ControlParameter` with their timespans reduced to `(lo,hi)`.
+"""
 function restrict_controls(c::Tuple, lo, hi)
     map(c) do ci
         restrict_controls(ci, lo, hi)
     end
 end
 
+"""
+Computes and returns a new `ControlParameter` from `c` with timepoints restricted to
+`lo` .< `c.t` .< `hi`.
+"""
 function restrict_controls(c::ControlParameter, lo, hi)
     idx = findall(lo .<= c.t .< hi)
     controls = c.controls == default_u ? c.controls : c.controls[idx]

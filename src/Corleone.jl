@@ -30,7 +30,6 @@ include("criteria.jl")
 export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherDCriterion, FisherECriterion
 
-
 include("node_initialization.jl")
 export DefaultsInitialization, ConstantInitialization
 export LinearInterpolationInitialization, ForwardSolveInitialization
@@ -42,5 +41,7 @@ include("multi_experiments.jl")
 export MultiExperimentLayer
 include("information_gain.jl")
 export InformationGain
+
+include("abstract.jl")
 
 end

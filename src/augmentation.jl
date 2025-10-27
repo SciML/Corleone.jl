@@ -1,3 +1,12 @@
+"""
+$(METHODLIST)
+
+Augments the `prob` with the equations for the sensitivities of `params` and the Fisher
+information matrix. This method is used in cases when the states and sensitivities are
+not constant, i.e., there are other controls or initial conditions to be optimized jointly
+with the sampling decisions.
+Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
+"""
 function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
@@ -78,6 +87,17 @@ function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
+"""
+$(METHODLIST)
+
+Augments the `prob` with the equations for the sensitivities of `params` and the unweighted
+contributions of each measurement function to the Fisher information matrix.
+This method is used in cases when the states and sensitivities are constant.
+Thus, unweighted contributions of all measurement functions to the FIM need to be
+added for a simplified optimization problem later on.
+Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
+
+"""
 function augment_dynamics_unweighted_fisher(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
@@ -171,6 +191,13 @@ function augment_dynamics_unweighted_fisher(prob::SciMLBase.AbstractDEProblem;
     return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars = aug_diff_vars, prob.kwargs...)
 end
 
+"""
+$(METHODLIST)
+
+Augments dynamics with the differential equations for sensitivities of parameters `params`.
+This method is used in cases when measurements are taken at discrete time points.
+Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
+"""
 function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
             tspan=prob.tspan, control_indices = Int64[],
             params = setdiff(eachindex(prob.p), control_indices), observed = (u,p,t) -> u[eachindex(prob.u0)])
@@ -257,6 +284,12 @@ function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShoot
     return augment_dynamics_full(prob, tspan=tspan, control_indices=control_indices, params=params, observed=observed)
 end
 
+"""
+$(METHODLIST)
+Augments dynamics with the differential equations for sensitivities and Fisher information
+matrix of parameters `params`. Returns either a SingleShootingLayer or a MultipleShootingLayer,
+depending on the type of the layer passed to this function.
+"""
 function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootingLayer};
         params = get_params(layer),
         observed::Function=(u,p,t) -> u[eachindex(get_problem(layer).u0)],
@@ -302,11 +335,22 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     end
 end
 
+"""
+    symmetric_from_vector(x)
+Computes the symmetric matrix encoded in the vector `x`. It is assumed that `x` contains
+the upper triangle matrix.
+"""
 function symmetric_from_vector(x::AbstractArray)
     n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
     Symmetric([x[i <= j ? Int(j * (j - 1) / 2 + i) : Int(i * (i - 1) / 2 + j)]  for i in 1:n, j in 1:n])
 end
 
+"""
+$(METHODLIST)
+Sort keys of the symbol cache by their indices. The `identifier` is used to filter the correct
+subset of keys, e.g., the Fisher information matrix variables by "F", or sensitivities by "G".
+Matrix-valued variables, such as the sensitivities can be reshaped via kwarg `_reshape`.
+"""
 function sort_variables(keys; identifier="F", _reshape=false)
     reverse_index_map = Dict(value => value == '₋' ? key : parse(Int, string(key)) for (key, value) in Symbolics.IndexMap)
     indices_F = last.(split.(string.(keys), identifier))
@@ -343,6 +387,11 @@ function sort_variables(keys; identifier="F", _reshape=false)
     end
 end
 
+"""
+    fisher_variables(layer)
+Returns the symbols of all Fisher information matrix variables in `layer`. Used for indexing
+of solutions.
+"""
 function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
     st = LuxCore.initialstates(Random.default_rng(), layer)
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
@@ -353,6 +402,11 @@ function fisher_variables(layer::Union{SingleShootingLayer, MultipleShootingLaye
     return sort_variables(fsym; identifier="F")
 end
 
+"""
+    sensitivity_variables(layer)
+Returns the symbols of all sensitivity variables in `layer`. Used for indexing
+of solutions.
+"""
 function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootingLayer})
     st = LuxCore.initialstates(Random.default_rng(), layer)
     st = isa(layer, SingleShootingLayer) ? st : st.layer_1
@@ -363,6 +417,12 @@ function sensitivity_variables(layer::Union{SingleShootingLayer, MultipleShootin
     sort_variables(Gsym; identifier="G", _reshape=true)
 end
 
+"""
+    observed_sensitivity_product_variables(layer, observed_idx)
+Returns the symbols of all unweighted Fisher information matrix variables of observation
+function `observed_idx` in `layer`.
+Used for indexing of solutions in cases, when `layer` is fixed.
+"""
 function observed_sensitivity_product_variables(layer::SingleShootingLayer, observed_idx::Int)
     string_idx = string(observed_idx)
     char_idx = map(x -> only(x), string_idx)

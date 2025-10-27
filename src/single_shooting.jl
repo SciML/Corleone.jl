@@ -1,9 +1,29 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that integrates the `AbstractDEProblem` `problem` using the specified
+`algorithm`. Controls are assumed to impact differential equation via its parameters `problem.p`
+at the positions indicated via `control_indices` and are itself specified via `controls`.
+Moreover, initial conditions `problem.u0` that are degrees of freedom to be optimized can be
+specified by their indices via `tunable_ic` along with their upper and lower bounds via `bounds_ic`.
+
+# Fields
+$(FIELDS)
+
+Note: The orders of both `controls` and `control_indices`, and `bounds_ic` and `tunable_ic`
+are assumed to be identical!
+"""
 struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
+    "The underlying differential equation problem"
     problem::P
+    "The algorithm with which `problem` is integrated."
     algorithm::A
+    "Indices in parameters of `prob` corresponding to controls"
     control_indices::Vector{Int64}
+    "The controls"
     controls::C
+    "Indices of `prob.u0` which are degrees of freedom"
     tunable_ic::Vector{Int64}
+    "Bounds on the tunable initial conditions of the problem"
     bounds_ic::B
 end
 
@@ -19,12 +39,18 @@ function remake_problem(prob::DAEProblem, state)
     remake(prob, u0=state.u, du0=state.du)
 end
 
-function SingleShootingLayer(prob, alg, control_indices, controls; tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
-    _prob = init_problem(remake(prob; kwargs...), alg)
-    return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
-end
+"""
+$(METHODLIST)
+Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable inegration method
+`alg`.
 
-function SingleShootingLayer(prob, alg; control_indices=Int64[], controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+# Arguments
+    - `control_indices` : Vector of indices of `prob.p` that denote controls
+    - `controls`: Tuple of `ControlParameter` specifying the controls
+    - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
+    - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
+"""
+function SingleShootingLayer(prob, alg, control_indices=Int64[], controls=nothing; tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
     _prob = init_problem(remake(prob; kwargs...), alg)
     return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
 end
@@ -216,12 +242,19 @@ end
 end
 
 
+"""
+$(TYPEDEF)
+
+Prototypical single shooting problem to interface `CommonSolve` with.
+
+# Fields
+$(FIELDS)
+"""
 struct SingleShootingProblem{L,P,S}
     layer::L
     params::P
     state::S
 end
-
 
 function SingleShootingSolution(sols::NTuple)
     states = reduce(hcat, map(Array, sols))
@@ -247,6 +280,13 @@ function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.s
     SingleShootingProblem(prob.layer, ps, st)
 end
 
+"""
+    get_block_structure(layer)
+
+Compute the block structure of the hessian of the Lagrangian of an optimal control problem.
+As this is a `SingleShootingLayer`, this hessian is dense.
+See also [``MultipleShootingLayer``](@ref).
+"""
 function get_block_structure(layer::SingleShootingLayer)
     vcat(0, LuxCore.parameterlength(layer))
 end

@@ -1,16 +1,34 @@
+"""
+$(TYPEDEF)
+Collects local and global information gain matrices for solutions of OED problems, that
+can be used to gain insights into solutions via the problems optimality conditions
+and for a-posteriori analyses and visualisations.
+
+# Fields
+$(FIELDS)
+"""
 struct InformationGain{T,L,G}
+    "Timepoints"
     t::T
+    "Vector of local information gain matrices for different observation functions"
     local_information_gain::L
+    "Vector of global information gain matrices for different observation functions"
     global_information_gain::G
 end
 
+"""
+    InformationGain(oedlayer, u_opt; F=nothing)
+Computes local and global information gain matrices for single `OEDLayer` and a solution `u_opt`.
+If `F` is supplied, it will be used for the scaling in the global information gain, otherwise
+the Fisher information matrix will be calculated from the `u_opt`.
+"""
 function InformationGain(layer::OEDLayer, u_opt; F=nothing)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(u_opt, getaxes(ComponentArray(ps)))
 
     sols, _ = layer(nothing, p, st)
 
-    F_tf = fim(layer, u_opt)
+    F_tf = isnothing(F) ? fim(layer, u_opt) : F
 
     Gvars = Corleone.sensitivity_variables(layer)
 
@@ -68,7 +86,11 @@ function InformationGain(layer::OEDLayer, u_opt; F=nothing)
     return InformationGain{typeof(timepoints), typeof(LIG), typeof(GIG)}(timepoints, LIG, GIG)
 end
 
-
+"""
+    InformationGain(multilayer, u_opt)
+Computes local and global information gain matrices for all experiments of the
+`MultiExperimentlayer` and the solution `u_opt`.
+"""
 function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_opt; kwargs...)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])
     ps, st = LuxCore.setup(Random.default_rng(), multilayer)
@@ -84,7 +106,6 @@ function InformationGain(multilayer::MultiExperimentLayer{<:Any, OEDLayer}, u_op
     end
     return NamedTuple{exp_names}(exp_IG)
 end
-
 
 function InformationGain(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, u_opt; kwargs...)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multilayer.n_exp])

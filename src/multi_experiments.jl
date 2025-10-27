@@ -1,15 +1,31 @@
-
-
+"""
+$(TYPEDEF)
+Generalization of OEDLayer to multiple experiments that can be jointly optimized.
+# Fields
+$(FIELDS)
+"""
 struct MultiExperimentLayer{fixed, L} <: LuxCore.AbstractLuxLayer
+    "Layers defining multiexperiments"
     layers::L
+    "Number of experiments"
     n_exp::Int
 end
 
-function MultiExperimentLayer(layer::OEDLayer, n_exp::Int)
-    fixed = is_fixed(layer)
-    MultiExperimentLayer{fixed, OEDLayer}(layer, n_exp)
+"""
+    MultiExperimentLayer(oedlayer, n_exp)
+Constructs a MultiExperimentLayer with `n_exp` experiments from a single `OEDLayer`, i.e.,
+all experiments have the same degrees of freedom specified in `oedlayer`.
+"""
+function MultiExperimentLayer(oedlayer::OEDLayer, n_exp::Int)
+    fixed = is_fixed(oedlayer)
+    MultiExperimentLayer{fixed, OEDLayer}(oedlayer, n_exp)
 end
 
+"""
+    MultiExperimentLayer(oedlayers...)
+Constructs a MultiExperimentLayer several `OEDLayer`, i.e., different experiments may have
+different degrees of freedom specified in their respective `OEDLayer`.
+"""
 function MultiExperimentLayer(layers::OEDLayer...)
     fixed = all(is_fixed.(layers))
     n = length(layers)
@@ -83,6 +99,7 @@ function fim(multilayer::MultiExperimentLayer{<:Any, <:Tuple}, p::AbstractArray)
     end)
 end
 
+
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multiexp::MultiExperimentLayer)
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multiexp.n_exp])
     exp_ps    = begin
@@ -123,6 +140,10 @@ get_bounds(layer::MultiExperimentLayer) = begin
     ComponentArray(NamedTuple{exp_names}(first.(exp_bounds))), ComponentArray(NamedTuple{exp_names}(last.(exp_bounds)))
 end
 
+"""
+$(METHODLIST)
+Returns the function to evaluate shooting constraints for the `MultiExperimentLayer`.
+"""
 function get_shooting_constraints(layer::MultiExperimentLayer)
     @assert typeof(layer.layers.layer) <: MultipleShootingLayer "Shooting constraints are only available for MultipleShootingLayer."
     shooting_contraints = get_shooting_constraints(layer.layers)
@@ -139,6 +160,12 @@ function get_shooting_constraints(layer::MultiExperimentLayer)
     return matching
 end
 
+"""
+$(METHODLIST)
+Computes the block structure as defined by the `MultiExperimentLayer`, which may come from
+two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
+experiment level.
+"""
 function get_block_structure(layer::MultiExperimentLayer)
     blocks = begin
         if isa(layer.layers, Tuple)
@@ -160,6 +187,11 @@ function get_block_structure(layer::MultiExperimentLayer)
     return block_structure
 end
 
+"""
+$(METHODLIST)
+Initializes all multiple shooting node variables of the different experiments defined in
+the `MultiExperimentLayer` according to the used initialization `f`.
+"""
 function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiExperimentLayer;
     params=LuxCore.setup(rng, layer),
     shooting_variables= isa(layer.layers, Tuple) ? eachindex(first(layer.layers).problem.u0) : eachindex(get_problem(layer.layers.layer).u0),
@@ -181,6 +213,5 @@ function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiEx
             end
         end
     end
-
     return NamedTuple{exp_names}(ps_init), st
 end
