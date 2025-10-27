@@ -44,7 +44,7 @@ function Base.show(io::IO, layer::MultiExperimentLayer{<:Any, OEDLayer})
     print(io,
         type_color, "MultiExperimentLayer ",
         no_color,  "with $(layer.n_exp) experiments to be designed.\n")
-    print(io, no_color, "Underlying",
+    print(io, no_color, "Underlying ",
         type_color,  "OEDLayer: ")
     Base.show(io, "text/plain", layer.layers)
 end
