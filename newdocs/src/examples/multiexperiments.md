@@ -1,6 +1,6 @@
 # Multiexperiment example
 
-This page shows how to design multiple experiments at once using the `MultiExperimentLayer` again at the example of the Lotka-Volterra system. For a general introduction, look again at [Optimal experimental design example](@ref).
+This page shows how to design multiple experiments at once using the `MultiExperimentLayer` again at the example of the Lotka-Volterra system. For a general introduction to OED in Corleone, look again at [Optimal experimental design example](@ref).
 
 ```@example lotka_multi
 using Corleone
@@ -26,7 +26,7 @@ control = ControlParameter(
 )
 ```
 
-As in [Optimal experimental design example](@ref), we first define an `OEDLayer`. However, in contrast to before, now we also leave the initial conditions `u0``as degrees of freedom to be optimized.
+As in [Optimal experimental design example](@ref), we first define an `OEDLayer`. However, in contrast to before, now we also leave the initial conditions `u0` as degrees of freedom to be optimized.
 
 ```@example lotka_multi
 oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[1,2], controls = (control,),
@@ -102,10 +102,10 @@ optsol, _ = multi_exp(nothing, uopt + zero(p), st)
 
 f = Figure(size = (800,800))
 for i = 1:nexp
-    ax = CairoMakie.Axis(f[1,i], xticks=0:2:12, title="Experiment $i")
-    ax1 = CairoMakie.Axis(f[2,i], xticks=0:2:12)
-    ax2 = CairoMakie.Axis(f[3,i], xticks=0:2:12)
-    ax3 = CairoMakie.Axis(f[4,i], xticks=0:2:12, limits=(nothing, (-0.05,1.05)))
+    ax = CairoMakie.Axis(f[1,i], xticks=0:2:12, title="Experiment $i\nStates + controls")
+    ax1 = CairoMakie.Axis(f[2,i], xticks=0:2:12, title = "Sensitivities")
+    ax2 = CairoMakie.Axis(f[3,i], xticks=0:2:12, title="FIM")
+    ax3 = CairoMakie.Axis(f[4,i], xticks=0:2:12, title="Sampling", limits=(nothing, (-0.05,1.05)))
     [plot!(ax, optsol[i].t, sol) for sol in eachrow(Array(optsol[i]))[1:2]]
     [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_exp.layers)[:]])))]
     [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.fisher_variables(multi_exp.layers)])))]

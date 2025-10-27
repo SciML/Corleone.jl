@@ -68,8 +68,9 @@ Let's have a look at the solution of the system.
 sols, _ = layer(nothing, p, st)
 
 f = Figure()
+titles = ["x₀", "x₁", "x₂", "u"]
 for i in 1:4
-    ax = f[i, 1] = CairoMakie.Axis(f)
+    ax = f[i, 1] = CairoMakie.Axis(f, title=titles[i])
     for (j,sol) in enumerate(sols)
         plt = i == 4 ? stairs! : lines!
         plt(ax, sol.t, Array(sol)[i, :],)
@@ -146,7 +147,7 @@ sols, _ = layer(nothing, uopt + zero(p), st)
 
 f = Figure()
 for i in 1:4
-    ax = f[i, 1] = CairoMakie.Axis(f)
+    ax = f[i, 1] = CairoMakie.Axis(f, title=titles[i])
     for (j,sol) in enumerate(sols)
         plt = i == 4 ? stairs! : lines!
         plt(ax, sol.t, Array(sol)[i, :],)

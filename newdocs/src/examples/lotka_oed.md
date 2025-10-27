@@ -140,3 +140,76 @@ CairoMakie.save("lotka_oed.svg",f) # hide
 ```
 
 ![](lotka_oed.svg)
+
+
+## Discrete measurements
+
+Before we looked at the case of continuous measurements, that are then discretized in time. However, what if measurements can only be taken at predefined timepoints? For this, we added the feature of discrete measurements. This can be used by specifying `measurement_points` when building the `OEDLayer` with everything else staying the same.
+
+
+Suppose we can only measure every two time units starting with ``t=1.0``. 
+```@example lotka_oed
+
+measurement_points = [1.0, 3.0, 5.0, 7.0, 9.0, 11.0]
+
+oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[1,2], 
+            observed = (u,p,t) -> u[1:2],
+            controls = (control,),
+            control_indices = [3],
+            measurement_points = measurement_points)
+
+ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
+lb, ub = Corleone.get_bounds(oed_layer)
+p = ComponentArray(ps)
+
+nc = vcat(0, cumsum([length(x.t) for x in oed_layer.layer.controls]))
+criterion = crit(oed_layer)
+```
+
+As the measurements are now discrete, instead of constraining the maximum time of measurements we need to constrain the number of measurements. Let's say we can pick a maximum of 3 measurement points of each quantity.
+
+```@example lotka_oed
+sampling_cons = let layer = oed_layer.layer, st = st, ax = getaxes(p)
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        res .= [sum(ps.controls[nc[2]+1:nc[3]]) ;
+                sum(ps.controls[nc[3]+1:nc[4]])  ]
+    end
+end
+
+optfun = OptimizationFunction(
+    criterion, AutoForwardDiff(), cons = sampling_cons
+)
+
+optprob = OptimizationProblem(
+    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[3.0, 3.0]
+)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+     tol = 1e-6,
+     hessian_approximation = "limited-memory",
+     max_iter = 300
+)
+
+```
+
+The problem is again quickly solved. The solution tells us when to take the measurements.
+
+```@example lotka_oed
+optu = uopt + zero(p)
+optsol, _ = oed_layer(nothing, optu, st)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1], xticks=0:2:12, title="States + control")
+ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
+ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="Control")
+ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
+[plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
+[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)[:]])))]
+stairs!(ax2, control.t, optu.controls[nc[1]+1:nc[2]])
+scatter!(ax3, measurement_points, optu.controls[nc[2]+1:nc[3]], alpha=0.8)
+scatter!(ax3, measurement_points, optu.controls[nc[3]+1:nc[4]], alpha=0.8)
+CairoMakie.save("lotka_oed_discrete.svg", f) # hide
+```
+
+![](lotka_oed_discrete.svg)

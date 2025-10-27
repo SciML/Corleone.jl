@@ -15,7 +15,7 @@ makedocs(  sitename = "Corleone.jl",
         "Home" => "index.md",
         "Examples" => ["Optimal Control" => "./examples/lotka.md",
                         "Multiple Shooting" => "./examples/multiple_shooting.md",
-                        "Optimal Experimenal Design" => "./examples/lotka_oed.md",
+                        "Optimal Experimental Design" => "./examples/lotka_oed.md",
                         "Multiexperiments" => "./examples/multiexperiments.md"
                         ],
         "API Reference" => "api.md",
