@@ -195,6 +195,14 @@ function get_sampling_constraint(layer::MultiExperimentLayer{<:Any, <:Tuple})
     return sampling_cons
 end
 
+function control_blocks(layer::MultiExperimentLayer{<:Any, OEDLayer})
+    control_blocks(layer.layers)
+end
+
+function control_blocks(layer::MultiExperimentLayer{<:Any, <:Tuple})
+    control_blocks.(layer.layers)
+end
+
 """
 $(METHODLIST)
 Computes the block structure as defined by the `MultiExperimentLayer`, which may come from
