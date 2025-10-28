@@ -1,68 +1,90 @@
+using Pkg
+Pkg.activate(@__DIR__)
 using Corleone
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
+using SciMLSensitivity
+using ComponentArrays
+using LuxCore
+using Random
+
 using CairoMakie
-using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
-using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
-#using blockSQP
+using Optimization
+using OptimizationMOI
+using Ipopt
+using blockSQP
 
-# Lotka
-@variables begin
-    x(..) = 1.e-2, [tunable=false]
-    y(..) = 0, [tunable = false]
-    u(..) = 0, [input = true, bounds = (0, 1)]
+
+function fuller(du, u, p, t)
+    du[1] = u[2]
+    du[2] = 1.0 - 2.0 * p[1]
+    du[3] = u[1]^2
 end
 
-∫ = Symbolics.Integral(t in (0., 1.))
+tspan = (0.0, 1.0)
+u0 = [1e-2, 0.0, 0.0]
+p = [0.5]
 
-@named lotka_volterra = System(
-    [
-        D(x(t)) ~ y(t),
-        D(y(t)) ~ 1 - 2 * u(t)
-    ], t, [x(t), y(t), u(t)], [];
-    constraints=[x(0) - 1.e-2 ~ 0, y(0) ~ 0, x(1) - 1.e-2 ~ 0, y(1) ~ 0],
-    costs=Num[∫((x(t))^2) * 100],
-    consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
+prob =  ODEProblem(fuller, u0, tspan, p,
+        abstol=1e-8, reltol=1e-8
 )
-N = 20
-shooting_points = collect(LinRange(0., 1., 11))
+plot(solve(prob, Tsit5()))
 
-grid = ShootingGrid(shooting_points)
-controlmethod = DirectControlCallback(
-    u(t) => (; timepoints=collect(LinRange(0.,  N / (N+1), N)),
-        defaults= ones(N)
-    )
-)
-builder = OCProblemBuilder(
-    lotka_volterra, controlmethod, grid, ConstantInitialization(Dict(x(t) => 0.0, y(t) => 0.0))
+dt = 0.01
+cgrid = collect(0.0:dt:1.0)[1:end-1]
+control = ControlParameter(
+    cgrid, name = :u, controls = rand(length(cgrid)), bounds = (0,1)
 )
 
-# Instantiates the problem fully
-builder = builder()
+layer = SingleShootingLayer(prob, Tsit5(),[1], (control,))
 
-optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
+ps, st = LuxCore.setup(Random.default_rng(), layer)
+cp = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(layer)
 
-# Initial plot
-sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
-# plot(sol, idxs = [:x, :y, :u])
-
-callback(x,l) = begin
-    sol = optfun.f.f.predictor(x.u, saveat = 0.1)[1];
-    display(plot(sol, idxs = [:x, :y, :u]))
-    return false
+loss = let layer = layer, st = st, ax = getaxes(cp)
+    (p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        sols, _ = layer(nothing, ps, st)
+        sols[:x₃][end]
+    end
 end
 
-# Optimize
-# sol = solve(optfun, BlockSQPOpt(); maxiters = 100, opttol = 1e-6, callback=callback,
-#        options=blockSQP.sparse_options(), sparsity=optfun.f.f.predictor.permutation.blocks)
+cons = let layer = layer, st = st, ax = getaxes(cp)#, matching = CorleoneCore.get_shooting_constraints(layer)
+    (p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        sols, _ = layer(nothing, ps, st)
+        #return Array(sols)[1:1,end]
+        #matching_constraint = matching(sols, ps)
+        return vcat(sols[:x₁][end], sols[:x₂][end])#, matching_constraint)
+    end
+end
 
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 100, tol = 1e-6,
-            hessian_approximation="limited-memory", )
+eq_cons(res, _x, _p) = res  .= cons(_x,_p)
 
-# Result plot
-pred = optfun.f.f.predictor(sol.u, saveat = 0.01)[1];
-f = Figure();
-ax = Axis(f[1,1]);
-plot!(ax, pred, idxs = [:x, :y, :u]);
-f
+optfun = OptimizationFunction(
+    loss, AutoForwardDiff(), cons=eq_cons
+)
+
+optprob = OptimizationProblem(
+    optfun, collect(cp), lb = collect(lb), ub = collect(ub),
+    lcons = [1e-2, 0.0],
+    ucons = [1e-2, 0.0]
+)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+    tol = 1e-12,
+    #hessian_approximation = "limited-memory",
+    max_iter = 250
+
+)
+
+optsol, _ = layer(nothing, uopt + zero(cp), st)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+[lines!(ax, optsol.t, optsol[x], label = string(x) ) for x in [:x₁, :x₂, :x₃]]
+f[1, 2] = Legend(f, ax, "States", framevisible = false)
+ax1 = CairoMakie.Axis(f[2,1])
+stairs!(ax1, optsol.t, optsol[:u₁], label =  "u₁" )
+f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
+display(f)

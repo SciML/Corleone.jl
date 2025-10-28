@@ -1,97 +1,59 @@
+abstract type AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the ACriterion, i.e., ``\\textrm{tr}(F^{-1})\``.
+"""
+struct ACriterion <: AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the DCriterion, i.e., ``\\det(F^{-1})\``.
+"""
+struct DCriterion <: AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the ECriterion, i.e., ``\\max\\{\\lambda: \\lambda \\textrm{ is eigenvalue of } F^{-1}\\}\``.
+"""
+struct ECriterion <: AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the FisherACriterion, i.e., ``-\\textrm{tr}(F)\``
+"""
+struct FisherACriterion <: AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the FisherDCriterion, i.e., -``\\det(F)\``.
+"""
+struct FisherDCriterion <: AbstractCriterion end
+"""
+$(TYPEDEF)
+Implements the FisherECriterion, i.e., -``\\min\\{\\lambda: \\lambda \\textrm{ is eigenvalue of } F\\}\``.
+"""
+struct FisherECriterion <: AbstractCriterion end
 
-abstract type AbstractOEDCriterion end
-
-struct ACriterion{T} <: AbstractOEDCriterion where T <: Tuple
-    tspan::T
-    function ACriterion(tspan)
-        return new{typeof(tspan)}(tspan)
-    end
+function (crit::AbstractCriterion)(F::AbstractMatrix)
+    crit(Symmetric(F))
 end
 
-struct DCriterion{T} <: AbstractOEDCriterion
-    tspan::T
-    function DCriterion(tspan)
-        return new{typeof(tspan)}(tspan)
-    end
+function (crit::ACriterion)(F::Symmetric)
+    tr(inv(F))
 end
 
-struct ECriterion{T} <: AbstractOEDCriterion
-    tspan::T
-    function ECriterion(tspan)
-        return new{typeof(tspan)}(tspan)
-    end
+function (crit::DCriterion)(F::Symmetric)
+    inv(det(F))
 end
 
-struct FisherACriterion{T} <: AbstractOEDCriterion
-    tspan::T
-    function FisherACriterion(tspan)
-        return new{typeof(tspan)}(tspan)
-    end
+function (crit::ECriterion)(F::Symmetric)
+    maximum(eigvals(inv(F)))
 end
 
-struct FisherDCriterion{T} <: AbstractOEDCriterion
-    tspan::T
-    function FisherDCriterion(tspan)
-        return new{typeof(tspan)}(tspan)
-    end
+function (crit::FisherACriterion)(F::Symmetric)
+    -tr(F)
 end
 
-
-
-function _symmetric_from_vector(x::AbstractArray{T}, ::Val{N}, regu) where {T, N}
-    F = Array{T,2}(undef,N,N)
-    for j=1:N
-        for i=1:N
-            if i<= j
-                F[i,j] = x[Int(j * (j - 1) / 2 + i)]
-                if i==j
-                    F[i,j] += regu
-                end
-            else
-                F[i,j] = x[Int(i * (i - 1) / 2 + j)]
-            end
-        end
-    end
-    return F
-
-    #return Symmetric([i <= j ? x[Int(j * (j - 1) / 2 + i)] : zero(T) for i in 1:N, j in 1:N])
+function (crit::FisherDCriterion)(F::Symmetric)
+    -det(F)
 end
 
-function __symmetric_from_vector(x::AbstractVector, regu)
-    n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
-    _symmetric_from_vector(x, Val(n), regu)
-end
-
-#function __symmetric_from_vector(x::AbstractVector)
-#    n = Int(sqrt(2 * size(x, 1) + 0.25) - 0.5)
-#    _symmetric_from_vector(x, Val(n), regu)
-#end
-
-
-#function (crit::ACriterion)(F::AbstractVector)
-#    return crit(__symmetric_from_vector(F))
-#end
-#
-#function (crit::DCriterion)(F::AbstractVector)
-#    return crit(__symmetric_from_vector(F))
-#end
-#
-#function (crit::ECriterion)(F::AbstractVector)
-#    return crit(__symmetric_from_vector(F))
-#end
-
-function (crit::ACriterion)(F::AbstractMatrix)
-    return inv(tr(F))
-end
-
-function (crit::DCriterion)(F::AbstractMatrix)
-    return inv(det(F))
-end
-
-function (crit::FisherACriterion)(F::AbstractMatrix)
-    return -tr(F)
-end
-
-function (crit::FisherDCriterion)(F::AbstractMatrix)
-    return -det(F)
+function (crit::FisherECriterion)(F::Symmetric)
+    -minimum(eigvals(F))
 end

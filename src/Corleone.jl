@@ -4,82 +4,44 @@ using Reexport
 using DocStringExtensions
 using Random
 
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-
+using RecursiveArrayTools
+using LinearAlgebra
+using ComponentArrays
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
-using Accessors
-using LinearAlgebra
 
-"""
-$(TYPEDEF)
+using CommonSolve
+using ChainRulesCore
 
-Abstract type defining different formulation for piecewise constant control signals.
+using LuxCore
+using Symbolics
 
-All discrete implementations take in a list of variables and time points, which are in turn extended.
-"""
-abstract type AbstractControlFormulation end
+include("local_controls.jl")
+export ControlParameter
 
-"""
-$(TYPEDEF)
-
-An abstract builder which executes a series of transformations to transform the dynamical system and additional specifications into an optimal control problem.
-"""
-abstract type AbstractBuilder end
-
-"""
-$(TYPEDEF)
-
-Abstract type defining different formulations for initialization of shooting node variables.
-
-"""
-abstract type AbstractNodeInitialization end
-
-function (f::AbstractNodeInitialization)(problem::SciMLBase.AbstractSciMLProblem, args...; kwargs...)
-    throw(ArgumentError("The initialization $f is not implemented."))
-end
-
-# The main symbolic metadata structure
-include("metadata.jl")
-export UncertainParameter, is_uncertain
-include("utils.jl")
-# This stores the piecewise constant struct and the function which extends controls
-include("control_formulations/abstract.jl")
-include("control_formulations/directcallback.jl")
-export DirectControlCallback
-include("control_formulations/searchindex.jl")
-export SearchIndexControl
-include("control_formulations/ifelsecontrol.jl")
-export IfElseControl
-include("control_formulations/tanhapproximation.jl")
-export TanhControl
-
-include("shooting.jl")
-export ShootingGrid
-include("predictor.jl")
-export OCPredictor
-
-include("initialization/node_initialization.jl")
-export DefaultsInitialization, ForwardSolveInitialization, RandomInitialization
-export LinearInterpolationInitialization, CustomInitialization, ConstantInitialization
-export HybridInitialization
+include("single_shooting.jl")
+export SingleShootingLayer
+include("multiple_shooting.jl")
+export MultipleShootingLayer
+include("augmentation.jl")
 
 include("criteria.jl")
-export AbstractOEDCriterion
 export ACriterion, DCriterion, ECriterion
-export FisherACriterion, FisherDCriterion
+export FisherACriterion, FisherDCriterion, FisherECriterion
 
-include("builders/abstract.jl")
-include("builders/variable_substitution.jl")
-include("builders/optimalcontrolfunction.jl")
-include("builders/ocbuilder.jl")
-export OCProblemBuilder
-include("builders/oedbuilder.jl")
-export OEDProblemBuilder
+include("node_initialization.jl")
+export DefaultsInitialization, ConstantInitialization
+export LinearInterpolationInitialization, ForwardSolveInitialization
+export HybridInitialization, RandomInitialization, CustomInitialization
 
-include("analysis/information_criteria.jl")
+include("oed.jl")
+export OEDLayer
+include("multi_experiments.jl")
+export MultiExperimentLayer
+include("information_gain.jl")
 export InformationGain
+
+include("abstract.jl")
 
 end

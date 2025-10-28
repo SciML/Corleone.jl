@@ -13,10 +13,10 @@ using OptimizationMOI
 using Ipopt
 using blockSQP
 
-function catalyst_mixing(u, p, t)
+function batch_reactor(u, p, t)
     x,y  = u
-    return [ p[1] * (10 * y - x)
-            p[1] * (x - 10 * y) - (1 - p[1]) * y
+    return [ -4.e3 * exp(-2500 / p[1]) * x^2
+            4.e3 * exp(-2500 / p[1]) * x^2 - 62.e4 * exp(-5000 / p[1]) * y^2
             ]
 end
 
@@ -24,11 +24,11 @@ tspan = (0., 1.0)
 u0 = [1.0, 0.0]
 p = [300.0]
 
-prob = ODEProblem(catalyst_mixing, u0, tspan, p)
+prob =  ODEProblem(batch_reactor, u0, tspan, p)
 
 N = 20
 control = ControlParameter(
-    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = zeros(N) .+ 0.5, bounds = (0.,1.)
+    collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N), bounds = (298.0,398.0)
 )
 layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1], (control,))
 
@@ -40,7 +40,7 @@ loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        -1 + sols[:x₁][end] + sols[:x₂][end]
+        -sols[:x₂][end]
     end
 end
 
@@ -58,6 +58,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
+
 
 optsol, _ = layer(nothing, uopt + zero(p), st)
 

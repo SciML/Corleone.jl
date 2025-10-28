@@ -1,76 +1,89 @@
+using Pkg
+Pkg.activate(@__DIR__)
 using Corleone
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEq
+using SciMLSensitivity
+using ComponentArrays
+using LuxCore
+using Random
+
 using CairoMakie
-using SciMLSensitivity, Optimization, OptimizationMOI, Ipopt
-using SciMLSensitivity.ForwardDiff, SciMLSensitivity.Zygote, SciMLSensitivity.ReverseDiff
-#using blockSQP
+using Optimization
+using OptimizationMOI
+using Ipopt
+using blockSQP
 
-# Lotka
-@variables begin
-    x(..) = 0.5, [tunable=false]
-    y(..) = 0.5, [tunable = false, bounds=(0.4, Inf)]
-    u1(..) = 1/3, [input = true, bounds = (0, 1)]
-    u2(..) = 1/3, [input = true, bounds = (0, 1)]
-    u3(..) = 1/3, [input = true, bounds = (0, 1)]
+function egerstedt(u, p, t)
+    x,y,_ = u
+    u1, u2, u3 = p
+    return [ -x * u1 + (x + y) * u2 + (x - y) * u3;
+            (x + 2 * y) * u1 + (x - 2 * y) * u2 + (x + y) * u3;
+            x^2 + y^2
+            ]
 end
 
-∫ = Symbolics.Integral(t in (0., 1.))
+tspan = (0., 1.0)
+u0 = [0.5, 0.5, 0.0]
+p = 1/3 * ones(3)
 
-@named lotka_volterra = System(
-    [
-        D(x(t)) ~ -x(t) * u1(t) + (x(t) + y(t)) * u2(t) + (x(t) - y(t)) * u3(t),
-        D(y(t)) ~ (x(t) + 2 * y(t)) * u1(t) + (x(t) - 2 * y(t)) * u2(t) + (x(t) + y(t)) * u3(t)
-    ], t, [x(t), y(t), u1(t), u2(t), u3(t)], [];
-    constraints=reduce(vcat, [(u1(ti) + u2(ti) + u3(ti) - 1 ~ 0.0) for ti in collect(0.0:0.05:1.0)]),
-    costs=Num[∫((x(t))^2 + (y(t))^2)],
-    consolidate=(x...)->first(x)[1], # Hacky, IDK what this is at the moment
-)
+prob =  ODEProblem(egerstedt, u0, tspan, p)
+
 N = 20
-shooting_points = collect(LinRange(0., 1., 11))
-
-grid = ShootingGrid(shooting_points)
-controlmethod = DirectControlCallback(
-    u1(t) => (; timepoints=collect(LinRange(0.,  N / (N+1), N)),
-        defaults= 0.3 * ones(N)
-    ),
-    u2(t) => (; timepoints=collect(LinRange(0.,  N / (N+1), N)),
-    defaults= 0.3 * ones(N)
-    ),
-    u3(t) => (; timepoints=collect(LinRange(0.,  N / (N+1), N)),
-    defaults= 0.3 * ones(N)
-    )
+cgrid = collect(LinRange(tspan..., N+1))[1:end-1]
+c1 = ControlParameter(
+    cgrid, name = :u1, controls = zeros(N) .+ 1/2, bounds = (0.,1.)
 )
-builder = OCProblemBuilder(
-    lotka_volterra, controlmethod, grid, ConstantInitialization(Dict(x(t) => 0.0, y(t) => 0.0))
+c2 = ControlParameter(
+    cgrid, name = :u2, controls = zeros(N) .+ 1/3 , bounds = (0.,1.)
+)
+c3 = ControlParameter(
+    cgrid, name = :u3, controls = zeros(N) .+ 1/4, bounds = (0.,1.)
 )
 
-# Instantiates the problem fully
-builder = builder()
+layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1,2,3], (c1,c2,c3))
+ps, st = LuxCore.setup(Random.default_rng(), layer)
+p = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(layer)
 
-optfun = OptimizationProblem{true}(builder, AutoForwardDiff(), Tsit5())
-
-# Initial plot
-sol = optfun.f.f.predictor(optfun.u0, saveat = 0.01)[1];
-# plot(sol, idxs = [:x, :y, :u])
-
-callback(x,l) = begin
-    sol = optfun.f.f.predictor(x.u, saveat = 0.1)[1];
-    display(plot(sol, idxs = [:x, :y, :u]))
-    return false
+loss = let layer = layer, st = st, ax = getaxes(p)
+    (p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        sols, _ = layer(nothing, ps, st)
+        sols[:x₃][end]
+    end
 end
 
-# Optimize
-# sol = solve(optfun, BlockSQPOpt(); maxiters = 100, opttol = 1e-6, callback=callback,
-#        options=blockSQP.sparse_options(), sparsity=optfun.f.f.predictor.permutation.blocks)
+loss(collect(p), nothing)
 
-sol = solve(optfun, Ipopt.Optimizer(); max_iter = 100, tol = 1e-6,
-            hessian_approximation="limited-memory", )
+sampling_cons = let layer = layer, st = st, nc=N, ax = getaxes(p)
+    (res, p, ::Any) -> begin
+        ps = ComponentArray(p, ax)
+        res .= [ps.controls[i] + ps.controls[i+nc] + ps.controls[i+2*nc] for i = 1:nc]
+    end
+end
 
-# Result plot
-pred = optfun.f.f.predictor(sol.u, saveat = 0.01)[1];
-f = Figure();
-ax = Axis(f[1,1]);
-plot!(ax, pred, idxs = [:x, :y, :u1, :u2, :u3]);
+optfun = OptimizationFunction(
+    loss, AutoForwardDiff(), cons=sampling_cons
+)
+
+optprob = OptimizationProblem(
+    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=ones(N), ucons=ones(N)
+)
+uopt = solve(optprob, Ipopt.Optimizer(),
+     tol = 1e-6,
+     hessian_approximation = "limited-memory",
+     max_iter = 300
+)
+
+optsol, _ = layer(nothing, uopt + zero(p), st)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+[lines!(ax, optsol.t, optsol[x], label = string(x)) for x in [:x₁, :x₂, :x₃]]
+f[1, 2] = Legend(f, ax, "States", framevisible = false)
+ax1 = CairoMakie.Axis(f[2,1])
+stairs!(ax1, optsol.t, optsol[:u₁], label = "u₁")
+stairs!(ax1, optsol.t, optsol[:u₂], label = "u₂")
+stairs!(ax1, optsol.t, optsol[:u₃], label = "u₃")
+f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 f

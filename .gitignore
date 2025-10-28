@@ -6,6 +6,7 @@
 **/Manifest.toml
 /docs/Manifest.toml
 /docs/build/
-lib/CorleoneCore/__old
 examples/Project.toml
 docs/src/examples
+/newdocs/build/
+/newdocs/Manifest.toml
