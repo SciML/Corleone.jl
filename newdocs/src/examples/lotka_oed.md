@@ -85,21 +85,20 @@ criterion = crit(oed_layer)
 criterion(p, nothing)
 ```
 
-The constraints can be directly stated as linear constraints on the discretized sampling controls. For this we need to sum up the discretized controls of each measurement function.
+The constraints can be directly stated as linear constraints on the discretized sampling controls. We provide a function that evaluates this constraint.
 
 ```@example lotka_oed
-nc = vcat(0, cumsum([length(x.t) for x in oed_layer.layer.controls]))
+sampling = get_sampling_constraint(oed_layer)
 
-sampling_cons = let nc=nc, st=st, ax=getaxes(p), dt=0.25
+sampling_cons = let ax=getaxes(p), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [sum(ps.controls[nc[i]+1:nc[i+1]]) * dt for i=2:3]
+        res .= sampling(ps)
     end
 end
 
 sampling_cons(zeros(2), p, nothing)
 ```
-
 
 All sampling controls are initialized with ``w=1``, therefore the constraint is evaluated as the length of the complete time horizon of the problem. We now specify that we may measure four time units and solve the problem.
 
