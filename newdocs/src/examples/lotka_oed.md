@@ -169,11 +169,10 @@ oed_layer # hide
 As the measurements are now discrete, instead of constraining the maximum time of measurements we need to constrain the number of measurements. Let's say we can pick a maximum of 3 measurement points of each quantity.
 
 ```@example lotka_oed
-sampling_cons = let layer = oed_layer.layer, st = st, ax = getaxes(p)
+sampling_cons = let ax = getaxes(p), sampling=get_sampling_constraint(oed_layer)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [sum(ps.controls[nc[2]+1:nc[3]]) ;
-                sum(ps.controls[nc[3]+1:nc[4]])  ]
+        res .= sampling(ps, nothing)
     end
 end
 
@@ -199,6 +198,7 @@ The problem is again quickly solved. The solution tells us when to take the meas
 optu = uopt + zero(p)
 optsol, _ = oed_layer(nothing, optu, st)
 
+nc = Corleone.control_blocks(oed_layer)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks=0:2:12, title="States + control")
 ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")

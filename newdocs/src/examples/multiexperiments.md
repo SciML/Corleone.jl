@@ -55,20 +55,13 @@ criterion = crit(multi_exp)
 criterion(p, nothing)
 ```
 
-The constraints can be directly stated as linear constraints on the discretized sampling controls. For this we need to sum up the discretized controls of each measurement function. This time, however, we need to do this for all experiments.
+The constraints can be directly stated as linear constraints on the discretized sampling controls. For this we need to sum up the discretized controls of each measurement function. Again, we provide the function to evaluate this constraint out of the box.
 
 ```@example lotka_multi
-nc = vcat(0, cumsum([length(x.t) for x in oed_layer.layer.controls]))
-
-sampling_cons = let ax=getaxes(p), dt=0.25
+sampling_cons = let ax=getaxes(p), sampling=get_sampling_constraint(multi_exp)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [
-            sum(ps.experiment_1.controls[nc[2]+1:nc[3]]) * dt;
-            sum(ps.experiment_1.controls[nc[3]+1:nc[4]]) * dt;
-            sum(ps.experiment_2.controls[nc[2]+1:nc[3]]) * dt;
-            sum(ps.experiment_2.controls[nc[3]+1:nc[4]]) * dt
-          ]
+        res .= sampling(ps, nothing)
     end
 end
 
@@ -100,6 +93,7 @@ The problem is efficiently solved. Lastly, we have a look at the solution.
 ```@example lotka_multi
 optsol, _ = multi_exp(nothing, uopt + zero(p), st)
 
+nc = Corleone.control_blocks(multi_exp)
 f = Figure(size = (800,800))
 for i = 1:nexp
     ax = CairoMakie.Axis(f[1,i], xticks=0:2:12, title="Experiment $i\nStates + controls")
