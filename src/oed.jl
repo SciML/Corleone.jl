@@ -361,3 +361,41 @@ end
         crit(F)
     end
 end
+
+
+## Functions to evaluate maximum sampling constraints
+function get_sampling_constraint(layer::OEDLayer{<:Any, false})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+    controls, _ = get_controls(layer.layer)
+
+    nc = vcat(0, cumsum([length(x.t) for x in controls]))
+    diffs_t = [diff(x.t) for x in controls]
+    dt = [all(y -> ≈(y,difft[1]), difft) ? difft[1] : difft  for difft in diffs_t]
+
+    sampling_cons = let ax = getaxes(p), nc = nc, dt = dt, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            [sum(ps.controls[nc[i]+1:nc[i+1]]) .* dt[i] for i in eachindex(nc)[dims.nc+1:end-1]]
+        end
+    end
+
+    return sampling_cons
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, true})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+    controls, _ = get_controls(layer.layer)
+
+    nc = vcat(0, cumsum([length(x.t) for x in controls]))
+
+    sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            [sum(ps.controls[nc[i]+1:nc[i+1]]) for i in eachindex(nc)[dims.nc+1:end-1]]
+        end
+    end
+
+    return sampling_cons
+end
