@@ -93,7 +93,7 @@ sampling = get_sampling_constraint(oed_layer)
 sampling_cons = let ax=getaxes(p), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= sampling(ps)
+        res .= sampling(ps, nothing)
     end
 end
 
@@ -124,6 +124,7 @@ The problem is efficiently solved. Lastly, we have a look at the solution.
 ```@example lotka_oed
 optsol, _ = oed_layer(nothing, uopt + zero(p), st)
 
+nc = Corleone.control_blocks(oed_layer)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks=0:2:12, title="States + control")
 ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
