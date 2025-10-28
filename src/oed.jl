@@ -411,8 +411,6 @@ function get_sampling_constraint(layer::OEDLayer{<:Any, false, <:MultipleShootin
     diffs_layer = [[diff(x.t) for x in control] for control in controls]
     dt = [[all(y -> ≈(y,difft[1]), difft) ? difft[1:1] : difft  for difft in diffs_t] for diffs_t in diffs_layer]
 
-    @info dt
-    @info nc
     sampling_cons = let ax = getaxes(p), nc = nc, dt = dt, dims=layer.dimensions
         (p, ::Any) -> begin
             ps = ComponentArray(p, ax)
@@ -431,7 +429,6 @@ function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:SingleShootingLa
     p = ComponentArray(ps)
 
     nc = control_blocks(layer)
-
     sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
         (p, ::Any) -> begin
             ps = ComponentArray(p, ax)
@@ -447,7 +444,6 @@ function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:MultipleShooting
     p = ComponentArray(ps)
 
     nc = control_blocks(layer)
-    @info nc
     sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
         (p, ::Any) -> begin
             ps = ComponentArray(p, ax)
