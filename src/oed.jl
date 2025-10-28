@@ -364,12 +364,30 @@ end
 
 
 ## Functions to evaluate maximum sampling constraints
-function get_sampling_constraint(layer::OEDLayer{<:Any, false})
+function control_blocks(controls::ControlParameter...)
+    return vcat(0, cumsum([length(x.t) for x in controls]))
+end
+
+function control_blocks(layer::SingleShootingLayer)
+    control_blocks(get_controls(layer)[1]...)
+end
+
+function control_blocks(layer::OEDLayer{<:Any, <:Any, <:SingleShootingLayer})
+    control_blocks(layer.layer)
+end
+
+function control_blocks(layer::OEDLayer{<:Any, <:Any, <:MultipleShootingLayer})
+    map(layer.layer.layers) do _layer
+        control_blocks(_layer)
+    end
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, false, <:SingleShootingLayer})
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(ps)
     controls, _ = get_controls(layer.layer)
 
-    nc = vcat(0, cumsum([length(x.t) for x in controls]))
+    nc = control_blocks(layer)
     diffs_t = [diff(x.t) for x in controls]
     dt = [all(y -> ≈(y,difft[1]), difft) ? difft[1] : difft  for difft in diffs_t]
 
@@ -383,17 +401,59 @@ function get_sampling_constraint(layer::OEDLayer{<:Any, false})
     return sampling_cons
 end
 
-function get_sampling_constraint(layer::OEDLayer{<:Any, true})
+function get_sampling_constraint(layer::OEDLayer{<:Any, false, <:MultipleShootingLayer})
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(ps)
-    controls, _ = get_controls(layer.layer)
 
-    nc = vcat(0, cumsum([length(x.t) for x in controls]))
+    controls = first.(get_controls.(layer.layer.layers))
+    nc = control_blocks(layer)
+
+    diffs_layer = [[diff(x.t) for x in control] for control in controls]
+    dt = [[all(y -> ≈(y,difft[1]), difft) ? difft[1:1] : difft  for difft in diffs_t] for diffs_t in diffs_layer]
+
+    @info dt
+    @info nc
+    sampling_cons = let ax = getaxes(p), nc = nc, dt = dt, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:dims.nh) do i
+                sum([sum(ps["layer_$j"].controls[nc[j][dims.nc+i]+1:nc[j][dims.nc+i+1]]) .* _dt[i] for (j,_dt) in enumerate(dt)])
+            end)
+        end
+    end
+
+    return sampling_cons
+end
+
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:SingleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    nc = control_blocks(layer)
 
     sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
         (p, ::Any) -> begin
             ps = ComponentArray(p, ax)
             [sum(ps.controls[nc[i]+1:nc[i+1]]) for i in eachindex(nc)[dims.nc+1:end-1]]
+        end
+    end
+
+    return sampling_cons
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:MultipleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    nc = control_blocks(layer)
+    @info nc
+    sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:dims.nh) do i
+                sum([sum(ps["layer_$j"].controls[_nc[dims.nc+i]+1:_nc[dims.nc+i+1]])  for (j,_nc) in enumerate(nc)])
+            end)
         end
     end
 
