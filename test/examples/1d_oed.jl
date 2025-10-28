@@ -26,10 +26,10 @@ lb, ub = Corleone.get_bounds(ol)
 crit= ACriterion()
 ACrit = crit(ol)
 
-sampling_cons = let ax = getaxes(p), dt = diff(ol.layer.controls[1].t)[1]
+sampling_cons = let ax = getaxes(p), sampling=Corleone.get_sampling_constraint(ol)
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [sum(ps.controls)] * dt
+        res .= sampling(ps, nothing)
     end
 end
 
