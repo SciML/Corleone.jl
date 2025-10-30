@@ -166,7 +166,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     )
 end
 
-function (layer::SingleShootingLayer)(::Any, ps, st)
+function (layer::SingleShootingLayer)(::Nothing, ps, st)
     (; problem, algorithm,) = layer
     (; u0, p, controls) = ps
     (; index_grid, tspans, parameter_vector, initial_condition, symcache) = st
@@ -174,6 +174,16 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     params = Base.Fix1(parameter_vector, p)
     # Returns the states as DiffEqArray
     solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans, symcache)
+    return solutions, st
+end
+
+function (layer::SingleShootingLayer)(u0, ps, st)
+    (; problem, algorithm,) = layer
+    (; p, controls) = ps
+    (; index_grid, tspans, parameter_vector, symcache) = st
+    params = Base.Fix1(parameter_vector, p)
+    # Returns the states as DiffEqArray
+    solutions = sequential_solve(problem, algorithm, u0, params, controls, index_grid, tspans, symcache)
     return solutions, st
 end
 

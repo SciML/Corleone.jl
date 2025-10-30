@@ -126,7 +126,8 @@ f
 
 observed = (u,p,t) -> u[1:4]
 
-layer = OEDLayer(probs[1], DFBDF(); params = [4,5,6], observed = observed, dt=1.0)
+dt = 1.0
+layer = OEDLayer(probs[1], DFBDF(); params = [4,5,6], observed = observed, dt=dt)
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 pc = ComponentArray(ps)
@@ -136,13 +137,12 @@ crit = ACriterion()
 ACrit = crit(layer)
 ACrit(pc, nothing)
 
-nc = length(layer.layer.controls[1].t)
-dt = (-)(reverse(tspan)...)/nc
+sampling = get_sampling_constraint(layer)
 
-sampling_cons = let nc=nc, st = st, ax = getaxes(pc)
+sampling_cons = let ax = getaxes(pc), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [sum(ps.controls[i*nc+1:(i+1)*nc]) * dt for i=0:3]
+        res .= sampling(ps,nothing)
     end
 end
 
@@ -164,18 +164,20 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 
 optsol, _ = layer(nothing, uopt + zero(pc), st)
 
+nc = Corleone.control_blocks(layer)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks = 0:25:200, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:25:200, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:25:200, title="Sampling")
 [plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:10]]
 [plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(layer)[:]])))]
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[1:nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc+1:2*nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[2*nc+1:3*nc])
-stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[3*nc+1:4*nc])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc[1]+1:nc[2]])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc[2]+1:nc[3]])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc[3]+1:nc[4]])
+stairs!(ax3, 0.0:dt:last(tspan)-dt, (uopt + zero(pc)).controls[nc[4]+1:nc[5]])
 f
 
+###### MULTIEXPERIMENT
 
 oedlayers = map(probs) do prob
     OEDLayer(prob, DFBDF(); params = [4,5,6], observed = observed, dt=1.0)
@@ -192,27 +194,18 @@ crit = ACriterion()
 ACrit = crit(multi_layer)
 ACrit(ps_multi, nothing)
 
-nc = [vcat(0, cumsum([length(x.t) for x in layer.layer.controls])) for layer in multi_layer.layers]
-
-sampling_cons_single = let nexp = multi_layer.n_exp, nc=nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
+sampling = get_sampling_constraint(multi_layer)
+sampling_cons_single = let ax = getaxes(ps_multi), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        samplings = reduce(vcat, map(1:nexp) do i
-            local_sampling = getproperty(ps, Symbol("experiment_$i"))
-            [sum(local_sampling.controls[nc[i][j]+1:nc[i][j+1]] * dt)  for j in eachindex(nc[i])[1:end-1]]
-        end)
-        res .= samplings
+        res .= sampling(ps, nothing)
     end
 end
 
-sampling_cons_multi = let nexp = multi_layer.n_exp, nc=nc, st = st, dt = 1.0, ax = getaxes(ps_multi)
+sampling_cons_multi = let ax = getaxes(ps_multi), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        samplings = reduce(vcat, map(1:nexp) do i
-            local_sampling = getproperty(ps, Symbol("experiment_$i"))
-            [sum(local_sampling.controls[nc[i][j]+1:nc[i][j+1]] * dt)  for j in eachindex(nc[i])[1:end-1]]
-        end)
-        res .= sum(samplings)
+        res .= sum(sampling(ps, nothing))
     end
 end
 
@@ -236,7 +229,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 
 
 optsol, _ = multi_layer(nothing, uopt + zero(ps_multi), st)
-
+nc = Corleone.control_blocks(multi_layer)
 f = Figure(size = (800, 800))
 for i=1:3
     ax = CairoMakie.Axis(f[1,i], xticks = 0:25:200, title="Experiment $i\nStates")
@@ -246,9 +239,9 @@ for i=1:3
     [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_layer.layers[i])[:]])))]
     local_sampling = getproperty(uopt + zero(ps_multi), Symbol("experiment_$i"))
 
-    stairs!(ax3, 0.0:199, local_sampling.controls[1:200])
-    stairs!(ax3, 0.0:199, local_sampling.controls[201:400])
-    stairs!(ax3, 0.0:199, local_sampling.controls[401:600])
-    stairs!(ax3, 0.0:199, local_sampling.controls[601:end])
+    stairs!(ax3, 0.0:199, local_sampling.controls[nc[i][1]+1:nc[i][2]])
+    stairs!(ax3, 0.0:199, local_sampling.controls[nc[i][2]+1:nc[i][3]])
+    stairs!(ax3, 0.0:199, local_sampling.controls[nc[i][3]+1:nc[i][4]])
+    stairs!(ax3, 0.0:199, local_sampling.controls[nc[i][4]+1:nc[i][5]])
 end
 f

@@ -6,7 +6,7 @@ This page shows how to use multiple shooting for solving optimal control problem
 \begin{array}{llcl}
  \displaystyle \min_{x, u} & \int_{0}^{1} x_0^2 & \; \mathrm{d} t \\[1.5ex]
  \mbox{s.t.} & \dot{x}_0 & = & x_1, \\
- & \dot{x}_1 & = & 1 - 2 \; u, \\[1.5ex]
+ & \dot{x}_1 & = & 1 - 2 \; u,
  & x(0) &=& x_S, \\
  & x(t_f) &=& x_T, \\
  & u(t) &\in&  [0, 1].
@@ -59,7 +59,7 @@ layer = Corleone.MultipleShootingLayer(prob, Tsit5(), [1], (control,), shooting_
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
-layer # hide 
+layer # hide
 ```
 
 Let's have a look at the solution of the system.
