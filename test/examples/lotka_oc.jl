@@ -28,6 +28,11 @@ control = ControlParameter(
 layer = SingleShootingLayer(prob, Tsit5(), [1], (control,))
 
 ps, st = LuxCore.setup(rng, layer)
+
+sol, _ = layer(nothing, ps, st)
+
+@test allunique(sol.t)
+
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
