@@ -20,7 +20,7 @@ However, it is now the goal to estimate the parameters ``p_1`` and ``p_2`` accur
 \quad \dot{z_2}(t) & = & w_2(t), \\[1.5ex]
 \quad x(0) &=& (0.5, 0.7), \\
 \quad G(0) &=& F(0) = 0, \\
-\quad z(0) 0, \\[1.5ex]
+\quad z(0) &=& 0, \\[1.5ex]
 \quad u(t) & \in & \mathcal{U}, \; w_1(t), w_2(t) \in \mathcal{W} \\
 \quad 0    & \le & M - z(t_f)
   \end{array}
