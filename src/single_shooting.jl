@@ -207,12 +207,18 @@ sequential_solve(args...) = _sequential_solve(args...)
         push!(ex,
             :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)], sys))
         )
-        push!(u_ret_expr.args, :($(solutions[i]).u))
-        push!(t_ret_expr.args, :($(solutions[i]).t))
+#        push!(u_ret_expr.args, :($(solutions[i]).u))
+#        push!(t_ret_expr.args, :($(solutions[i]).t))
         if i < N
+        push!(u_ret_expr.args, :($(solutions[i]).u[1:end-1]))
+        push!(t_ret_expr.args, :($(solutions[i]).t[1:end-1]))
             push!(ex,
                 :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
             )
+        else
+
+        push!(u_ret_expr.args, :($(solutions[i]).u))
+        push!(t_ret_expr.args, :($(solutions[i]).t))
         end
     end
     push!(ex,
