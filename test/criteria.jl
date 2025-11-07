@@ -26,9 +26,7 @@ end
     tspan = (0., 12.)
     u0 = [0.5, 0.7, ]
     p0 = [0.0, 1.0, 1.0]
-    prob = ODEProblem{false}(lotka, u0, tspan, p0,
-        sensealg = ForwardDiffSensitivity()
-        )
+    prob = ODEProblem{false}(lotka, u0, tspan, p0)
     control = ControlParameter(
         collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
     )
