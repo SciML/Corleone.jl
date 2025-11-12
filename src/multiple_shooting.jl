@@ -10,7 +10,7 @@ Additionally, `bounds_nodes` define the bounds on the multiple shooting nodes.
 # Fields
 $(FIELDS)
 """
-struct MultipleShootingLayer{L,SI,E,B} <: LuxCore.AbstractLuxLayer
+struct MultipleShootingLayer{L,SI,E,B,D} <: LuxCore.AbstractLuxLayer
     "Collection of multiple SingleShootingLayer"
     layers::L
     "Collection of tspans for individual layers"
@@ -19,6 +19,8 @@ struct MultipleShootingLayer{L,SI,E,B} <: LuxCore.AbstractLuxLayer
     ensemble_alg::E
     "Bounds on the multiple shooting nodes"
     bounds_nodes::B
+    "Duplicated controls due to misalignment of control and MS grids."
+    duplicate_controls::D
 end
 
 get_problem(layer::MultipleShootingLayer) = get_problem(first(layer.layers))
@@ -53,13 +55,62 @@ get_shooting_constraints(layer::MultipleShootingLayer) = begin
     matching = let ax = ax, nc = length(controls)
         (sols, p) -> begin
             _p = isa(p, Array) ? ComponentArray(p, ax) : p
-            reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
+            shooting = reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
                 _u0 = getproperty(_p, name_i).u0
                 sol.u[end][1:end-nc] .-_u0
             end)
+            controls = reduce(vcat, map(enumerate(layer.duplicate_controls)) do (i, duplicate)
+                [p["layer_$(d.pre.i)"].controls[d.pre.idx] - p["layer_$(d.post.i)"].controls[d.post.idx] for d in duplicate]
+            end)
+            return vcat(shooting, controls)
         end
     end
     return matching
+end
+
+
+function compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval; compensate_repeated_controls=true)
+    sum(map(enumerate(controls)) do (_control_idx, _c)
+        n_controls = sum(shooting_intervals[interval][1] .<= _c.t .< shooting_intervals[interval][2])
+        @info n_controls
+        @info first(shooting_intervals[interval]) ∉ _c.t
+        if first(shooting_intervals[interval]) ∉ _c.t && compensate_repeated_controls
+            n_controls += 1
+        end
+        if _control_idx > control_idx
+            0
+        else
+            n_controls == 0 ? 1 : n_controls
+        end
+    end)
+end
+
+
+function compute_duplicate_controls(controls, shooting_intervals)
+    duplicates = map(enumerate(controls)) do (control_idx, c)
+        filter(!isnothing, map(enumerate(shooting_intervals)) do (i,tspani)
+            lo, hi = tspani
+            @info "Tspan $tspani"
+            idx = findall(lo .<= c.t .< hi)
+            if isempty(idx)
+                idx_pre = findlast(c.t .< lo)
+                interval = findfirst(map(t -> first(t) .<= c.t[idx_pre] .< last(t), shooting_intervals))
+                idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
+                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval+1; compensate_repeated_controls=false)
+                (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
+            elseif lo ∉ c.t
+                idx_pre = findlast(c.t .< lo)
+                interval = i - 1
+                idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
+                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval+1; compensate_repeated_controls=false)
+
+                (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
+            else
+                nothing
+            end
+        end)
+    end
+    return duplicates
 end
 
 """
@@ -82,7 +133,9 @@ function MultipleShootingLayer(prob, alg, control_indices, controls, shooting_po
     layers = [SingleShootingLayer(remake(prob, tspan = tspani, kwargs...), alg, control_indices, restrict_controls(controls, tspani...);
                 tunable_ic=_tunable[i], bounds_ic = (i == 1 ? (isempty(tunable_ic) ? nothing : bounds_ic) : bounds_nodes)) for (i, tspani) in enumerate(shooting_intervals)]
 
-    MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg), typeof(bounds_nodes)}(layers, shooting_intervals, ensemble_alg, bounds_nodes)
+    duplicates = compute_duplicate_controls(controls, shooting_intervals)
+
+    MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg), typeof(bounds_nodes), typeof(duplicates)}(layers, shooting_intervals, ensemble_alg, bounds_nodes, duplicates)
 end
 
 
