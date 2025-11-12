@@ -23,6 +23,9 @@ using SafeTestsets
     @testset "Multiexperiments" begin
         include("multi_experiments.jl")
     end
+    @testset "Irregular discretizations" begin
+        include("irregular_discretizations.jl")
+    end
 end
 
 # What to test?

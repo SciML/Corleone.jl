@@ -72,8 +72,6 @@ end
 function compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval; compensate_repeated_controls=true)
     sum(map(enumerate(controls)) do (_control_idx, _c)
         n_controls = sum(shooting_intervals[interval][1] .<= _c.t .< shooting_intervals[interval][2])
-        @info n_controls
-        @info first(shooting_intervals[interval]) ∉ _c.t
         if first(shooting_intervals[interval]) ∉ _c.t && compensate_repeated_controls
             n_controls += 1
         end
@@ -90,13 +88,12 @@ function compute_duplicate_controls(controls, shooting_intervals)
     duplicates = map(enumerate(controls)) do (control_idx, c)
         filter(!isnothing, map(enumerate(shooting_intervals)) do (i,tspani)
             lo, hi = tspani
-            @info "Tspan $tspani"
             idx = findall(lo .<= c.t .< hi)
-            if isempty(idx)
+            if isempty(idx) # Case: No discretized controls in shooting interval
                 idx_pre = findlast(c.t .< lo)
                 interval = findfirst(map(t -> first(t) .<= c.t[idx_pre] .< last(t), shooting_intervals))
                 idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
-                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval+1; compensate_repeated_controls=false)
+                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, i; compensate_repeated_controls=false)
                 (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
             elseif lo ∉ c.t
                 idx_pre = findlast(c.t .< lo)
