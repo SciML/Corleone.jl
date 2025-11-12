@@ -79,8 +79,6 @@ function restrict_controls(c::ControlParameter, lo, hi)
         end
         timepoints = vcat(lo, timepoints)
     end
-    @info timepoints lo hi
-
     return ControlParameter(timepoints, name = c.name, controls = controls, bounds = bounds)
 end
 
