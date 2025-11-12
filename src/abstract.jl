@@ -14,7 +14,7 @@ function Base.show(io::IO, layer::MultipleShootingLayer)
 
     print(io,
         type_color, "MultipleShootingLayer ",
-        no_color,  "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer))) controls.\n" )
+        no_color,  "with $(length(layer.shooting_intervals)) shooting intervals and $(length(first(get_controls(layer)))) controls.\n" )
     print(io, "Underlying problem: ")
     Base.show(io, "text/plain", remake(get_problem(layer), tspan=get_tspan(layer)))
 end
