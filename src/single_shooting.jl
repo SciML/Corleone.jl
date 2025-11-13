@@ -188,7 +188,7 @@ function (layer::SingleShootingLayer)(u0, ps, st)
 end
 
 function build_optimal_control_solution(u, t, p, sys)
-    DiffEqArray(u, t, p, sys)
+	Trajectory(sys, u, p, t)  
 end
 
 sequential_solve(args...) = _sequential_solve(args...)
