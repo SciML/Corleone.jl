@@ -84,28 +84,32 @@ function compute_number_discretized_controls_so_far(controls, shooting_intervals
 end
 
 
-function compute_duplicate_controls(controls, shooting_intervals)
+function compute_duplicate_controls(controls, shooting_intervals, continuous_controls=eachindex(controls))
     duplicates = map(enumerate(controls)) do (control_idx, c)
-        filter(!isnothing, map(enumerate(shooting_intervals)) do (i,tspani)
-            lo, hi = tspani
-            idx = findall(lo .<= c.t .< hi)
-            if isempty(idx) # Case: No discretized controls in shooting interval
-                idx_pre = findlast(c.t .< lo)
-                interval = findfirst(map(t -> first(t) .<= c.t[idx_pre] .< last(t), shooting_intervals))
-                idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
-                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, i; compensate_repeated_controls=false)
-                (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
-            elseif lo ∉ c.t
-                idx_pre = findlast(c.t .< lo)
-                interval = i - 1
-                idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
-                idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval+1; compensate_repeated_controls=false)
+        if control_idx ∉ continuous_controls
+            nothing
+        else
+            filter(!isnothing, map(enumerate(shooting_intervals)) do (i,tspani)
+                lo, hi = tspani
+                idx = findall(lo .<= c.t .< hi)
+                if isempty(idx) # Case: No discretized controls in shooting interval
+                    idx_pre = findlast(c.t .< lo)
+                    interval = findfirst(map(t -> first(t) .<= c.t[idx_pre] .< last(t), shooting_intervals))
+                    idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
+                    idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, i; compensate_repeated_controls=false)
+                    (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
+                elseif lo ∉ c.t
+                    idx_pre = findlast(c.t .< lo)
+                    interval = i - 1
+                    idx_on_layer_pre = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval)
+                    idx_on_layer_post = compute_number_discretized_controls_so_far(controls, shooting_intervals, control_idx, interval+1; compensate_repeated_controls=false)
 
-                (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
-            else
-                nothing
-            end
-        end)
+                    (pre=(i=interval, idx=idx_on_layer_pre), post=(i=i,idx=idx_on_layer_post))
+                else
+                    nothing
+                end
+            end)
+        end
     end
     return duplicates
 end
@@ -122,15 +126,15 @@ See also [``SingleShootingLayer``](@ref) for information on further arguments.
 function MultipleShootingLayer(prob, alg, control_indices, controls, shooting_points;
                 tunable_ic = Int64[], bounds_ic = (-Inf*ones(length(tunable_ic)), Inf*length(tunable_ic)),
                 bounds_nodes = (-Inf * ones(length(prob.u0)), Inf*ones(length(prob.u0))),
-                ensemble_alg = EnsembleSerial(), kwargs...)
+                ensemble_alg = EnsembleSerial(), continuous_controls=eachindex(controls), kwargs...)
     tspan = prob.tspan
     shooting_points = vcat(tspan..., shooting_points) |> unique! |> sort!
     shooting_intervals = [(t0,t1) for (t0,t1) in zip(shooting_points[1:end-1], shooting_points[2:end])]
     _tunable = vcat([tunable_ic], [collect(1:length(prob.u0)) for _ in 1:length(shooting_intervals)])
-    layers = [SingleShootingLayer(remake(prob, tspan = tspani, kwargs...), alg, control_indices, restrict_controls(controls, tspani...);
+    layers = [SingleShootingLayer(remake(prob, tspan = tspani, kwargs...), alg, control_indices, restrict_controls(controls, tspani..., continuous_controls);
                 tunable_ic=_tunable[i], bounds_ic = (i == 1 ? (isempty(tunable_ic) ? nothing : bounds_ic) : bounds_nodes)) for (i, tspani) in enumerate(shooting_intervals)]
 
-    duplicates = compute_duplicate_controls(controls, shooting_intervals)
+    duplicates = compute_duplicate_controls(controls, shooting_intervals, continuous_controls)
 
     MultipleShootingLayer{typeof(layers), typeof(shooting_intervals), typeof(ensemble_alg), typeof(bounds_nodes), typeof(duplicates)}(layers, shooting_intervals, ensemble_alg, bounds_nodes, duplicates)
 end

@@ -53,9 +53,9 @@ end
 """
 Computes and returns a new tuple of `ControlParameter` with their timespans reduced to `(lo,hi)`.
 """
-function restrict_controls(c::Tuple, lo, hi)
-    map(c) do ci
-        restrict_controls(ci, lo, hi)
+function restrict_controls(c::Tuple, lo, hi, continuous_controls=eachindex(c))
+    map(enumerate(c)) do (i,ci)
+        restrict_controls(ci, lo, hi; fill_missing_controls=i ∈ continuous_controls)
     end
 end
 
@@ -63,21 +63,26 @@ end
 Computes and returns a new `ControlParameter` from `c` with timepoints restricted to
 `lo` .< `c.t` .< `hi`.
 """
-function restrict_controls(c::ControlParameter, lo, hi)
+function restrict_controls(c::ControlParameter, lo, hi; fill_missing_controls=true)
     idx = findall(lo .<= c.t .< hi)
     controls = c.controls == default_u ? c.controls : (isempty(idx) ? [c.controls[findlast(c.t .< lo)]] : c.controls[idx])
     bounds = c.bounds == default_bounds ? c.bounds : (length(c.bounds[1]) == 1 ? c.bounds : (c.bounds[1][idx], c.bounds[2][idx]))
-    timepoints = isempty(idx) ? [lo] : c.t[idx]
-    if lo ∉ timepoints
-        if controls != default_u
-            controls = vcat(c.controls[findlast(c.t .< lo)], controls)
+    timepoints = c.t[idx]
+    if fill_missing_controls
+        if isempty(timepoints)
+            timepoints = [lo]
         end
-        if bounds != default_bounds
-            if length(bounds[1]) > 1
-                (vcat(c.bounds[1][findlast(c.t .< lo)], bounds[1]), vcat(c.bounds[2][findlast(c.t .< lo)], bounds[2]))
+        if lo ∉ timepoints
+            if controls != default_u
+                controls = vcat(c.controls[findlast(c.t .< lo)], controls)
             end
+            if bounds != default_bounds
+                if length(bounds[1]) > 1
+                    (vcat(c.bounds[1][findlast(c.t .< lo)], bounds[1]), vcat(c.bounds[2][findlast(c.t .< lo)], bounds[2]))
+                end
+            end
+            timepoints = vcat(lo, timepoints)
         end
-        timepoints = vcat(lo, timepoints)
     end
     return ControlParameter(timepoints, name = c.name, controls = controls, bounds = bounds)
 end
