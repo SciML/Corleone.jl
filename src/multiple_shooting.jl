@@ -33,34 +33,24 @@ get_bounds(layer::MultipleShootingLayer) = begin
     end
     ComponentArray(NamedTuple{layer_names}(first.(layer_bounds))), ComponentArray(NamedTuple{layer_names}(last.(layer_bounds)))
 end
-"""
-    get_shooting_constraints(layer)
-Returns function to evaluate matching conditions of MultpipleShootingLayer.
-The signature of the function is (sols,p).
 
-# Examples
-```julia-repl
-julia> shooting_constraint = get_shooting_constraints(layer)
-julia> sols, _ = layer(nothing, p, st)
-julia> shooting_constraint(sols, p)
-[0.7626323782771849, 1.118278846482416, 1.2309540387687008, -3.0538497395734483, -2.6549931647655867, -0.4674885764266593]
-```
-"""
-get_shooting_constraints(layer::MultipleShootingLayer) = begin
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    ax = getaxes(ComponentArray(ps))
-    controls, control_indices = get_controls(layer)
-    matching = let ax = ax, nc = length(controls)
-        (sols, p) -> begin
-            _p = isa(p, Array) ? ComponentArray(p, ax) : p
-            reduce(vcat, map(zip(sols[1:end-1], keys(ax[1])[2:end])) do (sol, name_i)
-                _u0 = getproperty(_p, name_i).u0
-                sol.u[end][1:end-nc] .-_u0
-            end)
-        end
-    end
-    return matching
+
+function build_optimal_control_solution(sol::EnsembleSolution)
+	(; u ) = sol 
+	p = first(u).p
+	sys = first(u).sys 
+	us = map(state_values, u) 
+	ts = map(current_time, u)
+	tnew = vcat(map(xi->xi[1:end-1], ts[1:end-1]), ts[end])
+	offset = 0 
+	shooting_points = map(us[1:end-1]) do ui 
+		offset += lastindex(ui)
+		offset, ui[end] 
+	end
+	unew = vcat(map(xi->xi[1:end-1], us[1:end-1]), us[end])
+	Trajectory(sys, unew, p, tnew, shooting_points)  
 end
+
 
 """
 $(SIGNATURES)
@@ -98,6 +88,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, mslayer::MultipleShootin
     NamedTuple{layer_names}(layer_st)
 end
 
+struct Remaker{PS, ST}
+	parameters::PS 
+	states::ST 
+end
+
 function (layer::MultipleShootingLayer)(::Any, ps, st)
     prob = SingleShootingProblem(first(layer.layers), ps.layer_1, st.layer_1)
     remaker = let ps = ps, st=st, names = keys(ps)
@@ -109,7 +104,7 @@ function (layer::MultipleShootingLayer)(::Any, ps, st)
             prob_current
         end
     end
-    return solve(EnsembleProblem(prob, prob_func=remaker, output_func = (sol, i) -> (sol[1], false)),
+    ensemblesol = solve(EnsembleProblem(prob, prob_func=remaker, output_func = (sol, i) -> (sol[1], false)),
             DummySolve(),layer.ensemble_alg; trajectories = length(layer.layers)), st
 end
 

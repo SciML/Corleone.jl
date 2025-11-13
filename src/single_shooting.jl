@@ -119,7 +119,7 @@ function _retrieve_symbol_cache(
     SymbolCache(vcat(xs, ps[idx]), ps[nonidx], t)
 end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer, tspan = layer.problem.tspan)
     (; tunable_ic, control_indices, problem, controls) = layer
     # We first derive the initial condition function
     constant_ic = [i ∉ tunable_ic for i in eachindex(problem.u0)]
@@ -154,8 +154,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
         end
     end
     # Next we setup the tspans and the indices
-    grid = build_index_grid(controls...; tspan=problem.tspan, subdivide=100)
-    tspans = collect_tspans(controls...; tspan=problem.tspan, subdivide=100)
+    grid = build_index_grid(controls...; tspan, subdivide=100)
+    tspans = collect_tspans(controls...; tspan, subdivide=100)
     symcache = retrieve_symbol_cache(problem, control_indices)
     (;
         initial_condition,
@@ -188,7 +188,7 @@ function (layer::SingleShootingLayer)(u0, ps, st)
 end
 
 function build_optimal_control_solution(u, t, p, sys)
-	Trajectory(sys, u, p, t)  
+	Trajectory(sys, u, p, t, nothing)  
 end
 
 sequential_solve(args...) = _sequential_solve(args...)
@@ -213,7 +213,7 @@ sequential_solve(args...) = _sequential_solve(args...)
         push!(u_ret_expr.args, :($(solutions[i]).u[1:end-1]))
         push!(t_ret_expr.args, :($(solutions[i]).t[1:end-1]))
             push!(ex,
-                :($(u0s[i+1]) = last($(solutions[i]))[eachindex(u0)])
+                :($(u0s[i+1]) = last($(solutions[i]).u)[eachindex(u0)])
             )
         else
 

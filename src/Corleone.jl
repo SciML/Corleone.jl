@@ -26,8 +26,9 @@ export ControlParameter
 
 include("single_shooting.jl")
 export SingleShootingLayer
-#include("multiple_shooting.jl")
-#export MultipleShootingLayer, get_shooting_constraints
+include("multiple_shooting.jl")
+export MultipleShootingLayer
+
 #include("augmentation.jl")
 
 #include("criteria.jl")
