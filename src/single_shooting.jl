@@ -119,20 +119,20 @@ function _retrieve_symbol_cache(
     SymbolCache(vcat(xs, ps[idx]), ps[nonidx], t)
 end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer, tspan = layer.problem.tspan)
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer; 
+															 tspan = layer.problem.tspan, shooting_layer = false, kwargs...)
     (; tunable_ic, control_indices, problem, controls) = layer
-    # We first derive the initial condition function
-    constant_ic = [i ∉ tunable_ic for i in eachindex(problem.u0)]
-    tunable_matrix = zeros(Bool, size(problem.u0, 1), size(tunable_ic, 1))
-    id = 0
-    for i in axes(tunable_matrix, 1)
-        if i ∈ tunable_ic
-            tunable_matrix[i, id+=1] = true
-        end
-    end
-    initial_condition = let B = tunable_matrix, u0 = constant_ic .* copy(problem.u0)
-        function (u::AbstractArray{T}) where {T}
-            T.(u0) .+ B * u
+		(; u0) = problem
+		if shooting_layer
+		tunable_ic = empty(tunable_ic) 
+		end
+constant_ics = setdiff(eachindex(u0), tunable_ic)
+	initial_condition = let sorting = sortperm(vcat(constant_ics, tunable_ic)), shape = size(u0), constants = constant_ics
+		(u::AbstractVector{<:Number}, u0::AbstractArray{<:Number}) -> begin
+				T = Base.promote_eltype(u, u0)
+			isempty(u) && return T.(u0) 
+			reshape(vcat(vec(u0[constants]), u)[sorting], shape)
         end
     end
     # Setup the parameters
@@ -167,14 +167,10 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
 end
 
 function (layer::SingleShootingLayer)(::Nothing, ps, st)
-    (; problem, algorithm,) = layer
     (; u0, p, controls) = ps
     (; index_grid, tspans, parameter_vector, initial_condition, symcache) = st
     u0_ = initial_condition(u0)
-    params = Base.Fix1(parameter_vector, p)
-    # Returns the states as DiffEqArray
-    solutions = sequential_solve(problem, algorithm, u0_, params, controls, index_grid, tspans, symcache)
-    return solutions, st
+		return layer(u0_, ps, st)
 end
 
 function (layer::SingleShootingLayer)(u0, ps, st)
@@ -257,7 +253,6 @@ end
     return Expr(:block, ex...)
 end
 
-
 """
 $(TYPEDEF)
 
@@ -292,7 +287,7 @@ function CommonSolve.solve!(prob::SingleShootingProblem)
     prob.layer(nothing, prob.params, prob.state)
 end
 
-function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
+function SciMLBase.remake(prob::SingleShootingProblem{<:Any, <:T, <:S}; ps::T=prob.params, st::S=prob.state) where {T, S}
     SingleShootingProblem(prob.layer, ps, st)
 end
 
