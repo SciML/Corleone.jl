@@ -70,12 +70,16 @@ function restrict_controls(c::ControlParameter, lo, hi)
   return ControlParameter(copy(c.t[idx]), name=c.name, controls=controls, bounds=bounds)
 end
 
-get_timegrid(parameters::ControlParameter) = collect(parameters.t)
+get_timegrid(parameters::ControlParameter, tspan=(-Inf, Inf)) = begin
+  (; t) = parameters
+  idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
+  t[idx]
+end
 
-function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; tspan = nothing, kwargs...)
+function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; tspan=nothing, kwargs...)
   (; t, controls) = parameters
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-	controls[idx]
+  controls[idx]
 end
 
 function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:Function}; tspan=nothing, kwargs...)
@@ -138,7 +142,7 @@ end
 
 function build_index_grid(controls::ControlParameter...; offset::Bool=true, tspan::Tuple=(-Inf, Inf), subdivide::Int64=typemax(Int64))
   ts = map(controls) do ci
-    clamp.(get_timegrid(ci), tspan...)
+    get_timegrid(ci, tspan)
   end
   time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
   indices = zeros(Int64, length(ts), size(time_grid, 1) - 1)
@@ -158,8 +162,8 @@ function build_index_grid(controls::ControlParameter...; offset::Bool=true, tspa
   end
   # Check the gridsize
   N = size(indices, 2)
-	# Normalize for the first index here 
-	indices .-= minimum(indices) - 1
+  # Normalize for the first index here 
+  indices .-= minimum(indices) - 1
   if N > subdivide
     ranges = get_subvector_indices(N, subdivide)
     return Tuple(indices[:, i] for i in ranges)
@@ -167,9 +171,11 @@ function build_index_grid(controls::ControlParameter...; offset::Bool=true, tspa
   return indices
 end
 
+find_shooting_indices(tspan, control::ControlParameter) = any(first(tspan) .== control.t)
+
 function collect_tspans(controls::ControlParameter...; tspan=(-Inf, Inf), subdivide::Int64=typemax(Int64))
   ts = map(controls) do ci
-    clamp.(get_timegrid(ci), tspan...)
+    get_timegrid(ci, tspan)
   end
   time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
   fullgrid = collect(ti for ti in zip(time_grid[1:end-1], time_grid[2:end]))
@@ -182,9 +188,9 @@ function collect_tspans(controls::ControlParameter...; tspan=(-Inf, Inf), subdiv
 end
 
 function collect_local_controls(rng, controls::ControlParameter...; kwargs...)
-	reduce(vcat, map(controls) do control 
-		get_controls(rng, control; kwargs...)
-	end)
+  reduce(vcat, map(controls) do control
+    get_controls(rng, control; kwargs...)
+  end)
 end
 
 function collect_local_control_bounds(lower::Bool, controls::ControlParameter...)
