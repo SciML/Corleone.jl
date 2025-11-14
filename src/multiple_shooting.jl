@@ -1,3 +1,67 @@
+struct MultipleShootingLayer{L,I,E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+  "The original layer"
+  layer::L
+  "The shooting intervals"
+  shooting_intervals::I
+  "The ensemble algorithm"
+  ensemble_alg::E
+end
+
+function MultipleShootingLayer(layer, tpoints::Real...; ensemble_alg=EnsembleSerial(), kwargs...)
+  tspans = vcat(collect(tpoints), collect(layer.problem.tspan))
+  sort!(tspans)
+  unique!(tspans)
+  tspans = [tispan for tispan in zip(tspans[1:end-1], tspans[2:end])]
+  tspans = tuple(tspans...)
+  MultipleShootingLayer{typeof(layer),typeof(tspans),typeof(ensemble_alg)}(
+    layer, tspans, ensemble_alg
+  )
+end
+
+function LuxCore.initialparameters(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
+  (; shooting_intervals, layer) = shooting
+  ntuple(i -> LuxCore.initialparameters(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+end
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
+  (; shooting_intervals, layer) = shooting
+  ntuple(i -> LuxCore.initialstates(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+end
+
+function (shooting::MultipleShootingLayer)(u0, ps, st) 
+		(; layer) = shooting 
+		ps = (
+			merge(first(ps), (;u0 = u0)),
+		Base.tail(ps)... 
+		)
+		shooting(nothing, ps, st)
+end
+
+function (shooting::MultipleShootingLayer)(::Nothing, ps, st)
+  (; layer, ensemble_alg) = shooting
+  shooting_problem = SingleShootingProblem(layer, first(ps), first(st))
+  remaker = let ps = ps, st = st
+    function (prob, i, repeat)
+      remake(prob; ps=ps[i], st=st[i])
+    end
+  end
+	ensemblesol = solve(EnsembleProblem(shooting_problem, prob_func=remaker, output_func=(sol, i) -> (first(sol), false)), DummySolve(), ensemble_alg; trajectories=length(st))
+	Trajectory(shooting, ensemblesol), st
+end
+
+function Trajectory(::MultipleShootingLayer, sol::EnsembleSolution)
+  (; u) = sol
+  p = first(u).p
+  sys = first(u).sys
+  us = map(state_values, u)
+  ts = map(current_time, u)
+	tnew = reduce(vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:end-1], eachindex(ts)))
+	offsets = map(i->lastindex(us[i]) , eachindex(us[1:end-1])) |> cumsum
+	shootings = map(i->last(us[i]) , eachindex(us[1:end-1]))
+	unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
+  Trajectory(sys, unew, p, tnew, shootings, offsets)
+end
+#=
 """
 $(TYPEDEF)
 Defines a callable layer that consists of several [``SingleShootingLayer``](@ref) collected
@@ -141,3 +205,4 @@ function merge_ms_controls(layer::MultipleShootingLayer)
         ControlParameter(new_timegrid, name=name, controls=new_controls, bounds=new_bounds)
     end
 end
+=#
