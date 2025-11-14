@@ -81,7 +81,7 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootin
   (;
     u0=shooting_layer ? copy(layer.problem.u0) : copy(layer.problem.u0[layer.tunable_ic]),
     p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-    controls= isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
+    controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
   )
 end
 
@@ -157,20 +157,28 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
   # Next we setup the tspans and the indices
   grid = build_index_grid(controls...; tspan, subdivide=100)
   tspans = collect_tspans(controls...; tspan, subdivide=100)
+  shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
+  if shooting_layer
+    shooting_indices[eachindex(u0)] .= true
+    for (i, c) in enumerate(controls)
+      shooting_indices[lastindex(u0)+i] = !find_shooting_indices(first(tspans), c)
+    end
+  end
   symcache = retrieve_symbol_cache(problem, control_indices)
   (;
     initial_condition,
     index_grid=grid,
     tspans,
     parameter_vector,
-    symcache
+    symcache,
+    shooting_indices
   )
 end
 
 function (layer::SingleShootingLayer)(::Nothing, ps, st)
-	(; initial_condition) = st 
-	u0 = initial_condition(ps.u0, layer.problem.u0)
-	layer(u0, ps, st)
+  (; initial_condition) = st
+  u0 = initial_condition(ps.u0, layer.problem.u0)
+  layer(u0, ps, st)
 end
 
 function (layer::SingleShootingLayer)(u0, ps, st)
@@ -184,7 +192,7 @@ function (layer::SingleShootingLayer)(u0, ps, st)
 end
 
 function build_optimal_control_solution(u, t, p, sys)
-	Trajectory(sys, u, p, t, empty(u), Int64[])
+  Trajectory(sys, u, p, t, empty(u), Int64[])
 end
 
 sequential_solve(args...) = _sequential_solve(args...)

@@ -46,10 +46,11 @@ function (shooting::MultipleShootingLayer)(::Nothing, ps, st)
     end
   end
 	ensemblesol = solve(EnsembleProblem(shooting_problem, prob_func=remaker, output_func=(sol, i) -> (first(sol), false)), DummySolve(), ensemble_alg; trajectories=length(st))
-	Trajectory(shooting, ensemblesol), st
+	Trajectory(shooting, ensemblesol, st), st
 end
 
-function Trajectory(::MultipleShootingLayer, sol::EnsembleSolution)
+
+function Trajectory(::MultipleShootingLayer, sol::EnsembleSolution, st)
   (; u) = sol
   p = first(u).p
   sys = first(u).sys
@@ -57,7 +58,12 @@ function Trajectory(::MultipleShootingLayer, sol::EnsembleSolution)
   ts = map(current_time, u)
 	tnew = reduce(vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:end-1], eachindex(ts)))
 	offsets = map(i->lastindex(us[i]) , eachindex(us[1:end-1])) |> cumsum
-	shootings = map(i->last(us[i]) , eachindex(us[1:end-1]))
+	shootings = map(eachindex(us[1:end-1])) do i 
+		uprev = last(us[i]) 
+		unext = first(us[i+1])
+		idx = st[i+1].shooting_indices 
+		uprev[idx] .- unext[idx]
+	end 
 	unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
   Trajectory(sys, unew, p, tnew, shootings, offsets)
 end
