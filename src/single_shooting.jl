@@ -120,21 +120,38 @@ function _retrieve_symbol_cache(
 end
 
 
+struct InitialConditionRemaker <: Function
+  sorting::Vector{Int64}
+  constants::Vector{Int64}
+end
+
+function (ic::InitialConditionRemaker)(u::AbstractVector{T}, u0::AbstractArray) where T <: Number
+  (; constants, sorting) = ic
+  isempty(u) && return T.(u0)
+  reshape(vcat(vec(u0[constants]), u)[sorting], size(u0))
+end
+
+function (ic::InitialConditionRemaker)(::Any, u0::AbstractArray)
+	u0
+end
+
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
   (; tunable_ic, control_indices, problem, controls) = layer
   (; u0) = problem
-  if !shooting_layer
+  initial_condition = if !shooting_layer
     constant_ics = setdiff(eachindex(u0), tunable_ic)
-    initial_condition = let sorting = sortperm(vcat(constant_ics, tunable_ic)), shape = size(u0), constants = constant_ics
-      (u::AbstractVector{<:Number}, u0::AbstractArray{<:Number}) -> begin
-        T = Base.promote_eltype(u, u0)
-        isempty(u) && return T.(u0)
-        reshape(vcat(vec(u0[constants]), u)[sorting], shape)
-      end
-    end
+    sorting = sortperm(vcat(constant_ics, tunable_ic))
+		shape = size(u0) 
+		constants = constant_ics
+		InitialConditionRemaker(sorting,  constants)
   else
-    initial_condition = (x...) -> first(x)
+		constant_ics = Int64[] 
+		tunable_ic = eachindex(u0)
+    sorting = sortperm(vcat(constant_ics, tunable_ic))
+		shape = size(u0) 
+		constants = constant_ics
+		InitialConditionRemaker(sorting,  constants)
   end
   # Setup the parameters
   p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
@@ -164,6 +181,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
       shooting_indices[lastindex(u0)+i] = !find_shooting_indices(first(tspans), c)
     end
   end
+  shooting_indices = findall(shooting_indices)
   symcache = retrieve_symbol_cache(problem, control_indices)
   (;
     initial_condition,
@@ -181,7 +199,7 @@ function (layer::SingleShootingLayer)(::Nothing, ps, st)
   layer(u0, ps, st)
 end
 
-function (layer::SingleShootingLayer)(u0, ps, st)
+function (layer::SingleShootingLayer)(u0::AbstractArray, ps, st)
   (; problem, algorithm,) = layer
   (; p, controls) = ps
   (; index_grid, tspans, parameter_vector, symcache) = st
@@ -259,6 +277,33 @@ end
     :(return build_optimal_control_solution($(u_ret_expr), $(t_ret_expr), param.x, sys)) # Was kommt hier raus
   )
   return Expr(:block, ex...)
+end
+
+
+function _parallel_solve(::Any, layer::SingleShootingLayer, u0, ps, st)
+  map(zip(ps, st)) do (p_, st_)
+    layer(u0, p_, st_)
+  end
+end
+
+using OhMyThreads
+
+function _parallel_solve(::EnsembleThreads, layer::SingleShootingLayer, u0, ps, st)
+	@info "Threaded"
+  args = ntuple(i -> (u0, ps[i], st[i]), length(st)) |> collect
+  tmap( args) do (u, p, s)
+    layer(u, p, s)
+  end
+end
+
+using Distributed
+
+function _parallel_solve(::EnsembleDistributed, layer::SingleShootingLayer, u0, ps, st)
+	@info "Parallel"
+  args = ntuple(i -> (u0, ps[i], st[i]), length(st)) |> collect
+  pmap( args) do (u, p, s)
+    layer(u, p, s)
+  end
 end
 
 """
