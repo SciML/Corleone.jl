@@ -20,53 +20,66 @@ end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
   (; shooting_intervals, layer) = shooting
-  ntuple(i -> LuxCore.initialparameters(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+  names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
+  vals = ntuple(i -> LuxCore.initialparameters(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+  NamedTuple{names}(vals)
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
   (; shooting_intervals, layer) = shooting
-  ntuple(i -> LuxCore.initialstates(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+  names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
+  vals = ntuple(i -> LuxCore.initialstates(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1), length(shooting_intervals))
+  NamedTuple{names}(vals)
 end
 
-function (shooting::MultipleShootingLayer)(u0, ps, st) 
-		(; layer) = shooting 
-		ps = (
-			merge(first(ps), (;u0 = u0)),
-		Base.tail(ps)... 
-		)
-		shooting(nothing, ps, st)
-end
 
-function (shooting::MultipleShootingLayer)(::Nothing, ps, st)
+function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where {fields}
   (; layer, ensemble_alg) = shooting
-  shooting_problem = SingleShootingProblem(layer, first(ps), first(st))
-  remaker = let ps = ps, st = st
-    function (prob, i, repeat)
-      remake(prob; ps=ps[i], st=st[i])
-    end
-  end
-	ensemblesol = solve(EnsembleProblem(shooting_problem, prob_func=remaker, output_func=(sol, i) -> (first(sol), false)), DummySolve(), ensemble_alg; trajectories=length(st))
-	Trajectory(shooting, ensemblesol, st), st
+	ret = _parallel_solve(ensemble_alg, layer, u0, ps, st)
+	#out, sts = Trajectory(ret)
+	#out, NamedTuple{fields}(tuple(sts...))
 end
 
-
-function Trajectory(::MultipleShootingLayer, sol::EnsembleSolution, st)
-  (; u) = sol
+function Trajectory(ret::AbstractVector{<:Tuple})
+	size(ret, 1) == 1 && return only(ret) 
+	u = first.(ret) 
+	sts = last.(ret)
   p = first(u).p
   sys = first(u).sys
   us = map(state_values, u)
   ts = map(current_time, u)
-	tnew = reduce(vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:end-1], eachindex(ts)))
-	offsets = map(i->lastindex(us[i]) , eachindex(us[1:end-1])) |> cumsum
-	shootings = map(eachindex(us[1:end-1])) do i 
-		uprev = last(us[i]) 
-		unext = first(us[i+1])
-		idx = st[i+1].shooting_indices 
-		uprev[idx] .- unext[idx]
-	end 
-	unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
+  tnew = reduce(vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:end-1], eachindex(ts)))
+  offsets = map(i -> lastindex(us[i]), eachindex(us[1:end-1])) |> cumsum
+  shootings = map(eachindex(us[1:end-1])) do i
+    uprev = last(us[i])
+    unext = first(us[i+1])
+    idx = sts[i+1].shooting_indices
+		vcat(uprev[idx] .- unext[idx], us[i].p .- us[i+1].p)
+  end
+  unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
+  Trajectory(sys, unew, p, tnew, shootings, offsets), sts
+end
+
+#= 
+function Trajectory(e
+  length(st) == 1 && return first(u)
+  p = first(u).p
+  sys = first(u).sys
+  us = map(state_values, u)
+  ts = map(current_time, u)
+  tnew = reduce(vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:end-1], eachindex(ts)))
+  offsets = map(i -> lastindex(us[i]), eachindex(us[1:end-1])) |> cumsum
+  shootings = map(eachindex(us[1:end-1])) do i
+    uprev = last(us[i])
+    unext = first(us[i+1])
+    idx = st[i+1].shooting_indices
+		vcat(uprev[idx] .- unext[idx], u[i].p .- u[i+1].p)
+  end
+  unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
   Trajectory(sys, unew, p, tnew, shootings, offsets)
 end
+=#
+
 #=
 """
 $(TYPEDEF)
