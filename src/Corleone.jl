@@ -11,6 +11,14 @@ using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
 
+using OhMyThreads
+using Distributed
+
+mythreadmap(::EnsembleSerial, args...) = map(args...) 
+mythreadmap(::EnsembleThreads, args...) = tmap(args...) 
+mythreadmap(::EnsembleDistributed, args...) = pmap(args...) 
+
+
 using CommonSolve
 using ChainRulesCore
 

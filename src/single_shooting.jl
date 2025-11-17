@@ -1,5 +1,7 @@
 """
 $(TYPEDEF)
+using SciMLBase: EnsembleAlgorithm
+using SciMLBase: EnsembleAlgorithm
 Defines a callable layer that integrates the `AbstractDEProblem` `problem` using the specified
 `algorithm`. Controls are assumed to impact differential equation via its parameters `problem.p`
 at the positions indicated via `control_indices` and are itself specified via `controls`.
@@ -125,15 +127,18 @@ struct InitialConditionRemaker <: Function
   constants::Vector{Int64}
 end
 
-function (ic::InitialConditionRemaker)(u::AbstractVector{T}, u0::AbstractArray) where T <: Number
+function (ic::InitialConditionRemaker)(u::AbstractVector{T}, u0::AbstractArray) where {T<:Number}
   (; constants, sorting) = ic
   isempty(u) && return T.(u0)
   reshape(vcat(vec(u0[constants]), u)[sorting], size(u0))
 end
 
 function (ic::InitialConditionRemaker)(::Any, u0::AbstractArray)
-	u0
+  u0
 end
+
+ChainRulesCore.@opt_out rrule(::InitialConditionRemaker, ::Nothing, ::Any) 
+
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
@@ -142,16 +147,16 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
   initial_condition = if !shooting_layer
     constant_ics = setdiff(eachindex(u0), tunable_ic)
     sorting = sortperm(vcat(constant_ics, tunable_ic))
-		shape = size(u0) 
-		constants = constant_ics
-		InitialConditionRemaker(sorting,  constants)
+    shape = size(u0)
+    constants = constant_ics
+    InitialConditionRemaker(sorting, constants)
   else
-		constant_ics = Int64[] 
-		tunable_ic = eachindex(u0)
+    constant_ics = Int64[]
+    tunable_ic = eachindex(u0)
     sorting = sortperm(vcat(constant_ics, tunable_ic))
-		shape = size(u0) 
-		constants = constant_ics
-		InitialConditionRemaker(sorting,  constants)
+    shape = size(u0)
+    constants = constant_ics
+    InitialConditionRemaker(sorting, constants)
   end
   # Setup the parameters
   p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
@@ -193,7 +198,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
   )
 end
 
-function (layer::SingleShootingLayer)(::Nothing, ps, st)
+function (layer::SingleShootingLayer)(::Any, ps, st)
   (; initial_condition) = st
   u0 = initial_condition(ps.u0, layer.problem.u0)
   layer(u0, ps, st)
@@ -281,68 +286,18 @@ end
 
 
 function _parallel_solve(::Any, layer::SingleShootingLayer, u0, ps, st)
-  map(zip(ps, st)) do (p_, st_)
-    layer(u0, p_, st_)
-  end
+  @warn "Falling back to using `EnsembleSerial`" maxlog = 1
+  _parallel_solve(EnsembleSerial(), layer, u0, ps, st)
 end
 
-using OhMyThreads
+__getidx(x, id) = x[id]
+__getidx(x::NamedTuple, id) = getproperty(x, id)
 
-function _parallel_solve(::EnsembleThreads, layer::SingleShootingLayer, u0, ps, st)
-	@info "Threaded"
-  args = ntuple(i -> (u0, ps[i], st[i]), length(st)) |> collect
-  tmap( args) do (u, p, s)
-    layer(u, p, s)
-  end
+function _parallel_solve(alg::SciMLBase.EnsembleAlgorithm, layer::SingleShootingLayer, u0, ps, st::NamedTuple{fields}) where fields
+	args = ntuple(i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)) |> collect
+  mythreadmap(alg, Base.Splat(layer), args)
 end
 
-using Distributed
-
-function _parallel_solve(::EnsembleDistributed, layer::SingleShootingLayer, u0, ps, st)
-	@info "Parallel"
-  args = ntuple(i -> (u0, ps[i], st[i]), length(st)) |> collect
-  pmap( args) do (u, p, s)
-    layer(u, p, s)
-  end
-end
-
-"""
-$(TYPEDEF)
-
-Prototypical single shooting problem to interface `CommonSolve` with.
-
-# Fields
-$(FIELDS)
-"""
-struct SingleShootingProblem{L,P,S}
-  layer::L
-  params::P
-  state::S
-end
-
-function SingleShootingSolution(sols::NTuple)
-  states = reduce(hcat, map(Array, sols))
-  t = reduce(vcat, map(x -> x.t, sols))
-  SingleShootingSolution{typeof(states),typeof(t)}(states, t)
-end
-
-struct DummySolve end
-
-function CommonSolve.init(prob::SingleShootingProblem, ::DummySolve; kwargs...)
-  prob
-end
-
-function CommonSolve.init(prob::SingleShootingProblem, ::Any; kwargs...)
-  prob
-end
-
-function CommonSolve.solve!(prob::SingleShootingProblem)
-  prob.layer(nothing, prob.params, prob.state)
-end
-
-function SciMLBase.remake(prob::SingleShootingProblem; ps=prob.params, st=prob.state)
-  SingleShootingProblem(prob.layer, ps, st)
-end
 
 """
     get_block_structure(layer)
