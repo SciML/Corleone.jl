@@ -82,16 +82,17 @@ function control_length(parameters::ControlParameter, tspan=nothing; kwargs...)
   size(idx, 1)
 end
 
-function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; tspan=nothing, kwargs...)
+function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; raw = false, tspan=nothing, kwargs...)
   (; t, controls) = parameters
+	raw && return controls
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
   controls[idx]
 end
 
 function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:Function}; tspan=nothing, kwargs...)
-  (; t, bounds) = parameters
+  (; t) = parameters
+	bounds = get_bounds(parameters; tspan, kwargs...)
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-  bounds = length(bounds[1]) == length(t) ? (bounds).([idx]) : bounds
   parameters.controls(rng, t[idx], bounds)
 end
 
@@ -107,11 +108,11 @@ function get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}; kwargs...
   end
 end
 
-get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}; kwargs...) = parameters.bounds(get_timegrid(parameters; kwargs...))
+get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}; tspan = (-Inf, Inf), kwargs...) = parameters.bounds(get_timegrid(parameters, tspan; kwargs...))
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
   grid = get_timegrid(parameters)
-  u = get_controls(rng, parameters)
+  u = get_controls(rng, parameters; raw = true)
   lb, ub = get_bounds(parameters)
   @assert issorted(grid) "Time grid is not sorted."
   @assert get_timegrid(parameters) == unique(grid) "Time grid is not unique."
