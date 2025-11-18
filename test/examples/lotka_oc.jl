@@ -49,7 +49,7 @@ objective = let layer = layer, ax = getaxes(p), st = st
   end
 end
 
-@test isapprox(objective(p, nothing),   6.062277454291031, atol = 1e-4)
+@test isapprox(objective(p, nothing),  6.062277454291031, atol = 1e-4)
 
 optfun = OptimizationFunction(objective, AutoForwardDiff())
 optprob = OptimizationProblem(optfun, collect(p), lb=reduce(vcat,collect(lb)), ub=reduce(vcat,collect(ub)))

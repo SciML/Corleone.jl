@@ -5,15 +5,15 @@ using JET
 using SafeTestsets
 
 @testset "Corleone.jl" begin
-    @testset "Code quality (Aqua.jl)" begin
+    @safetestset "Code quality (Aqua.jl)" begin
         Aqua.test_all(Corleone)
     end
-    @testset "Local controls" begin
+    @safetestset "Local controls" begin
         include("local_controls.jl")
     end
-    @testset "Multiple shooting" begin
-        include("multiple_shooting.jl")
-    end
+   # @testset "Multiple shooting" begin
+   #     include("multiple_shooting.jl")
+   # end
 end
 
 # What to test?

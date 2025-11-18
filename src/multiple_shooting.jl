@@ -8,13 +8,20 @@ struct MultipleShootingLayer{L,I,E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
 end
 
 function Base.show(io::IO, layer::MultipleShootingLayer)
-    type_color, no_color = SciMLBase.get_colorizers(io)
+  type_color, no_color = SciMLBase.get_colorizers(io)
+  print(io,
+    type_color, "MultipleShootingLayer ",
+    no_color, "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer.layer))) controls.\n")
+  print(io, "Underlying problem: ")
+  print(io, layer.layer)
+end
 
-    print(io,
-        type_color, "MultipleShootingLayer ",
-        no_color,  "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer.layer))) controls.\n" )
-    print(io, "Underlying problem: ")
-		print(io,  layer.layer)
+
+MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...) = MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
+
+function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.DEAlgorithm, tpoints::Real...; kwargs...)
+  layer = SingleShootingLayer(prob, alg; kwargs...)
+  MultipleShootingLayer(layer, tpoints; kwargs...)
 end
 
 function MultipleShootingLayer(layer, tpoints::Real...; ensemble_alg=EnsembleSerial(), kwargs...)
@@ -79,17 +86,17 @@ function get_block_structure(mslayer::MultipleShootingLayer)
   (; layer, shooting_intervals) = mslayer
   ps_lengths = collect(map(shooting_intervals) do tspan
     LuxCore.parameterlength(layer, tspan=tspan)
-	end)
+  end)
   vcat(0, cumsum(ps_lengths))
 end
 
 function get_bounds(mslayer::MultipleShootingLayer)
-	(; layer, shooting_intervals) = mslayer
+  (; layer, shooting_intervals) = mslayer
   names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
-	bounds = map(shooting_intervals) do tspan 
-		get_bounds(layer; tspan = tspan)
-	end 
-	NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
+  bounds = map(shooting_intervals) do tspan
+    get_bounds(layer; tspan=tspan)
+  end
+  NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
 end
 
 """

@@ -63,8 +63,10 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
-function SingleShootingLayer(prob, alg, control_indices=Int64[], controls=nothing; tunable_ic=Int64[], bounds_ic=nothing, bounds_p=nothing, kwargs...)
+function SingleShootingLayer(prob, alg;  controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, bounds_p=nothing, kwargs...)
   _prob = init_problem(remake(prob; kwargs...), alg)
+control_indices = isnothing(controls) ? Int64[] : first.(controls)
+	controls = isnothing(controls) ? controls : last.(controls)
   u0 = prob.u0
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
 	p_vec = [p_vec[i] for i in eachindex(p_vec) if i ∉ control_indices]

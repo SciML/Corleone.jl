@@ -3,7 +3,6 @@ using OrdinaryDiffEqTsit5
 using Test
 using Random
 using LuxCore
-using Symbolics
 
 rng = Random.default_rng()
 
