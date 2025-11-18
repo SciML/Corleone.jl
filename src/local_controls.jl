@@ -95,8 +95,8 @@ function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:An
   parameters.controls(rng, t[idx], bounds)
 end
 
-get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}) = begin
-  nc = size(parameters.t,1)
+function get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}; kwargs...) 
+  nc = control_length(parameters; kwargs...) 
   _bounds = parameters.bounds
   if length(_bounds[1]) == length(_bounds[2]) == 1
     return (repeat([_bounds[1]], nc), repeat([_bounds[2]], nc))
@@ -107,7 +107,7 @@ get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}) = begin
   end
 end
 
-get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}) = parameters.bounds(parameters.t)
+get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}; kwargs...) = parameters.bounds(get_timegrid(parameters; kwargs...))
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
   grid = get_timegrid(parameters)
