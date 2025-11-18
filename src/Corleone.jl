@@ -23,7 +23,19 @@ using CommonSolve
 using ChainRulesCore
 
 using LuxCore
+using Functors
 # using Symbolics
+
+# General methods for Corleone Layer 
+get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
+get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
+	get_lower_bound(layer), get_upper_bound(layer)
+)
+to_val(::T, val) where T <: Number = T(val) 
+to_val(x::AbstractArray{T}, val) where T <: Number = T(val) .+ zero(x)
+get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer)) 
+get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer)) 
+
 
 include("trajectory.jl") 
 export Trajectory
