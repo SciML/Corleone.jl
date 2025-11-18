@@ -1,19 +1,24 @@
-using Corleone
 using Test
-using Aqua
 using JET
 using SafeTestsets
 
 @testset "Corleone.jl" begin
-    @safetestset "Code quality (Aqua.jl)" begin
-        Aqua.test_all(Corleone)
+  @safetestset "Code quality (Aqua.jl)" begin
+    using Aqua
+    using Corleone
+    Aqua.test_all(Corleone)
+  end
+  @safetestset "Local controls" begin
+    include("local_controls.jl")
+  end
+  @safetestset "Multiple shooting" begin
+    include("multiple_shooting.jl")
+  end
+  @testset "Examples" begin
+    @safetestset "Lotka" begin
+      include("examples/lotka_oc.jl")
     end
-    @safetestset "Local controls" begin
-        include("local_controls.jl")
-    end
-   # @testset "Multiple shooting" begin
-   #     include("multiple_shooting.jl")
-   # end
+  end
 end
 
 # What to test?
@@ -32,20 +37,3 @@ end
 #covered_lines, total_lines = get_summary(coverage);
 #println("Coverage $(covered_lines / total_lines)");
 
-@generated function test_examples()
-    expr = []
-    example_dir = joinpath(@__DIR__, "examples")
-    for f in readdir(example_dir)
-        push!(expr, :(@safetestset $f begin
-            include(joinpath($example_dir, $f))
-        end))
-    end
-    return Expr(:block, expr...)
-end
-
-# Safetestset cannot interpolate. So we simply use a generator.
-@testset "Examples" begin
-	@safetestset "Lotka" begin 
-		include("examples/lotka_oc.jl")
-	end 
-end

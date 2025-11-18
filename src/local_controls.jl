@@ -89,7 +89,7 @@ function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<
   controls[idx]
 end
 
-function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:Function}; tspan=nothing, kwargs...)
+function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:Function}; raw = false, tspan=nothing, kwargs...)
   (; t) = parameters
 	bounds = get_bounds(parameters; tspan, kwargs...)
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])

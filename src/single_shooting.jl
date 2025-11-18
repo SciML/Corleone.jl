@@ -30,13 +30,13 @@ struct SingleShootingLayer{P,A,C,B,PB} <: LuxCore.AbstractLuxLayer
 end
 
 function Base.show(io::IO, layer::SingleShootingLayer)
-    type_color, no_color = SciMLBase.get_colorizers(io)
+  type_color, no_color = SciMLBase.get_colorizers(io)
 
-    print(io,
-        type_color, "SingleShootingLayer",
-        no_color, " with $(length(layer.controls)) controls.\nUnderlying problem: " )
+  print(io,
+    type_color, "SingleShootingLayer",
+    no_color, " with $(length(layer.controls)) controls.\nUnderlying problem: ")
 
-    Base.show(io, "text/plain", layer.problem)
+  Base.show(io, "text/plain", layer.problem)
 end
 
 
@@ -63,13 +63,14 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
-function SingleShootingLayer(prob, alg;  controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, bounds_p=nothing, kwargs...)
+function SingleShootingLayer(prob, alg; controls=nothing, tunable_ic=Int64[], bounds_ic=nothing, bounds_p=nothing, kwargs...)
   _prob = init_problem(remake(prob; kwargs...), alg)
-control_indices = isnothing(controls) ? Int64[] : first.(controls)
-	controls = isnothing(controls) ? controls : last.(controls)
+	controls = collect(controls)
+  control_indices = isnothing(controls) ? Int64[] : first.(controls)
+  controls = isnothing(controls) ? controls : last.(controls)
   u0 = prob.u0
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-	p_vec = [p_vec[i] for i in eachindex(p_vec) if i ∉ control_indices]
+  p_vec = [p_vec[i] for i in eachindex(p_vec) if i ∉ control_indices]
   ic_bounds = isnothing(bounds_ic) ? (to_val(u0[tunable_ic], -Inf), to_val(u0[tunable_ic], Inf)) : bounds_ic
   p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
   return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, ic_bounds, p_bounds)
@@ -85,11 +86,11 @@ __get_tunable_p(layer::SingleShootingLayer) = first(SciMLStructures.canonicalize
 
 function get_bounds(layer::SingleShootingLayer; kwargs...)
   (; bounds_ic, bounds_p, controls) = layer
-  control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...) 
-	(
-		(; u0 = first(bounds_ic), p = first(bounds_p), controls = control_lb), 
-		(; u0 = last(bounds_ic), p = last(bounds_p), controls = control_ub)
-	)
+  control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...)
+  (
+    (; u0=first(bounds_ic), p=first(bounds_p), controls=control_lb),
+    (; u0=last(bounds_ic), p=last(bounds_p), controls=control_ub)
+  )
 end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
