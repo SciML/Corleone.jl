@@ -14,20 +14,19 @@ using SymbolicIndexingInterface
 using OhMyThreads
 using Distributed
 
-mythreadmap(::EnsembleSerial, args...) = map(args...) 
-mythreadmap(::EnsembleThreads, args...) = tmap(args...) 
-mythreadmap(::EnsembleDistributed, args...) = pmap(args...) 
-
-
 using CommonSolve
 using ChainRulesCore
 
 using LuxCore
 using Functors
-# using Symbolics
+
+# For evaluation 
+mythreadmap(::EnsembleSerial, args...) = map(args...) 
+mythreadmap(::EnsembleThreads, args...) = tmap(args...) 
+mythreadmap(::EnsembleDistributed, args...) = pmap(args...) 
 
 # General methods for Corleone Layer 
-get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
+get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0]
 get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
 	get_lower_bound(layer), get_upper_bound(layer)
 )
