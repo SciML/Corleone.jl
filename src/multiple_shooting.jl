@@ -73,6 +73,15 @@ function get_block_structure(mslayer::MultipleShootingLayer)
   vcat(0, cumsum(ps_lengths))
 end
 
+function get_bounds(mslayer::MultipleShootingLayer)
+	(; layer, shooting_intervals) = mslayer
+  names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
+	bounds = map(shooting_intervals) do tspan 
+		get_bounds(layer; tspan = tspan)
+	end 
+	NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
+end
+
 """
     merge_ms_controls(layer)
 
