@@ -3,6 +3,10 @@ uuid = "6590a4b1-d036-41fe-a5b4-03a980244101"
 authors = ["Christoph Plate", "Carl Julius Martensen", "Sebastian Sager"]
 version = "1.0.0-DEV"
 
+[deps]
+Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
+
 [compat]
 julia = "1.10"
 
