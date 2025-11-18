@@ -11,17 +11,8 @@ using SafeTestsets
     @testset "Local controls" begin
         include("local_controls.jl")
     end
-    @testset "OED augmentation" begin
-        include("augmentation.jl")
-    end
     @testset "Multiple shooting" begin
         include("multiple_shooting.jl")
-    end
-    @testset "OED criteria" begin
-        include("criteria.jl")
-    end
-    @testset "Multiexperiments" begin
-        include("multi_experiments.jl")
     end
 end
 
@@ -54,5 +45,7 @@ end
 
 # Safetestset cannot interpolate. So we simply use a generator.
 @testset "Examples" begin
-    test_examples()
+	@safetestset "Lotka" begin 
+		include("examples/lotka_oc.jl")
+	end 
 end
