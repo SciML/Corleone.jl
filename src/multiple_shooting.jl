@@ -7,6 +7,16 @@ struct MultipleShootingLayer{L,I,E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
   ensemble_alg::E
 end
 
+function Base.show(io::IO, layer::MultipleShootingLayer)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+
+    print(io,
+        type_color, "MultipleShootingLayer ",
+        no_color,  "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer.layer))) controls.\n" )
+    print(io, "Underlying problem: ")
+		print(io,  layer.layer)
+end
+
 function MultipleShootingLayer(layer, tpoints::Real...; ensemble_alg=EnsembleSerial(), kwargs...)
   tspans = vcat(collect(tpoints), collect(layer.problem.tspan))
   sort!(tspans)
