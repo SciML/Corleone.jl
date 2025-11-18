@@ -313,5 +313,5 @@ See also [``MultipleShootingLayer``](@ref).
 """
 function get_block_structure(layer::SingleShootingLayer, tspan = layer.problem.tspan)
 
-  vcat(0, LuxCore.parameterlength(layer))
+  vcat(0, LuxCore.parameterlength(layer; tspan))
 end
