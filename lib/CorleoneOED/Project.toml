@@ -1,0 +1,13 @@
+name = "CorleoneOED"
+uuid = "6590a4b1-d036-41fe-a5b4-03a980244101"
+authors = ["Christoph Plate", "Carl Julius Martensen", "Sebastian Sager"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
