@@ -76,6 +76,12 @@ get_timegrid(parameters::ControlParameter, tspan=(-Inf, Inf)) = begin
   t[idx]
 end
 
+function control_length(parameters::ControlParameter, tspan = nothing; kwargs...) 
+  (; t) = parameters
+  idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
+	size(idx,1)
+end 
+
 function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; tspan=nothing, kwargs...)
   (; t, controls) = parameters
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
