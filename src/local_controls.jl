@@ -76,11 +76,11 @@ get_timegrid(parameters::ControlParameter, tspan=(-Inf, Inf)) = begin
   t[idx]
 end
 
-function control_length(parameters::ControlParameter, tspan = nothing; kwargs...) 
+function control_length(parameters::ControlParameter, tspan=nothing; kwargs...)
   (; t) = parameters
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-	size(idx,1)
-end 
+  size(idx, 1)
+end
 
 function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any,<:AbstractArray}; tspan=nothing, kwargs...)
   (; t, controls) = parameters
@@ -96,6 +96,8 @@ function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:An
 end
 
 get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}) = begin
+  nc = size(parameters.t,1)
+  _bounds = parameters.bounds
   if length(_bounds[1]) == length(_bounds[2]) == 1
     return (repeat([_bounds[1]], nc), repeat([_bounds[2]], nc))
   elseif length(_bounds[1]) == length(_bounds[2]) == nc
@@ -104,6 +106,7 @@ get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}) = begin
     throw("Incompatible control bound definition. Got $(length(_bounds[1])) elements, expected $nc.")
   end
 end
+
 get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}) = parameters.bounds(parameters.t)
 
 function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
@@ -199,6 +202,11 @@ function collect_local_controls(rng, controls::ControlParameter...; kwargs...)
   end)
 end
 
-function collect_local_control_bounds(lower::Bool, controls::ControlParameter...)
-  reduce(vcat, map(vec ∘ (lower ? first : last) ∘ get_bounds, controls))
+function collect_local_control_bounds(controls::ControlParameter...; kwargs...)
+   bounds = map(controls) do control 
+		get_bounds(control; kwargs...)
+	end 
+	lb = reduce(vcat, first.(bounds)) 
+	ub = reduce(vcat, last.(bounds)) 
+	lb, ub
 end

@@ -1,7 +1,5 @@
 """
 $(TYPEDEF)
-using SciMLBase: EnsembleAlgorithm
-using SciMLBase: EnsembleAlgorithm
 Defines a callable layer that integrates the `AbstractDEProblem` `problem` using the specified
 `algorithm`. Controls are assumed to impact differential equation via its parameters `problem.p`
 at the positions indicated via `control_indices` and are itself specified via `controls`.
@@ -14,7 +12,7 @@ $(FIELDS)
 Note: The orders of both `controls` and `control_indices`, and `bounds_ic` and `tunable_ic`
 are assumed to be identical!
 """
-struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
+struct SingleShootingLayer{P,A,C,B,PB} <: LuxCore.AbstractLuxLayer
   "The underlying differential equation problem"
   problem::P
   "The algorithm with which `problem` is integrated."
@@ -27,6 +25,8 @@ struct SingleShootingLayer{P,A,C,B} <: LuxCore.AbstractLuxLayer
   tunable_ic::Vector{Int64}
   "Bounds on the tunable initial conditions of the problem"
   bounds_ic::B
+  "Bounds on the tunable parameters of the problem"
+  bounds_p::PB
 end
 
 function init_problem(prob, alg)
@@ -52,9 +52,14 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
-function SingleShootingLayer(prob, alg, control_indices=Int64[], controls=nothing; tunable_ic=Int64[], bounds_ic=nothing, kwargs...)
+function SingleShootingLayer(prob, alg, control_indices=Int64[], controls=nothing; tunable_ic=Int64[], bounds_ic=nothing, bounds_p=nothing, kwargs...)
   _prob = init_problem(remake(prob; kwargs...), alg)
-  return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, bounds_ic)
+  u0 = prob.u0
+  p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
+	p_vec = [p_vec[i] for i in eachindex(p_vec) if i ∉ control_indices]
+  ic_bounds = isnothing(bounds_ic) ? (to_val(u0[tunable_ic], -Inf), to_val(u0[tunable_ic], Inf)) : bounds_ic
+  p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
+  return SingleShootingLayer(_prob, alg, control_indices, controls, tunable_ic, ic_bounds, p_bounds)
 end
 
 get_problem(layer::SingleShootingLayer) = layer.problem
@@ -62,20 +67,16 @@ get_controls(layer::SingleShootingLayer) = (layer.controls, layer.control_indice
 get_tspan(layer::SingleShootingLayer) = layer.problem.tspan
 get_tunable(layer::SingleShootingLayer) = layer.tunable_ic
 get_params(layer::SingleShootingLayer) = setdiff(eachindex(layer.problem.p), layer.control_indices)
+__get_tunable_p(layer::SingleShootingLayer) = first(SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p))
 
-_get_bounds(layer::SingleShootingLayer, lower::Bool=true) = begin
-  p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
-  (;
-    u0=isnothing(layer.bounds_ic) ? eltype(layer.problem.u0)[] : (lower ? copy(layer.bounds_ic[1]) : copy(layer.bounds_ic[2])),
-    p=getindex(p_vec, [i for i in eachindex(p_vec) if i ∉ layer.control_indices]),
-    controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_control_bounds(lower, layer.controls...)
-  )
-end
 
-get_bounds(layer::SingleShootingLayer) = begin
-  lb = _get_bounds(layer, true)
-  ub = _get_bounds(layer, false)
-  return ComponentArray(lb), ComponentArray(ub)
+function get_bounds(layer::SingleShootingLayer; kwargs...)
+  (; bounds_ic, bounds_p, controls) = layer
+  control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...) 
+	(
+		(; u0 = first(bounds_ic), p = first(bounds_p), controls = control_lb), 
+		(; u0 = last(bounds_ic), p = last(bounds_p), controls = control_ub)
+	)
 end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
@@ -87,13 +88,13 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootin
   )
 end
 
-function LuxCore.parameterlength(layer::SingleShootingLayer; tspan = layer.problem.tspan, shooting_layer = false, kwargs...)
+function LuxCore.parameterlength(layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
-	N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
-	N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
-	N += sum(Base.Fix2(control_length, tspan), layer.controls)
-	return N 
-end 
+  N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
+  N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
+  N += sum(Base.Fix2(control_length, tspan), layer.controls)
+  return N
+end
 
 function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
   retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
@@ -298,11 +299,10 @@ end
 __getidx(x, id) = x[id]
 __getidx(x::NamedTuple, id) = getproperty(x, id)
 
-function _parallel_solve(alg::SciMLBase.EnsembleAlgorithm, layer::SingleShootingLayer, u0, ps, st::NamedTuple{fields}) where fields
-	args = ntuple(i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)) |> collect
-	mythreadmap(alg, Base.Splat(layer), args)
+function _parallel_solve(alg::SciMLBase.EnsembleAlgorithm, layer::SingleShootingLayer, u0, ps, st::NamedTuple{fields}) where {fields}
+  args = ntuple(i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)) |> collect
+  mythreadmap(alg, Base.Splat(layer), args)
 end
-
 
 """
     get_block_structure(layer)
@@ -311,7 +311,6 @@ Compute the block structure of the hessian of the Lagrangian of an optimal contr
 As this is a `SingleShootingLayer`, this hessian is dense.
 See also [``MultipleShootingLayer``](@ref).
 """
-function get_block_structure(layer::SingleShootingLayer, tspan = layer.problem.tspan)
-
+function get_block_structure(layer::SingleShootingLayer, tspan=layer.problem.tspan, kwargs...)
   vcat(0, LuxCore.parameterlength(layer; tspan))
 end
