@@ -29,6 +29,17 @@ struct SingleShootingLayer{P,A,C,B,PB} <: LuxCore.AbstractLuxLayer
   bounds_p::PB
 end
 
+function Base.show(io::IO, layer::SingleShootingLayer)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+
+    print(io,
+        type_color, "SingleShootingLayer",
+        no_color, " with $(length(layer.controls)) controls.\nUnderlying problem: " )
+
+    Base.show(io, "text/plain", layer.problem)
+end
+
+
 function init_problem(prob, alg)
   remake_problem(prob, SciMLBase.init(prob, alg))
 end

@@ -1,25 +1,3 @@
-
-function Base.show(io::IO, layer::SingleShootingLayer)
-    type_color, no_color = SciMLBase.get_colorizers(io)
-
-    print(io,
-        type_color, "SingleShootingLayer",
-        no_color, " with $(length(layer.controls)) controls.\nUnderlying problem: " )
-
-    Base.show(io, "text/plain", layer.problem)
-end
-
-function Base.show(io::IO, layer::MultipleShootingLayer)
-    type_color, no_color = SciMLBase.get_colorizers(io)
-
-    print(io,
-        type_color, "MultipleShootingLayer ",
-        no_color,  "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer))) controls.\n" )
-    print(io, "Underlying problem: ")
-    Base.show(io, "text/plain", remake(get_problem(layer), tspan=get_tspan(layer)))
-end
-
-
 function Base.show(io::IO, layer::OEDLayer)
     fixed = is_fixed(layer)
     discrete = is_discrete(layer)
