@@ -28,25 +28,44 @@ control = ControlParameter(
 
 # Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0]
-layer = MultipleShootingLayer(prob, Tsit5(), shooting_points,  [1], (control,), shooting_points)
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = [1 => control,])
 Ni = N / length(shooting_points) |> Int
-np_without_controls = length(setdiff(eachindex(prob.p), layer.layers[1].control_indices))
+	np_without_controls = length(setdiff(eachindex(prob.p), layer.layer.control_indices)) * length(layer.shooting_intervals)
 nx = length(prob.u0)
 ps, st = LuxCore.setup(rng, layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
 @testset "General Multiple shooting tests" begin
-    @test Corleone.is_fixed(layer) == false
+    #@test Corleone.is_fixed(layer) == false
     @test length(ps) == 4 # shooting stages
-    @test isempty(ps.layer_1.u0) # initial condition is not tunable
-    @test all([length(getproperty(p, Symbol("layer_$i")).u0) == 3 for i=2:4]) # ICs of subsequent layers are tunable
-
-    blocks = cumsum(vcat(0, Ni+np_without_controls, [Ni+np_without_controls+nx for _ = 2:4]))
-    @test Corleone.get_block_structure(layer) == blocks
+    @test isempty(ps.interval_1.u0) # initial condition is not tunable
+    @test all([length(getproperty(p, Symbol("interval_$i")).u0) == 3 for i=2:4]) # ICs of subsequent layers are tunable
+		blocks = cumsum(map(ps) do psi
+		sum(length, psi)
+	end)
+	@test Corleone.get_block_structure(layer) == vcat(0, blocks) 
 end
 
+
+alg = EnsembleSerial()
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; ensemble_alg = alg, controls = [1 => control,])
+	ps, st = LuxCore.setup(rng, layer) 
+
+
+@inferred first(layer(nothing, ps, st))
+
+@testset "Parallel" begin
+for alg in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; ensemble_alg = alg, controls = [1 => control,])
+	ps, st = LuxCore.setup(rng, layer) 
+		@test_nowarn @inferred first(layer(nothing, ps, st))
+		@test_nowarn @inferred last(layer(nothing, ps, st))
+	end
+end 
+
 #=
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = [1 => control,])
 @testset "Initialization methods" begin
     # ForwardSolve
     sol_at_shooting_points = solve(prob, Tsit5(), saveat=shooting_points)

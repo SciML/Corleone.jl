@@ -25,7 +25,7 @@ control = ControlParameter(
   cgrid, name=:fishing, bounds=(0.0, 1.0), controls=zeros(N)
 )
 
-layer = SingleShootingLayer(prob, Tsit5(), [1], (control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
+layer = SingleShootingLayer(prob, Tsit5(); controls = (1  => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 
 ps, st = LuxCore.setup(rng, layer)
 

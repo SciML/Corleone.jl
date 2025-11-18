@@ -19,9 +19,9 @@ end
 
 MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...) = MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
 
-function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.DEAlgorithm, tpoints::Real...; kwargs...)
+function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.DEAlgorithm, tpoints::Real...; ensemble_alg = EnsembleSerial(), kwargs...)
   layer = SingleShootingLayer(prob, alg; kwargs...)
-  MultipleShootingLayer(layer, tpoints; kwargs...)
+  MultipleShootingLayer(layer, tpoints...; ensemble_alg, kwargs...)
 end
 
 function MultipleShootingLayer(layer, tpoints::Real...; ensemble_alg=EnsembleSerial(), kwargs...)
@@ -53,13 +53,13 @@ end
 function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where {fields}
   (; layer, ensemble_alg) = shooting
   ret = Corleone._parallel_solve(ensemble_alg, layer, u0, ps, st)
-  out, sts = Trajectory(ret)
+	u = first.(ret) 
+	sts = NamedTuple{fields}(last.(ret))
+  Trajectory(u, sts), sts
 end
 
-function Trajectory(ret::AbstractVector{<:Tuple})
-  size(ret, 1) == 1 && return only(ret)
-  u = first.(ret)
-  sts = last.(ret)
+function Trajectory(u::AbstractVector, sts)
+  size(u, 1) == 1 && return only(u)
   p = first(u).p
   sys = first(u).sys
   us = map(state_values, u)
@@ -84,8 +84,8 @@ as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
 """
 function get_block_structure(mslayer::MultipleShootingLayer)
   (; layer, shooting_intervals) = mslayer
-  ps_lengths = collect(map(shooting_intervals) do tspan
-    LuxCore.parameterlength(layer, tspan=tspan)
+	ps_lengths = collect(map(enumerate(shooting_intervals)) do (i,tspan)
+    LuxCore.parameterlength(layer, tspan=tspan, shooting_layer = i > 1)
   end)
   vcat(0, cumsum(ps_lengths))
 end
