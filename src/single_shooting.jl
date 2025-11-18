@@ -87,6 +87,14 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::SingleShootin
   )
 end
 
+function LuxCore.parameterlength(layer::SingleShootingLayer; tspan = layer.problem.tspan, shooting_layer = false, kwargs...)
+  p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+	N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
+	N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
+	N += sum(Base.Fix2(control_length, tspan), layer.controls)
+	return N 
+end 
+
 function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
   retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
 end
@@ -136,9 +144,6 @@ end
 function (ic::InitialConditionRemaker)(::Any, u0::AbstractArray)
   u0
 end
-
-ChainRulesCore.@opt_out rrule(::InitialConditionRemaker, ::Nothing, ::Any) 
-
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
@@ -295,7 +300,7 @@ __getidx(x::NamedTuple, id) = getproperty(x, id)
 
 function _parallel_solve(alg::SciMLBase.EnsembleAlgorithm, layer::SingleShootingLayer, u0, ps, st::NamedTuple{fields}) where fields
 	args = ntuple(i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)) |> collect
-  mythreadmap(alg, Base.Splat(layer), args)
+	mythreadmap(alg, Base.Splat(layer), args)
 end
 
 
@@ -306,6 +311,7 @@ Compute the block structure of the hessian of the Lagrangian of an optimal contr
 As this is a `SingleShootingLayer`, this hessian is dense.
 See also [``MultipleShootingLayer``](@ref).
 """
-function get_block_structure(layer::SingleShootingLayer)
+function get_block_structure(layer::SingleShootingLayer, tspan = layer.problem.tspan)
+
   vcat(0, LuxCore.parameterlength(layer))
 end
