@@ -1,39 +1,87 @@
 """
 """
-function random_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
-	(; tunable_ic) = shooting
-	ps = default_initialization(rng, shooting)
+function random_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps=default_initialization(rng, shooting), kwargs...)
+  (; layer) = shooting
+  (; tunable_ic) = layer
+  u0 = last(ps).u0
+  isempty(u0) && return ps
   lb, ub = get_bounds(shooting)
-	u0 = last(ps).u0
-	isempty(u0) && return ps 
-	u0_lower = min.(last(lb).u0, nextfloat(typemin(eltype(u0))))
-	u0_upper = max.(last(ub).u0, prevfloat(typemax(eltype(u0))))
-	u0s = ntuple(i->u0_lower .+ (u0_upper .- u0_lower) .* rand(rng, size(u0)), length(ps))
-	foreach(enumerate(ps)) do (i,plocal) 
-		plocal.u0 .= i == 1 ? u0s[i][tunable_ic] : u0s[i]
-	end 
-	return ps 
+  vals = map(enumerate(zip(ps, lb, ub))) do (i, (plocal, lbi, ubi))
+    unew = if i == 1
+      _random_value(rng, lbi.u0[tunable_ic], ubi.u0[tunable_ic])
+    else
+      _random_value(rng, lbi.u0, ubi.u0)
+    end
+    merge(plocal, (; u0=unew))
+  end
+  return NamedTuple{keys(ps)}(vals)
 end
 
 """
-""" 
-function forward_solve(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
-		(; layer) = shooting 
-		(; problem) = layer 
-		u0_shape = prod(size(problem.u0))
-		ps = default_initialization(rng, shooting)
-		st = LuxCore.initialstates(rng, shooting) 
-    u0s = [first(ps).u0]
-    for (sps, sst) in zip(ps, st)
-				u0 = last(u0s)
-				sps.u0 .= u0 
-        pred, _ = layer(nothing, sps, sst)
-				u0_ = pred.u[end][Base.OneTo(u0_shape)]
-        push!(u0s, u0_)
-    end
-    return ps
+"""
+function forward_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps=default_initialization(rng, shooting), kwargs...)
+  (; layer) = shooting
+  st = LuxCore.initialstates(rng, shooting)
+  u0s = [first(ps).u0]
+  for (sps, sst) in zip(ps, st)
+    u0 = last(u0s)
+    sps.u0 .= u0[eachindex(sps.u0)]
+    pred, _ = layer(nothing, sps, sst)
+    u0_ = pred.u[end]
+    push!(u0s, u0_)
+  end
+  return ps
 end
 
+function linear_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps=default_initialization(rng, shooting),
+  u_infinity=last(ps).u0, kwargs...)
+  (; shooting_intervals, layer) = shooting
+  (; problem, tunable_ic) = layer
+  isempty(u_infinity) && return ps
+  u0 = first(ps).u0
+  if isempty(u0)
+    u0 = problem.u0
+  end
+  t0, tinf = problem.tspan
+  foreach(enumerate(ps)) do (i, sps)
+    t = shooting_intervals[i][1]
+    u0new = (u_infinity .- u0) .* (t - t0) ./ tinf .+ u0
+    sps.u0 .= i > 1 ? u0new : u0new[tunable_ic]
+  end
+  return ps
+end
+
+function custom_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps=default_initialization(rng, shooting),
+  u0s=[], kwargs...)
+	(; layer) = shooting
+	(; tunable_ic) = layer 
+  isempty(u0s) && return ps
+  foreach(enumerate(ps)) do (i, sps)
+    if lastindex(u0s) >= i
+			sps.u0 .= u0s[i][i > 1 ? Colon() : tunable_ic]
+    end
+  end
+  return ps
+end
+
+function constant_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps=default_initialization(rng, shooting),
+															 u0=[], kwargs...)
+	(; layer) = shooting
+	(; tunable_ic) = layer 
+  isempty(u0) && return ps
+  foreach(enumerate(ps)) do (i, sps)
+		sps.u0 .= u0[i > 1 ? Colon() : tunable_ic]
+  end
+  return ps
+end
+
+function hybrid_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer, f...; ps = default_initialization(rng, shooting), kwargs...) 
+	fnow, rest = Base.first(f), Base.tail(f) 
+	pnew = fnow(rng, shooting; ps, kwargs...)
+	return hybrid_initialization(rng, shooting, rest...; ps = pnew, kwargs...)
+end
+
+hybrid_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer; ps = default_initialization(rng, shooting), kwargs...) = ps
 
 #=
 """

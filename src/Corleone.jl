@@ -24,7 +24,7 @@ mythreadmap(::EnsembleThreads, args...) = tmap(args...)
 mythreadmap(::EnsembleDistributed, args...) = pmap(args...) 
 
 # General methods for Corleone Layer 
-get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0]
+get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
 get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
 	get_lower_bound(layer), get_upper_bound(layer)
 )
@@ -34,7 +34,7 @@ get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_v
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer)) 
 
 # Random 
-_random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, size(lb)) .* (ub .- lb)
+_random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
 include("trajectory.jl") 
 export Trajectory
@@ -47,9 +47,12 @@ include("single_shooting.jl")
 export SingleShootingLayer
 include("multiple_shooting.jl")
 export MultipleShootingLayer
+export default_initialization
 include("node_initialization.jl")
-export default_initialization, random_initialization
-export forward_solve
+export  random_initialization, forward_initialization, linear_initialization
+export custom_initialization, constant_initialization, hybrid_initialization
+
+
 #export DefaultsInitialization, ConstantInitialization
 #export LinearInterpolationInitialization, ForwardSolveInitialization
 #export HybridInitialization, RandomInitialization, CustomInitialization
