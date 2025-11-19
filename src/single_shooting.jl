@@ -125,10 +125,13 @@ LuxCore.parameterlength(layer::SingleShootingLayer) = __parameterlength(layer)
 
 LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer) = __initialstates(rng, layer)
 
-function __initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
+function __initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; 
+														 tspan=layer.problem.tspan, u0 = layer.problem.u0, 
+														 shooting_layer=false, kwargs...)
   (; problem, state_initialization, parameter_initialization, tunable_ic, bounds_ic, bounds_p, tunable_p, control_indices) = layer
+	problem = remake(problem; tspan, u0)
   (;
-    u0=state_initialization(rng, problem, shooting_layer ? eachindex(problem.u0) : tunable_ic, bounds_ic),
+    u0=state_initialization(rng, problem, shooting_layer ? eachindex(u0) : tunable_ic, bounds_ic),
     p=parameter_initialization(rng, problem, tunable_p, bounds_p),
     controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
   )
@@ -286,8 +289,6 @@ sequential_solve(args...) = _sequential_solve(args...)
     push!(ex,
       :($(solutions[i]) = _sequential_solve(problem, alg, $(u0s[i]), param, ps, indexgrids[$(i)], tspans[$(i)], sys))
     )
-    #        push!(u_ret_expr.args, :($(solutions[i]).u))
-    #        push!(t_ret_expr.args, :($(solutions[i]).t))
     if i < N
       push!(u_ret_expr.args, :($(solutions[i]).u[1:end-1]))
       push!(t_ret_expr.args, :($(solutions[i]).t[1:end-1]))

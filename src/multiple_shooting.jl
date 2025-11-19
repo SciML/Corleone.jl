@@ -32,9 +32,9 @@ end
 
 MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...) = MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
 
-function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.DEAlgorithm, tpoints::Real...; ensemble_alg = EnsembleSerial(), kwargs...)
+function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.DEAlgorithm, tpoints::Real...; ensemble_alg = EnsembleSerial(),initialization = default_initialization, kwargs...)
   layer = SingleShootingLayer(prob, alg; kwargs...)
-  MultipleShootingLayer(layer, tpoints...; ensemble_alg, kwargs...)
+  MultipleShootingLayer(layer, tpoints...; ensemble_alg, initialization, kwargs...)
 end
 
 function MultipleShootingLayer(layer, tpoints::Real...; ensemble_alg=EnsembleSerial(), initialization = default_initialization, kwargs...)
@@ -84,7 +84,7 @@ function Trajectory(u::AbstractVector, sts)
     vcat(last(uprev)[idx] .- first(unext)[idx], u[i].p .- u[i+1].p)
   end
   unew = reduce(vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:end-1], eachindex(us)))
-  Trajectory(sys, unew, p, tnew, shootings, offsets), sts
+  Trajectory(sys, unew, p, tnew, shootings, offsets)
 end
 
 """
@@ -104,8 +104,8 @@ end
 function get_bounds(mslayer::MultipleShootingLayer)
   (; layer, shooting_intervals) = mslayer
   names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
-  bounds = map(shooting_intervals) do tspan
-    get_bounds(layer; tspan=tspan, shooting = true)
+	bounds = map(enumerate(shooting_intervals)) do (i,tspan)
+    get_bounds(layer; tspan=tspan, shooting = i > 1)
   end
   NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
 end
