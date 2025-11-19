@@ -39,7 +39,7 @@ default_u0(rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, tunabl
 
 default_p0(rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, parameters, bounds) = begin
   pvec, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.p)
-	return clamp.(pvec[parameters], bounds...)
+  return clamp.(pvec[parameters], bounds...)
 end
 
 
@@ -78,28 +78,28 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
-function SingleShootingLayer(prob, alg; 
-														 controls=nothing, 
-														 tunable_ic=Int64[], bounds_ic=nothing, state_initialization=default_u0,
-														 bounds_p=nothing,  parameter_initialization=default_p0, 
-														 kwargs...)
+function SingleShootingLayer(prob, alg;
+  controls=nothing,
+  tunable_ic=Int64[], bounds_ic=nothing, state_initialization=default_u0,
+  bounds_p=nothing, parameter_initialization=default_p0,
+  kwargs...)
   _prob = init_problem(remake(prob; kwargs...), alg)
   controls = collect(controls)
   control_indices = isnothing(controls) ? Int64[] : first.(controls)
   controls = isnothing(controls) ? controls : last.(controls)
   u0 = prob.u0
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-	tunable_p = setdiff(eachindex(p_vec), control_indices)
-	p_vec = p_vec[tunable_p]
+  tunable_p = setdiff(eachindex(p_vec), control_indices)
+  p_vec = p_vec[tunable_p]
   ic_bounds = isnothing(bounds_ic) ? (to_val(u0, -Inf), to_val(u0, Inf)) : bounds_ic
   p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
 
-	@assert size(ic_bounds[1]) == size(ic_bounds[2]) == size(u0) "The size of the initial states and its bounds is inconsistent."
-	@assert size(p_bounds[1]) == size(p_bounds[2]) == size(p_vec) "The size of the initial parameter vector and its bounds is inconsistent."
-  
-	return SingleShootingLayer(_prob, alg, control_indices, controls, 
-														 tunable_ic, ic_bounds, state_initialization, 
-														 tunable_p, p_bounds,  parameter_initialization)
+  @assert size(ic_bounds[1]) == size(ic_bounds[2]) == size(u0) "The size of the initial states and its bounds is inconsistent."
+  @assert size(p_bounds[1]) == size(p_bounds[2]) == size(p_vec) "The size of the initial parameter vector and its bounds is inconsistent."
+
+  return SingleShootingLayer(_prob, alg, control_indices, controls,
+    tunable_ic, ic_bounds, state_initialization,
+    tunable_p, p_bounds, parameter_initialization)
 end
 
 get_problem(layer::SingleShootingLayer) = layer.problem
@@ -128,8 +128,8 @@ LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer) = __i
 function __initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
   (; problem, state_initialization, parameter_initialization, tunable_ic, bounds_ic, bounds_p, tunable_p, control_indices) = layer
   (;
-    u0= state_initialization(rng, problem, shooting_layer ? tunable_ic : eachindex(problem.u0), bounds_ic),
-		p= parameter_initialization(rng, problem, tunable_p, bounds_p),
+    u0=state_initialization(rng, problem, shooting_layer ? eachindex(problem.u0) : tunable_ic, bounds_ic),
+    p=parameter_initialization(rng, problem, tunable_p, bounds_p),
     controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
   )
 end
