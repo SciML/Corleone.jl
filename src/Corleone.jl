@@ -33,6 +33,8 @@ to_val(x::AbstractArray{T}, val) where T <: Number = T(val) .+ zero(x)
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer)) 
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer)) 
 
+# Random 
+_random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, size(lb)) .* (ub .- lb)
 
 include("trajectory.jl") 
 export Trajectory
@@ -45,9 +47,9 @@ include("single_shooting.jl")
 export SingleShootingLayer
 include("multiple_shooting.jl")
 export MultipleShootingLayer
-
-
-#include("node_initialization.jl")
+include("node_initialization.jl")
+export default_initialization, random_initialization
+export forward_solve
 #export DefaultsInitialization, ConstantInitialization
 #export LinearInterpolationInitialization, ForwardSolveInitialization
 #export HybridInitialization, RandomInitialization, CustomInitialization

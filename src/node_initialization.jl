@@ -1,89 +1,41 @@
 """
-$(TYPEDEF)
-
-Basetype for all initialization methods for multiple shooting node variables.
 """
-abstract type AbstractNodeInitialization end
-
-"""
-$(TYPEDEF)
-
-Initializes all shooting nodes with their default value, i.e., their initial value in
-the underlying problem.
-```
-"""
-struct DefaultsInitialization <: AbstractNodeInitialization end
-function (f::DefaultsInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer), kwargs...)
-    params
+function random_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
+	(; tunable_ic) = shooting
+	ps = default_initialization(rng, shooting)
+  lb, ub = get_bounds(shooting)
+	u0 = last(ps).u0
+	isempty(u0) && return ps 
+	u0_lower = min.(last(lb).u0, nextfloat(typemin(eltype(u0))))
+	u0_upper = max.(last(ub).u0, prevfloat(typemax(eltype(u0))))
+	u0s = ntuple(i->u0_lower .+ (u0_upper .- u0_lower) .* rand(rng, size(u0)), length(ps))
+	foreach(enumerate(ps)) do (i,plocal) 
+		plocal.u0 .= i == 1 ? u0s[i][tunable_ic] : u0s[i]
+	end 
+	return ps 
 end
 
 """
-$(TYPEDEF)
-
-Initializes all shooting nodes with random values.
-```
-"""
-struct RandomInitialization <: AbstractNodeInitialization end
-
-"""
-    (f::RandomInitialization)(rng, layer)
-
-Initialize shooting nodes of `layer` using randomly drawn values.
-"""
-function (f::RandomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer),
-    shooting_variables=eachindex(first(layer.layers).problem.u0))
-    ps, st = params
-
-    i = 0
-    ps_rand = map(ps) do pi
-        i += 1
-        if i == 1
-            common_variables = [i for i in shooting_variables if i in first(layer.layers).tunable_ic]
-            pi.u0[common_variables] .= rand(rng, length(common_variables))
-        else
-            pi.u0[shooting_variables] .= rand(rng, length(shooting_variables))
-        end
-        pi
-    end
-    ps_rand, st
-end
-
-"""
-$(TYPEDEF)
-
-Initializes the problem using a forward solve of the problem. This results in a continuous
-trajectory.
-"""
-struct ForwardSolveInitialization <: AbstractNodeInitialization end
-
-"""
-    (f::LinearInterpolationInitialization)(rng, layer)
-
-Initializes shooting nodes of `layer` with values obtained via a forward integration of
-the `layer` using the default values of all specified controls.
-"""
-function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer),
-    shooting_variables=eachindex(first(layer.layers).problem.u0))
-
-    ps, st = params
-
+""" 
+function forward_solve(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
+		(; layer) = shooting 
+		(; problem) = layer 
+		u0_shape = prod(size(problem.u0))
+		ps = default_initialization(rng, shooting)
+		st = LuxCore.initialstates(rng, shooting) 
     u0s = [first(ps).u0]
-    i = 0
-    for (slayer, sps, sst) in zip(layer.layers, ps, st)
-        i += 1
-        common_variables = i == 1 ? [i for i in shooting_variables if i in first(layer.layers).tunable_ic] : shooting_variables
-        sps.u0[common_variables] .= last(u0s)[common_variables]
-        pred, _ = slayer(nothing, sps, sst)
-        u0_ = pred.u[end]
+    for (sps, sst) in zip(ps, st)
+				u0 = last(u0s)
+				sps.u0 .= u0 
+        pred, _ = layer(nothing, sps, sst)
+				u0_ = pred.u[end][Base.OneTo(u0_shape)]
         push!(u0s, u0_)
     end
-
-    return ps, st
+    return ps
 end
 
+
+#=
 """
     linear_initializer(u0, u_inf, t, tspan)
 
@@ -321,3 +273,5 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
 
     return ps, st
 end
+
+=#
