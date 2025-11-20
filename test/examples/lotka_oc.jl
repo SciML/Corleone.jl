@@ -9,6 +9,7 @@ using Optimization, OptimizationMOI, Ipopt
 using SciMLSensitivity
 using SciMLSensitivity.ReverseDiff
 using SciMLSensitivity.Zygote
+using SymbolicIndexingInterface
 
 rng = Random.default_rng()
 
@@ -22,6 +23,36 @@ end
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
+prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
+
+cgrid = collect(0.0:0.1:11.9)
+N = length(cgrid)
+control = ControlParameter(
+  cgrid, name=:fishing, bounds=(0.0, 1.0), controls=zeros(N)
+)
+
+layer = SingleShootingLayer(prob, Tsit5(); controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
+
+ps, st = LuxCore.setup(rng, layer)
+
+sol, _ = layer(nothing, ps, st)
+
+@test sol.t == getsym(sol, :t)(sol)
+@test sol.p[1] == getsym(sol, :p₁)(sol)
+@test sol.p[2] == getsym(sol, :p₂)(sol)
+
+x = reduce(hcat, sol.u)
+
+for (i, sym) in enumerate((:x₁, :x₂, :x₃, :u₁))
+  getter = getsym(sol, sym)
+	@test getter(sol) == x[i, :]
+end
+
+@test_nowarn @inferred layer(nothing, ps, st)
+
+@test allunique(sol.t)
+@test LuxCore.parameterlength(layer) == N + 2
+
 
 for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
   prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol=1e-8, reltol=1e-6, sensealg=AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD())
@@ -35,13 +66,6 @@ for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
   layer = SingleShootingLayer(prob, Tsit5(); controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
 
   ps, st = LuxCore.setup(rng, layer)
-
-  sol, _ = layer(nothing, ps, st)
-
-  @test_nowarn @inferred layer(nothing, ps, st)
-
-  @test allunique(sol.t)
-  @test LuxCore.parameterlength(layer) == N + 2
 
   p = ComponentArray(ps)
   lb, ub = Corleone.get_bounds(layer)
