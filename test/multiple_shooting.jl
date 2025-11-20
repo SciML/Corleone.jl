@@ -9,13 +9,13 @@ using LinearAlgebra
 rng = Random.default_rng()
 
 function lotka_dynamics(u, p, t)
-    return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
-            -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2];
-            (u[1]-1.0)^2 + (u[2] - 1.0)^2]
+  return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
+    -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2];
+    (u[1] - 1.0)^2 + (u[2] - 1.0)^2]
 end
 
-tspan = (0., 12.)
-u0 = [0.5, 0.7, 0.]
+tspan = (0.0, 12.0)
+u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
 
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
@@ -23,46 +23,74 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)
 control = ControlParameter(
-    cgrid, name = :fishing, bounds=(0.0,1.0), controls = zeros(N)
+  cgrid, name=:fishing, bounds=(0.0, 1.0), controls=zeros(N)
 )
 
 # Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0]
-layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = [1 => control,])
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,])
 Ni = N / length(shooting_points) |> Int
-	np_without_controls = length(setdiff(eachindex(prob.p), layer.layer.control_indices)) * length(layer.shooting_intervals)
+np_without_controls = length(setdiff(eachindex(prob.p), layer.layer.control_indices)) * length(layer.shooting_intervals)
 nx = length(prob.u0)
 ps, st = LuxCore.setup(rng, layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
 @testset "General Multiple shooting tests" begin
-    #@test Corleone.is_fixed(layer) == false
-    @test length(ps) == 4 # shooting stages
-    @test isempty(ps.interval_1.u0) # initial condition is not tunable
-    @test all([length(getproperty(p, Symbol("interval_$i")).u0) == 3 for i=2:4]) # ICs of subsequent layers are tunable
-		blocks = cumsum(map(ps) do psi
-		sum(length, psi)
-	end)
-	@test Corleone.get_block_structure(layer) == vcat(0, blocks) 
+  #@test Corleone.is_fixed(layer) == false
+  @test length(ps) == 4 # shooting stages
+  @test isempty(ps.interval_1.u0) # initial condition is not tunable
+  @test all([length(getproperty(p, Symbol("interval_$i")).u0) == 3 for i = 2:4]) # ICs of subsequent layers are tunable
+  blocks = cumsum(map(ps) do psi
+    sum(length, psi)
+  end)
+  @test Corleone.get_block_structure(layer) == vcat(0, blocks)
 end
 
 
-alg = EnsembleSerial()
-layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; ensemble_alg = alg, controls = [1 => control,])
-	ps, st = LuxCore.setup(rng, layer) 
-
-
-@inferred first(layer(nothing, ps, st))
-
 @testset "Parallel" begin
-for alg in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
-layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; ensemble_alg = alg, controls = [1 => control,])
-	ps, st = LuxCore.setup(rng, layer) 
-		@test_nowarn @inferred first(layer(nothing, ps, st))
-		@test_nowarn @inferred last(layer(nothing, ps, st))
-	end
-end 
+  for alg in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
+    layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; ensemble_alg=alg, controls=[1 => control,])
+    ps, st = LuxCore.setup(rng, layer)
+    @test_nowarn @inferred first(layer(nothing, ps, st))
+    @test_nowarn @inferred last(layer(nothing, ps, st))
+  end
+end
+
+@testset "Initialization" begin
+  @testset "Forward solve" begin
+    sol_at_shooting_points = solve(prob, Tsit5(), saveat=shooting_points)
+    layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
+      initialization=forward_initialization)
+    ps, st = LuxCore.setup(rng, layer)
+    @test all([isapprox(sol_at_shooting_points[i], getproperty(ps, Symbol("interval_$i")).u0, atol=1e-5) for i = 2:4])
+    trajectory, _ = layer(nothing, ps, st)
+    @test all(iszero, reduce(vcat, trajectory.shooting))
+  end
+  @testset "Constant" begin
+    layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
+      initialization=(args...) -> constant_initialization(args...; u0=[0.9, 1.1, 3.0]))
+    ps = LuxCore.initialparameters(rng, layer)
+    @test isempty(first(ps).u0)
+    @test all(==([0.9, 1.1, 3.0]), map(x -> x.u0, collect(ps[ntuple(i -> Symbol("interval_", i + 1), 3)])))
+  end
+	@testset "Linear" begin 
+    layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
+      initialization=(args...) -> linear_initialization(args...; u_infinity=[2.0, 1.0, 1.34]))
+    ps = LuxCore.initialparameters(rng, layer)
+    @test isempty(ps.interval_1.u0)
+    @test isapprox(ps.interval_2.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 3/12, atol=1e-7)
+    @test isapprox(ps.interval_3.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 6/12, atol=1e-7)
+    @test isapprox(ps.interval_4.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 9/12, atol=1e-7)
+	end 
+	@testset "Custom" begin 
+    layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
+																	initialization=(args...) -> custom_initialization(args...; u0s=vcat([u0], [[1., 1.1, 1.34] for i in 1:3])))
+    ps = LuxCore.initialparameters(rng, layer)
+    @test isempty(ps.interval_1.u0)
+    @test all([getproperty(ps, Symbol("interval_$i")).u0 == [1.0, 1.1, 1.34] for i=2:4])
+	end 
+end
 
 #=
 layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = [1 => control,])
