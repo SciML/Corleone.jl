@@ -45,6 +45,8 @@ lb, ub = Corleone.get_bounds(layer)
     sum(length, psi)
   end)
   @test Corleone.get_block_structure(layer) == vcat(0, blocks)
+  traj, st2 = layer(nothing, ps, st)
+  @test Corleone.is_shooting_solution(traj)
 end
 
 
@@ -74,22 +76,22 @@ end
     @test isempty(first(ps).u0)
     @test all(==([0.9, 1.1, 3.0]), map(x -> x.u0, collect(ps[ntuple(i -> Symbol("interval_", i + 1), 3)])))
   end
-	@testset "Linear" begin 
+  @testset "Linear" begin
     layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
       initialization=(args...) -> linear_initialization(args...; u_infinity=[2.0, 1.0, 1.34]))
     ps = LuxCore.initialparameters(rng, layer)
     @test isempty(ps.interval_1.u0)
-    @test isapprox(ps.interval_2.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 3/12, atol=1e-7)
-    @test isapprox(ps.interval_3.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 6/12, atol=1e-7)
-    @test isapprox(ps.interval_4.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 9/12, atol=1e-7)
-	end 
-	@testset "Custom" begin 
+    @test isapprox(ps.interval_2.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 3 / 12, atol=1e-7)
+    @test isapprox(ps.interval_3.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 6 / 12, atol=1e-7)
+    @test isapprox(ps.interval_4.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 9 / 12, atol=1e-7)
+  end
+  @testset "Custom" begin
     layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control,],
-																	initialization=(args...) -> custom_initialization(args...; u0s=vcat([u0], [[1., 1.1, 1.34] for i in 1:3])))
+      initialization=(args...) -> custom_initialization(args...; u0s=vcat([u0], [[1.0, 1.1, 1.34] for i in 1:3])))
     ps = LuxCore.initialparameters(rng, layer)
     @test isempty(ps.interval_1.u0)
-    @test all([getproperty(ps, Symbol("interval_$i")).u0 == [1.0, 1.1, 1.34] for i=2:4])
-	end 
+    @test all([getproperty(ps, Symbol("interval_$i")).u0 == [1.0, 1.1, 1.34] for i = 2:4])
+  end
 end
 
 #=
