@@ -1,5 +1,15 @@
 module CorleoneOED
 
-# Write your package code here.
+using Reexport 
+@reexport using Corleone 
+@reexport using Symbolics
+using SymbolicIndexingInterface
+using SciMLStructures
+
+using SciMLBase
+using DocStringExtensions
+using LinearAlgebra
+
+include("augmentation.jl")
 
 end

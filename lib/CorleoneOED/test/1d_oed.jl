@@ -1,25 +1,34 @@
-using Corleone
+using CorleoneOED
+
 using OrdinaryDiffEqTsit5
 using Test
 using Random
+
+
 using LuxCore
+
 using ComponentArrays
+
 using Optimization, OptimizationMOI, Ipopt
 using LinearAlgebra
 rng = Random.default_rng()
 
 
 function lin_dyn(u, p, t)
-    return [p[1]*u[1]]
+	return [p[1]*u[1] + p[2]]
 end
 
 u0 = [1.0]
 tspan = (0.,1.)
-p = [-2.0]
+p = [-2.0, 0.0]
 
 prob = ODEProblem(lin_dyn, u0, tspan, p)
 
+CorleoneOED.augment_system(prob)
+
+
 ol = OEDLayer(prob, Tsit5(), params=[1], observed=(u,p,t)->u[1:1])
+
 ps, st = LuxCore.setup(Random.default_rng(), ol)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(ol)
