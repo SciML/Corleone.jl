@@ -38,7 +38,6 @@ _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) =
 
 include("trajectory.jl") 
 export Trajectory
-export shooting_constraints, shooting_constraints!
 
 include("local_controls.jl")
 export ControlParameter

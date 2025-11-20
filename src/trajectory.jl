@@ -36,27 +36,4 @@ SymbolicIndexingInterface.current_time(fp::Trajectory) = fp.t
 utype(traj::Trajectory) = eltype(first(traj.u))
 ttype(traj::Trajectory) = eltype(traj.t)
 
-is_shooting_solution(traj::Trajectory) = isempty(traj.shooting_indices)
-
-"""
-$(FUNCTIONNAME)
-Computes the shooting constraints over a given [Trajectory](@ref) if present. 
-"""
-function shooting_constraints(traj::Trajectory)
-	(; u, shooting, shooting_indices) = traj
-	reduce(vcat, map(zip(shooting_indices, shooting)) do (idx, u_last) 
-		vec(u_last .- u[idx])
-	end)
-end
-
-"""
-$(FUNCTIONNAME)
-Computes the shooting constraints over a given [Trajectory](@ref) if present in place. 
-"""
-function shooting_constraints!(res::AbstractVector, traj::Trajectory)
-	(; u, shooting, shooting_indices) = traj
-	skip = prod(size(vec(u[1])))
-	foreach(enumerate(zip(shooting_indices,shooting))) do (i, (idx, u_last)) 
-		res[(i-1)*skip+1:i*skip] .= vec(u_last .- u[idx])
-	end
-end
+is_shooting_solution(traj::Trajectory) = !isempty(traj.shooting)
