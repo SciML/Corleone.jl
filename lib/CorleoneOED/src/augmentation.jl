@@ -1,7 +1,7 @@
 function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem;
   control_indices=Int64[],
   kwargs...)
-  sys = Corleone.retrieve_symbol_cache(prob, control_indices)
+  sys = Corleone.retrieve_symbol_cache(prob, [])
   states = SymbolicIndexingInterface.variable_symbols(sys)
   sort!(states, by=Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
   dstates = map(xi -> Symbol(:d, xi), states)
@@ -28,7 +28,7 @@ function symbolify_equations(prob::SciMLBase.AbstractDEProblem, config; kwargs..
   (; differential_vars, vars, parameters, independent_vars) = config
   f = prob.f.f
   eqs = if SciMLBase.isinplace(prob)
-		out = zero(vars) 
+    out = zero(vars)
     f(out, vars, parameters, only(independent_vars))
     out
   else
@@ -41,8 +41,8 @@ function symbolify_equations(prob::SciMLBase.DAEProblem, config; kwargs...)
   (; differential_vars, vars, parameters, independent_vars) = config
   f = prob.f.f
   eqs = if SciMLBase.isinplace(prob)
-		out = zero(vars)
-		f(out, differential_vars, vars, parameters, only(independent_vars))
+    out = zero(vars)
+    f(out, differential_vars, vars, parameters, only(independent_vars))
     out
   else
     f(differential_vars, vars, parameters, only(independent_vars))
@@ -68,8 +68,10 @@ function derive_sensitivity_equations(prob, config; params=Int64[], tunable_ic=I
   dfdx = Symbolics.jacobian(equations, vars)
   dfddx = Symbolics.jacobian(equations, differential_vars)
   dfdp = Symbolics.jacobian(equations, psubset)
-  dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
-  dfdp = hcat(dfdp, dfdpextra)
+  if !isempty(tunable_ic)
+    dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
+    dfdp = hcat(dfdp, dfdpextra)
+  end
   sensitivities = dfdx * G + dfdp
   if isa(prob, SciMLBase.DAEProblem)
     sensitivities .+= dfddx * dG
@@ -101,42 +103,47 @@ function finalize_config(::Val{:Discrete}, prob, config; kwargs...)
   build_new_system(prob, config; kwargs...)
 end
 
-function finalize_config(::T , prob, config; kwargs...) where T <: Union{Val{:Continuous}, Val{:ContinuousSampled}}
+function finalize_config(::T, prob, config; control_indices = Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
   (; observed_jacobian, observed) = config
   n = size(sensitivities, 2)
   selector = triu(trues(n, n))
   F = Symbolics.variables(:F, 1:n, 1:n)
-	F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
+  F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
   dF = Symbolics.variables(:dF, 1:n, 1:n)
   # We build the output expression 
-	if T != Val{:ContinuousSampled}
-		G = observed_jacobian * sensitivities
-		output_expression = G'G
-	else 
-		w = Symbolics.variables(:w, axes(observed_jacobian, 1))
-		G = sum(enumerate(w))  do (i,wi)
-			wi * observed_jacobian[i:i, :]  * sensitivities
-		end
-		output_expression = G'G
-	end  
-	output_expression = vec(output_expression[selector])
-	fisher = [i >= j ? F[i,j] : F[j,i] for i in 1:n, j in 1:n] 
-	F = F[selector]
-	dF = dF[selector]
-	if isa(prob, DAEProblem) 
-		output_expression = vec(dF) .- output_expression 	
-	end 
-	new_vars = vcat(vars, vec(sensitivities), vec(F))
-	new_differential_vars = vcat(differential_vars, vec(differential_sensitivities), vec(dF))
-	new_equations = vcat(equations, vec(sensitivity_equations), vec(output_expression))
+  if T != Val{:ContinuousSampled}
+    G = observed_jacobian * sensitivities
+    output_expression = G'G
+  else
+    w = Symbolics.variables(:w, axes(observed_jacobian, 1))
+		w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
+    G = sum(enumerate(w)) do (i, wi)
+      wi * observed_jacobian[i:i, :] * sensitivities
+    end
+    output_expression = G'G
+		idx = axes(w,1) .+ size(parameters,1)
+		append!(parameters, w)
+		append!(control_indices, idx)
+  end
+  output_expression = vec(output_expression[selector])
+  fisher = [i >= j ? F[i, j] : F[j, i] for i in 1:n, j in 1:n]
+  F = F[selector]
+  dF = dF[selector]
+  if isa(prob, DAEProblem)
+    output_expression = vec(dF) .- output_expression
+  end
+  new_vars = vcat(vars, vec(sensitivities), vec(F))
+  new_differential_vars = vcat(differential_vars, vec(differential_sensitivities), vec(dF))
+  new_equations = vcat(equations, vec(sensitivity_equations), vec(output_expression))
   config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations, observed=(; fisher=fisher, observed)))
-  build_new_system(prob, config; kwargs...)
+  build_new_system(prob, config; control_indices, kwargs...)
 end
 
-function build_new_system(prob::ODEProblem, config; kwargs...)
+function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
+  @info equations
   IIP = SciMLBase.isinplace(prob)
   foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
@@ -146,15 +153,23 @@ function build_new_system(prob::ODEProblem, config; kwargs...)
     Symbol.(vars), Symbol.(parameters), independent_vars;
     defaults=defaults
   )
+  # Note: This is different 
+  fnew = ODEFunction(IIP ? fiip : foop, sys=newsys)
+  problem = remake(prob, f=fnew, u0=u0, p=p0)
+	layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-    Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+		getsym(newsys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
+    #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
   end
-  fnew = ODEFunction(IIP ? fiip : foop, sys=newsys, observed=obsfun)
-  remake(prob, f=fnew, u0=u0, p=p0)
+	problem, obsfun
+  #obsfun = map(observed) do ex
+  #  Symbolics.build_function(ex, traj_vars, traj_params, only(independent_vars); expression=Val{false}, cse=true)[1]
+  #end
 end
 
-function build_new_system(prob::DAEProblem, config; kwargs...)
+function build_new_system(prob::DAEProblem, config; control_indices = Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
+  @info equations
   IIP = SciMLBase.isinplace(prob)
   foop, fiip = Symbolics.build_function(equations, differential_vars, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
@@ -165,282 +180,59 @@ function build_new_system(prob::DAEProblem, config; kwargs...)
     Symbol.(vars), Symbol.(parameters), independent_vars;
     defaults=defaults
   )
+	fnew = DAEFunction(IIP ? fiip : foop, sys=newsys)
+  problem = remake(prob, f=fnew, du0=du0, u0=u0, p=p0)
+	layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-    Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+		getsym(layersys, Symbolics.SymbolicUtils.Code.toexp.(ex))
+    #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
   end
-  fnew = DAEFunction(IIP ? fiip : foop, sys=newsys, observed=obsfun)
-  remake(prob, f=fnew, du0=du0, u0=u0, p=p0)
+	problem, obsfun
 end
 
-"""
-$(METHODLIST)
 
-Augments the `prob` with the equations for the sensitivities of `params` and the Fisher
-information matrix. This method is used in cases when the states and sensitivities are
-not constant, i.e., there are other controls or initial conditions to be optimized jointly
-with the sampling decisions.
-Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
-"""
-function augment_dynamics_full(prob::SciMLBase.AbstractDEProblem;
-  tspan=prob.tspan, control_indices=Int64[],
-  params=setdiff(eachindex(prob.p), control_indices), observed=(u, p, t) -> u[eachindex(prob.u0)])
-
-  is_dae = isa(prob, SciMLBase.DAEProblem)
-  u0 = prob.u0
-  nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
-
-  iip = SciMLBase.isinplace(prob)
-  _dx = Symbolics.variables(:dx, 1:nx)
-  _x = Symbolics.variables(:x, 1:nx)
-  _p = Symbolics.variables(:p, 1:np)
-  _t = Symbolics.variable(:t)
-
-  _dynamics = begin
-    if iip
-      if !is_dae
-        prob.f.f(_dx, _x, _p, _t)
-        _dx
-      else
-        out = Symbolics.variables(:out, 1:nx)
-        prob.f.f(out, _dx, _x, _p, _t)
-        out
-      end
-    else
-      if !is_dae
-        prob.f.f(_x, _p, _t)
-      else
-        prob.f.f(_dx, _x, _p, _t)
-      end
-    end
-  end
-
-  _dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
-  _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
-  _dF = Symbolics.variables(:F, 1:np_considered, 1:np_considered)
-  _F = Symbolics.variables(:F, 1:np_considered, 1:np_considered)
-
-  dfdx = Symbolics.jacobian(_dynamics, _x)
-  dfddx = Symbolics.jacobian(_dynamics, _dx)
-  dfdp = Symbolics.jacobian(_dynamics, _p[params])
-
-  dGdt = is_dae ? dfdp + dfdx * _G + dfddx * _dG : dfdp + dfdx * _G
-  _obs = observed(_x, _p, _t)
-  _w = Symbolics.variables(:w, 1:length(_obs))
-  dobsdx = Symbolics.jacobian(_obs, _x)
-
-  upper_triangle = triu(trues(np_considered, np_considered))
-  dFdt = sum(map(1:length(_obs)) do i
-    _w[i] * (dobsdx[i:i, :] * _G)' * (dobsdx[i:i, :] * _G)
-  end)[upper_triangle]
-  dFdt = is_dae ? _dF[upper_triangle] .- dFdt : dFdt
-
-  differential_variables_ = vcat(_dx, _dG[:], _dF[upper_triangle])
-  variables_ = vcat(_x, _G[:], _F[upper_triangle])
-  parameters_ = vcat(_p, _w)
-  expressions_ = vcat(_dynamics, dGdt[:], dFdt)
-  iip_idx = iip ? 2 : 1
-  aug_fun = begin
-    if !is_dae
-      Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    else
-      Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    end
-  end
-  #dfun = eval(aug_fun)
-  aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
-  aug_p = vcat(prob.p, ones(length(_w)))
-
-  scache = SymbolCache(variables_, parameters_, [_t])
-  dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
-
-  !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
-
-  aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
-  aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
-  return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars=aug_diff_vars, prob.kwargs...)
+struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+  "The underlying layer"
+  layer::L
+  "The observed functions"
+  observed::O
 end
 
-"""
-$(METHODLIST)
-
-Augments the `prob` with the equations for the sensitivities of `params` and the unweighted
-contributions of each measurement function to the Fisher information matrix.
-This method is used in cases when the states and sensitivities are constant.
-Thus, unweighted contributions of all measurement functions to the FIM need to be
-added for a simplified optimization problem later on.
-Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
-
-"""
-function augment_dynamics_unweighted_fisher(prob::SciMLBase.AbstractDEProblem;
-  tspan=prob.tspan, control_indices=Int64[],
-  params=setdiff(eachindex(prob.p), control_indices), observed=(u, p, t) -> u[eachindex(prob.u0)])
-
-  is_dae = isa(prob, SciMLBase.DAEProblem)
-  u0 = prob.u0
-  nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
-
-  iip = SciMLBase.isinplace(prob)
-  _dx = Symbolics.variables(:dx, 1:nx)
-  _x = Symbolics.variables(:x, 1:nx)
-  _p = Symbolics.variables(:p, 1:np_considered)
-  full_p = Symbolics.variables(:p, 1:np)
-  _t = Symbolics.variable(:t)
-
-  counter_p = 0
-  p_vector = map(eachindex(prob.p)) do i
-    if i in params
-      counter_p += 1
-      _p[counter_p]
-    else
-      prob.p[i]
-    end
+function OEDLayer{DISCRETE}(layer::L, args...; measurements=nothing, kwargs...) where {DISCRETE,L}
+  (; problem, controls) = layer
+  SAMPLED = !isnothing(measurements)
+  mode = DISCRETE ? Val{:Discrete}() : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
+  newproblem, observed = augment_system(mode, problem;
+    tunable_ic=layer.tunable_ic,
+    control_indices=layer.control_indices,
+    kwargs...)
+  if !isnothing(measurements)
+    @assert length(newproblem.p) - length(problem.p) <= length(measurements)
+    newcontrols = (controls..., measurements)
+  else
+    newcontrols = controls
   end
-  p_vector .= prob.p
-  p_vector[params] .= _p
-  _dynamics = begin
-    if iip
-      out = Symbolics.variables(:out, 1:nx)
-      if !is_dae
-        prob.f.f(out, _x, p_vector, _t)
-        out
-      else
-        prob.f.f(out, _dx, _x, p_vector, _t)
-        out
-      end
-    else
-      if !is_dae
-        prob.f.f(_x, p_vector, _t)
-      else
-        prob.f.f(_dx, _x, p_vector, _t)
-      end
-    end
-  end
-
-  _dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
-  _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
-
-  dfdx = Symbolics.jacobian(_dynamics, _x)
-  dfddx = Symbolics.jacobian(_dynamics, _dx)
-  dfdp = Symbolics.jacobian(_dynamics, _p)
-
-  dGdt = is_dae ? dfdp .+ dfdx * _G .+ dfddx * _dG : dfdp + dfdx * _G
-
-  _obs = observed(_x, _p, _t)
-  _w = Symbolics.variables(:w, 1:length(_obs))
-  _dhxG = Symbolics.variables(:dhxG, 1:length(_obs), 1:np_considered, 1:np_considered)
-  _hxG = Symbolics.variables(:hxG, 1:length(_obs), 1:np_considered, 1:np_considered)
-  dobsdx = Symbolics.jacobian(_obs, _x)
-  upper_triangle = triu(trues(np_considered, np_considered))
-  dhxGdt = map(1:length(_obs)) do i
-    if is_dae
-      _dhxG[i, :, :][upper_triangle] .- ((dobsdx[i:i, :] * _G)'*(dobsdx[i:i, :]*_G))[upper_triangle]
-    else
-      ((dobsdx[i:i, :] * _G)'*(dobsdx[i:i, :]*_G))[upper_triangle]
-    end
-  end
-
-  differential_variables_ = vcat(_dx, _dG[:], reduce(vcat, [_dhxG[i, :, :][upper_triangle][:] for i = 1:length(_obs)]))
-  variables_ = vcat(_x, _G[:], reduce(vcat, [_hxG[i, :, :][upper_triangle][:] for i = 1:length(_obs)]))
-  parameters_ = vcat(p_vector, _w)
-  expressions_ = vcat(_dynamics, dGdt[:], reduce(vcat, [dhxGdt[i][:] for i = 1:length(_obs)]))
-
-  iip_idx = iip ? 2 : 1
-  aug_fun = begin
-    if !is_dae
-      Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    else
-      Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    end
-  end
-  aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
-  aug_p = vcat(prob.p, ones(length(_w)))
-
-  scache = SymbolCache(variables_, vcat(full_p, _w), [_t])
-  dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
-  !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
-
-  aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
-  aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
-  return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars=aug_diff_vars, prob.kwargs...)
+  layer = @set layer.problem = newproblem
+  layer = @set layer.controls = newcontrols
+	OEDLayer{DISCRETE,SAMPLED,LuxCore.parameterlength(layer) == 0,typeof(layer), typeof(observed)}(layer, observed)
 end
 
-"""
-$(METHODLIST)
+fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
 
-Augments dynamics with the differential equations for sensitivities of parameters `params`.
-This method is used in cases when measurements are taken at discrete time points.
-Returns either an ODEProblem or a DAEProblem, depending on the type of the original problem.
-"""
-function augment_dynamics_only_sensitivities(prob::SciMLBase.AbstractDEProblem;
-  tspan=prob.tspan, control_indices=Int64[],
-  params=setdiff(eachindex(prob.p), control_indices), observed=(u, p, t) -> u[eachindex(prob.u0)])
+fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin 
+	traj, st = oed(x,ps,st)
+	fisher_information(oed, traj), st
+end 
 
-  is_dae = isa(prob, SciMLBase.DAEProblem)
-  u0 = prob.u0
-  nx, np, nc, np_considered = length(prob.u0), length(prob.p), length(control_indices), length(params)
+observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
 
-  iip = SciMLBase.isinplace(prob)
-  _dx = Symbolics.variables(:dx, 1:nx)
-  _x = Symbolics.variables(:x, 1:nx)
-  _p = Symbolics.variables(:p, 1:np)
-  _t = Symbolics.variable(:t)
+observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin 
+	traj, st = oed(x,ps,st)
+	observed_equations(oed, traj), st
+end 
 
-  _dynamics = begin
-    if iip
-      if !is_dae
-        prob.f.f(_dx, _x, _p, _t)
-        _dx
-      else
-        out = Symbolics.variables(:out, 1:nx)
-        prob.f.f(out, _dx, _x, _p, _t)
-        out
-      end
-    else
-      if !is_dae
-        prob.f.f(_x, _p, _t)
-      else
-        prob.f.f(_dx, _x, _p, _t)
-      end
-    end
-  end
 
-  _dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
-  _G = Symbolics.variables(:G, 1:nx, 1:np_considered)
 
-  dfdx = Symbolics.jacobian(_dynamics, _x)
-  dfddx = Symbolics.jacobian(_dynamics, _dx)
-  dfdp = Symbolics.jacobian(_dynamics, _p[params])
-
-  dGdt = is_dae ? dfdp + dfdx * _G + dfddx * _dG : dfdp + dfdx * _G
-  _obs = observed(_x, _p, _t)
-  _w = Symbolics.variables(:w, 1:length(_obs))
-
-  differential_variables_ = vcat(_dx, _dG[:])
-  variables_ = vcat(_x, _G[:])
-  parameters_ = vcat(_p, _w)
-  expressions_ = vcat(_dynamics, dGdt[:])
-
-  iip_idx = iip ? 2 : 1
-  aug_fun = begin
-    if !is_dae
-      Symbolics.build_function(expressions_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    else
-      Symbolics.build_function(expressions_, differential_variables_, variables_, parameters_, _t; expression=Val{false}, cse=true)[iip_idx]
-    end
-  end
-  #dfun = eval(aug_fun)
-  aug_u0 = vcat(u0, zeros(length(variables_) - length(u0)))
-  aug_p = vcat(prob.p, ones(length(_w)))
-
-  scache = SymbolCache(variables_, parameters_, [_t])
-  dfun = is_dae ? DAEFunction(aug_fun, sys=scache) : ODEFunction(aug_fun, sys=scache)
-
-  !is_dae && return ODEProblem{iip}(dfun, aug_u0, tspan, aug_p; prob.kwargs...)
-
-  aug_du0 = vcat(prob.du0, zeros(length(differential_variables_) - length(prob.du0)))
-  aug_diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(prob.differential_vars, trues(length(differential_variables_) - length(prob.du0)))
-  return DAEProblem{iip}(dfun, aug_du0, aug_u0, tspan, aug_p; differential_vars=aug_diff_vars, prob.kwargs...)
-end
 
 function augment_dynamics_for_oed(layer::Union{SingleShootingLayer,MultipleShootingLayer};
   params=get_params(layer),
