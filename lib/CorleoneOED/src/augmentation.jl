@@ -1,6 +1,6 @@
 function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem;
-												control_indices=Int64[],
-												kwargs...)
+  control_indices=Int64[],
+  kwargs...)
   sys = Corleone.retrieve_symbol_cache(prob, control_indices)
   states = SymbolicIndexingInterface.variable_symbols(sys)
   sort!(states, by=Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
@@ -8,119 +8,169 @@ function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem;
   ps = SymbolicIndexingInterface.parameter_symbols(sys)
   sort!(ps, by=Base.Fix1(SymbolicIndexingInterface.parameter_index, sys))
   ts = SymbolicIndexingInterface.independent_variable_symbols(sys)
-	vars = Symbolics.variable.(states) 
-	vars = Symbolics.setdefaultval.(vars, vec(prob.u0))
-	parameters = Symbolics.variable.(ps) 
-	p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-	parameters = Symbolics.setdefaultval.(parameters, p0)
-	config = (; symbolcache = sys, differential_vars= Symbolics.variable.(dstates), 
-		vars = vars, 
-		parameters=parameters, 
-		independent_vars=Symbolics.variable.(ts)
-	)
+  vars = Symbolics.variable.(states)
+  vars = Symbolics.setdefaultval.(vars, vec(prob.u0))
+  parameters = Symbolics.variable.(ps)
+  p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
+  parameters = Symbolics.setdefaultval.(parameters, p0)
+  config = (; symbolcache=sys, differential_vars=Symbolics.variable.(dstates),
+    vars=vars,
+    parameters=parameters,
+    independent_vars=Symbolics.variable.(ts)
+  )
   config = symbolify_equations(prob, config; control_indices, kwargs...)
-	config = derive_sensitivity_equations(prob, config; control_indices, kwargs...)
-	config = add_observed_equations(prob, config; control_indices, kwargs...)
-	finalize_config(mode, prob, config; control_indices, kwargs...)
+  config = derive_sensitivity_equations(prob, config; control_indices, kwargs...)
+  config = add_observed_equations(prob, config; control_indices, kwargs...)
+  finalize_config(mode, prob, config; control_indices, kwargs...)
 end
 
-function symbolify_equations(prob::SciMLBase.AbstractDEProblem, config; kwargs...) 
-	(; differential_vars, vars, parameters, independent_vars) = config
+function symbolify_equations(prob::SciMLBase.AbstractDEProblem, config; kwargs...)
+  (; differential_vars, vars, parameters, independent_vars) = config
   f = prob.f.f
   eqs = if SciMLBase.isinplace(prob)
-		out = Symbolics.variables(gensym(), 1:length(vars))
-		f(out, vars, parameters, only(independent_vars))
-		out
+		out = zero(vars) 
+    f(out, vars, parameters, only(independent_vars))
+    out
   else
-		f(vars, parameters, only(independent_vars))
+    f(vars, parameters, only(independent_vars))
   end
-	merge(config, (; equations = eqs))
+  merge(config, (; equations=eqs))
 end
 
 function symbolify_equations(prob::SciMLBase.DAEProblem, config; kwargs...)
-	(; differential_vars, vars, parameters, independent_vars) = config
+  (; differential_vars, vars, parameters, independent_vars) = config
   f = prob.f.f
   eqs = if SciMLBase.isinplace(prob)
-		out = Symbolics.variables(gensym(), 1:length(vars))
+		out = zero(vars)
 		f(out, differential_vars, vars, parameters, only(independent_vars))
-		out
+    out
   else
-		f(differential_vars, vars, parameters, only(independent_vars))
+    f(differential_vars, vars, parameters, only(independent_vars))
   end
-	merge(config, (; equations = eqs))
+  merge(config, (; equations=eqs))
 end
 
-function derive_sensitivity_equations(prob, config; params = Int64[], tunable_ic = Int64[], kwargs...)
-	# TODO just switch this if we want to use the tunable_ics 
-	tunable_ic = empty(tunable_ic)
-	(; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
-	psubset = parameters[params] 
-	np_considered = size(psubset, 1) + size(tunable_ic, 1)
-	nx = size(vars,1) 
-  
-	dG = Symbolics.variables(:G, 1:nx, 1:np_considered)
+function derive_sensitivity_equations(prob, config; params=Int64[], tunable_ic=Int64[], kwargs...)
+  # TODO just switch this if we want to use the tunable_ics 
+  tunable_ic = empty(tunable_ic)
+  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+  psubset = parameters[params]
+  np_considered = size(psubset, 1) + size(tunable_ic, 1)
+  nx = size(vars, 1)
+
+  dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
   G = Symbolics.variables(:G, 1:nx, 1:np_considered)
-	G0 = hcat(
-		zeros(eltype(prob.u0), nx, size(psubset,1)),
-	[(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
-	)
-	G = Symbolics.setdefaultval.(G, G0)
+  G0 = hcat(
+    zeros(eltype(prob.u0), nx, size(psubset, 1)),
+    [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
+  )
+  G = Symbolics.setdefaultval.(G, G0)
   dfdx = Symbolics.jacobian(equations, vars)
   dfddx = Symbolics.jacobian(equations, differential_vars)
   dfdp = Symbolics.jacobian(equations, psubset)
-	dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)] 
-	dfdp = hcat(dfdp, dfdpextra)
-	sensitivities = dfdx * G + dfdp	
-	if isa(prob, SciMLBase.DAEProblem) 
-		sensitivities .+= dfddx * dG
-	end 
-	merge(config, (; sensitivities = G, differential_sensitivities = dG, sensitivity_equations = sensitivities))
+  dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
+  dfdp = hcat(dfdp, dfdpextra)
+  sensitivities = dfdx * G + dfdp
+  if isa(prob, SciMLBase.DAEProblem)
+    sensitivities .+= dfddx * dG
+  end
+  merge(config, (; sensitivities=G, differential_sensitivities=dG, sensitivity_equations=sensitivities))
 end
 
-function add_observed_equations(prob, config; observed = (u, p, t) -> u, kwargs...) 
-	(; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
-	obs = observed(vars, parameters, only(independent_vars))
-	dobsdx = Symbolics.jacobian(obs, vars)
-	merge(config, (; observed = obs, observed_jacobian = dobsdx))
-end 
+function add_observed_equations(prob, config; observed=(u, p, t) -> u, kwargs...)
+  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+  obs = observed(vars, parameters, only(independent_vars))
+  dobsdx = Symbolics.jacobian(obs, vars)
+  merge(config, (; observed=obs, observed_jacobian=dobsdx))
+end
 
 finalize_config(::Any, args...; kwargs...) = throw(ErrorException("The OED cannot be derived based on the given information. This should never happen. Please open up an issue."))
 
 # Just the sensitivities, no weigthing, no
 function finalize_config(::Val{:Discrete}, prob, config; kwargs...)
-	(; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
-	(; sensitivities, differential_sensitivities, sensitivity_equations) = config
-	(; observed_jacobian, observed) = config
-	new_vars = vcat(vars, vec(sensitivities)) 
-	new_differential_vars = vcat(differential_vars, vec(differential_sensitivities)) 
-	new_equations = vcat(equations, vec(sensitivity_equations))
-	# We build the output expression 
-	G = observed_jacobian * sensitivities
-	output_expression = G'G
-	config = merge(config, (; vars = new_vars, differential_vars = new_differential_vars, equations = new_equations,  observed = (; fisher = output_expression, observed) ))
-	build_new_system(prob, config; kwargs...)
-end 
+  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+  (; sensitivities, differential_sensitivities, sensitivity_equations) = config
+  (; observed_jacobian, observed) = config
+  new_vars = vcat(vars, vec(sensitivities))
+  new_differential_vars = vcat(differential_vars, vec(differential_sensitivities))
+  new_equations = vcat(equations, vec(sensitivity_equations))
+  # We build the output expression 
+  G = observed_jacobian * sensitivities
+  output_expression = G'G
+  config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations, observed=(; fisher=output_expression, observed)))
+  build_new_system(prob, config; kwargs...)
+end
+
+function finalize_config(::T , prob, config; kwargs...) where T <: Union{Val{:Continuous}, Val{:ContinuousSampled}}
+  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+  (; sensitivities, differential_sensitivities, sensitivity_equations) = config
+  (; observed_jacobian, observed) = config
+  n = size(sensitivities, 2)
+  selector = triu(trues(n, n))
+  F = Symbolics.variables(:F, 1:n, 1:n)
+	F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
+  dF = Symbolics.variables(:dF, 1:n, 1:n)
+  # We build the output expression 
+	if T != Val{:ContinuousSampled}
+		G = observed_jacobian * sensitivities
+		output_expression = G'G
+	else 
+		w = Symbolics.variables(:w, axes(observed_jacobian, 1))
+		G = sum(enumerate(w))  do (i,wi)
+			wi * observed_jacobian[i:i, :]  * sensitivities
+		end
+		output_expression = G'G
+	end  
+	output_expression = vec(output_expression[selector])
+	fisher = [i >= j ? F[i,j] : F[j,i] for i in 1:n, j in 1:n] 
+	F = F[selector]
+	dF = dF[selector]
+	if isa(prob, DAEProblem) 
+		output_expression = vec(dF) .- output_expression 	
+	end 
+	new_vars = vcat(vars, vec(sensitivities), vec(F))
+	new_differential_vars = vcat(differential_vars, vec(differential_sensitivities), vec(dF))
+	new_equations = vcat(equations, vec(sensitivity_equations), vec(output_expression))
+  config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations, observed=(; fisher=fisher, observed)))
+  build_new_system(prob, config; kwargs...)
+end
 
 function build_new_system(prob::ODEProblem, config; kwargs...)
-	(; equations, vars, differential_vars, parameters, independent_vars, observed) = config 
-	
-	IIP = SciMLBase.isinplace(prob)
-	
-	foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
-	u0 = Symbolics.getdefaultval.(vars)
-	p0 = Symbolics.getdefaultval.(parameters)
-	defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
-	newsys = SymbolCache(
-		Symbol.(vars), Symbol.(parameters), independent_vars; 
-		defaults = defaults 
-	)
-	obsfun = map(observed) do ex 
-		Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
-	end 
-	fnew = ODEFunction(IIP ? fiip : foop, sys = newsys, observed = obsfun)
-	remake(prob, f = fnew, u0 = u0, p = p0)
-end 
+  (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
+  IIP = SciMLBase.isinplace(prob)
+  foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
+  u0 = Symbolics.getdefaultval.(vars)
+  p0 = Symbolics.getdefaultval.(parameters)
+  defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
+  newsys = SymbolCache(
+    Symbol.(vars), Symbol.(parameters), independent_vars;
+    defaults=defaults
+  )
+  obsfun = map(observed) do ex
+    Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+  end
+  fnew = ODEFunction(IIP ? fiip : foop, sys=newsys, observed=obsfun)
+  remake(prob, f=fnew, u0=u0, p=p0)
+end
 
+function build_new_system(prob::DAEProblem, config; kwargs...)
+  (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
+  IIP = SciMLBase.isinplace(prob)
+  foop, fiip = Symbolics.build_function(equations, differential_vars, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
+  u0 = Symbolics.getdefaultval.(vars)
+  p0 = Symbolics.getdefaultval.(parameters)
+  du0 = vcat(prob.du0, zeros(eltype(u0), size(u0, 1) - size(prob.du0, 1)))
+  defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
+  newsys = SymbolCache(
+    Symbol.(vars), Symbol.(parameters), independent_vars;
+    defaults=defaults
+  )
+  obsfun = map(observed) do ex
+    Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+  end
+  fnew = DAEFunction(IIP ? fiip : foop, sys=newsys, observed=obsfun)
+  remake(prob, f=fnew, du0=du0, u0=u0, p=p0)
+end
 
 """
 $(METHODLIST)
