@@ -5,6 +5,7 @@ using Reexport
 @reexport using Symbolics
 using Accessors
 using Corleone.LuxCore
+using Corleone.Random
 using SymbolicIndexingInterface
 using SciMLStructures
 

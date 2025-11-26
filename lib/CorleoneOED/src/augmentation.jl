@@ -103,7 +103,7 @@ function finalize_config(::Val{:Discrete}, prob, config; kwargs...)
   build_new_system(prob, config; kwargs...)
 end
 
-function finalize_config(::T, prob, config; control_indices = Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
+function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
   (; observed_jacobian, observed) = config
@@ -118,14 +118,14 @@ function finalize_config(::T, prob, config; control_indices = Int64[], kwargs...
     output_expression = G'G
   else
     w = Symbolics.variables(:w, axes(observed_jacobian, 1))
-		w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
+    w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
     G = sum(enumerate(w)) do (i, wi)
       wi * observed_jacobian[i:i, :] * sensitivities
     end
     output_expression = G'G
-		idx = axes(w,1) .+ size(parameters,1)
-		append!(parameters, w)
-		append!(control_indices, idx)
+    idx = axes(w, 1) .+ size(parameters, 1)
+    append!(parameters, w)
+    append!(control_indices, idx)
   end
   output_expression = vec(output_expression[selector])
   fisher = [i >= j ? F[i, j] : F[j, i] for i in 1:n, j in 1:n]
@@ -156,18 +156,18 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   # Note: This is different 
   fnew = ODEFunction(IIP ? fiip : foop, sys=newsys)
   problem = remake(prob, f=fnew, u0=u0, p=p0)
-	layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
+  layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-		getsym(newsys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
+    getsym(newsys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
     #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
   end
-	problem, obsfun
+  problem, obsfun
   #obsfun = map(observed) do ex
   #  Symbolics.build_function(ex, traj_vars, traj_params, only(independent_vars); expression=Val{false}, cse=true)[1]
   #end
 end
 
-function build_new_system(prob::DAEProblem, config; control_indices = Int64[], kwargs...)
+function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
   @info equations
   IIP = SciMLBase.isinplace(prob)
@@ -180,14 +180,14 @@ function build_new_system(prob::DAEProblem, config; control_indices = Int64[], k
     Symbol.(vars), Symbol.(parameters), independent_vars;
     defaults=defaults
   )
-	fnew = DAEFunction(IIP ? fiip : foop, sys=newsys)
+  fnew = DAEFunction(IIP ? fiip : foop, sys=newsys)
   problem = remake(prob, f=fnew, du0=du0, u0=u0, p=p0)
-	layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
+  layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-		getsym(layersys, Symbolics.SymbolicUtils.Code.toexp.(ex))
+    getsym(layersys, Symbolics.SymbolicUtils.Code.toexp.(ex))
     #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
   end
-	problem, obsfun
+  problem, obsfun
 end
 
 
@@ -196,40 +196,75 @@ struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:
   layer::L
   "The observed functions"
   observed::O
+  "The sampling indices"
+  sampling_indices::Vector{Int64}
 end
 
-function OEDLayer{DISCRETE}(layer::L, args...; measurements=nothing, kwargs...) where {DISCRETE,L}
-  (; problem, controls) = layer
-  SAMPLED = !isnothing(measurements)
+function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where {DISCRETE,L}
+
+  (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
+
+  SAMPLED = !isempty(measurements)
   mode = DISCRETE ? Val{:Discrete}() : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
+
+  p_length = length(problem.p)
+  samplings = SAMPLED ? collect(eachindex(measurements))  : Int64[]
+  ctrls = vcat(collect(control_indices .=> controls), samplings.+ p_length .=> measurements)
+	samplings = samplings .+ length(controls)
+
   newproblem, observed = augment_system(mode, problem;
-    tunable_ic=layer.tunable_ic,
-    control_indices=layer.control_indices,
+    tunable_ic=copy(tunable_ic),
+    control_indices=copy(control_indices),
     kwargs...)
-  if !isnothing(measurements)
-    @assert length(newproblem.p) - length(problem.p) <= length(measurements)
-    newcontrols = (controls..., measurements)
-  else
-    newcontrols = controls
+
+  lb, ub = copy.(bounds_ic)
+  for i in eachindex(newproblem.u0)
+    i <= lastindex(problem.u0) && continue
+    push!(lb, zero(eltype(newproblem.u0)))
+    push!(ub, zero(eltype(newproblem.u0)))
   end
-  layer = @set layer.problem = newproblem
-  layer = @set layer.controls = newcontrols
-	OEDLayer{DISCRETE,SAMPLED,LuxCore.parameterlength(layer) == 0,typeof(layer), typeof(observed)}(layer, observed)
+  newlayer = SingleShootingLayer(
+    newproblem, algorithm; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
+  )
+
+  OEDLayer{DISCRETE,SAMPLED,LuxCore.parameterlength(layer) == 0,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
 end
 
-fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
 
-fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin 
-	traj, st = oed(x,ps,st)
-	fisher_information(oed, traj), st
-end 
+# This is the only case where we need to sample the trajectory
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true})
+  (; layer, sampling_indices) = oed
+  (; problem, controls, control_indices) = layer
+  st = LuxCore.initialstates(rng, layer)
+  #grids = Corleone.get_timegrid.(controls)
+  #return grids
+  #overall_grid = reduce(vcat, grids)
+  #unique!(sort!(overall_grid))
+  #observed_grid = grids[]
+  #unique!(sort!(observed_grid))
+  #sampling_idx = findall(∈(observed_grid), overall_grid)
+end
+
+__fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
+
+fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  sum(__fisher_information(oed, traj)), st
+end
+
+fisher_information(oed::OEDLayer{true,true}, x, ps, st::NamedTuple) = begin
+  (; sampling_indices, layer) = oed
+
+  traj, st = oed(x, ps, st)
+  sum(__fisher_information(oed, traj)), st
+end
 
 observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
 
-observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin 
-	traj, st = oed(x,ps,st)
-	observed_equations(oed, traj), st
-end 
+observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  observed_equations(oed, traj), st
+end
 
 
 
