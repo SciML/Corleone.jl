@@ -97,14 +97,14 @@ function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Disc
   new_differential_vars = vcat(differential_vars, vec(differential_sensitivities))
   new_equations = vcat(equations, vec(sensitivity_equations))
   # We build the output expression 
-	if T == Val{:Discrete}
-		G = observed_jacobian * sensitivities
-		output_expression = G'G
-	else 
-		output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i 
-			observed_jacobian[i, :] * sensitivities
-		end)
-	end 
+  if T == Val{:Discrete}
+    G = observed_jacobian * sensitivities
+    output_expression = G'G
+  else
+    output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
+      observed_jacobian[i, :] * sensitivities
+    end)
+  end
   config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations, observed=(; fisher=output_expression, observed)))
   build_new_system(prob, config; kwargs...)
 end
@@ -134,7 +134,8 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
     append!(control_indices, idx)
   end
   output_expression = vec(output_expression[selector])
-  fisher = [i >= j ? F[i, j] : F[j, i] for i in 1:n, j in 1:n]
+  fisher = [selector[i, j] ? F[i, j] : F[j, i] for i in 1:n, j in 1:n]
+  @info fisher
   F = F[selector]
   dF = dF[selector]
   if isa(prob, DAEProblem)
@@ -153,6 +154,7 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   IIP = SciMLBase.isinplace(prob)
   foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
+  @info vars
   p0 = Symbolics.getdefaultval.(parameters)
   defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
   newsys = SymbolCache(
@@ -211,8 +213,8 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
   (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
 
   SAMPLED = !isempty(measurements)
-	mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-	@info mode
+  mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
+  @info mode
   p_length = length(problem.p)
   samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
   ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
@@ -223,10 +225,14 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
     control_indices=copy(control_indices),
     kwargs...)
 
-	# Replace the saveat with the sampling times 
-	saveats = reduce(vcat, Corleone.get_timegrid.(measurements)) 
-	unique!(sort!(saveats)) 
-	newproblem = remake(newproblem, saveat = saveats)
+  # Replace the saveat with the sampling times 
+  saveats = if SAMPLED
+    ts = reduce(vcat, Corleone.get_timegrid.(measurements))
+    unique!(sort!(ts))
+  else
+    collect(problem.tspan)
+  end
+  newproblem = remake(newproblem, saveat=saveats)
 
   lb, ub = copy.(bounds_ic)
   for i in eachindex(newproblem.u0)
@@ -243,20 +249,20 @@ end
 
 
 struct WeightedObservation
-	grid::Vector{Vector{Int64}}
-end 
+  grid::Vector{Vector{Int64}}
+end
 
-function (w::WeightedObservation)(controls::AbstractVector{T}, i::Int64, G::AbstractArray) where T
-	psub = [iszero(i) ? zero(T) : controls[i] for i in w.grid[i]]
-	G = psub .* G
-	G'G
-end 
+function (w::WeightedObservation)(controls::AbstractVector{T}, i::Int64, G::AbstractArray) where {T}
+  psub = [iszero(i) ? zero(T) : controls[i] for i in w.grid[i]]
+  G = psub .* G
+  G'G
+end
 
-function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector{<:AbstractArray}) where T
-	sum(eachindex(G)) do i 
-		w(controls, i, G[i])
-	end 
-end 
+function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector{<:AbstractArray}) where {T}
+  sum(eachindex(G)) do i
+    w(controls, i, G[i])
+  end
+end
 
 # This is the only case where we need to sample the trajectory
 function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true})
@@ -264,9 +270,9 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
   (; problem, controls, control_indices) = layer
   st = LuxCore.initialstates(rng, layer)
   # Our goal is to build a weigthing matrix similar to the indexgrid 
-	grids = Corleone.get_timegrid.(controls)
-	overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
-  unique!(sort!(overall_grid))
+  grids = Corleone.get_timegrid.(controls)
+  overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
+	unique!(sort!(overall_grid))
   observed_grid = map(grids[sampling_indices]) do grid
     unique!(sort!(grid))
     findall(∈(grid), overall_grid)
@@ -275,15 +281,15 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
   measurement_indices = map(eachrow(measurement_indices[sampling_indices, :])) do mi
     unique(mi)
   end
-	# Lets order this by time 
-	weighting_grid = map(eachindex(overall_grid)) do i 
-		map(eachindex(observed_grid)) do j 
-			id = findfirst(i .== observed_grid[j])
-			isnothing(id) && return 0 
-			measurement_indices[j][id]
-		end 
-	end
-	merge(st, (; observation_grid= WeightedObservation(weighting_grid)))
+  # Lets order this by time 
+  weighting_grid = map(eachindex(overall_grid)) do i
+    map(eachindex(observed_grid)) do j
+      id = findfirst(i .== observed_grid[j])
+      isnothing(id) && return 0
+      measurement_indices[j][id]
+    end
+  end
+  merge(st, (; observation_grid=WeightedObservation(weighting_grid)))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
@@ -293,13 +299,29 @@ fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
   sum(__fisher_information(oed, traj)), st
 end
 
+# Continuous ALWAYS last FIM 
+fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+	last(__fisher_information(oed, traj)), st
+end
+
+# DISCRETE and SAMPLING -> weighted sum 
 fisher_information(oed::OEDLayer{true,true}, x, ps, st::NamedTuple) = begin
   (; sampling_indices, layer) = oed
   (; observation_grid) = st
   traj, st = oed(x, ps, st)
   Gs = __fisher_information(oed, traj)
-	observation_grid(ps.controls, Gs)
+  observation_grid(ps.controls, Gs), st
 end
+
+# DISCRETE -> SUM
+fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
+  (; sampling_indices, layer) = oed
+  (; observation_grid) = st
+  traj, st = oed(x, ps, st)
+	sum(__fisher_information(oed, traj)), st
+end
+
 
 observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
 
