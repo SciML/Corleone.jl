@@ -26,11 +26,15 @@ p = [-2.0, 0.0]
 
 prob = ODEProblem(lin_dyn2,  u0, tspan, p, )
 
-ol = SingleShootingLayer(prob, Tsit5(), controls = [2 => ControlParameter([0.], )])
+ol = SingleShootingLayer(prob, Tsit5(), controls = [1 => ControlParameter([0., 0.1, 0.2]), 2 => ControlParameter([0., 0.5], )])
 
 oed = CorleoneOED.OEDLayer{false}(ol, params = [1,],)
 
-oed = CorleoneOED.OEDLayer{true}(ol, params = [1,], measurements = [ControlParameter([0., 0.25, 0.5, 0.75])] )
+oed = CorleoneOED.OEDLayer{true}(ol, params = [1,], measurements = [ControlParameter([0., 0.25, 0.5, 0.75]), ControlParameter([0.25, 0.75])], observed = (u,p,t) -> [u[1], u[1]^2] )
+
+LuxCore.initialstates(rng, ol)
+
+LuxCore.initialstates(rng, oed)
 
 ps, st = LuxCore.setup(Random.default_rng(), oed)
 
