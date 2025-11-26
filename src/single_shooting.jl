@@ -199,6 +199,7 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
   (; tunable_ic, control_indices, problem, controls) = layer
   (; u0) = problem
+	
   initial_condition = if !shooting_layer
     constant_ics = setdiff(eachindex(u0), tunable_ic)
     sorting = sortperm(vcat(constant_ics, tunable_ic))
@@ -215,6 +216,12 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   end
   # Setup the parameters
   p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
+	
+	# We filter controls which do not act on the dynamics 
+	active_controls = control_indices .<= lastindex(p_vec) 
+	control_indices = control_indices[active_controls]
+	controls = controls[active_controls]
+
   parameter_matrix = zeros(Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1))
   control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
   param_id = 0
