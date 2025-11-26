@@ -98,7 +98,10 @@ function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Disc
   new_equations = vcat(equations, vec(sensitivity_equations))
   # We build the output expression 
   if T == Val{:Discrete}
-    G = observed_jacobian * sensitivities
+    G = sum(axes(observed_jacobian,1)) do i
+      observed_jacobian[i:i, :] * sensitivities
+    end
+    #G = observed_jacobian * sensitivities
     output_expression = G'G
   else
     output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
@@ -120,7 +123,9 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
   dF = Symbolics.variables(:dF, 1:n, 1:n)
   # We build the output expression 
   if T != Val{:ContinuousSampled}
-    G = observed_jacobian * sensitivities
+    G = sum(axes(observed_jacobian,1)) do i
+      observed_jacobian[i:i, :] * sensitivities
+    end
     output_expression = G'G
   else
     w = Symbolics.variables(:w, axes(observed_jacobian, 1))
@@ -135,7 +140,6 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
   end
   output_expression = vec(output_expression[selector])
   fisher = [selector[i, j] ? F[i, j] : F[j, i] for i in 1:n, j in 1:n]
-  @info fisher
   F = F[selector]
   dF = dF[selector]
   if isa(prob, DAEProblem)
@@ -154,7 +158,6 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   IIP = SciMLBase.isinplace(prob)
   foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
-  @info vars
   p0 = Symbolics.getdefaultval.(parameters)
   defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
   newsys = SymbolCache(
@@ -166,13 +169,9 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   problem = remake(prob, f=fnew, u0=u0, p=p0)
   layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-    getsym(newsys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
-    #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+    getsym(layersys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
   end
   problem, obsfun
-  #obsfun = map(observed) do ex
-  #  Symbolics.build_function(ex, traj_vars, traj_params, only(independent_vars); expression=Val{false}, cse=true)[1]
-  #end
 end
 
 function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwargs...)
@@ -192,8 +191,7 @@ function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwa
   problem = remake(prob, f=fnew, du0=du0, u0=u0, p=p0)
   layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-    getsym(layersys, Symbolics.SymbolicUtils.Code.toexp.(ex))
-    #Symbolics.build_function(ex, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+    getsym(layersys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
   end
   problem, obsfun
 end
@@ -291,6 +289,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
   end
   merge(st, (; observation_grid=WeightedObservation(weighting_grid)))
 end
+
+
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
 

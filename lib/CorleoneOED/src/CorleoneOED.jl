@@ -3,9 +3,8 @@ module CorleoneOED
 using Reexport 
 @reexport using Corleone 
 @reexport using Symbolics
-using Accessors
-using Corleone.LuxCore
-using Corleone.Random
+using LuxCore
+using Random
 using SymbolicIndexingInterface
 using SciMLStructures
 
