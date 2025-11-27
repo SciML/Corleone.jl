@@ -76,7 +76,6 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
     push!(lb, zero(eltype(newproblem.u0)))
     push!(ub, zero(eltype(newproblem.u0)))
   end
-	@info lb, ub
   newlayer = SingleShootingLayer(
     newproblem, algorithm; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
   )
@@ -123,7 +122,6 @@ end
 
 # Continuous ALWAYS last FIM 
 fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
-  @info "Blubb"
   traj, st = oed(x, ps, st)
   last(__fisher_information(oed, traj)), st
 end

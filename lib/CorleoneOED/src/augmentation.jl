@@ -170,10 +170,8 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
 	end)
 	observed = merge(observed, (; local_weighted_sensitivity= Num.(ex_local)))
   IIP = SciMLBase.isinplace(prob)
-  @info equations
   foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
-  @info u0
   p0 = Symbolics.getdefaultval.(parameters)
   defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
   newsys = SymbolCache(
@@ -185,7 +183,6 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   problem = remake(prob, f=fnew, u0=u0, p=p0)
   layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
   obsfun = map(observed) do ex
-		@info ex
     fobs = getsym(layersys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
     fobs
   end
@@ -206,7 +203,6 @@ function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwa
   p0 = Symbolics.getdefaultval.(parameters)
   du0 = vcat(prob.du0, zeros(eltype(u0), size(u0, 1) - size(prob.du0, 1)))
   defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
-  @info u0
   newsys = SymbolCache(
     Symbol.(vars), Symbol.(parameters), independent_vars;
     defaults=defaults
