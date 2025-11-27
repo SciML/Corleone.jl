@@ -246,6 +246,8 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
 end
 
 
+Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...) 
+
 struct WeightedObservation
   grid::Vector{Vector{Int64}}
 end

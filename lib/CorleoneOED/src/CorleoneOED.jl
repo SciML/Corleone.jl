@@ -13,5 +13,8 @@ using DocStringExtensions
 using LinearAlgebra
 
 include("augmentation.jl")
-
+export OEDLayer
+include("criteria.jl")
+export ACriterion, DCriterion, ECriterion
+export FisherACriterion, FisherECriterion, FisherDCriterion
 end

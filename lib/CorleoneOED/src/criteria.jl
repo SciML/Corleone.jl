@@ -30,6 +30,11 @@ Implements the FisherECriterion, i.e., -``\\min\\{\\lambda: \\lambda \\textrm{ i
 """
 struct FisherECriterion <: AbstractCriterion end
 
+function (crit::AbstractCriterion)(layer::OEDLayer, x, ps, st::NamedTuple)
+	F,st = fisher_information(layer, x, ps, st)
+	crit(F), st
+end
+
 function (crit::AbstractCriterion)(F::AbstractMatrix)
     crit(Symmetric(F))
 end
