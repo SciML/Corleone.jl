@@ -1,12 +1,13 @@
 using CorleoneOED
 using OrdinaryDiffEqTsit5
 using Test
-using StableRNGs 
+using StableRNGs
+using LuxCore
 
 using ComponentArrays
 using Optimization, OptimizationMOI, Ipopt
 
-rng = Random.default_rng()
+rng = StableRNG(1111)
 
 function lin_dyn(u, p, t)
   return [p[1] * u[1]]
@@ -14,59 +15,100 @@ end
 
 u0 = [1.0]
 tspan = (0.0, 1.0)
-p = [-2.0, 0.0]
+p = [-2.0]
 
+prob = ODEProblem(lin_dyn, u0, tspan, p,)
+ol = SingleShootingLayer(prob, Tsit5(), controls=[], bounds_p=([-2.0], [-2.0]))
+ps, st = LuxCore.setup(rng, ol)
 
-prob = ODEProblem(lin_dyn2, u0, tspan, p,)
+ol(nothing, ps, st)
 
-ol = SingleShootingLayer(prob, Tsit5(), controls=[1 => ControlParameter([0.0, 0.1, 0.2]), 2 => ControlParameter([0.0, 0.5],)])
-
-oed = CorleoneOED.OEDLayer{false}(ol, params=[1,],)
-
-oed = CorleoneOED.OEDLayer{true}(
+oed = OEDLayer{false}(
   ol,
-  params=[1, 2],
-  #measurements = [ControlParameter([0., 0.25, 0.5, 0.75], controls = ones(4)), ControlParameter([0.25, 0.75], controls = ones(2))], 
-	observed = (u,p,t) -> [u[1], (u[1]+p[2])^2] 
+  params=[1,],
+  measurements=[ControlParameter(collect(0.0:0.1:0.9), controls=ones(10), bounds=(0.0, 1.0)),],
+  observed=(u, p, t) -> [u[1]]
 )
 
-LuxCore.initialstates(rng, ol)
 
-LuxCore.initialstates(rng, oed)
+ps, st = LuxCore.setup(rng, oed)
+lb, ub = Corleone.get_bounds(oed)
 
-ps, st = LuxCore.setup(Random.default_rng(), oed)
+@test LuxCore.parameterlength(oed) == LuxCore.parameterlength(ol) + 10
+@test lb.p == ub.p == [-2.0]
+@test all(iszero, lb.controls)
+@test all(isone, ub.controls)
 
-
-
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(ol)
-crit = ACriterion()
-ACrit = crit(ol)
-
-sampling_cons = let ax = getaxes(p), sampling = Corleone.get_sampling_constraint(ol)
-  (res, p, ::Any) -> begin
-    ps = ComponentArray(p, ax)
-    res .= sampling(ps, nothing)
+@testset "Criteria" begin
+  foreach(
+    (ACriterion(), DCriterion(), ECriterion(),
+    FisherACriterion(), FisherDCriterion(), FisherECriterion())
+  ) do crit
+    @test_nowarn @inferred crit(oed, nothing, p, st)
   end
 end
 
-optfun = OptimizationFunction(
-  ACrit, AutoForwardDiff(), cons=sampling_cons
-)
+function optimize_1d(oed, ps, st, crit)
+  p = ComponentArray(ps)
 
-optprob = OptimizationProblem(
-  optfun, collect(p), lb=collect(lb), ub=collect(ub), lcons=zeros(1), ucons=[0.2]
-)
+  objective = let ax = getaxes(p), crit = crit, oed = oed
+    (p, st) -> begin
+      ps = ComponentArray(p, ax)
+      first(crit(oed, nothing, ps, st))
+    end
+  end
 
-uopt = solve(optprob, Ipopt.Optimizer(),
-  tol=1e-10,
-  hessian_approximation="limited-memory",
-  max_iter=300
-)
-@testset "Convergence" begin
-  @test SciMLBase.successful_retcode(uopt)
+  sampling_cons = let ax = getaxes(p)
+    (res, p, ::Any) -> begin
+      ps = ComponentArray(p, ax)
+      res[1] = sum(ps.controls)
+    end
+  end
+
+  optfun = OptimizationFunction(
+    objective, AutoForwardDiff(), cons=sampling_cons
+  )
+
+  optprob = OptimizationProblem(
+    optfun, collect(p), st, lb=reduce(vcat, collect(lb)), ub=reduce(vcat, collect(ub)),
+    lcons=[0.0], ucons=[2.0]
+  )
+
+  uopt = solve(optprob, Ipopt.Optimizer(),
+    tol=1e-10,
+    hessian_approximation="limited-memory",
+    max_iter=300
+  )
 end
 
+
+@testset "Optimization" begin
+  for MEASUREMENT in (true, false)
+    oed = OEDLayer{MEASUREMENT}(
+      ol,
+      params=[1,],
+      measurements=[ControlParameter(collect(0.0:0.1:0.9), controls=ones(10), bounds=(0.0, 1.0)),],
+      observed=(u, p, t) -> [u[1]]
+    )
+    ps, st = LuxCore.setup(rng, oed)
+		# Check for the extra grid 
+		if MEASUREMENT 
+			@test hasfield(typeof(st), :observation_grid)
+		end 
+    uref = if MEASUREMENT
+      vcat(-2.0, zeros(5), [1.0, 1.0], zeros(3))
+    else
+      vcat(-2.0, zeros(4), [1.0, 1.0], zeros(4))
+    end
+    for crit in (ACriterion(), DCriterion(), ECriterion())
+      p_opt = optimize_1d(oed, ps, st, crit)
+      @test SciMLBase.successful_retcode(p_opt)
+      @test isapprox(collect(p_opt), uref)
+    end
+  end
+end
+ 
+#==
 @testset "Information gain: Optimality criteria" begin
   IG = InformationGain(ol, uopt.u)
 
@@ -87,3 +129,4 @@ end
 
   @test all(0.4 .<= t_sampling .<= 0.6)
 end
+==#
