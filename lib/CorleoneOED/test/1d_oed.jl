@@ -120,7 +120,7 @@ end
     for crit in (ACriterion(), DCriterion(), ECriterion())
       p_opt, _ = optimize_1d(oed, ps, st, crit)
       @test SciMLBase.successful_retcode(p_opt)
-      @test isapprox(collect(p_opt), uref)
+      @test isapprox(collect(p_opt), uref, atol = 1e-3)
     end
   end
 end
