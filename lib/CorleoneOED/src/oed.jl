@@ -1,3 +1,180 @@
+# Helper for weighting the controls over the trajectory
+struct WeightedObservation
+  grid::Vector{Vector{Int64}}
+end
+
+function (w::WeightedObservation)(controls::AbstractVector{T}, i::Int64, G::AbstractArray) where {T}
+  psub = [iszero(i) ? zero(T) : controls[i] for i in w.grid[i]]
+  G = psub .* G
+  G'G
+end
+
+function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector{<:AbstractArray}) where {T}
+  sum(eachindex(G)) do i
+    w(controls, i, G[i])
+  end
+end
+
+"""
+$(TYPEDEF)
+
+# Fields 
+$(FIELDS)
+"""
+struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+  "The underlying layer"
+  layer::L
+  "The observed functions"
+  observed::O
+  "The sampling indices"
+  sampling_indices::Vector{Int64}
+end
+
+function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRETE,SAMPLED,FIXED}
+  (; layer, observed, sampling_indices) = oed
+  type_color, no_color = SciMLBase.get_colorizers(io)
+  layer_text = FIXED ? "Fixed " : ""
+  measurement_text = DISCRETE ? "discrete " : "continuous "
+  print(io,
+    no_color, layer_text,
+    type_color, "OEDLayer ", no_color, "with ",
+    type_color, measurement_text, #"with $(dims.nh) observation functions and $(dims.np_fisher) considered parameters.\n",
+    no_color, "measurement model ",
+    no_color, "and ", type_color, "$(size(sampling_indices, 1)) ", no_color, "observed functions.\n")
+  print(io, no_color, "Underlying problem: ")
+  Base.show(io, "text/plain", layer.problem)
+end
+
+function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where {DISCRETE,L}
+
+  (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
+
+  SAMPLED = !isempty(measurements)
+  mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
+  p_length = length(problem.p)
+  samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
+  ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
+  samplings = samplings .+ length(controls)
+
+  newproblem, observed = augment_system(mode, problem;
+    tunable_ic=copy(tunable_ic),
+    control_indices=copy(control_indices),
+    kwargs...)
+
+  # Replace the saveat with the sampling times 
+  saveats = if SAMPLED
+    ts = reduce(vcat, Corleone.get_timegrid.(measurements))
+    unique!(sort!(ts))
+  else
+    collect(problem.tspan)
+  end
+  newproblem = remake(newproblem, saveat=saveats)
+
+  lb, ub = copy.(bounds_ic)
+  for i in eachindex(newproblem.u0)
+    i <= lastindex(problem.u0) && continue
+    push!(lb, zero(eltype(newproblem.u0)))
+    push!(ub, zero(eltype(newproblem.u0)))
+  end
+  newlayer = SingleShootingLayer(
+    newproblem, algorithm; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
+  )
+
+  OEDLayer{DISCRETE,SAMPLED,LuxCore.parameterlength(layer) == 0,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
+end
+
+Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
+
+# This is the only case where we need to sample the trajectory
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true})
+  (; layer, sampling_indices) = oed
+  (; problem, controls, control_indices) = layer
+  st = LuxCore.initialstates(rng, layer)
+  # Our goal is to build a weigthing matrix similar to the indexgrid 
+  grids = Corleone.get_timegrid.(controls)
+  overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
+  unique!(sort!(overall_grid))
+  observed_grid = map(grids[sampling_indices]) do grid
+    unique!(sort!(grid))
+    findall(∈(grid), overall_grid)
+  end
+  measurement_indices = Corleone.build_index_grid(controls...; problem.tspan, subdivide=100)
+  measurement_indices = map(eachrow(measurement_indices[sampling_indices, :])) do mi
+    unique(mi)
+  end
+  # Lets order this by time 
+  weighting_grid = map(eachindex(overall_grid)) do i
+    map(eachindex(observed_grid)) do j
+      id = findfirst(i .== observed_grid[j])
+      isnothing(id) && return 0
+      measurement_indices[j][id]
+    end
+  end
+  merge(st, (; observation_grid=WeightedObservation(weighting_grid)))
+end
+
+__fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
+
+fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  sum(__fisher_information(oed, traj)), st
+end
+
+# Continuous ALWAYS last FIM 
+fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
+  @info "Blubb"
+  traj, st = oed(x, ps, st)
+  last(__fisher_information(oed, traj)), st
+end
+
+# DISCRETE and SAMPLING -> weighted sum 
+fisher_information(oed::OEDLayer{true,true}, x, ps, st::NamedTuple) = begin
+  (; sampling_indices, layer) = oed
+  (; observation_grid) = st
+  traj, st = oed(x, ps, st)
+  Gs = __fisher_information(oed, traj)
+  observation_grid(ps.controls, Gs), st
+end
+
+# DISCRETE -> SUM
+fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
+  (; sampling_indices, layer) = oed
+  (; observation_grid) = st
+  traj, st = oed(x, ps, st)
+  sum(__fisher_information(oed, traj)), st
+end
+
+sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
+
+sensitivities(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  sensitivities(oed, traj), st
+end
+
+observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
+
+observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  observed_equations(oed, traj), st
+end
+
+local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_information_gain(traj)
+
+local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
+  local_information_gain(oed, traj), st
+end
+
+global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  F_tf, st = fisher_information(oed, x, ps, st)
+  P, st = local_information_gain(oed, x, ps, st)
+  C = inv(F_tf)
+  map(P) do Pi
+		C * Pi * C
+  end, st
+end
+
+#== 
 """
 $(TYPEDEF)
 Defines a callable layer for optimal experimental design purposes following a linearization-based
@@ -492,3 +669,4 @@ function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:MultipleShooting
 
     return sampling_cons
 end
+==#
