@@ -1,3 +1,4 @@
+#==
 """
 $(TYPEDEF)
 Generalization of OEDLayer to multiple experiments that can be jointly optimized.
@@ -258,3 +259,4 @@ function (f::AbstractNodeInitialization)(rng::Random.AbstractRNG, layer::MultiEx
     end
     return NamedTuple{exp_names}(ps_init), st
 end
+==#
