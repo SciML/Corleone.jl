@@ -79,14 +79,14 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
 function SingleShootingLayer(prob, alg;
-  controls=nothing,
+  controls=[],
   tunable_ic=Int64[], bounds_ic=nothing, state_initialization=default_u0,
   bounds_p=nothing, parameter_initialization=default_p0,
   kwargs...)
   _prob = init_problem(remake(prob; kwargs...), alg)
   controls = collect(controls)
-  control_indices = isnothing(controls) ? Int64[] : first.(controls)
-  controls = isnothing(controls) ? controls : last.(controls)
+  control_indices = isempty(controls) ? Int64[] : first.(controls)
+  controls = isempty(controls) ? controls : last.(controls)
   u0 = prob.u0
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
   tunable_p = setdiff(eachindex(p_vec), control_indices)
@@ -113,7 +113,11 @@ __get_tunable_p(layer::SingleShootingLayer) = first(SciMLStructures.canonicalize
 function get_bounds(layer::SingleShootingLayer; shooting=false, kwargs...)
   (; bounds_ic, bounds_p, controls, tunable_ic) = layer
   bounds_ic = shooting ? bounds_ic : map(Base.Fix2(getindex, tunable_ic), bounds_ic)
-  control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...)
+  if !isempty(controls)
+    control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...)
+  else
+    control_ub = control_lb = eltype(first(bounds_ic))[]
+  end
   (
     (; u0=first(bounds_ic), p=first(bounds_p), controls=control_lb),
     (; u0=last(bounds_ic), p=last(bounds_p), controls=control_ub)
@@ -125,15 +129,15 @@ LuxCore.parameterlength(layer::SingleShootingLayer) = __parameterlength(layer)
 
 LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer) = __initialstates(rng, layer)
 
-function __initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer; 
-														 tspan=layer.problem.tspan, u0 = layer.problem.u0, 
-														 shooting_layer=false, kwargs...)
+function __initialparameters(rng::Random.AbstractRNG, layer::SingleShootingLayer;
+  tspan=layer.problem.tspan, u0=layer.problem.u0,
+  shooting_layer=false, kwargs...)
   (; problem, state_initialization, parameter_initialization, tunable_ic, bounds_ic, bounds_p, tunable_p, control_indices) = layer
-	problem = remake(problem; tspan, u0)
+  problem = remake(problem; tspan, u0)
   (;
     u0=state_initialization(rng, problem, shooting_layer ? eachindex(u0) : tunable_ic, bounds_ic),
     p=parameter_initialization(rng, problem, tunable_p, bounds_p),
-    controls=isnothing(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
+    controls=isempty(layer.controls) ? eltype(layer.problem.u0)[] : collect_local_controls(rng, layer.controls...; tspan, kwargs...)
   )
 end
 
@@ -141,7 +145,9 @@ function __parameterlength(layer::SingleShootingLayer; tspan=layer.problem.tspan
   p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
   N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
   N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
-  N += sum(Base.Fix2(control_length, tspan), layer.controls)
+  if !isempty(layer.controls)
+    N += sum(Base.Fix2(control_length, tspan), layer.controls)
+  end
   return N
 end
 
@@ -199,7 +205,7 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   tspan=layer.problem.tspan, shooting_layer=false, kwargs...)
   (; tunable_ic, control_indices, problem, controls) = layer
   (; u0) = problem
-	
+
   initial_condition = if !shooting_layer
     constant_ics = setdiff(eachindex(u0), tunable_ic)
     sorting = sortperm(vcat(constant_ics, tunable_ic))
@@ -216,11 +222,11 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   end
   # Setup the parameters
   p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
-	
-	# We filter controls which do not act on the dynamics 
-	active_controls = control_indices .<= lastindex(p_vec) 
-	control_indices = control_indices[active_controls]
-	controls = controls[active_controls]
+
+  # We filter controls which do not act on the dynamics 
+  active_controls = control_indices .<= lastindex(p_vec)
+  control_indices = control_indices[active_controls]
+  controls = controls[active_controls]
 
   parameter_matrix = zeros(Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1))
   control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
@@ -239,8 +245,13 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
     end
   end
   # Next we setup the tspans and the indices
-  grid = build_index_grid(controls...; tspan, subdivide=100)
-  tspans = collect_tspans(controls...; tspan, subdivide=100)
+  if !isempty(controls)
+    grid = build_index_grid(controls...; tspan, subdivide=100)
+    tspans = collect_tspans(controls...; tspan, subdivide=100)
+  else
+    grid = Int64[i for i in control_indices]
+    tspans = (problem.tspan,)
+  end
   shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
   if shooting_layer
     shooting_indices[eachindex(u0)] .= true
