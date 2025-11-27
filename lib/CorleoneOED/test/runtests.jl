@@ -1,6 +1,6 @@
 using CorleoneOED
-using Test
+using SafeTestsets
 
-@testset "CorleoneOED.jl" begin
-    # Write your tests here.
+@safetestset "1D Example" begin
+  include("1d_oed.jl")
 end

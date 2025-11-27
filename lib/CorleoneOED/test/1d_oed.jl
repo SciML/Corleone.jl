@@ -3,7 +3,6 @@ using OrdinaryDiffEqTsit5
 using Test
 using StableRNGs
 using LuxCore
-
 using ComponentArrays
 using Optimization, OptimizationMOI, Ipopt
 
@@ -20,8 +19,7 @@ p = [-2.0]
 prob = ODEProblem(lin_dyn, u0, tspan, p,)
 ol = SingleShootingLayer(prob, Tsit5(), controls=[], bounds_p=([-2.0], [-2.0]))
 ps, st = LuxCore.setup(rng, ol)
-
-ol(nothing, ps, st)
+traj_ref, _ = ol(nothing, ps, st)
 
 oed = OEDLayer{false}(
   ol,
@@ -30,9 +28,15 @@ oed = OEDLayer{false}(
   observed=(u, p, t) -> [u[1]]
 )
 
-
 ps, st = LuxCore.setup(rng, oed)
 lb, ub = Corleone.get_bounds(oed)
+
+@test_nowarn @inferred oed(nothing, ps, st)
+traj_oed, _ = oed(nothing, ps, st)
+
+@test traj_oed.t == 0.0:0.1:1.0
+@test CorleoneOED.__fisher_information(oed, traj_oed)[end] == first(CorleoneOED.fisher_information(oed, nothing, ps, st))
+@test reduce(vcat, first(CorleoneOED.observed_equations(oed, nothing, ps, st))) == reduce(vcat, first.(traj_oed.u))
 
 @test LuxCore.parameterlength(oed) == LuxCore.parameterlength(ol) + 10
 @test lb.p == ub.p == [-2.0]
@@ -44,7 +48,7 @@ lb, ub = Corleone.get_bounds(oed)
     (ACriterion(), DCriterion(), ECriterion(),
     FisherACriterion(), FisherDCriterion(), FisherECriterion())
   ) do crit
-    @test_nowarn @inferred crit(oed, nothing, p, st)
+    @test_nowarn @inferred crit(oed, nothing, ps, st)
   end
 end
 
@@ -77,7 +81,8 @@ function optimize_1d(oed, ps, st, crit)
   uopt = solve(optprob, Ipopt.Optimizer(),
     tol=1e-10,
     hessian_approximation="limited-memory",
-    max_iter=300
+    max_iter=300,
+    print_level=1,
   )
 end
 
@@ -91,10 +96,10 @@ end
       observed=(u, p, t) -> [u[1]]
     )
     ps, st = LuxCore.setup(rng, oed)
-		# Check for the extra grid 
-		if MEASUREMENT 
-			@test hasfield(typeof(st), :observation_grid)
-		end 
+    # Check for the extra grid 
+    if MEASUREMENT
+      @test hasfield(typeof(st), :observation_grid)
+    end
     uref = if MEASUREMENT
       vcat(-2.0, zeros(5), [1.0, 1.0], zeros(3))
     else
@@ -107,7 +112,7 @@ end
     end
   end
 end
- 
+
 #==
 @testset "Information gain: Optimality criteria" begin
   IG = InformationGain(ol, uopt.u)
