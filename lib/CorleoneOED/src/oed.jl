@@ -76,6 +76,7 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
     push!(lb, zero(eltype(newproblem.u0)))
     push!(ub, zero(eltype(newproblem.u0)))
   end
+	@info lb, ub
   newlayer = SingleShootingLayer(
     newproblem, algorithm; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
   )
@@ -158,20 +159,32 @@ observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
   observed_equations(oed, traj), st
 end
 
-local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_information_gain(traj)
+_local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_weighted_sensitivity(traj)
 
 local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
   traj, st = oed(x, ps, st)
-  local_information_gain(oed, traj), st
+	# This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
+  hxGs = _local_information_gain(oed, traj)
+	map(hxGs) do hxGi 
+		map(axes(hxGi,1)) do i 
+			xi = hxGi[i:i, :]
+			xi'xi
+		end 
+	end,st 
 end
 
 global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+  traj, st = oed(x, ps, st)
   F_tf, st = fisher_information(oed, x, ps, st)
-  P, st = local_information_gain(oed, x, ps, st)
-  C = inv(F_tf)
-  map(P) do Pi
-		C * Pi * C
-  end, st
+	C = inv(F_tf)
+	# This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
+  hxGs = _local_information_gain(oed, traj)
+	map(hxGs) do hxGi 
+		map(axes(hxGi,1)) do i 
+			xi = hxGi[i:i, :]*C
+			xi'xi
+		end 
+	end,st 
 end
 
 #== 

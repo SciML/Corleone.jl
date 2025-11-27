@@ -62,3 +62,4 @@ end
 function (crit::FisherECriterion)(F::Symmetric)
     -minimum(eigvals(F))
 end
+

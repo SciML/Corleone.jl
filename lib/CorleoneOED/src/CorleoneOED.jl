@@ -13,8 +13,14 @@ using DocStringExtensions
 using LinearAlgebra
 
 include("augmentation.jl")
+
+include("oed.jl")
 export OEDLayer
+export fisher_information, observed_equations, sensitivities
+export local_information_gain, global_information_gain
+
 include("criteria.jl")
 export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherECriterion, FisherDCriterion
+
 end
