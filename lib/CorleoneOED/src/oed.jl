@@ -110,7 +110,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
       measurement_indices[j][id]
     end
   end
-  merge(st, (; observation_grid=WeightedObservation(weighting_grid)))
+  merge(st, (; observation_grid=WeightedObservation(weighting_grid), active_controls = measurement_indices))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
@@ -184,6 +184,49 @@ global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
 		end 
 	end,st 
 end
+
+get_sampling_sums(::OEDLayer{<:Any, false}, x, ps, st) = []
+get_sampling_sums!(res, ::OEDLayer{<:Any, false}, x, ps, st) = nothing
+
+function get_sampling_sums(oed::OEDLayer{true, true}, x, ps, st)
+	(; sampling_indices) = oed 
+	(; active_controls) = st 
+	(; controls) = ps 
+	map(active_controls[sampling_indices]) do subset 
+		sum(controls[subset]) 
+	end 
+end 
+
+function get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true, true}, x, ps, st)
+	(; sampling_indices) = oed 
+	(; active_controls) = st 
+	(; controls) = ps 
+	foreach(enumerate(active_controls[sampling_indices])) do (i,subset) 
+		res[i] = sum(controls[subset]) 
+	end 
+end 
+
+function get_sampling_sums(oed::OEDLayer{false, true}, x, ps, st)
+	(; sampling_indices, layer) = oed 
+	(; problem) = layer 
+	(; index_grid) = st 
+	(; controls) = ps
+	dt = diff(vcat(problem.kwargs[:saveat], last(problem.tspan)))
+	map(eachrow(index_grid[sampling_indices, :])) do subset 
+		sum(controls[subset] .* dt)
+	end 
+end 
+
+function get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false, true}, x, ps, st)
+	(; sampling_indices, layer) = oed 
+	(; problem) = layer 
+	(; index_grid) = st 
+	(; controls) = ps
+	dt = diff(vcat(problem.kwargs[:saveat], last(problem.tspan)))
+	foreach(enumerate(eachrow(index_grid[sampling_indices, :]))) do (i,subset)
+		res[i] = sum(controls[subset] .* dt)
+	end 
+end 
 
 #== 
 """

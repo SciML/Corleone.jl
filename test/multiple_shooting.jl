@@ -36,10 +36,6 @@ ps, st = LuxCore.setup(rng, layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
-traj, st2 = layer(nothing, ps, st)
-res = zeros(30)
-@views Corleone.shooting_constraints!(res[10:24], traj)
-
 @testset "General Multiple shooting tests" begin
   #@test Corleone.is_fixed(layer) == false
   @test length(ps) == 4 # shooting stages

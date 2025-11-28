@@ -21,10 +21,12 @@ Aqua = "0.8"
 ComponentArrays = "0.15"
 DocStringExtensions = "0.9"
 Ipopt = "1"
+LinearAlgebra = "1"
 LuxCore = "1.4"
 Optimization = "5"
 OptimizationMOI = "0.5"
 OrdinaryDiffEqTsit5 = "1.5"
+Random = "1"
 Reexport = "1.2"
 SafeTestsets = "0.1"
 SciMLBase = "2"
@@ -32,8 +34,6 @@ SciMLStructures = "1.7"
 StableRNGs = "1"
 SymbolicIndexingInterface = "0.3"
 Symbolics = "6.57"
-LinearAlgebra = "1"
-Random = "1"
 Test = "1"
 julia = "1.10"
 
@@ -48,4 +48,4 @@ SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ComponentArrays", "Ipopt", "Optimization", "OptimizationMOI", "OrdinaryDiffEqTsit5", "SafeTestsets","Test"]
+test = ["Aqua", "ComponentArrays", "Ipopt", "Optimization", "OptimizationMOI", "OrdinaryDiffEqTsit5", "SafeTestsets", "Test"]

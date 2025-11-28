@@ -9,7 +9,7 @@ using Optimization, OptimizationMOI, Ipopt
 rng = StableRNG(1111)
 
 function lin_dyn(u, p, t)
-	return [p[1] * u[1]]
+  return [p[1] * u[1]]
 end
 
 u0 = [1.0]
@@ -24,10 +24,10 @@ traj_ref, _ = ol(nothing, ps, st)
 oed = OEDLayer{false}(
   ol,
   params=[1,],
-	measurements=[
-		ControlParameter(collect(0.0:0.01:0.99), controls=ones(100), bounds=(0.0, 1.0)),
-	],
-	observed=(u, p, t) -> [u[1]]
+  measurements=[
+    ControlParameter(collect(0.0:0.01:0.99), controls=ones(100), bounds=(0.0, 1.0)),
+  ],
+  observed=(u, p, t) -> [u[1]]
 )
 
 ps, st = LuxCore.setup(rng, oed)
@@ -54,8 +54,8 @@ traj_oed, _ = oed(nothing, ps, st)
   end
 end
 
-function optimize_1d(oed, ps, st, crit, dt = 1.0, ucon = 2.0)
-	lb, ub = Corleone.get_bounds(oed)
+function optimize_1d(oed, ps, st, crit, ucon=2.0)
+  lb, ub = Corleone.get_bounds(oed)
   p = ComponentArray(ps)
 
   objective = let ax = getaxes(p), crit = crit, oed = oed
@@ -65,11 +65,11 @@ function optimize_1d(oed, ps, st, crit, dt = 1.0, ucon = 2.0)
     end
   end
 
-  sampling_cons = let ax = getaxes(p), dt = dt
-    (res, p, ::Any) -> begin
+  sampling_cons = let ax = getaxes(p), oed = oed
+    (res, p, st) -> begin
       ps = ComponentArray(p, ax)
-      res[1] = sum(ps.controls) * dt     
-		end
+      CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
+    end
   end
 
   optfun = OptimizationFunction(
@@ -77,27 +77,27 @@ function optimize_1d(oed, ps, st, crit, dt = 1.0, ucon = 2.0)
   )
   optprob = OptimizationProblem(
     optfun, collect(p), st, lb=reduce(vcat, collect(lb)), ub=reduce(vcat, collect(ub)),
-    lcons=[0.0], ucons=[ucon]) 
+    lcons=[0.0], ucons=[ucon])
   uopt = solve(optprob, Ipopt.Optimizer(),
     tol=1e-10,
     hessian_approximation="limited-memory",
     max_iter=300,
     print_level=3,
   )
-	uopt, ComponentArray(uopt.u, getaxes(p))
+  uopt, ComponentArray(uopt.u, getaxes(p))
 end
 
-@testset "Information Gain" begin 
-uopt, popt = optimize_1d(oed, ps, st, ACriterion(), 0.01, 0.2)
-μ = uopt.original.inner.mult_g
-traj,_ = oed(nothing, popt, st)
-Π, _ = CorleoneOED.global_information_gain(oed, nothing, popt, st)
-optimality = reduce(vcat, map(xi->only(first(xi)),Π))
-idx = findall(optimality .> μ)
-@test !isempty(idx)
-@test all(0.4 .< traj.t[idx] .<= 0.6) 
-@test all(popt.controls[idx] .> 0.99)
-end 
+@testset "Information Gain" begin
+  uopt, popt = optimize_1d(oed, ps, st, ACriterion(), 0.2)
+  μ = uopt.original.inner.mult_g
+  traj, _ = oed(nothing, popt, st)
+  Π, _ = CorleoneOED.global_information_gain(oed, nothing, popt, st)
+  optimality = reduce(vcat, map(xi -> only(first(xi)), Π))
+  idx = findall(optimality .> μ)
+  @test !isempty(idx)
+  @test all(0.4 .< traj.t[idx] .<= 0.6)
+  @test all(popt.controls[idx] .> 0.99)
+end
 
 @testset "Optimization" begin
   for MEASUREMENT in (true, false)
@@ -117,10 +117,12 @@ end
     else
       vcat(-2.0, zeros(4), [1.0, 1.0], zeros(4))
     end
+		ucon = MEASUREMENT ? 2.0 : 0.2
     for crit in (ACriterion(), DCriterion(), ECriterion())
-      p_opt, _ = optimize_1d(oed, ps, st, crit)
+      p_opt, psopt = optimize_1d(oed, ps, st, crit, ucon)
       @test SciMLBase.successful_retcode(p_opt)
-      @test isapprox(collect(p_opt), uref, atol = 1e-3)
+      @test isapprox(collect(p_opt), uref, atol=1e-3)
+			@test isapprox(CorleoneOED.get_sampling_sums(oed, nothing, psopt, st), [ucon], atol = 1e-3)
     end
   end
 end

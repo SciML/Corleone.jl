@@ -267,7 +267,8 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
     tspans,
     parameter_vector,
     symcache,
-    shooting_indices
+    shooting_indices, 
+		active_controls = map(unique, eachrow(grid))
   )
 end
 
