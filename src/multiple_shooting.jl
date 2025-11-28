@@ -87,6 +87,23 @@ function Trajectory(u::AbstractVector, sts)
   Trajectory(sys, unew, p, tnew, shootings, offsets)
 end
 
+get_number_of_shooting_constraints(shooting::MultipleShootingLayer, ps = LuxCore.initialparameters(Random.default_rng(), shooting), st = LuxCore.initialstates(Random.default_rng(), shooting)) = sum(xi->size(xi.shooting_indices,1) , Base.tail(st)) + sum(xi->size(xi.p, 1), Base.front(ps))
+
+function shooting_constraints(traj::Trajectory)
+	reduce(vcat, shooting_violations(traj))
+end 
+
+function shooting_constraints!(res::AbstractVector, traj::Trajectory)
+	i = 0 
+	for subvec in traj.shooting, j in eachindex(subvec)
+		i += 1 
+		res[i] = subvec[j]
+	end
+	res
+end 
+
+
+
 """
     get_block_structure(layer)
 

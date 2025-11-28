@@ -36,6 +36,10 @@ ps, st = LuxCore.setup(rng, layer)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(layer)
 
+traj, st2 = layer(nothing, ps, st)
+res = zeros(30)
+@views Corleone.shooting_constraints!(res[10:24], traj)
+
 @testset "General Multiple shooting tests" begin
   #@test Corleone.is_fixed(layer) == false
   @test length(ps) == 4 # shooting stages
@@ -47,6 +51,12 @@ lb, ub = Corleone.get_bounds(layer)
   @test Corleone.get_block_structure(layer) == vcat(0, blocks)
   traj, st2 = layer(nothing, ps, st)
   @test Corleone.is_shooting_solution(traj)
+  @test Corleone.shooting_constraints(traj) == [1.375754960969482, 0.22357357513551113, 1.2417260108009396, 0.0, 0.0, 1.3757549609694817, 0.22357357513551046, 1.2417260108009387, 0.0, 0.0, 1.3757549609694821, 0.2235735751355138, 1.2417260108009425, 0.0, 0.0]
+  @test Corleone.get_number_of_shooting_constraints(layer) == length(Corleone.shooting_constraints(traj)) == 15
+  res = zeros(30)
+  @test Corleone.shooting_constraints!(res[10:24], traj) == [1.375754960969482, 0.22357357513551113, 1.2417260108009396, 0.0, 0.0, 1.3757549609694817, 0.22357357513551046, 1.2417260108009387, 0.0, 0.0, 1.3757549609694821, 0.2235735751355138, 1.2417260108009425, 0.0, 0.0]
+  @views Corleone.shooting_constraints!(res[10:24], traj)
+  @test res[10:24] == [1.375754960969482, 0.22357357513551113, 1.2417260108009396, 0.0, 0.0, 1.3757549609694817, 0.22357357513551046, 1.2417260108009387, 0.0, 0.0, 1.3757549609694821, 0.2235735751355138, 1.2417260108009425, 0.0, 0.0]
 end
 
 

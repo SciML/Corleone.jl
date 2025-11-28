@@ -37,3 +37,5 @@ utype(traj::Trajectory) = eltype(first(traj.u))
 ttype(traj::Trajectory) = eltype(traj.t)
 
 is_shooting_solution(traj::Trajectory) = !isempty(traj.shooting)
+
+shooting_violations(traj::Trajectory) = traj.shooting
