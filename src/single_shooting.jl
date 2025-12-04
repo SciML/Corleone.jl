@@ -268,9 +268,12 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
     parameter_vector,
     symcache,
     shooting_indices, 
-		active_controls = map(unique, eachrow(grid))
+		active_controls = find_active_controls(grid) 
   )
 end
+
+find_active_controls(grid::AbstractArray) = map(unique, eachrow(grid))
+find_active_controls(grid::Tuple) = unique!(reduce(vcat, map(find_active_controls, grid)))
 
 function (layer::SingleShootingLayer)(::Any, ps, st)
   (; initial_condition) = st
