@@ -28,9 +28,10 @@ function CairoMakie.convert_arguments(PT::Type{<:Plot},
     inv_sys_variables = Dict(value => key for (key,value) in sol.sys.variables)
     labels = string.([inv_sys_variables[i] for i in idxs])
 
-    map((x, y, label) -> PlotSpec(plot_type_sym, Point2f.(x, y); label),
+    map((x, y, label, i) -> PlotSpec(plot_type_sym, Point2f.(x, y); label, color=Cycled(i)),
             [sol.t for _ in eachindex(idxs)],
             eachrow(plot_vecs),
-            labels)
+            labels,
+            eachindex(idxs))
     end
 end
