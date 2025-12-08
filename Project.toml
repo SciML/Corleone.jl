@@ -18,6 +18,12 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
+[weakdeps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+
+[extensions]
+CairoMakieExtension = "CairoMakie"
+
 [compat]
 Aqua = "0.8"
 ChainRulesCore = "1"
