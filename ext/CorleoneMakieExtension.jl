@@ -1,6 +1,6 @@
-module CairoMakieExtension
+module CorleoneMakieExtension
 using Corleone
-using CairoMakie
+using Makie
 
 Makie.plottype(sol::Trajectory) = Makie.Lines
 
@@ -8,7 +8,7 @@ function Makie.used_attributes(::Type{<:Plot}, sol::Trajectory)
     (:vars, :idxs)
 end
 
-function CairoMakie.convert_arguments(PT::Type{<:Plot},
+function Makie.convert_arguments(PT::Type{<:Plot},
             sol::Trajectory;
             vars=nothing,
             idxs=nothing)
