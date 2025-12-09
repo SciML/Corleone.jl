@@ -166,7 +166,7 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   (; observed_jacobian, observed, sensitivities) = config
   # Append the local information gain  
   ex_local = reduce(vcat, map(axes(observed_jacobian, 1)) do i
-    G = observed_jacobian[i, :] * sensitivities
+    G = observed_jacobian[i:i, :] * sensitivities
 	end)
 	observed = merge(observed, (; local_weighted_sensitivity= Num.(ex_local)))
   IIP = SciMLBase.isinplace(prob)
