@@ -1,4 +1,4 @@
-function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem;
+function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
   control_indices=Int64[],
   kwargs...)
   sys = Corleone.retrieve_symbol_cache(prob, [])
@@ -19,8 +19,8 @@ function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem;
     independent_vars=Symbolics.variable.(ts)
   )
   config = symbolify_equations(prob, config; control_indices, kwargs...)
-  config = derive_sensitivity_equations(prob, config; control_indices, kwargs...)
   config = add_observed_equations(prob, config; control_indices, kwargs...)
+  config = derive_sensitivity_equations(prob, alg, config; control_indices, kwargs...)
   finalize_config(mode, prob, config; control_indices, kwargs...)
 end
 
@@ -50,11 +50,75 @@ function symbolify_equations(prob::SciMLBase.DAEProblem, config; kwargs...)
   merge(config, (; equations=eqs))
 end
 
-function derive_sensitivity_equations(prob, config; params=Int64[], tunable_ic=Int64[], kwargs...)
-  # TODO just switch this if we want to use the tunable_ics 
+function compute_initial_F(prob::Union{ODEProblem,DAEProblem}, alg, config, params)
+    (; vars, parameters, independent_vars, observed_jacobian) = config
+    #f! = SciMLBase.isinplace(prob) ? prob.f.f : (du,u,p,t) -> du .= prob.f.f(u,p,t)
+    #odesensprob = ODEForwardSensitivityProblem(f!, prob.u0, prob.tspan, prob.p)
+    #solsens = solve(odesensprob, alg, abstol=1e-9, reltol=1e-6)
+
+    sol = solve(prob, alg, abstol=1e-10, reltol=1e-8)
+    pred(p) = begin
+        prob_ = remake(prob, p=p)
+        Array(solve(prob_, alg, saveat=sol.t))[:]
+    end
+
+    hx = Symbolics.build_function(observed_jacobian, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
+
+    #F_tf_sens = sum(map(enumerate(diff(solsens.t))) do (i,Δt)
+    #    x, dp_t = extract_local_sensitivities(solsens, solsens.t[i])
+    #    G_t = hcat(dp_t...)[eachindex(prob.u0),params]
+    #    hx_ = hx(x,prob.p,solsens.t[i])
+    #    Δt * sum([ (hx_[j:j,:] * G_t)' * (hx_[j:j,:] * G_t) for j in axes(hx_,1)])
+    #end)
+    G = ForwardDiff.jacobian(pred, prob.p)
+
+    nx = size(prob.u0, 1)
+    @info nx
+    F_tf_sens = sum(map(enumerate(diff(sol.t))) do (i,Δt)
+        G_t = G[i*nx+1:(i+1)*nx, params]
+        x = sol(sol.t[i+1])
+        hx_ = hx(x,prob.p,sol.t[i+1])
+        Δt * sum([ (hx_[j:j,:] * G_t)' * (hx_[j:j,:] * G_t) for j in axes(hx_,1)])
+    end)
+
+    display(F_tf_sens)
+
+    svdF = svd(F_tf_sens)
+
+    display(svdF.S[1:5])
+    display(svdF.U[:,1:5])
+
+    return F_tf_sens
+end
+
+
+function compute_svd_of_F(prob, alg, config, params)
+
+    F = compute_initial_F(prob, alg, config, params)
+
+    svdF = svd(F)
+
+    threshold_singular_values = isnothing(threshold_singular_values) ? 0.95 : threshold_singular_values
+    threshold_singular_vectors = isnothing(threshold_singular_vectors) ? 0.1 : threshold_singular_vectors
+
+    ns = findfirst(map(i-> cumsum(svdF.S.^2 / sum(abs2, svdF.S))[1:i] > threshold_singular_values, eachindex(svdF.S)))
+
+    important_params = begin
+        U = F_sens_svd.U[:,1:ns]
+        U_important = abs.(U) .> threshold_singular_vectors
+        map(x -> any(x), eachrow(U_important))
+    end
+
+    return ns, important_params
+end
+
+function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, kwargs...)
+  # TODO just switch this if we want to use the tunable_ics
   tunable_ic = empty(tunable_ic)
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   psubset = parameters[params]
+  compute_initial_F(prob, alg, config, params)
+
   np_considered = size(psubset, 1) + size(tunable_ic, 1)
   nx = size(vars, 1)
   dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
@@ -95,7 +159,7 @@ function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Disc
   new_vars = vcat(vars, vec(sensitivities))
   new_differential_vars = vcat(differential_vars, vec(differential_sensitivities))
   new_equations = vcat(equations, vec(sensitivity_equations))
-  # We build the output expression 
+  # We build the output expression
   if T == Val{:Discrete}
     G = sum(axes(observed_jacobian, 1)) do i
       observed_jacobian[i:i, :] * sensitivities
@@ -125,7 +189,7 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
   F = Symbolics.variables(:F, 1:n, 1:n)
   F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
   dF = Symbolics.variables(:dF, 1:n, 1:n)
-  # We build the output expression 
+  # We build the output expression
   if T != Val{:ContinuousSampled}
     G = sum(axes(observed_jacobian, 1)) do i
       observed_jacobian[i:i, :] * sensitivities
@@ -164,7 +228,7 @@ end
 function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
   (; observed_jacobian, observed, sensitivities) = config
-  # Append the local information gain  
+  # Append the local information gain
   ex_local = reduce(vcat, map(axes(observed_jacobian, 1)) do i
     G = observed_jacobian[i:i, :] * sensitivities
 	end)
@@ -178,7 +242,7 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
     Symbol.(vars), Symbol.(parameters), independent_vars;
     defaults=defaults
   )
-  # Note: This is different 
+  # Note: This is different
   fnew = ODEFunction(IIP ? fiip : foop, sys=newsys)
   problem = remake(prob, f=fnew, u0=u0, p=p0)
   layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
@@ -192,7 +256,7 @@ end
 function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
   (; observed_jacobian, observed, sensitivities) = config
-  # Append the local information gain  
+  # Append the local information gain
   ex_local = reduce(vcat, map(axes(observed_jacobian, 1)) do i
     G = observed_jacobian[i, :] * sensitivities
 	end)
