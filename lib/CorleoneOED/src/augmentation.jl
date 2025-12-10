@@ -77,6 +77,7 @@ end
 function compute_svd_of_F(prob, alg, config, params; ns=nothing, threshold_singular_values=0.95, threshold_singular_vectors=0.1, kwargs...)
     F = compute_initial_F(prob, alg, config, params)
     svdF = svd(F)
+
     ns = !isnothing(ns) ? ns : findfirst(map(i-> sum((svdF.S.^2 / sum(abs2, svdF.S))[1:i]), eachindex(svdF.S)) .> threshold_singular_values)
 
     important_params = begin
@@ -87,14 +88,15 @@ function compute_svd_of_F(prob, alg, config, params; ns=nothing, threshold_singu
     return svdF, ns, important_params
 end
 
-function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, ns = nothing, kwargs...)
+function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, kwargs...)
   # TODO just switch this if we want to use the tunable_ics
   tunable_ic = empty(tunable_ic)
   (; differential_vars, vars, parameters, equations) = config
   svdF, ns, important_params = compute_svd_of_F(prob, alg, config, params; kwargs...)
   @info ns important_params
 
-  psubset = svd ? parameters[params][important_params] : parameters[params]
+  @info parameters params
+  psubset = svd ? parameters[params[important_params]] : parameters[params]
 
   @info psubset
   np_considered = (svd ? ns : size(psubset, 1)) + size(tunable_ic, 1)
@@ -113,7 +115,6 @@ function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable
     dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
     dfdp = hcat(dfdp, dfdpextra)
   end
-  display(dfdp)
   sensitivities = dfdx * G + (svd ? dfdp * svdF.U[important_params,1:ns] : dfdp)
   if isa(prob, SciMLBase.DAEProblem)
     sensitivities .+= dfddx * dG
