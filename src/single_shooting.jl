@@ -160,7 +160,7 @@ function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
   state_symbols = [Symbol(:x, Symbol(Char(0x2080 + i))) for i in eachindex(u0)]
   u_id = 0
   p_id = 0
-  parameter_symbols = [i ∈ control_indices ? Symbol(:u, Symbol(Char(0x2080 + (u_id += 1)))) : Symbol(:p, Symbol(Char(0x2080 + (p_id += 1)))) for i in eachindex(p0)]
+  parameter_symbols = [i ∈ control_indices ? Symbol(:u, join('₀'+d for d in reverse(digits(u_id+=1)))) : Symbol(:p, join('₀'+d for d in reverse(digits(p_id+=1)))) for i in eachindex(p0)]
   tsym = [:t]
   _retrieve_symbol_cache(state_symbols, parameter_symbols, tsym, control_indices)
 end
@@ -223,7 +223,7 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
   # Setup the parameters
   p_vec, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
 
-  # We filter controls which do not act on the dynamics 
+  # We filter controls which do not act on the dynamics
   active_controls = control_indices .<= lastindex(p_vec)
   control_indices = control_indices[active_controls]
   controls = controls[active_controls]
@@ -267,8 +267,8 @@ function __initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer;
     tspans,
     parameter_vector,
     symcache,
-    shooting_indices, 
-		active_controls = find_active_controls(grid) 
+    shooting_indices,
+		active_controls = find_active_controls(grid)
   )
 end
 

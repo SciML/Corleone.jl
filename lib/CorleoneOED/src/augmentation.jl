@@ -52,9 +52,6 @@ end
 
 function compute_initial_F(prob::Union{ODEProblem,DAEProblem}, alg, config, params)
     (; vars, parameters, independent_vars, observed_jacobian) = config
-    #f! = SciMLBase.isinplace(prob) ? prob.f.f : (du,u,p,t) -> du .= prob.f.f(u,p,t)
-    #odesensprob = ODEForwardSensitivityProblem(f!, prob.u0, prob.tspan, prob.p)
-    #solsens = solve(odesensprob, alg, abstol=1e-9, reltol=1e-6)
 
     sol = solve(prob, alg, abstol=1e-10, reltol=1e-8)
     pred(p) = begin
@@ -63,68 +60,49 @@ function compute_initial_F(prob::Union{ODEProblem,DAEProblem}, alg, config, para
     end
 
     hx = Symbolics.build_function(observed_jacobian, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)[1]
-
-    #F_tf_sens = sum(map(enumerate(diff(solsens.t))) do (i,Δt)
-    #    x, dp_t = extract_local_sensitivities(solsens, solsens.t[i])
-    #    G_t = hcat(dp_t...)[eachindex(prob.u0),params]
-    #    hx_ = hx(x,prob.p,solsens.t[i])
-    #    Δt * sum([ (hx_[j:j,:] * G_t)' * (hx_[j:j,:] * G_t) for j in axes(hx_,1)])
-    #end)
     G = ForwardDiff.jacobian(pred, prob.p)
 
     nx = size(prob.u0, 1)
-    @info nx
     F_tf_sens = sum(map(enumerate(diff(sol.t))) do (i,Δt)
         G_t = G[i*nx+1:(i+1)*nx, params]
         x = sol(sol.t[i+1])
         hx_ = hx(x,prob.p,sol.t[i+1])
-        Δt * sum([ (hx_[j:j,:] * G_t)' * (hx_[j:j,:] * G_t) for j in axes(hx_,1)])
+        Δt * sum([(hx_[j:j,:] * G_t)' * (hx_[j:j,:] * G_t) for j in axes(hx_,1)])
     end)
-
-    display(F_tf_sens)
-
-    svdF = svd(F_tf_sens)
-
-    display(svdF.S[1:5])
-    display(svdF.U[:,1:5])
 
     return F_tf_sens
 end
 
 
-function compute_svd_of_F(prob, alg, config, params)
-
+function compute_svd_of_F(prob, alg, config, params; ns=nothing, threshold_singular_values=0.95, threshold_singular_vectors=0.1, kwargs...)
     F = compute_initial_F(prob, alg, config, params)
-
     svdF = svd(F)
-
-    threshold_singular_values = isnothing(threshold_singular_values) ? 0.95 : threshold_singular_values
-    threshold_singular_vectors = isnothing(threshold_singular_vectors) ? 0.1 : threshold_singular_vectors
-
-    ns = findfirst(map(i-> cumsum(svdF.S.^2 / sum(abs2, svdF.S))[1:i] > threshold_singular_values, eachindex(svdF.S)))
+    ns = !isnothing(ns) ? ns : findfirst(map(i-> sum((svdF.S.^2 / sum(abs2, svdF.S))[1:i]), eachindex(svdF.S)) .> threshold_singular_values)
 
     important_params = begin
-        U = F_sens_svd.U[:,1:ns]
+        U = svdF.U[:,1:ns]
         U_important = abs.(U) .> threshold_singular_vectors
         map(x -> any(x), eachrow(U_important))
     end
-
-    return ns, important_params
+    return svdF, ns, important_params
 end
 
-function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, kwargs...)
+function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, ns = nothing, kwargs...)
   # TODO just switch this if we want to use the tunable_ics
   tunable_ic = empty(tunable_ic)
-  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
-  psubset = parameters[params]
-  compute_initial_F(prob, alg, config, params)
+  (; differential_vars, vars, parameters, equations) = config
+  svdF, ns, important_params = compute_svd_of_F(prob, alg, config, params; kwargs...)
+  @info ns important_params
 
-  np_considered = size(psubset, 1) + size(tunable_ic, 1)
+  psubset = svd ? parameters[params][important_params] : parameters[params]
+
+  @info psubset
+  np_considered = (svd ? ns : size(psubset, 1)) + size(tunable_ic, 1)
   nx = size(vars, 1)
   dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
   G = Symbolics.variables(:G, 1:nx, 1:np_considered)
   G0 = hcat(
-    zeros(eltype(prob.u0), nx, size(psubset, 1)),
+    zeros(eltype(prob.u0), nx, size(np_considered, 1)),
     [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
   )
   G = Symbolics.setdefaultval.(G, G0)
@@ -135,7 +113,8 @@ function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable
     dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
     dfdp = hcat(dfdp, dfdpextra)
   end
-  sensitivities = dfdx * G + dfdp
+  display(dfdp)
+  sensitivities = dfdx * G + (svd ? dfdp * svdF.U[important_params,1:ns] : dfdp)
   if isa(prob, SciMLBase.DAEProblem)
     sensitivities .+= dfddx * dG
   end
