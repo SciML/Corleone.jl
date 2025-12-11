@@ -13,13 +13,12 @@ using OptimizationMOI
 using Ipopt
 using blockSQP
 
-function egerstedt(u, p, t)
+function egerstedt(du, u, p, t)
     x,y,_ = u
     u1, u2, u3 = p
-    return [ -x * u1 + (x + y) * u2 + (x - y) * u3;
-            (x + 2 * y) * u1 + (x - 2 * y) * u2 + (x + y) * u3;
-            x^2 + y^2
-            ]
+    du[1] = -x * u1 + (x + y) * u2 + (x - y) * u3;
+    du[2] = (x + 2 * y) * u1 + (x - 2 * y) * u2 + (x + y) * u3;
+    du[3] = x^2 + y^2
 end
 
 tspan = (0., 1.0)
@@ -40,16 +39,16 @@ c3 = ControlParameter(
     cgrid, name = :u3, controls = zeros(N) .+ 1/4, bounds = (0.,1.)
 )
 
-layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1,2,3], (c1,c2,c3))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=([1,2,3] .=> [c1,c2,c3]))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        sols[:x₃][end]
+        last(sols.u)[3]
     end
 end
 
@@ -79,11 +78,9 @@ optsol, _ = layer(nothing, uopt + zero(p), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[lines!(ax, optsol.t, optsol[x], label = string(x)) for x in [:x₁, :x₂, :x₃]]
+scatterlines!(ax, optsol, vars=[:x₁,:x₂,:x₃])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
 ax1 = CairoMakie.Axis(f[2,1])
-stairs!(ax1, optsol.t, optsol[:u₁], label = "u₁")
-stairs!(ax1, optsol.t, optsol[:u₂], label = "u₂")
-stairs!(ax1, optsol.t, optsol[:u₃], label = "u₃")
+stairs!(ax1, optsol, vars=[:u₁, :u₂, :u₃])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 f
