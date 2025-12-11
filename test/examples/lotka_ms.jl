@@ -20,8 +20,11 @@ u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
 
 prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
+
 cgrid = collect(0.0:0.1:11.9)
+
 N = length(cgrid)
+
 control = ControlParameter(
   cgrid, name=:fishing, bounds=(0.0, 1.0), controls=zeros(N)
 )
@@ -29,14 +32,14 @@ control = ControlParameter(
 layer = MultipleShootingLayer(prob, Tsit5(), 0., 3., 6., 9.; controls=(1 => control,), 
 															bounds_ic = ([0.1, 0.1, 0.0], [1.0, 1.0, 0.0]), 
 															bounds_p=([1.0, 1.0], [1.0, 1.0]), 
-															initialization = (args...) -> hybrid_initialization(args..., 
-																																	 constant_initialization, custom_initialization; 
-																																	 u0 = [3.0, 0.1, 0.0], u0s = [[3.0, 2.0, 0.0], [0.1, 1.0, 0.0]])
 															)
 
-  ps, st = LuxCore.setup(rng, layer)
+ps, st = LuxCore.setup(rng, layer)
+p = ComponentVector(ps)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentVector
 
-  sol, _ = layer(nothing, ps, st)
+sol, _ = layer(nothing, ps, st)
+
 	fig = plot(sol.t, reduce(vcat, first.(sol.u)))
 	plot!(sol.t, reduce(vcat, map(Base.Fix2(getindex, 2), sol.u)))
 	display(fig)

@@ -76,7 +76,7 @@ get_timegrid(parameters::ControlParameter, tspan=(-Inf, Inf)) = begin
   t[idx]
 end
 
-function control_length(parameters::ControlParameter, tspan=nothing; kwargs...)
+function control_length(parameters::ControlParameter; tspan=nothing, kwargs...)
   (; t) = parameters
   idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
   size(idx, 1)
