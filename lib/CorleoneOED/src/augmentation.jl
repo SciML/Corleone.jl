@@ -1,5 +1,5 @@
 function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
-  control_indices=Int64[],
+  control_indices=Int64[], svd=false,
   kwargs...)
   sys = Corleone.retrieve_symbol_cache(prob, [])
   states = SymbolicIndexingInterface.variable_symbols(sys)
@@ -20,7 +20,11 @@ function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem, alg::SciML
   )
   config = symbolify_equations(prob, config; control_indices, kwargs...)
   config = add_observed_equations(prob, config; control_indices, kwargs...)
-  config = derive_sensitivity_equations(prob, alg, config; control_indices, kwargs...)
+  if svd
+    config = derive_sensitivity_equations_svd(prob, alg, config; control_indices, kwargs...)
+  else
+    config = derive_sensitivity_equations(prob, alg, config; control_indices, kwargs...)
+  end
   finalize_config(mode, prob, config; control_indices, kwargs...)
 end
 
@@ -88,18 +92,16 @@ function compute_svd_of_F(prob, alg, config, params; ns=nothing, threshold_singu
     return svdF, ns, important_params
 end
 
-function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], svd=false, kwargs...)
+function derive_sensitivity_equations_svd(prob, alg, config; params=Int64[], tunable_ic=Int64[], kwargs...)
   # TODO just switch this if we want to use the tunable_ics
   tunable_ic = empty(tunable_ic)
   (; differential_vars, vars, parameters, equations) = config
+
   svdF, ns, important_params = compute_svd_of_F(prob, alg, config, params; kwargs...)
-  @info ns important_params
 
-  @info parameters params
-  psubset = svd ? parameters[params[important_params]] : parameters[params]
+  psubset = parameters[params[important_params]]
 
-  @info psubset
-  np_considered = (svd ? ns : size(psubset, 1)) + size(tunable_ic, 1)
+  np_considered = ns + size(tunable_ic, 1)
   nx = size(vars, 1)
   dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
   G = Symbolics.variables(:G, 1:nx, 1:np_considered)
@@ -115,7 +117,37 @@ function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable
     dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
     dfdp = hcat(dfdp, dfdpextra)
   end
-  sensitivities = dfdx * G + (svd ? dfdp * svdF.U[important_params,1:ns] : dfdp)
+  sensitivities = dfdx * G + dfdp * svdF.U[important_params,1:ns]
+  if isa(prob, SciMLBase.DAEProblem)
+    sensitivities .+= dfddx * dG
+  end
+  merge(config, (; sensitivities=G, differential_sensitivities=dG, sensitivity_equations=sensitivities))
+end
+
+function derive_sensitivity_equations(prob, alg, config; params=Int64[], tunable_ic=Int64[], kwargs...)
+  # TODO just switch this if we want to use the tunable_ics
+  tunable_ic = empty(tunable_ic)
+  (; differential_vars, vars, parameters, equations) = config
+
+  psubset =  parameters[params]
+
+  np_considered = size(psubset, 1) + size(tunable_ic, 1)
+  nx = size(vars, 1)
+  dG = Symbolics.variables(:dG, 1:nx, 1:np_considered)
+  G = Symbolics.variables(:G, 1:nx, 1:np_considered)
+  G0 = hcat(
+    zeros(eltype(prob.u0), nx, size(np_considered, 1)),
+    [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
+  )
+  G = Symbolics.setdefaultval.(G, G0)
+  dfdx = Symbolics.jacobian(equations, vars)
+  dfddx = Symbolics.jacobian(equations, differential_vars)
+  dfdp = Symbolics.jacobian(equations, psubset)
+  if !isempty(tunable_ic)
+    dfdpextra = [(i == tunable_ic[j]) + zero(eltype(prob.u0)) for i in 1:nx, j in eachindex(tunable_ic)]
+    dfdp = hcat(dfdp, dfdpextra)
+  end
+  sensitivities = dfdx * G + dfdp
   if isa(prob, SciMLBase.DAEProblem)
     sensitivities .+= dfddx * dG
   end
