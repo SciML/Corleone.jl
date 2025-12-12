@@ -11,7 +11,7 @@ using CairoMakie
 using Optimization
 using OptimizationMOI
 using Ipopt
-using blockSQP
+#using blockSQP
 
 function batch_reactor(u, p, t)
     x,y  = u
