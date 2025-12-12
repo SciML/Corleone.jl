@@ -35,38 +35,6 @@ end
 """
 $(SIGNATURES)
 
-Initializes the problem using a forward solve of the problem. This results in a continuous
-trajectory.
-
-# Arguments
-- `rng::Random.AbstractRNG` a random number generator 
-- `shooting::MultipleShootingLayer` a shooting layer
-
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
-"""
-function forward_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    kwargs...,
-)
-    (; layer) = shooting
-    st = LuxCore.initialstates(rng, shooting)
-    u0s = [first(ps).u0]
-    for (sps, sst) in zip(ps, st)
-        u0 = last(u0s)
-        sps.u0 .= u0[eachindex(sps.u0)]
-        pred, _ = layer(nothing, sps, sst)
-        u0_ = pred.u[end]
-        push!(u0s, u0_)
-    end
-    return ps
-end
-
-"""
-$(SIGNATURES)
-
 Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
 
 # Arguments
@@ -171,6 +139,39 @@ end
 """
 $(SIGNATURES)
 
+Initializes the problem using a forward solve of the problem. This results in a continuous
+trajectory.
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
+"""
+function forward_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+	fixed_indices = Int[],
+    kwargs...,
+)
+    (; layer) = shooting
+    st = LuxCore.initialstates(rng, shooting)
+    u0s = [first(ps).u0]
+	for (i,(sps, sst)) in enumerate(zip(ps, st))
+        u0 = i ∈ fixed_indices ? sps.u0 : last(u0s)
+        sps.u0 .= u0[eachindex(sps.u0)]
+        pred, _ = layer(nothing, sps, sst)
+        u0_ = pred.u[end]
+        push!(u0s, u0_)
+    end
+    return ps
+end
+
+"""
+$(SIGNATURES)
+
 
 Initializes all shooting nodes with user-provided value. The variable indices are interpretated depending on the passed value
 
@@ -238,8 +239,10 @@ function hybrid_initialization(
     kwargs...,
 )
 	(intervals, method), rest = Base.first(f), Base.tail(f)
-    pnew = method(rng, shooting; ps, kwargs...)
-	pnew = merge(ps, NamedTuple{keys(ps)[intervals]}(pnew))
+	pnew = method(rng, shooting; ps = deepcopy(ps), kwargs...)
+	names = ntuple(i->keys(ps)[intervals[i]],size(intervals,1))
+	@info names
+	pnew = merge(ps, NamedTuple{names}(pnew))
     return hybrid_initialization(rng, shooting, rest...; ps=pnew, kwargs...)
 end
 
