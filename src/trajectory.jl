@@ -1,5 +1,3 @@
-using SymbolicIndexingInterface
-
 """
 $(TYPEDEF)
 The solution to an optimal control problem. 
@@ -8,25 +6,26 @@ $(FIELDS)
 # Note 
 If present, `shooting_points` contains a list of `Tuple`s `(timeseries_index, last_shooting_point)`.  
 """
-struct Trajectory{S, U, P, T}
-		"The symbolic system used for SymbolicIndexingInterface"
+struct Trajectory{S,U,P,T}
+    "The symbolic system used for SymbolicIndexingInterface"
     sys::S
-		"The state trajectory"
+    "The state trajectory"
     u::U
-		"The parameter values"
+    "The parameter values"
     p::P
-		"The timepoints"
+    "The timepoints"
     t::T
-		"The shooting values"
-		shooting::U
-		"The shooting indices"
-		shooting_indices::Vector{Int64}
+    "The shooting values"
+    shooting::U
+    "The shooting indices"
+    shooting_indices::Vector{Int64}
 end
 
 SymbolicIndexingInterface.is_timeseries(::Type{<:Trajectory}) = Timeseries()
-function SymbolicIndexingInterface.is_timeseries(::Type{<:Trajectory{
-        S, U, P, Nothing}}) where {S, U, P}
-    NotTimeseries()
+function SymbolicIndexingInterface.is_timeseries(
+    ::Type{<:Trajectory{S,U,P,Nothing}}
+) where {S,U,P}
+    return NotTimeseries()
 end
 SymbolicIndexingInterface.symbolic_container(fp::Trajectory) = fp.sys
 SymbolicIndexingInterface.state_values(fp::Trajectory) = fp.u
