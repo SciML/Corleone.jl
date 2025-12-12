@@ -194,14 +194,28 @@ __get_subsets(active_controls::Tuple, indices) = reduce(vcat, map(Base.Fix2(__ge
 __get_subsets(active_controls::Tuple{AbstractMatrix,Vararg{AbstractMatrix}}, indices) = reduce(hcat, map(Base.Fix2(__get_subsets, indices), active_controls))
 
 __get_dts(tspans::Tuple{Vararg{Tuple{<:Real,<:Real}}}) = vcat(first.(Base.front(tspans))..., collect(last(tspans))...)
-__get_dts(tspans::Tuple) = reduce(vcat, map(eachindex(tspans)) do i 
-	i == lastindex(tspans) ? __get_dts(tspans[i]) : __get_dts(Base.front(tspans[i]))
+__get_dts(tspans::Tuple) = reduce(vcat, map(eachindex(tspans)) do i
+    i == lastindex(tspans) ? __get_dts(tspans[i]) : __get_dts(Base.front(tspans[i]))
 end)
 
 _get_dts(tspans) = diff(__get_dts(tspans))
 
+get_sampling_sums(oed::OEDLayer, x, ps, st) = _get_sampling_sums(oed, x, ps, st)
+get_sampling_sums!(res, oed::OEDLayer, x, ps, st) = _get_sampling_sums!(res, oed, x, ps, st, Val{true}())
 
-function get_sampling_sums(oed::OEDLayer{true,true}, x, ps, st)
+function get_sampling_sums(oed::OEDLayer{<:Any,<:Any,<:Any,Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
+    sum(fields) do f
+        _get_sampling_sums(oed, x, getproperty(ps, f), getproperty(st, f))
+    end
+end
+
+function get_sampling_sums!(res, oed::OEDLayer{<:Any,<:Any,<:Any,Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
+	foreach(enumerate(fields)) do (i,f)
+		_get_sampling_sums!(res, oed, x, getproperty(ps, f), getproperty(st, f), Val{i==1}())
+    end
+end
+
+function _get_sampling_sums(oed::OEDLayer{true,true}, x, ps, st)
     (; sampling_indices) = oed
     (; active_controls) = st
     (; controls) = ps
@@ -210,16 +224,20 @@ function get_sampling_sums(oed::OEDLayer{true,true}, x, ps, st)
     end
 end
 
-function get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true,true}, x, ps, st)
+function _get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true,true}, x, ps, st, ::Val{RESET}) where {RESET}
     (; sampling_indices) = oed
     (; active_controls) = st
     (; controls) = ps
     foreach(enumerate(__get_subsets(active_controls, sampling_indices))) do (i, subset)
-        res[i] = sum(controls[subset])
+        if RESET
+            res[i] = sum(controls[subset])
+        else
+            res[i] += sum(controls[subset])
+        end
     end
 end
 
-function get_sampling_sums(oed::OEDLayer{false,true}, x, ps, st)
+function _get_sampling_sums(oed::OEDLayer{false,true}, x, ps, st)
     (; sampling_indices,) = oed
     (; index_grid, tspans) = st
     (; controls) = ps
@@ -229,13 +247,17 @@ function get_sampling_sums(oed::OEDLayer{false,true}, x, ps, st)
     end
 end
 
-function get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true}, x, ps, st)
+function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true}, x, ps, st, ::Val{RESET}) where {RESET}
     (; sampling_indices,) = oed
     (; index_grid, tspans) = st
     (; controls) = ps
     dts = _get_dts(tspans)
     foreach(enumerate(eachrow(__get_subsets(index_grid, sampling_indices)))) do (i, subset)
-        res[i] = sum(controls[subset] .* dts)
+        if RESET
+            res[i] = sum(controls[subset] .* dts)
+        else
+            res[i] += sum(controls[subset] .* dts)
+        end
     end
 end
 
