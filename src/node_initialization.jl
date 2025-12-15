@@ -1,89 +1,261 @@
 """
-$(TYPEDEF)
-
-Basetype for all initialization methods for multiple shooting node variables.
-"""
-abstract type AbstractNodeInitialization end
-
-"""
-$(TYPEDEF)
-
-Initializes all shooting nodes with their default value, i.e., their initial value in
-the underlying problem.
-```
-"""
-struct DefaultsInitialization <: AbstractNodeInitialization end
-function (f::DefaultsInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer), kwargs...)
-    params
-end
-
-"""
-$(TYPEDEF)
+$(SIGNATURES)
 
 Initializes all shooting nodes with random values.
-```
-"""
-struct RandomInitialization <: AbstractNodeInitialization end
 
-"""
-    (f::RandomInitialization)(rng, layer)
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
 
-Initialize shooting nodes of `layer` using randomly drawn values.
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
 """
-function (f::RandomInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer),
-    shooting_variables=eachindex(first(layer.layers).problem.u0))
-    ps, st = params
-
-    i = 0
-    ps_rand = map(ps) do pi
-        i += 1
-        if i == 1
-            common_variables = [i for i in shooting_variables if i in first(layer.layers).tunable_ic]
-            pi.u0[common_variables] .= rand(rng, length(common_variables))
+function random_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+    kwargs...,
+)
+    (; layer) = shooting
+    (; tunable_ic) = layer
+    u0 = last(ps).u0
+    isempty(u0) && return ps
+    lb, ub = get_bounds(shooting)
+    vals = map(enumerate(zip(ps, lb, ub))) do (i, (plocal, lbi, ubi))
+        unew = if i == 1
+            _random_value(rng, lbi.u0[tunable_ic], ubi.u0[tunable_ic])
         else
-            pi.u0[shooting_variables] .= rand(rng, length(shooting_variables))
+            _random_value(rng, lbi.u0, ubi.u0)
         end
-        pi
+        merge(plocal, (; u0=unew))
     end
-    ps_rand, st
+    return NamedTuple{keys(ps)}(vals)
 end
 
 """
-$(TYPEDEF)
+$(SIGNATURES)
+
+Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
+- `u_infinity::AbstractArray` the value at the last timepoint for all states.
+"""
+function linear_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+    u_infinity=last(ps).u0,
+    kwargs...,
+)
+    (; shooting_intervals, layer) = shooting
+    (; problem, tunable_ic) = layer
+    isempty(u_infinity) && return ps
+    u0 = first(ps).u0
+    if isempty(u0)
+        u0 = problem.u0
+    end
+    t0, tinf = problem.tspan
+    foreach(enumerate(ps)) do (i, sps)
+        t = shooting_intervals[i][1]
+        u0new = (u_infinity .- u0) .* (t - t0) ./ tinf .+ u0
+        sps.u0 .= i > 1 ? u0new : u0new[tunable_ic]
+    end
+    return ps
+end
+
+__setu0!(u0::AbstractArray, ::Any...) = u0
+
+function __setu0!(u0::AbstractArray, unew::AbstractArray, tunable_ics)
+    return unew[tunable_ics]
+end
+
+function __setu0!(u0::AbstractArray, unew::Dict, tunable_ics)
+    map(tunable_ics) do i
+        get(unew, i, u0[i])
+    end
+end
+
+function __setu0!(u0::AbstractArray, unew::Base.AbstractVecOrTuple{<:Pair}, tunable_ics)
+    map(tunable_ics) do i
+        id = findfirst(==(i), first.(unew))
+        isnothing(id) && u0[i]
+        last.(unew)[id]
+    end
+end
+
+"""
+$(SIGNATURES)
+
+
+Initializes all shooting nodes with user-provided values. Initial values are given as an iterable collection of 
+`AbstractArray`s, `Dict`s, or a vector of `Pair`s.  The variable indices are interpretated depending on the passed value
+
+- `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
+- `Dict` assumes the keys represent indices of the initial condition. 
+- A `Vector` or `Tuple` of `Pair`s assumes the first value represents an index of the initial condition.
+
+Other options simply skip the corresponding interval.
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
+- `u0s` the collection of initial condtions.  
+
+# Example 
+```julia 
+# Assumes a shooting layer with 3 intervals 
+# Skips the first interval 
+# Sets the first index of the second interval to 3.0 
+# Sets the second index of the third interval to 5.0 and the 5th index to -1.0
+custom_initialization(rng, shooting, u0s = [nothing, Dict(1 => 3.0), (2 => 5.0, 5 => -1.0)])
+``` 
+"""
+function custom_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+    u0s=[],
+    kwargs...,
+)
+    (; layer) = shooting
+    (; tunable_ic) = layer
+    isempty(u0s) && return ps
+    foreach(enumerate(ps)) do (i, sps)
+        if lastindex(u0s) >= i
+            sps.u0 .= __setu0!(sps.u0, u0s[i], i > 1 ? eachindex(sps.u0) : tunable_ic)
+        end
+    end
+    return ps
+end
+
+"""
+$(SIGNATURES)
 
 Initializes the problem using a forward solve of the problem. This results in a continuous
 trajectory.
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
 """
-struct ForwardSolveInitialization <: AbstractNodeInitialization end
-
-"""
-    (f::LinearInterpolationInitialization)(rng, layer)
-
-Initializes shooting nodes of `layer` with values obtained via a forward integration of
-the `layer` using the default values of all specified controls.
-"""
-function (f::ForwardSolveInitialization)(rng::Random.AbstractRNG, layer::MultipleShootingLayer;
-    params=LuxCore.setup(rng, layer),
-    shooting_variables=eachindex(first(layer.layers).problem.u0))
-
-    ps, st = params
-
+function forward_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+	fixed_indices = Int[],
+    kwargs...,
+)
+    (; layer) = shooting
+    st = LuxCore.initialstates(rng, shooting)
     u0s = [first(ps).u0]
-    i = 0
-    for (slayer, sps, sst) in zip(layer.layers, ps, st)
-        i += 1
-        common_variables = i == 1 ? [i for i in shooting_variables if i in first(layer.layers).tunable_ic] : shooting_variables
-        sps.u0[common_variables] .= last(u0s)[common_variables]
-        pred, _ = slayer(nothing, sps, sst)
+	for (i,(sps, sst)) in enumerate(zip(ps, st))
+        u0 = i ∈ fixed_indices ? sps.u0 : last(u0s)
+        sps.u0 .= u0[eachindex(sps.u0)]
+        pred, _ = layer(nothing, sps, sst)
         u0_ = pred.u[end]
         push!(u0s, u0_)
     end
-
-    return ps, st
+    return ps
 end
 
+"""
+$(SIGNATURES)
+
+
+Initializes all shooting nodes with user-provided value. The variable indices are interpretated depending on the passed value
+
+- `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
+- `Dict` assumes the keys represent indices of the initial condition. 
+- A `Vector` or `Tuple` of `Pair`s assumes the first value represents an index of the initial condition.
+
+Other options simply skip the corresponding interval.
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
+- `u0` the initial condtion.  
+
+# Example 
+```julia 
+# Assumes a shooting layer with 3 intervals 
+# Sets the first index of all intervals to 3.0 
+constant_initialization(rng, shooting, u0 = Dict(1 => 3.0))
+constant_initialization(rng, shooting, u0 = (1 => 3.0,))
+# Set the initial condition to the given vector
+constant_initialization(rng, shooting, u0 = [1., 2., 4.])
+``` 
+"""
+function constant_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+    u0=nothing,
+    kwargs...,
+)
+    (; layer) = shooting
+    (; tunable_ic) = layer
+    isempty(u0) && return ps
+    foreach(enumerate(ps)) do (i, sps)
+        sps.u0 .= __setu0!(sps.u0, u0, i > 1 ? eachindex(sps.u0) : tunable_ic)
+    end
+    return ps
+end
+
+"""
+$(SIGNATURES)
+
+Initializes the shooting nodes in a hybrid method by applying the provided methods and indices `f` 
+sequentially. Here we assume the structure `interval => method` for the initialization.
+
+# Arguments
+- `rng::Random.AbstractRNG` a random number generator 
+- `shooting::MultipleShootingLayer` a shooting layer
+- `f::Pair`s of the interval index and applied method
+
+# Keyworded Arguments 
+- `ps` the default parameters of the `shooting` layer. 
+
+All other keyworded arguments are passed on to the functions below. 
+"""
+function hybrid_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer,
+    f::Pair...;
+    ps=default_initialization(rng, shooting),
+    kwargs...,
+)
+	(intervals, method), rest = Base.first(f), Base.tail(f)
+	pnew = method(rng, shooting; ps = deepcopy(ps), kwargs...)
+	names = ntuple(i->keys(ps)[intervals[i]],size(intervals,1))
+	@info names
+	pnew = merge(ps, NamedTuple{names}(pnew))
+    return hybrid_initialization(rng, shooting, rest...; ps=pnew, kwargs...)
+end
+
+function hybrid_initialization(
+    rng::Random.AbstractRNG,
+    shooting::MultipleShootingLayer;
+    ps=default_initialization(rng, shooting),
+    kwargs...,
+)
+    return ps
+end
+
+#=
 """
     linear_initializer(u0, u_inf, t, tspan)
 
@@ -288,7 +460,6 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
     forward_involved = [typeof(x.second) <: ForwardSolveInitialization for x in f.inits]
     forward_default = typeof(f.default_init) <: ForwardSolveInitialization
 
-
     any_forward = any(forward_involved) || forward_default
     forward_vars = any(forward_involved) ? reduce(vcat, defined_vars[forward_involved]) : Int64[]
 
@@ -321,3 +492,5 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
 
     return ps, st
 end
+
+=#

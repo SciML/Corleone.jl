@@ -32,13 +32,11 @@ control = ControlParameter(
 )
 
 # Single Shooting
-layer = Corleone.SingleShootingLayer(prob, Tsit5(), [1], (control,);
-            # uncomment and adapt the following line if (parts of) u0 need to be optimized as well
-            #tunable_ic = [1], bounds_ic = (0.3, 0.9)
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p = ([1.0, 1.0], [1.0,1.0]);
             )
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 layer(nothing, ps, st)
 
@@ -46,12 +44,9 @@ loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        sols[:x₃][end]
+        last(sols.u)[3]
     end
 end
-
-loss(collect(p), nothing)
-
 
 optfun = OptimizationFunction(
     loss, AutoForwardDiff(),
@@ -71,48 +66,45 @@ optsol, _ = layer(nothing, uopt + zero(p), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[lines!(ax, optsol.t, optsol[x], label = string(x)) for x in [:x₁, :x₂]]
+scatterlines!(ax, optsol, vars=[:x₁, :x₂])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
 ax1 = CairoMakie.Axis(f[2,1])
-stairs!(ax1, optsol.t, optsol[:u₁], label = "u₁")
+stairs!(ax1, optsol, vars=[:u₁])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 f
 
 ## Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
-mslayer = Corleone.MultipleShootingLayer(prob, Tsit5(),[1], (control,), shooting_points;
-            bounds_nodes = ([0.05,0.05, 0.0], 10*ones(3)),
-            # uncomment and adapt the following line if (parts of) u0 need to be optimized as well
-            #tunable_ic = [1,2], bounds_ic = (.3 * ones(2), .9*ones(2))
-            )
+mslayer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = (1 => control,),
+                            bounds_p = ([1.0, 1.0], [1.0,1.0]))
+
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
-# Or use any of the Initialization schemes
-msps, msst = ConstantInitialization(Dict(1=>1.0,2=>1.0,3=>1.0))(Random.default_rng(), mslayer)
-msps, msst = ForwardSolveInitialization()(Random.default_rng(), mslayer)
 msp = ComponentArray(msps)
-ms_lb, ms_ub = Corleone.get_bounds(mslayer)
+ms_lb, ms_ub = Corleone.get_bounds(mslayer) .|> ComponentArray
+
+msp[:]
+ms_lb[:]
 
 msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        last(sols)[:x₃][end]
+        last(sols.u)[3]
     end
 end
 
-shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp), matching_constraint = Corleone.get_shooting_constraints(mslayer)
-    (p, ::Any) -> begin
+shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp)
+    (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        matching_constraint(sols, ps)
+        Corleone.shooting_constraints!(res, sols)
     end
 end
 
-matching = shooting_constraints(msp, nothing)
-eq_cons(res, x, p) = res .= shooting_constraints(x, p)
+matching = shooting_constraints(zeros(15), msp, nothing)
 
 optfun = OptimizationFunction(
-    msloss, AutoForwardDiff(), cons = eq_cons
+    msloss, AutoForwardDiff(), cons = shooting_constraints
 )
 
 optprob = OptimizationProblem(
@@ -136,12 +128,11 @@ uopt = solve(optprob, BlockSQPOpt(),
 
 mssol, _ = mslayer(nothing, uopt + zero(msp), msst)
 
-f = Figure(size = (400,400))
-for j in 1:4
-    ax = f[j, 1] = CairoMakie.Axis(f)
-    for i in 1:4
-        plt = i == 4 ? stairs! : lines!
-        plt(ax, mssol[i].t, Array(mssol[i])[j, :],)
-    end
-end
-display(f)
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatterlines!(ax, mssol, vars=[:x₁, :x₂])
+f[1, 2] = Legend(f, ax, "States", framevisible = false)
+ax1 = CairoMakie.Axis(f[2,1])
+stairs!(ax1, mssol, vars=[:u₁])
+f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
+f
