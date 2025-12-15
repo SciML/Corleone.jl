@@ -215,9 +215,9 @@ function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
     p_id = 0
     parameter_symbols = [
         if i ∈ control_indices
-            Symbol(:u, Symbol(Char(0x2080 + (u_id += 1))))
+             Symbol(:u, join('₀'+d for d in reverse(digits(u_id+=1))))
         else
-            Symbol(:p, Symbol(Char(0x2080 + (p_id += 1))))
+            Symbol(:p, join('₀'+d for d in reverse(digits(p_id+=1))))
         end for i in eachindex(p0)
     ]
     tsym = [:t]
@@ -308,6 +308,7 @@ function __initialstates(
             return repack(A * params .+ B * controls)
         end
     end
+
     # Next we setup the tspans and the indices
     if !isempty(controls)
         grid = build_index_grid(controls...; tspan, subdivide=100)

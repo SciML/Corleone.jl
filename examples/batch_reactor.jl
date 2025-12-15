@@ -30,17 +30,17 @@ N = 20
 control = ControlParameter(
     collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N), bounds = (298.0,398.0)
 )
-layer = Corleone.SingleShootingLayer(prob, Tsit5(),[1], (control,))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 loss = let layer = layer, st = st, ax = getaxes(p)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        -sols[:x₂][end]
+        -last(sols.u)[2]
     end
 end
 
@@ -64,9 +64,9 @@ optsol, _ = layer(nothing, uopt + zero(p), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[lines!(ax, optsol.t, optsol[x], label = string(x)) for x in [:x₁, :x₂]]
+scatterlines!(ax, optsol, idxs=[1,2])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
 ax1 = CairoMakie.Axis(f[2,1])
-stairs!(ax1, optsol.t, optsol[:u₁], label = "u₁")
+stairs!(ax1, optsol, vars=[:u₁])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 f

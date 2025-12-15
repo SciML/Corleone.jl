@@ -1,13 +1,13 @@
 module CorleoneOED
 
-using Reexport 
-@reexport using Corleone 
+using Reexport
+@reexport using Corleone
 @reexport using Symbolics
 using LuxCore
 using Random
 using SymbolicIndexingInterface
 using SciMLStructures
-
+using ForwardDiff
 using SciMLBase
 using DocStringExtensions
 using LinearAlgebra
@@ -21,9 +21,9 @@ export OEDLayer
 export fisher_information, observed_equations, sensitivities
 export local_information_gain, global_information_gain
 
-# TODO 
-# Dispatch for optimality(crit, oed, x, ps, st) 
-# --> Compute optimality condition for specific crit 
+# TODO
+# Dispatch for optimality(crit, oed, x, ps, st)
+# --> Compute optimality condition for specific crit
 # e.g. tr(\Pi) for the ACriterion
 include("criteria.jl")
 export ACriterion, DCriterion, ECriterion

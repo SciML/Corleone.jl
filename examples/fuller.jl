@@ -35,27 +35,25 @@ control = ControlParameter(
     cgrid, name = :u, controls = rand(length(cgrid)), bounds = (0,1)
 )
 
-layer = SingleShootingLayer(prob, Tsit5(),[1], (control,))
+layer = SingleShootingLayer(prob, Tsit5(), controls= (1 => control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 cp = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 loss = let layer = layer, st = st, ax = getaxes(cp)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        sols[:x₃][end]
+        last(sols.u)[3]
     end
 end
 
-cons = let layer = layer, st = st, ax = getaxes(cp)#, matching = CorleoneCore.get_shooting_constraints(layer)
+cons = let layer = layer, st = st, ax = getaxes(cp)
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        #return Array(sols)[1:1,end]
-        #matching_constraint = matching(sols, ps)
-        return vcat(sols[:x₁][end], sols[:x₂][end])#, matching_constraint)
+        return last(sols.u)[1:2]
     end
 end
 
@@ -73,18 +71,17 @@ optprob = OptimizationProblem(
 
 uopt = solve(optprob, Ipopt.Optimizer(),
     tol = 1e-12,
-    #hessian_approximation = "limited-memory",
+    hessian_approximation = "limited-memory",
     max_iter = 250
-
 )
 
 optsol, _ = layer(nothing, uopt + zero(cp), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
-[lines!(ax, optsol.t, optsol[x], label = string(x) ) for x in [:x₁, :x₂, :x₃]]
+scatterlines!(ax, optsol,vars=[:x₁, :x₂, :x₃])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
 ax1 = CairoMakie.Axis(f[2,1])
-stairs!(ax1, optsol.t, optsol[:u₁], label =  "u₁" )
+stairs!(ax1, optsol, vars=[:u₁])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 display(f)

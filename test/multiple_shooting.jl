@@ -150,7 +150,7 @@ end
             initialization=(args...) ->
                 constant_initialization(args...; u0=[0.9, 1.1, 3.0]),
         )
-        ps = LuxCore.initialparameters(rng, LuxCore.setuplayer)
+        ps = LuxCore.initialparameters(rng, layer)
         @test isempty(first(ps).u0)
         @test all(
             ==([0.9, 1.1, 3.0]),

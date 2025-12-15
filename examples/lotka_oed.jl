@@ -1,6 +1,7 @@
 using Pkg
 Pkg.activate(@__DIR__)
 using Corleone
+using CorleoneOED
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -23,19 +24,86 @@ tspan = (0., 12.)
 u0 = [0.5, 0.7, ]
 p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem{false}(lotka_dynamics, u0, tspan, p0,
-    sensealg = ForwardDiffSensitivity()
+    sensealg = SciMLBase.NoAD()
     )
 control = ControlParameter(
     collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
-# Single Shooting with fixed controls and fixed u0
-ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.2)
-ps, st = LuxCore.setup(Random.default_rng(), ol)
+layer = SingleShootingLayer(prob, Tsit5(), controls=(1 => control,))
+
+oed = OEDLayer{false}(
+  layer,
+  params=[2,3],
+  measurements=[
+    ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+    ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+  ],
+  observed=(u, p, t) -> u[1:2],
+  #svd=true, ns=2,
+  #threshold_singular_vectors=0.0
+)
+
+ps, st = LuxCore.setup(Random.default_rng(), oed)
 p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(ol)
+lb, ub = Corleone.get_bounds(oed) .|> ComponentArray
+
+sol, _ = oed(nothing, p, st)
+
+ff, _ = fisher_information(oed, nothing, ps, st)
+
+plot(sol, idxs=[1,2,3,4,5,6])
+
+objective = let ax = getaxes(p), crit = ACriterion(), oed = oed
+    (p, st) -> begin
+        ps = ComponentArray(p, ax)
+        first(crit(oed, nothing, ps, st))
+    end
+end
+
+
+objective(p, st)
+
+
+sampling_cons = let ax = getaxes(p), oed = oed
+    (res, p, st) -> begin
+        ps = ComponentArray(p, ax)
+        #CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
+        res .= [sum(ps.controls[48+(i-1)*48+1:48+i*48]) for i=1:2]
+    end
+end
+
+sampling_cons(zeros(2), p, st)
+
+
+
+optfun = OptimizationFunction(
+    objective, AutoForwardDiff()#, cons=sampling_cons
+)
+
+optprob = OptimizationProblem(optfun, collect(p), st, lb=collect(lb), ub=collect(ub))#, lcons=[0.0], ucons=[12.0, 12.0])
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+    tol=1e-6,
+    hessian_approximation="limited-memory",
+    max_iter=50,
+    #print_level=3,
+)
+
+
+sol, _  = oed(nothing, uopt.u + zero(p), st)
+
+plot(sol)
+
+
+ps, st = LuxCore.setup(Random.default_rng(), oed)
+p = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(oed)
+
+sol, _ = oed(nothing, ps, st)
+
+
 crit= ACriterion()
-ACrit = crit(ol)
 
 sampling = Corleone.get_sampling_constraint(ol)
 sampling(p, nothing)

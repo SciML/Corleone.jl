@@ -18,7 +18,7 @@ end
 """
 $(TYPEDEF)
 
-# Fields 
+# Fields
 $(FIELDS)
 """
 struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
@@ -56,12 +56,12 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
     ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
     samplings = samplings .+ length(controls)
 
-    newproblem, observed = augment_system(mode, problem;
+    newproblem, observed = augment_system(mode, problem, algorithm;
         tunable_ic=copy(tunable_ic),
         control_indices=copy(control_indices),
         kwargs...)
 
-    # Replace the saveat with the sampling times 
+    # Replace the saveat with the sampling times
     saveats = if SAMPLED
         ts = reduce(vcat, Corleone.get_timegrid.(measurements))
         unique!(sort!(ts))
@@ -90,7 +90,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
     (; layer, sampling_indices) = oed
     (; problem, controls, control_indices) = layer
     st = LuxCore.initialstates(rng, layer)
-    # Our goal is to build a weigthing matrix similar to the indexgrid 
+    # Our goal is to build a weigthing matrix similar to the indexgrid
     grids = Corleone.get_timegrid.(controls)
     overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
     unique!(sort!(overall_grid))
@@ -102,7 +102,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
     measurement_indices = map(eachrow(measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
-    # Lets order this by time 
+    # Lets order this by time
     weighting_grid = map(eachindex(overall_grid)) do i
         map(eachindex(observed_grid)) do j
             id = findfirst(i .== observed_grid[j])
@@ -120,13 +120,13 @@ fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     sum(__fisher_information(oed, traj)), st
 end
 
-# Continuous ALWAYS last FIM 
+# Continuous ALWAYS last FIM
 fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     last(__fisher_information(oed, traj)), st
 end
 
-# DISCRETE and SAMPLING -> weighted sum 
+# DISCRETE and SAMPLING -> weighted sum
 fisher_information(oed::OEDLayer{true,true}, x, ps, st::NamedTuple) = begin
     (; sampling_indices, layer) = oed
     (; observation_grid) = st
@@ -261,7 +261,7 @@ function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true}, x, 
     end
 end
 
-#== 
+#==
 """
 $(TYPEDEF)
 Defines a callable layer for optimal experimental design purposes following a linearization-based
