@@ -327,11 +327,18 @@ function augment_layer_for_oed(layer::Union{SingleShootingLayer, MultipleShootin
     else
         intervals = layer.shooting_intervals
         points = vcat(first.(intervals), last.(intervals)) |> sort! |> unique!
-        nodes_lb, nodes_ub = layer.bounds_nodes
+        nodes_lb, nodes_ub = isnothing(layer.bounds_nodes) ? (-Inf*ones(length(prob.u0)), Inf*ones(length(prob.u0))) : layer.bounds_nodes
         aug_dim = length(setdiff(eachindex(prob.u0), eachindex(get_problem(layer).u0)))
         aug_nodes_lb, aug_nodes_ub = vcat(nodes_lb, -Inf*ones(aug_dim)), vcat(nodes_ub, Inf*ones(aug_dim))
+
+        n_continuous_controls = length(controls)
+        if isnothing(measurement_points)
+            n_continuous_controls += nh
+        end
+
         return MultipleShootingLayer(prob, first(layer.layers).algorithm, control_indices, new_controls, points;
-                    tunable_ic = tunable_ic, bounds_ic = first(layer.layers).bounds_ic, bounds_nodes = (aug_nodes_lb,aug_nodes_ub))
+                    tunable_ic = tunable_ic, bounds_ic = first(layer.layers).bounds_ic, bounds_nodes = (aug_nodes_lb,aug_nodes_ub),
+                    continuous_controls = 1:n_continuous_controls)
     end
 end
 

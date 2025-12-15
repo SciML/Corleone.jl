@@ -160,6 +160,49 @@ function get_shooting_constraints(layer::MultiExperimentLayer)
     return matching
 end
 
+function get_sampling_constraint(layer::MultiExperimentLayer{<:Any, OEDLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+    sampling = get_sampling_constraint(layer.layers)
+
+    sampling_cons = let ax = getaxes(p), sampling=sampling
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:layer.n_exp) do i
+                sampling(ps["experiment_$i"], nothing)
+            end)
+        end
+    end
+
+    return sampling_cons
+end
+
+function get_sampling_constraint(layer::MultiExperimentLayer{<:Any, <:Tuple})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+    sampling = get_sampling_constraint.(layer.layers)
+
+
+    sampling_cons = let ax = getaxes(p), sampling=sampling
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:layer.n_exp) do i
+                sampling[i](ps["experiment_$i"], nothing)
+            end)
+        end
+    end
+
+    return sampling_cons
+end
+
+function control_blocks(layer::MultiExperimentLayer{<:Any, OEDLayer})
+    control_blocks(layer.layers)
+end
+
+function control_blocks(layer::MultiExperimentLayer{<:Any, <:Tuple})
+    control_blocks.(layer.layers)
+end
+
 """
 $(METHODLIST)
 Computes the block structure as defined by the `MultiExperimentLayer`, which may come from

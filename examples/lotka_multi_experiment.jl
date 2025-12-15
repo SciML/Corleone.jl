@@ -29,44 +29,31 @@ control = ControlParameter(
     collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
-
-
 # MultiExperiment with ALL FIXED, JUST SAMPLING TIMES
 ol = OEDLayer(prob, Tsit5(); params= [2,3], dt = 0.2)
 
 multi_exp = MultiExperimentLayer(ol, 2)
 
-
-
 ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
 pps = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(multi_exp)
 
-single_sol, _ = ol(nothing, ps.experiment_1, st.experiment_1)
-single_sol.u
+sampling = get_sampling_constraint(multi_exp)
 
 sols, _ = multi_exp(nothing, ps, st)
 
 crit= ACriterion()
 ACrit = crit(multi_exp)
-
 ACrit(pps, nothing)
 
-nc = vcat(0, cumsum([length(c.t) for c in ol.layer.controls])...)
-
-sampling_cons = let ax = getaxes(pps), nc = nc, dt = 0.2
+sampling_cons = let ax = getaxes(pps), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        wexp1 = [sum(ps.experiment_1.controls[nc[i]+1:nc[i+1]]) * dt for i in eachindex(nc)[1:end-1]]
-        wexp2 = [sum(ps.experiment_2.controls[nc[i]+1:nc[i+1]]) * dt for i in eachindex(nc)[1:end-1]]
-        res .= vcat(wexp1, wexp2)
+        res .= sampling(ps, nothing)
     end
 end
 
-
-
 sampling_cons(zeros(4), pps, st)
-
 
 optfun = OptimizationFunction(
    ACrit, AutoReverseDiff(), cons = sampling_cons
@@ -84,6 +71,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 sampling_opt = uopt + zero(pps)
 optsol, _ = multi_exp(nothing, sampling_opt, st)
 
+nc = Corleone.control_blocks(multi_exp)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12)
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12)
@@ -97,9 +85,10 @@ f
 
 
 # Single Shooting
+dt = 0.25
 oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
             tunable_ic = [1,2], bounds_ic = ([0.3, 0.3], [0.9,0.9]),
-            control_indices = [1], dt = 0.25)
+            control_indices = [1], dt = dt)
 
 nexp = 2
 multi_exp = MultiExperimentLayer(oed_layer, nexp)
@@ -107,22 +96,18 @@ multi_exp = MultiExperimentLayer(oed_layer, nexp)
 ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
 p = ComponentArray(ps)
 lb, ub = Corleone.get_bounds(multi_exp)
-nc, dt = length(control.t), diff(control.t)[1]
 
 sols, _ = multi_exp(nothing, ps, st)
 
 criterion = ACriterion()(multi_exp)
 criterion(p, nothing)
 
-sampling_cons = let ax = getaxes(p)
+sampling = get_sampling_constraint(multi_exp)
+
+sampling_cons = let ax = getaxes(p), sampling=sampling
     (res, p, ::Any) -> begin
         ps = ComponentArray(p, ax)
-        res .= [
-            sum(ps.experiment_1.controls[nc+1:2*nc]) * dt;
-            sum(ps.experiment_1.controls[2*nc+1:3*nc]) * dt  ;
-            sum(ps.experiment_2.controls[nc+1:2*nc]) * dt;
-            sum(ps.experiment_2.controls[2*nc+1:3*nc]) * dt  ;
-          ]
+        res .= sampling(ps, nothing)
     end
 end
 
@@ -137,7 +122,7 @@ optprob = OptimizationProblem(
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-10,
+     tol = 1e-7,
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
@@ -155,6 +140,7 @@ optu = uopt + zero(p)
 
 optsol, _ = multi_exp(nothing, optu, st)
 
+nc = Corleone.control_blocks(multi_exp)
 f = Figure(size = (800,800))
 for i = 1:nexp
     ax = CairoMakie.Axis(f[1,i], xticks=0:2:12, title="Experiment $i")
@@ -165,8 +151,8 @@ for i = 1:nexp
     [plot!(ax1, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.sensitivity_variables(multi_exp.layers)[:]])))]
     [plot!(ax2, optsol[i].t, sol) for sol in eachrow(reduce(hcat, (optsol[i][Corleone.fisher_variables(multi_exp.layers)])))]
     stairs!(ax, control.t,  getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[1:length(control.t)], color=:black)
-    stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[length(control.t)+1:2*length(control.t)])
-    stairs!(ax3, control.t, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[2*length(control.t)+1:3*length(control.t)])
+    stairs!(ax3, 0.0:dt:12.0-dt, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[nc[2]+1:nc[3]])
+    stairs!(ax3, 0.0:dt:12.0-dt, getproperty(uopt + zero(p), Symbol("experiment_$i")).controls[nc[3]+1:nc[4]])
 end
 display(f)
 
@@ -188,7 +174,7 @@ display(f_IG)
 
 ## Multiple Shooting
 shooting_points = [0.0,4.0, 8.0, 12.0]
-oed_mslayer = OEDLayer(prob, Tsit5(), shooting_points; params=[2,3], dt = 0.25,
+oed_mslayer = OEDLayer(prob, Tsit5(), shooting_points; params=[2,3], dt = dt,
             tunable_ic = [1,2], bounds_ic = ([0.3, 0.3], [0.9,0.9]),
             control_indices = [1], controls=(control,),
             bounds_nodes = (0.05 * ones(2), 10*ones(2)))
@@ -209,9 +195,10 @@ criterion = crit(multi_exp)
 criterion(oed_msp, nothing)
 
 matching_multi = Corleone.get_shooting_constraints(multi_exp)
-
 matching_multi(oed_sols, oed_msp)
 
+sampling = get_sampling_constraint(multi_exp)
+sampling(oed_msp, oed_msst)
 
 function extract_and_join_controls(layer::OEDLayer, p)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -253,18 +240,12 @@ extract_and_join_controls(multi_exp, oed_msps)
 
 
 
-shooting_constraints = let layer = multi_exp, dt = 0.25, st = oed_msst, ax = getaxes(oed_msp), matching_constraint = Corleone.get_shooting_constraints(multi_exp)
+shooting_constraints = let layer = multi_exp, st = oed_msst, ax = getaxes(oed_msp), sampling=sampling, matching= matching_multi
     (p, ::Any) -> begin
         ps = ComponentArray(p, ax)
         sols, _ = layer(nothing, ps, st)
-        matching_ = matching_constraint(sols, ps)
-        joined_controls = extract_and_join_controls(layer, ps)
-        sampling_ = [
-            sum( joined_controls.experiment_1[2] * dt);
-            sum( joined_controls.experiment_1[3] * dt)
-            sum( joined_controls.experiment_2[2] * dt)
-            sum( joined_controls.experiment_2[3] * dt)
-            ]
+        matching_ = matching(sols, ps)
+        sampling_ = sampling(ps, st)
         return vcat(matching_, sampling_)
     end
 end
@@ -280,7 +261,8 @@ constraints_eval = shooting_constraints(oed_msp, nothing)
 ucons = zero(constraints_eval)
 ucons[end-3:end] .= 4.0
 optprob = OptimizationProblem(
-    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub), lcons = zero(constraints_eval), ucons=ucons
+    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub),
+            lcons = zero(constraints_eval), ucons=ucons
 )
 
 uopt = solve(optprob, Ipopt.Optimizer(),
@@ -304,7 +286,7 @@ sol_u = uopt + zero(oed_msp)
 mssol, _ = multi_exp(nothing, sol_u, oed_msst)
 
 joint_controls = extract_and_join_controls(multi_exp, sol_u)
-ct = 0:0.25:11.75 |> collect
+ct = 0:dt:12.0 - dt |> collect
 f = Figure()
 for i=1:nexp
 

@@ -166,7 +166,7 @@ fisher_variables(layer::OEDLayer) = fisher_variables(layer.layer)
 observed_sensitivity_product_variables(layer::OEDLayer, observed_idx::Int) = observed_sensitivity_product_variables(layer.layer, observed_idx)
 
 ### Functions to evaluate Fisher information matrices
-function fim(oedlayer::OEDLayer{true, false})
+function fim(oedlayer::OEDLayer{true, false, <:SingleShootingLayer})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
@@ -180,7 +180,7 @@ function fim(oedlayer::OEDLayer{true, false})
 
     (p, ::Any) -> let Fs=Fs, ax=getaxes(ComponentArray(ps)), nc=nc
         ps = ComponentArray(p, ax)
-        F = symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        symmetric_from_vector(sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
             local_sampling = ps.controls[idx_start+1:idx_end]
             sum(map(zip(F_i, local_sampling)) do (F_it, wit)
                 F_it * wit
@@ -189,7 +189,7 @@ function fim(oedlayer::OEDLayer{true, false})
     end
 end
 
-function fim(oedlayer::OEDLayer{true, true})
+function fim(oedlayer::OEDLayer{true, true, <:SingleShootingLayer})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     sols, _ = oedlayer(nothing, ps, st)
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
@@ -206,7 +206,7 @@ function fim(oedlayer::OEDLayer{true, true})
 
     (p, ::Any) -> let Fs=Fs, ax=getaxes(ComponentArray(ps)), nc=nc
         ps = ComponentArray(p, ax)
-        F = sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
+        sum(map(zip(Fs, nc[1:end-1], nc[2:end])) do (F_i, idx_start, idx_end)
             local_sampling = ps.controls[idx_start+1:idx_end]
             sum(map(zip(F_i, local_sampling)) do (F_it, wit)
                 F_it * wit
@@ -215,7 +215,7 @@ function fim(oedlayer::OEDLayer{true, true})
     end
 end
 
-function fim(oedlayer::OEDLayer{false, true})
+function fim(oedlayer::OEDLayer{false, true, <:SingleShootingLayer})
     ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
     ax = getaxes(ComponentArray(ps))
     nc = vcat(0, cumsum(map(x -> length(x.t), oedlayer.layer.controls))...)
@@ -235,21 +235,58 @@ function fim(oedlayer::OEDLayer{false, true})
             end
         end
 
-        F = sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
+        sum(map(zip(Fs, nc[end-nh:end-1], nc[end-nh+1:end])) do (F_i, idx_start, idx_end)
             local_sampling = ps.controls[idx_start+1:idx_end]
             sum(map(zip(F_i, local_sampling)) do (F_it, wit)
                 F_it * wit
             end)
         end)
-
-        return F
     end
 end
 
-function fim(oedlayer::Union{OEDLayer{true,false},OEDLayer{false,true},OEDLayer{true,true}}, p::AbstractArray)
+
+function fim(oedlayer::Union{OEDLayer{true,false,<:SingleShootingLayer},OEDLayer{false,true,<:SingleShootingLayer},OEDLayer{true,true,<:SingleShootingLayer}}, p::AbstractArray)
     feval = fim(oedlayer)
-    F = feval(p, nothing)
-    return F
+    feval(p, nothing)
+end
+
+function fim(oedlayer::OEDLayer{false, true, <:MultipleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), oedlayer)
+    ax = getaxes(ComponentArray(ps))
+    nc = [vcat(0, cumsum(map(x -> length(x.t), layer.controls))...) for layer in oedlayer.layer.layers]
+    nh = oedlayer.dimensions.nh
+    (p, ::Any) -> let ax=ax, oedlayer=oedlayer, nc=nc, nh=nh
+        ps = ComponentArray(p, ax)
+        sols, _ = oedlayer(nothing, ps, st)
+
+        Fs = map(1:nh) do i # Last nh controls are sampling
+            map(enumerate(oedlayer.layer.layers)) do (idx_layer, layer)
+                sampling = layer.controls[end-nh+i]
+                Gi = Corleone.sensitivity_variables(oedlayer)
+                idxs = findall(x -> x in sampling.t, sols[idx_layer].t)
+                sol_t = sols[idx_layer][idxs]
+                sol_Gs = sols[idx_layer][Gi][idxs]
+                map(zip(sol_t, sol_Gs, sampling.t)) do (sol, sol_Gi, ti)
+                    gram = oedlayer.observed.hx(sol[1:oedlayer.dimensions.nx], Corleone.get_problem(oedlayer.layer).p, ti)[i:i,:] * sol_Gi
+                    gram' * gram
+                end
+            end
+        end
+
+        sum(map(1:nh) do i
+            sum(map(1:length(oedlayer.layer.shooting_intervals)) do idx_layer
+                local_sampling = getproperty(ps, Symbol("layer_$idx_layer"))
+                idx_start, idx_end = nc[idx_layer][end-nh-1+i:end-nh+i]
+                w_i_j = local_sampling.controls[idx_start+1:idx_end]
+                sum(Fs[i][idx_layer] .* w_i_j)
+            end)
+        end)
+    end
+end
+
+function fim(oedlayer::OEDLayer{false,true,<:MultipleShootingLayer}, p::AbstractArray)
+    feval = fim(oedlayer)
+    feval(p, nothing)
 end
 
 function fim(layer::SingleShootingLayer, sols::DiffEqArray)
@@ -262,7 +299,7 @@ function fim(layer::MultipleShootingLayer, sols::EnsembleSolution)
     Corleone.symmetric_from_vector(last(sols)[f_sym][end])
 end
 
-function fim(layer::OEDLayer{false, false})
+function fim(layer::Union{OEDLayer{false, false},OEDLayer{<:Any,false, <:MultipleShootingLayer}})
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     (p, ::Any) -> let ax=getaxes(ComponentArray(ps)), oedlayer=layer
         ps = ComponentArray(p, ax)
@@ -271,7 +308,7 @@ function fim(layer::OEDLayer{false, false})
     end
 end
 
-function fim(layer::OEDLayer{false, false}, p::AbstractArray)
+function fim(layer::Union{OEDLayer{false, false},OEDLayer{<:Any,<:Any, <:MultipleShootingLayer}}, p::AbstractArray)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     sols, _ = layer(nothing, p + zero(ComponentArray(ps)), st)
     fim(layer.layer, sols)
@@ -281,11 +318,11 @@ end
 $(METHODLIST)
 Compute Fisher information matrix for given solution of layer `sols`.
 """
-function fim(layer::OEDLayer{false, <:Any, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
+function fim(layer::OEDLayer{false, false, <:SingleShootingLayer, <:Any, <:Any}, sols::DiffEqArray)
     fim(layer.layer, sols)
 end
 
-function fim(layer::OEDLayer{false, <:Any, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
+function fim(layer::OEDLayer{false, false, <:MultipleShootingLayer, <:Any, <:Any}, sols::EnsembleSolution)
     fim(last(layer.layer.layers), last(sols))
 end
 
@@ -360,4 +397,98 @@ end
         F = fim(layer, p)
         crit(F)
     end
+end
+
+
+## Functions to evaluate maximum sampling constraints
+function control_blocks(controls::ControlParameter...)
+    return vcat(0, cumsum([length(x.t) for x in controls]))
+end
+
+function control_blocks(layer::SingleShootingLayer)
+    control_blocks(get_controls(layer)[1]...)
+end
+
+function control_blocks(layer::OEDLayer{<:Any, <:Any, <:SingleShootingLayer})
+    control_blocks(layer.layer)
+end
+
+function control_blocks(layer::OEDLayer{<:Any, <:Any, <:MultipleShootingLayer})
+    map(layer.layer.layers) do _layer
+        control_blocks(_layer)
+    end
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, false, <:SingleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+    controls, _ = get_controls(layer.layer)
+
+    nc = control_blocks(layer)
+    diffs_t = [diff(x.t) for x in controls]
+    dt = [all(y -> ≈(y,difft[1]), difft) ? difft[1] : difft  for difft in diffs_t]
+
+    sampling_cons = let ax = getaxes(p), nc = nc, dt = dt, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            [sum(ps.controls[nc[i]+1:nc[i+1]]) .* dt[i] for i in eachindex(nc)[dims.nc+1:end-1]]
+        end
+    end
+
+    return sampling_cons
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, false, <:MultipleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    controls = first.(get_controls.(layer.layer.layers))
+    nc = control_blocks(layer)
+
+    diffs_layer = [[diff(x.t) for x in control] for control in controls]
+    dt = [[all(y -> ≈(y,difft[1]), difft) ? difft[1:1] : difft  for difft in diffs_t] for diffs_t in diffs_layer]
+
+    sampling_cons = let ax = getaxes(p), nc = nc, dt = dt, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:dims.nh) do i
+                sum([sum(ps["layer_$j"].controls[nc[j][dims.nc+i]+1:nc[j][dims.nc+i+1]]) .* _dt[i] for (j,_dt) in enumerate(dt)])
+            end)
+        end
+    end
+
+    return sampling_cons
+end
+
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:SingleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    nc = control_blocks(layer)
+    sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            [sum(ps.controls[nc[i]+1:nc[i+1]]) for i in eachindex(nc)[dims.nc+1:end-1]]
+        end
+    end
+
+    return sampling_cons
+end
+
+function get_sampling_constraint(layer::OEDLayer{<:Any, true, <:MultipleShootingLayer})
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    nc = control_blocks(layer)
+    sampling_cons = let ax = getaxes(p), nc = nc, dims=layer.dimensions
+        (p, ::Any) -> begin
+            ps = ComponentArray(p, ax)
+            reduce(vcat, map(1:dims.nh) do i
+                sum([sum(ps["layer_$j"].controls[_nc[dims.nc+i]+1:_nc[dims.nc+i+1]])  for (j,_nc) in enumerate(nc)])
+            end)
+        end
+    end
+
+    return sampling_cons
 end
