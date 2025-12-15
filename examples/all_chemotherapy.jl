@@ -16,7 +16,7 @@ using CSV
 using DataFrames
 
 # Individual model parameters
-df = CSV.read("data/all_chemotherapy.csv", DataFrame)
+df = CSV.read(joinpath(@__DIR__, "data/all_chemotherapy.csv"), DataFrame)
 mask = df.ID .== 1150 
 
 myANC     = df[mask, :myANC][1] 
