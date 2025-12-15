@@ -14,6 +14,8 @@ if !isfile(joinpath(@__DIR__, "Project.toml"))
     Pkg.add("LuxCore")
     Pkg.add("ComponentArrays")
     Pkg.add("CairoMakie")
+    Pkg.add("CSV")
+    Pkg.add("DataFrames")
 else
     # We add Corleone
     Pkg.rm("Corleone")
