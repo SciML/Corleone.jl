@@ -16,6 +16,7 @@ if !isfile(joinpath(@__DIR__, "Project.toml"))
     Pkg.add("CairoMakie")
     Pkg.add("CSV")
     Pkg.add("DataFrames")
+    Pkg.add("UnPack")
 else
     # We add Corleone
     Pkg.rm("Corleone")
