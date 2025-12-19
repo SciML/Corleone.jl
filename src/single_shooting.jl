@@ -139,7 +139,7 @@ function get_bounds(layer::SingleShootingLayer; shooting=false, kwargs...)
     (; bounds_ic, bounds_p, controls, tunable_ic) = layer
     bounds_ic = shooting ? bounds_ic : map(Base.Fix2(getindex, tunable_ic), bounds_ic)
     if !isempty(controls)
-        control_lb, control_ub = collect_local_control_bounds(controls...; kwargs...)
+        control_lb, control_ub = collect_local_control_bounds(controls...; tspan = layer.problem.tspan, kwargs...)
     else
         control_ub = control_lb = eltype(first(bounds_ic))[]
     end
@@ -208,16 +208,18 @@ function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
     return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
 end
 
+_subscript(i::Integer) = (i |> digits |> reverse .|> dgt->Char(0x2080+dgt)) |> join
+
 function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
     p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
-    state_symbols = [Symbol(:x, Symbol(Char(0x2080 + i))) for i in eachindex(u0)]
+    state_symbols = [Symbol(:x, _subscript(i)) for i in eachindex(u0)]
     u_id = 0
     p_id = 0
     parameter_symbols = [
         if i ∈ control_indices
-             Symbol(:u, join('₀'+d for d in reverse(digits(u_id+=1))))
+            Symbol(:u, _subscript(u_id += 1))
         else
-            Symbol(:p, join('₀'+d for d in reverse(digits(p_id+=1))))
+            Symbol(:p, _subscript(p_id += 1))
         end for i in eachindex(p0)
     ]
     tsym = [:t]
