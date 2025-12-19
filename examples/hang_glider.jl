@@ -14,14 +14,6 @@ using CairoMakie
 
 using UnPack
 
-function Base.getindex(T::Trajectory, ind::Symbol)
-    if ind in keys(T.sys.variables)
-        return vcat(getindex.(T.u, T.sys.variables[ind]))
-    elseif ind in keys(T.sys.parameters)
-        return getindex(T.p, T.sys.parameters[ind])
-    end
-    error(string("Invalid index: :", ind))
-end
 
 params = Dict([
     :x0 => 0,

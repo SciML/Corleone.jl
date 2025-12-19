@@ -38,3 +38,12 @@ ttype(traj::Trajectory) = eltype(traj.t)
 is_shooting_solution(traj::Trajectory) = !isempty(traj.shooting)
 
 shooting_violations(traj::Trajectory) = traj.shooting
+
+function Base.getindex(T::Trajectory, ind::Symbol)
+    if ind in keys(T.sys.variables)
+        return vcat(getindex.(T.u, T.sys.variables[ind]))
+    elseif ind in keys(T.sys.parameters)
+        return getindex(T.p, T.sys.parameters[ind])
+    end
+    error(string("Invalid index: :", ind))
+end

@@ -97,18 +97,16 @@ function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:An
 end
 
 function get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Tuple}; tspan=nothing, kwargs...) 
-  nc = control_length(parameters; tspan, kwargs...) 
+  (; t) = parameters
+  idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
+  nc = size(idx, 1)
   _bounds = parameters.bounds
   if length(_bounds[1]) == length(_bounds[2]) == 1
     return (repeat([_bounds[1]], nc), repeat([_bounds[2]], nc))
-  elseif length(_bounds[1]) == length(_bounds[2]) == nc
-    return _bounds
-  # TODO: How to handle bounds vector if last control is being omitted?
-  #elseif tspan !== nothing && t[end] == tspan[2] && length(_bounds[1] == length(_bounds[2])) == nc + 1
-  #    return (_bounds[1][1:end-1], _bounds[2][1:end-1])
-  else
-    throw("Incompatible control bound definition. Got $(length(_bounds[1])) elements, expected $nc.")
+  elseif length(_bounds[1]) == length(_bounds[2]) == length(t)
+    return (_bounds[1][idx], _bounds[2][idx])
   end
+  throw("Incompatible control bound definition. Got $(length(_bounds[1])) elements, expected $(length(t)).")
 end
 
 get_bounds(parameters::ControlParameter{<:Any,<:Any,<:Function}; tspan = (-Inf, Inf), kwargs...) = parameters.bounds(get_timegrid(parameters, tspan; kwargs...))

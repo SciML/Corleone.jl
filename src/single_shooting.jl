@@ -208,9 +208,10 @@ function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
     return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
 end
 
+_subscript(i::Integer) = (i |> digits |> reverse .|> dgt->Char(0x2080+dgt)) |> join
+
 function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
     p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
-    _subscript(i::Integer) = ((i |> digits |> reverse .|> dgt->Char(0x2080+dgt)) |> join)
     state_symbols = [Symbol(:x, _subscript(i)) for i in eachindex(u0)]
     u_id = 0
     p_id = 0
