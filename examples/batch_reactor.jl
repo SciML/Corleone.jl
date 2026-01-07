@@ -31,27 +31,10 @@ control = ControlParameter(
     collect(LinRange(tspan..., N+1))[1:end-1], name = :u, controls = 300*ones(N), bounds = (298.0,398.0)
 )
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,))
-
 ps, st = LuxCore.setup(Random.default_rng(), layer)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
-
-loss = let layer = layer, st = st, ax = getaxes(p)
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        -last(sols.u)[2]
-    end
-end
-
-loss(collect(p), nothing)
-
-optfun = OptimizationFunction(
-    loss, AutoForwardDiff(),
-)
 
 optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub)
+    layer, :(-x₂)
 )
 uopt = solve(optprob, Ipopt.Optimizer(),
      tol = 1e-6,
@@ -59,8 +42,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      max_iter = 300
 )
 
-
-optsol, _ = layer(nothing, uopt + zero(p), st)
+optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
