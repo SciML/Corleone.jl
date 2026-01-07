@@ -10,9 +10,11 @@ using Random
 function Optimization.OptimizationProblem(layer::SingleShootingLayer,
         loss::Union{Symbol,Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
-        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))), p = SciMLBase.NullParameters(),
+        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
+        p = SciMLBase.NullParameters(),
         integer_constraints::Bool = false,
-        constraints = nothing, variable_type::Type{T} = Float64,
+        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
+        variable_type::Type{T} = Float64,
         kwargs...) where {T}
 
     u0 = T.(u0)
@@ -23,7 +25,7 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     sol, _ = layer(nothing, ps, st)
     getter = SymbolicIndexingInterface.getsym(sol, loss)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
+    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter
         (p, ::Any) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
@@ -39,12 +41,55 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     # No integers
     integrality = Bool.(u0 * 0)
 
+    # Constraints
+    cons = begin
+        if !isnothing(constraints)
+
+        getter_constraints = []
+        for (k,v) in constraints
+            push!(getter_constraints, getsym(sol, k))
+        end
+
+        sampling_cons = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
+            (res, p, ::Any) -> begin
+                ps = ComponentArray(p, ax)
+                sols, _ = layer(nothing, ps, st)
+
+                cons = map(enumerate(constraints)) do (i, (k,v))
+                    idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
+                    getter[i](sols)[idxs]
+                end
+
+                res .= reduce(vcat, cons)
+            end
+        end
+
+        sampling_cons
+        else
+            nothing
+        end
+    end
+
+    lcons, ucons = begin
+        if isnothing(constraints)
+            nothing, nothing
+        else
+            _lb = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
+                first(v.bounds)
+            end)
+            _ub = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
+                first(v.bounds)
+            end)
+            _lb, _ub
+        end
+    end
+
     # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD; cons=constraints)
+    opt_f = OptimizationFunction(objective, AD; cons=cons)
 
     # Return the optimization problem
     OptimizationProblem(opt_f, u0[:], p, lb = lb[:], ub = ub[:], int = integrality[:],
-    #    lcons = cons_lb, ucons = cons_ub,
+        lcons = lcons, ucons = ucons,
     )
 end
 
