@@ -56,6 +56,7 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
                 sols, _ = layer(nothing, ps, st)
 
                 cons = map(enumerate(constraints)) do (i, (k,v))
+                    # Caution: timepoints for controls need to be in sols.t!
                     idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
                     getter[i](sols)[idxs]
                 end
@@ -151,6 +152,7 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
                     matching = Corleone.shooting_constraints(sols)
 
                     cons = map(enumerate(constraints)) do (i, (k,v))
+                        # Caution: timepoints for controls need to be in sols.t!
                         idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
                         getter[i](sols)[idxs]
                     end
