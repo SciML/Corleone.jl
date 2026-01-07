@@ -107,8 +107,8 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sols, _ = layer(nothing, ps, st)
-    getter = SymbolicIndexingInterface.getsym(sols, loss)
+    sol, _ = layer(nothing, ps, st)
+    getter = SymbolicIndexingInterface.getsym(sol, loss)
 
     objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
         (p, ::Any) -> begin
@@ -128,11 +128,52 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
 
     nshooting = Corleone.get_number_of_shooting_constraints(layer)
 
-    shooting_constraints = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
-        (res, p, ::Any) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            Corleone.shooting_constraints!(res, sols)
+    cons = begin
+        if isnothing(constraints)
+            shooting_constraints = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
+                (res, p, ::Any) -> begin
+                    ps = ComponentArray(p, ax)
+                    sols, _ = layer(nothing, ps, st)
+                    Corleone.shooting_constraints!(res, sols)
+                end
+            end
+            shooting_constraints
+        else
+            getter_constraints = []
+            for (k,v) in constraints
+                push!(getter_constraints, getsym(sol, k))
+            end
+
+            shooting_constraints = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
+                (res, p, ::Any) -> begin
+                    ps = ComponentArray(p, ax)
+                    sols, _ = layer(nothing, ps, st)
+                    matching = Corleone.shooting_constraints(sols)
+
+                    cons = map(enumerate(constraints)) do (i, (k,v))
+                        idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
+                        getter[i](sols)[idxs]
+                    end
+
+                    res .= vcat(reduce(vcat, cons), matching)
+                end
+            end
+
+            shooting_constraints
+        end
+    end
+
+    lcons, ucons = begin
+        if !isnothing(constraints)
+            _lb = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
+                first(v.bounds)
+            end)
+            _ub = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
+                first(v.bounds)
+            end)
+            vcat(_lb, zeros(T, nshooting)), vcat(_ub, zeros(T, nshooting))
+        else
+            zeros(T, nshooting), zeros(T, nshooting)
         end
     end
 
@@ -142,7 +183,7 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
 
     # Return the optimization problem
     OptimizationProblem(opt_f, u0[:], p, lb = lb[:], ub = ub[:], int = integrality[:],
-        lcons = zeros(T, nshooting), ucons = zeros(T, nshooting),
+        lcons = lcons, ucons = ucons,
     )
 end
 

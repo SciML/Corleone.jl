@@ -42,6 +42,7 @@ c3 = ControlParameter(
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=([1,2,3] .=> [c1,c2,c3]))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 
+# Define constraints with expressions and corresponding timepoints to evaluate at
 cons = :(u₁ + u₂ + u₃)
 timepoints = vcat(cgrid[2:end], last(tspan))
 
@@ -53,6 +54,44 @@ uopt = solve(optprob, Ipopt.Optimizer(),
      tol = 1e-6,
      hessian_approximation = "limited-memory",
      max_iter = 300
+)
+
+optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
+
+f = Figure()
+ax = CairoMakie.Axis(f[1,1])
+scatterlines!(ax, optsol, vars=[:x₁,:x₂,:x₃])
+f[1, 2] = Legend(f, ax, "States", framevisible = false)
+ax1 = CairoMakie.Axis(f[2,1])
+stairs!(ax1, optsol, vars=[:u₁, :u₂, :u₃])
+f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
+f
+
+### Multiple Shooting
+shooting_points = [0.0, 0.25, 0.75, ]
+layer = Corleone.MultipleShootingLayer(prob, Tsit5(),shooting_points...; controls=([1,2,3] .=> [c1,c2,c3]))
+ps, st = LuxCore.setup(Random.default_rng(), layer)
+
+cons = :(u₁ + u₂ + u₃)
+timepoints = vcat(cgrid[2:end], last(tspan))
+
+constraints = Dict(cons => (t = timepoints, bounds = (ones(length(timepoints)), ones(length(timepoints)))))
+
+optprob = OptimizationProblem(layer, :x₃; constraints=constraints)
+
+uopt = solve(optprob, Ipopt.Optimizer(),
+     tol = 1e-6,
+     hessian_approximation = "limited-memory",
+     max_iter = 300
+)
+
+blocks = Corleone.get_block_structure(layer)
+
+uopt = solve(optprob, BlockSQPOpt(),
+    opttol = 1e-6,
+    options = blockSQP.sparse_options(),
+    sparsity = blocks,
+    maxiters = 300 # 165
 )
 
 optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
