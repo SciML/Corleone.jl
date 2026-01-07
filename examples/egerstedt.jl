@@ -30,51 +30,32 @@ prob =  ODEProblem(egerstedt, u0, tspan, p)
 N = 20
 cgrid = collect(LinRange(tspan..., N+1))[1:end-1]
 c1 = ControlParameter(
-    cgrid, name = :u1, controls = zeros(N) .+ 1/2, bounds = (0.,1.)
+    cgrid, name = :u1, bounds = (0.,1.), controls = LinRange(0.0,0.2,N)
 )
 c2 = ControlParameter(
-    cgrid, name = :u2, controls = zeros(N) .+ 1/3 , bounds = (0.,1.)
+    cgrid, name = :u2, bounds = (0.,1.), controls = LinRange(0.3,0.5,N)
 )
 c3 = ControlParameter(
-    cgrid, name = :u3, controls = zeros(N) .+ 1/4, bounds = (0.,1.)
+    cgrid, name = :u3, bounds = (0.,1.), controls = LinRange(0.6,0.8,N)
 )
 
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=([1,2,3] .=> [c1,c2,c3]))
 ps, st = LuxCore.setup(Random.default_rng(), layer)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
-loss = let layer = layer, st = st, ax = getaxes(p)
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        last(sols.u)[3]
-    end
-end
+cons = :(u₁ + u₂ + u₃)
+timepoints = vcat(cgrid[2:end], last(tspan))
 
-loss(collect(p), nothing)
+constraints = Dict(cons => (t = timepoints, bounds = (ones(length(timepoints)), ones(length(timepoints)))))
 
-sampling_cons = let layer = layer, st = st, nc=N, ax = getaxes(p)
-    (res, p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        res .= [ps.controls[i] + ps.controls[i+nc] + ps.controls[i+2*nc] for i = 1:nc]
-    end
-end
+optprob = OptimizationProblem(layer, :x₃; constraints=constraints)
 
-optfun = OptimizationFunction(
-    loss, AutoForwardDiff(), cons=sampling_cons
-)
-
-optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=ones(N), ucons=ones(N)
-)
 uopt = solve(optprob, Ipopt.Optimizer(),
      tol = 1e-6,
      hessian_approximation = "limited-memory",
      max_iter = 300
 )
 
-optsol, _ = layer(nothing, uopt + zero(p), st)
+optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])
