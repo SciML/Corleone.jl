@@ -30,7 +30,7 @@ control = ControlParameter(
     collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
-layer = SingleShootingLayer(prob, Tsit5(), controls=(1 => control,))
+layer = SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
 
 oed = OEDLayer{false}(
   layer,
@@ -45,43 +45,9 @@ oed = OEDLayer{false}(
 )
 
 ps, st = LuxCore.setup(Random.default_rng(), oed)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(oed) .|> ComponentArray
-
-sol, _ = oed(nothing, p, st)
-
-ff, _ = fisher_information(oed, nothing, ps, st)
-
-plot(sol, idxs=[1,2,3,4,5,6])
-
-objective = let ax = getaxes(p), crit = ACriterion(), oed = oed
-    (p, st) -> begin
-        ps = ComponentArray(p, ax)
-        first(crit(oed, nothing, ps, st))
-    end
-end
 
 
-objective(p, st)
-
-
-sampling_cons = let ax = getaxes(p), oed = oed
-    (res, p, st) -> begin
-        ps = ComponentArray(p, ax)
-        #CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
-        res .= [sum(ps.controls[48+(i-1)*48+1:48+i*48]) for i=1:2]
-    end
-end
-
-sampling_cons(zeros(2), p, st)
-
-
-
-optfun = OptimizationFunction(
-    objective, AutoForwardDiff()#, cons=sampling_cons
-)
-
-optprob = OptimizationProblem(optfun, collect(p), st, lb=collect(lb), ub=collect(ub))#, lcons=[0.0], ucons=[12.0, 12.0])
+optprob = OptimizationProblem(oed, ACriterion(); M =[4.0, 4.0])
 
 uopt = solve(optprob, Ipopt.Optimizer(),
     tol=1e-6,
@@ -90,45 +56,9 @@ uopt = solve(optprob, Ipopt.Optimizer(),
     #print_level=3,
 )
 
-
-sol, _  = oed(nothing, uopt.u + zero(p), st)
+sol, _  = oed(nothing, uopt.u + zero(ComponentArray(ps)), st)
 
 plot(sol)
-
-
-ps, st = LuxCore.setup(Random.default_rng(), oed)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(oed)
-
-sol, _ = oed(nothing, ps, st)
-
-
-crit= ACriterion()
-
-sampling = Corleone.get_sampling_constraint(ol)
-sampling(p, nothing)
-
-sampling_cons = let sampling=sampling
-    (res, p, ::Any) -> begin
-        res .= sampling(p, nothing)
-    end
-end
-
-optfun = OptimizationFunction(
-    crit(ol), AutoForwardDiff(), cons = sampling_cons
-)
-
-optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
-)
-
-uopt = solve(optprob, Ipopt.Optimizer(),
-     #tol = 1e-10,
-     hessian_approximation = "limited-memory",
-     max_iter = 300
-)
-
-optsol, _ = ol(nothing, uopt + zero(p), st)
 
 nc = Corleone.control_blocks(ol)
 f = Figure()

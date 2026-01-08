@@ -45,6 +45,7 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
     Base.show(io, "text/plain", layer.problem)
 end
 
+# TODO: WRITE A CONSTRUCTOR FOR AN OEDLAYER FROM A MULTIPLESHOOTINGLAYER
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements=[], kwargs...) where {DISCRETE}
     OEDLayer{DISCRETE}(layer.layer, args...; measurements=measurements, kwargs...)
 end
