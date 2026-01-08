@@ -54,6 +54,7 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
 
+    FIXED = isempty(control_indices) && isempty(tunable_ic)
     SAMPLED = !isempty(measurements)
     mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
     p_length = length(problem.p)
@@ -63,7 +64,7 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
 
     newproblem, observed = augment_system(mode, problem, algorithm;
         tunable_ic=copy(tunable_ic),
-        control_indices=copy(control_indices),
+        control_indices=copy(control_indices), fixed=FIXED,
         kwargs...)
 
     # Replace the saveat with the sampling times
@@ -85,13 +86,13 @@ function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where
         newproblem, algorithm; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
     )
 
-    OEDLayer{DISCRETE,SAMPLED,LuxCore.parameterlength(layer) == 0,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
+    OEDLayer{DISCRETE,SAMPLED,FIXED,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
 end
 
 Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
 
 # This is the only case where we need to sample the trajectory
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true})
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true,true}, OEDLayer{false,true,true}})
     (; layer, sampling_indices) = oed
     (; problem, controls, control_indices) = layer
     st = LuxCore.initialstates(rng, layer)
@@ -115,10 +116,24 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true}
             measurement_indices[j][id]
         end
     end
+    @info weighting_grid
     merge(st, (; observation_grid=WeightedObservation(weighting_grid), active_controls=measurement_indices))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
+
+function __fisher_information(oed::OEDLayer{<:Any, true, true}, traj::Trajectory, ps, st::NamedTuple)
+    (; controls) = ps
+    (; active_controls) = st
+    fim = __fisher_information(oed, traj)
+
+    diffF = diff(fim)
+    sum(map(enumerate(active_controls)) do (i,subset)
+        wi = controls[subset]
+        Fi = [Fi[:,:,i] for Fi in diffF]
+        sum(Fi .* wi)
+    end)
+end
 
 fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
@@ -229,6 +244,24 @@ function _get_sampling_sums(oed::OEDLayer{true,true}, x, ps, st)
     end
 end
 
+function _get_sampling_sums(oed::OEDLayer{false,true,true}, x, ps, st)
+    (; active_controls, tspans) = st
+    (; controls) = ps
+    dts = _get_dts(tspans)
+    map(active_controls) do subset
+        sum(controls[subset] .* dts)
+    end
+end
+
+function _get_sampling_sums!(res, oed::OEDLayer{false,true,true}, x, ps, st, ::Val{RESET}) where {RESET}
+    (; active_controls, tspans) = st
+    (; controls) = ps
+    dts = _get_dts(tspans)
+    foreach(enumerate(active_controls)) do (i,subset)
+        res[i] = sum(controls[subset] .* dts)
+    end
+end
+
 function _get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true,true}, x, ps, st, ::Val{RESET}) where {RESET}
     (; sampling_indices) = oed
     (; active_controls) = st
@@ -242,7 +275,7 @@ function _get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true,true}, x, ps
     end
 end
 
-function _get_sampling_sums(oed::OEDLayer{false,true}, x, ps, st)
+function _get_sampling_sums(oed::OEDLayer{false,true,false}, x, ps, st)
     (; sampling_indices,) = oed
     (; index_grid, tspans) = st
     (; controls) = ps
@@ -252,7 +285,7 @@ function _get_sampling_sums(oed::OEDLayer{false,true}, x, ps, st)
     end
 end
 
-function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true}, x, ps, st, ::Val{RESET}) where {RESET}
+function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true,false}, x, ps, st, ::Val{RESET}) where {RESET}
     (; sampling_indices,) = oed
     (; index_grid, tspans) = st
     (; controls) = ps
