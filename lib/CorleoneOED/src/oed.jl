@@ -45,6 +45,10 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
     Base.show(io, "text/plain", layer.problem)
 end
 
+function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements=[], kwargs...) where {DISCRETE}
+    OEDLayer{DISCRETE}(layer.layer, args...; measurements=measurements, kwargs...)
+end
+
 function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where {DISCRETE,L}
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
