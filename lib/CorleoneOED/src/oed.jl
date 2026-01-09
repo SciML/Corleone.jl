@@ -42,15 +42,51 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
         no_color, "measurement model ",
         no_color, "and ", type_color, "$(size(sampling_indices, 1)) ", no_color, "observed functions.\n")
     print(io, no_color, "Underlying problem: ")
-    Base.show(io, "text/plain", layer.problem)
+    Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
 # TODO: WRITE A CONSTRUCTOR FOR AN OEDLAYER FROM A MULTIPLESHOOTINGLAYER
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements=[], kwargs...) where {DISCRETE}
-    OEDLayer{DISCRETE}(layer.layer, args...; measurements=measurements, kwargs...)
+
+    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer.layer
+
+    FIXED = isempty(control_indices) && isempty(tunable_ic)
+    SAMPLED = !isempty(measurements)
+    mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
+    p_length = length(problem.p)
+    samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
+    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
+    samplings = samplings .+ length(controls)
+
+    newproblem, observed = augment_system(mode, problem, algorithm;
+        tunable_ic=copy(tunable_ic),
+        control_indices=copy(control_indices), fixed=FIXED,
+        kwargs...)
+
+    # Replace the saveat with the sampling times
+    saveats = if SAMPLED
+        ts = reduce(vcat, Corleone.get_timegrid.(measurements))
+        unique!(sort!(ts))
+    else
+        collect(problem.tspan)
+    end
+    newproblem = remake(newproblem, saveat=saveats)
+
+    lb, ub = copy.(bounds_ic)
+    for i in eachindex(newproblem.u0)
+        i <= lastindex(problem.u0) && continue
+        push!(lb, zero(eltype(newproblem.u0)))
+        push!(ub, zero(eltype(newproblem.u0)))
+    end
+    shooting_points = [t[1] for t in layer.shooting_intervals]
+    newlayer = MultipleShootingLayer(
+        newproblem, algorithm, shooting_points...; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
+    )
+
+    OEDLayer{DISCRETE,SAMPLED,FIXED,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
 end
 
-function OEDLayer{DISCRETE}(layer::L, args...; measurements=[], kwargs...) where {DISCRETE,L}
+function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements=[], kwargs...) where {DISCRETE}
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
 
@@ -239,13 +275,13 @@ _get_dts(tspans) = diff(__get_dts(tspans))
 get_sampling_sums(oed::OEDLayer, x, ps, st) = _get_sampling_sums(oed, x, ps, st)
 get_sampling_sums!(res, oed::OEDLayer, x, ps, st) = _get_sampling_sums!(res, oed, x, ps, st, Val{true}())
 
-function get_sampling_sums(oed::OEDLayer{<:Any,<:Any,<:Any,Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
+function get_sampling_sums(oed::OEDLayer{<:Any,<:Any,<:Any,<:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
     sum(fields) do f
         _get_sampling_sums(oed, x, getproperty(ps, f), getproperty(st, f))
     end
 end
 
-function get_sampling_sums!(res, oed::OEDLayer{<:Any,<:Any,<:Any,Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
+function get_sampling_sums!(res, oed::OEDLayer{<:Any,<:Any,<:Any,<:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
 	foreach(enumerate(fields)) do (i,f)
 		_get_sampling_sums!(res, oed, x, getproperty(ps, f), getproperty(st, f), Val{i==1}())
     end
@@ -314,6 +350,8 @@ function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false,true,false
         end
     end
 end
+
+get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
 
 #==
 """
