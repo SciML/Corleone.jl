@@ -163,7 +163,7 @@ end
 
 finalize_config(::Any, args...; kwargs...) = throw(ErrorException("The OED cannot be derived based on the given information. This should never happen. Please open up an issue."))
 
-# Just the sensitivities, no weigthing, no
+# Discrete
 function finalize_config(::T, ::Any, prob, config; kwargs...) where {T<:Union{Val{:Discrete},Val{:DiscreteSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
@@ -180,7 +180,7 @@ function finalize_config(::T, ::Any, prob, config; kwargs...) where {T<:Union{Va
     output_expression = G'G
   else # DiscreteSampled
     output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
-      observed_jacobian[i, :] * sensitivities
+      observed_jacobian[i:i, :] * sensitivities
     end)
   end
   config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations,
@@ -192,7 +192,7 @@ function finalize_config(::T, ::Any, prob, config; kwargs...) where {T<:Union{Va
   build_new_system(prob, config; kwargs...)
 end
 
-# Non fixed version
+# Continuous, non fixed version
 function finalize_config(::T, ::Val{false}, prob, config; control_indices=Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
@@ -244,7 +244,6 @@ function finalize_config(::T, ::Val{true}, prob, config; control_indices=Int64[]
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
   (; observed_jacobian, observed) = config
   n = size(sensitivities, 2)
-  @info observed_jacobian
   selector = triu(trues(n, n))
   F = Symbolics.variables(:F, 1:size(observed_jacobian,1), 1:n, 1:n)
   F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
@@ -252,7 +251,6 @@ function finalize_config(::T, ::Val{true}, prob, config; control_indices=Int64[]
   output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
       ((observed_jacobian[i:i, :] * sensitivities)' * (observed_jacobian[i:i, :] * sensitivities))[selector]
   end)
-  @info output_expression vec(output_expression)
   fisher = [selector[i, j] ? F[k, i, j] : F[k, j, i] for i in 1:n, j in 1:n, k in 1:size(observed_jacobian,1)]
 
   _F = reduce(vcat, [F[k,:,:][selector] for k in axes(F,1)])

@@ -116,13 +116,14 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
             measurement_indices[j][id]
         end
     end
-    @info weighting_grid
-    merge(st, (; observation_grid=WeightedObservation(weighting_grid), active_controls=measurement_indices))
+    merge(st, (; observation_grid=WeightedObservation(weighting_grid),
+    # in active controls, also the indices of the original, non-sampling controls must be added
+    active_controls=vcat(control_indices[1:end-length(measurement_indices)],measurement_indices)))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
 
-function __fisher_information(oed::OEDLayer{<:Any, true, true}, traj::Trajectory, ps, st::NamedTuple)
+function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory, ps, st::NamedTuple)
     (; controls) = ps
     (; active_controls) = st
     fim = __fisher_information(oed, traj)
@@ -133,6 +134,13 @@ function __fisher_information(oed::OEDLayer{<:Any, true, true}, traj::Trajectory
         Fi = [F[i] for F in diffF]
         sum(Fi .* wi)
     end)
+end
+
+function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory, ps, st::NamedTuple)
+    (; controls) = ps
+    (; observation_grid) = st
+    Gs = __fisher_information(oed, traj)
+    observation_grid(controls, Gs)
 end
 
 fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
@@ -163,7 +171,7 @@ fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
     sum(__fisher_information(oed, traj)), st
 end
 
-# FIXED
+# FIXED + CONTINUOUS
 fisher_information(oed::OEDLayer{false,true,true}, x, ps, st::NamedTuple) = begin
     (; sampling_indices, layer) = oed
     (; observation_grid) = st
