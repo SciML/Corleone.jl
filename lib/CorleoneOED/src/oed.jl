@@ -127,10 +127,10 @@ function __fisher_information(oed::OEDLayer{<:Any, true, true}, traj::Trajectory
     (; active_controls) = st
     fim = __fisher_information(oed, traj)
 
-    diffF = diff(fim)
-    sum(map(enumerate(active_controls)) do (i,subset)
+    diffF = eachslice.(diff(fim), dims=3)
+    sum(map(enumerate(active_controls)) do (i, subset)
         wi = controls[subset]
-        Fi = [Fi[:,:,i] for Fi in diffF]
+        Fi = [F[i] for F in diffF]
         sum(Fi .* wi)
     end)
 end
@@ -161,6 +161,14 @@ fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
     (; observation_grid) = st
     traj, st = oed(x, ps, st)
     sum(__fisher_information(oed, traj)), st
+end
+
+# FIXED
+fisher_information(oed::OEDLayer{false,true,true}, x, ps, st::NamedTuple) = begin
+    (; sampling_indices, layer) = oed
+    (; observation_grid) = st
+    traj, st = oed(x, ps, st)
+    __fisher_information(oed, traj, ps, st), st
 end
 
 sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
