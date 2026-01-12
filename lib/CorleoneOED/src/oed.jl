@@ -165,19 +165,10 @@ function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory
     (; active_controls) = st
     fim = __fisher_information(oed, traj)
 
-    w = reduce(hcat, map(x -> controls[x], active_controls))
-    protoF = zeros(eltype(first(fim)[1]), size(first(fim))[1:2])
-    nw, nh = size(fim,1)-1, size(fim[1],3)
+    w = eachrow(reduce(hcat, map(x -> controls[x], active_controls)))
     diffF = map(- , fim[2:end], fim[1:end])
-    #return sum(diffF)
-    slicedF = map(x -> eachslice(x, dims=3), diffF)
 
-    return sum(map(1:nh) do j
-        sum(map(1:nw) do i
-            w[i][j] .* slicedF[i][j]
-        end, init=protoF)
-    end, init=protoF)
-
+    return sum([F[:,:,k] .* wi[k] for (wi,F) in zip(w,diffF) for k in axes(F,3)])
 end
 
 function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory, ps, st::NamedTuple)

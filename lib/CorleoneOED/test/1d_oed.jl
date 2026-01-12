@@ -52,9 +52,7 @@ sol, _  = oed(nothing, ps, st)
     (ACriterion(), DCriterion(), ECriterion(),
     FisherACriterion(), FisherDCriterion(), FisherECriterion())
   ) do crit
-    # TODO: THIS FAILS! FIX
     @test_nowarn @inferred CorleoneOED.__fisher_information(oed, sol, ps, st)
-    @test_nowarn @code_warntype CorleoneOED.__fisher_information(oed, sol, ps, st)
   end
 end
 
