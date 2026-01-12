@@ -152,9 +152,10 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
             measurement_indices[j][id]
         end
     end
+
     merge(st, (; observation_grid=WeightedObservation(weighting_grid),
     # in active controls, also the indices of the original, non-sampling controls must be added
-    active_controls=vcat(control_indices[1:end-length(measurement_indices)],measurement_indices)))
+    active_controls=measurement_indices))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
@@ -164,12 +165,19 @@ function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory
     (; active_controls) = st
     fim = __fisher_information(oed, traj)
 
-    diffF = eachslice.(diff(fim), dims=3)
-    sum(map(enumerate(active_controls)) do (i, subset)
-        wi = controls[subset]
-        Fi = [F[i] for F in diffF]
-        sum(Fi .* wi)
-    end)
+    w = reduce(hcat, map(x -> controls[x], active_controls))
+    protoF = zeros(eltype(first(fim)[1]), size(first(fim))[1:2])
+    nw, nh = size(fim,1)-1, size(fim[1],3)
+    diffF = map(- , fim[2:end], fim[1:end])
+    #return sum(diffF)
+    slicedF = map(x -> eachslice(x, dims=3), diffF)
+
+    return sum(map(1:nh) do j
+        sum(map(1:nw) do i
+            w[i][j] .* slicedF[i][j]
+        end, init=protoF)
+    end, init=protoF)
+
 end
 
 function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory, ps, st::NamedTuple)
