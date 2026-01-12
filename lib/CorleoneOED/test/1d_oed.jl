@@ -45,13 +45,16 @@ traj_oed, _ = oed(nothing, ps, st)
 @test all(iszero, lb.controls)
 @test all(isone, ub.controls)
 
+sol, _  = oed(nothing, ps, st)
+
 @testset "Criteria" begin
   foreach(
     (ACriterion(), DCriterion(), ECriterion(),
     FisherACriterion(), FisherDCriterion(), FisherECriterion())
   ) do crit
     # TODO: THIS FAILS! FIX
-    #@test_nowarn @inferred crit(oed, nothing, ps, st)
+    @test_nowarn @inferred CorleoneOED.__fisher_information(oed, sol, ps, st)
+    @test_nowarn @code_warntype CorleoneOED.__fisher_information(oed, sol, ps, st)
   end
 end
 
