@@ -32,7 +32,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         end
     end
 
-    @assert length(M) == length(layer.observed.observed.getters) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.observed.observed.getters)), got $(length(M))."
+    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
@@ -125,7 +125,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         end
     end
 
-    @assert length(M) == length(layer.observed.observed.getters) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.observed.observed.getters)), got $(length(M))."
+    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
@@ -225,7 +225,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
         end
     end
 
-    @assert length(M) == length(layer.observed.observed.getters) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.observed.observed.getters)), got $(length(M))."
+    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
