@@ -13,7 +13,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        #p = SciMLBase.NullParameters(),
         integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
@@ -26,8 +25,8 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
-        (p, ::Any) -> begin
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps))
+        (p, st) -> begin
             ps = ComponentArray(p, ax)
             first(crit(layer, nothing, ps, st))
         end
@@ -108,7 +107,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        #p = SciMLBase.NullParameters(),
         integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
@@ -120,8 +118,8 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
-        (p, ::Any) -> begin
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps))
+        (p, st) -> begin
             ps = ComponentArray(p, ax)
             first(crit(layer, nothing, ps, st))
         end
@@ -206,7 +204,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        #p = SciMLBase.NullParameters(),
         integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
@@ -214,7 +211,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
         kwargs...) where {T}
 
     u0 = T.(u0)
-    #p = !isa(p, SciMLBase.NullParameters) ? T.(p) : p
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -222,8 +218,8 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
     p.controls .= 1.0 # Solve initial system with all ones for sampling
     sol, _ = layer(nothing, p, st)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), sol=sol
-        (p, ::Any) -> begin
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), sol=sol
+        (p, st) -> begin
             ps = ComponentArray(p, ax)
             first(crit(CorleoneOED.__fisher_information(layer, sol, ps, st)))
         end

@@ -140,8 +140,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         unique!(sort!(grid))
         findall(∈(grid), overall_grid)
     end
-    measurement_indices = Corleone.build_index_grid(controls...; problem.tspan, subdivide=100)
-    measurement_indices = map(eachrow(measurement_indices[sampling_indices, :])) do mi
+    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan, subdivide=100)
+    measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
     # Lets order this by time
@@ -153,8 +153,15 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         end
     end
 
-    merge(st, (; observation_grid=WeightedObservation(weighting_grid),
     # in active controls, also the indices of the original, non-sampling controls must be added
+    measurement_indices = typeof(oed) <: OEDLayer{true,true} ? begin
+        indices_all_controls = collect(1:length(control_indices))
+        map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
+            unique(mi)
+        end
+    end : measurement_indices
+
+    merge(st, (; observation_grid=WeightedObservation(weighting_grid),
     active_controls=measurement_indices))
 end
 
