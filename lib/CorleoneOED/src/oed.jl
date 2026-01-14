@@ -45,7 +45,17 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
     Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
-# TODO: WRITE A CONSTRUCTOR FOR AN OEDLAYER FROM A MULTIPLESHOOTINGLAYER
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+    layer = SingleShootingLayer(prob, alg; kwargs...)
+    return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
+end
+
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+    layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
+    return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
+end
+
+
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements=[], kwargs...) where {DISCRETE}
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer.layer
