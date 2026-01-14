@@ -72,15 +72,9 @@ function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements=
     end
     newproblem = remake(newproblem, saveat=saveats)
 
-    lb, ub = copy.(bounds_ic)
-    for i in eachindex(newproblem.u0)
-        i <= lastindex(problem.u0) && continue
-        push!(lb, zero(eltype(newproblem.u0)))
-        push!(ub, zero(eltype(newproblem.u0)))
-    end
     shooting_points = [t[1] for t in layer.shooting_intervals]
     newlayer = MultipleShootingLayer(
-        newproblem, algorithm, shooting_points...; controls=ctrls, tunable_ic=copy(tunable_ic), bounds_ic=(lb, ub), state_initialization, bounds_p, parameter_initialization
+        newproblem, algorithm, shooting_points...; controls=ctrls, tunable_ic=copy(tunable_ic), state_initialization, bounds_p, parameter_initialization
     )
 
     OEDLayer{DISCRETE,SAMPLED,FIXED,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
