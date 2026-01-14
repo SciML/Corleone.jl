@@ -144,7 +144,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         unique!(sort!(grid))
         findall(∈(grid), overall_grid)
     end
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan, subdivide=100)
+    # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
+    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)#,subdivide=100)
     measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
@@ -185,7 +186,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true,
             unique!(sort!(grid))
             findall(∈(grid), overall_grid)
         end
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan, subdivide=100)
+        # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
+        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan)#, subdivide=100)
         measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
             unique(mi)
         end
