@@ -29,4 +29,6 @@ include("criteria.jl")
 export ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherECriterion, FisherDCriterion
 
+include("multiexperiments.jl")
+export MultiExperimentLayer
 end

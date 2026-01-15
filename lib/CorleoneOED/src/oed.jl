@@ -15,6 +15,8 @@ function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector
     end
 end
 
+default_observed = (u,p,t) -> u
+
 """
 $(TYPEDEF)
 
@@ -29,6 +31,9 @@ struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:
     "The sampling indices"
     sampling_indices::Vector{Int64}
 end
+
+is_fixed(oed::OEDLayer{<:Any, <:Any, true}) = true
+is_fixed(oed::OEDLayer{<:Any, <:Any, false}) = false
 
 function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRETE,SAMPLED,FIXED}
     (; layer, observed, sampling_indices) = oed
@@ -45,12 +50,12 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
     Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params=eachindex(prob.p), measurements=[], observed = default_observed, kwargs...) where {DISCRETE}
     layer = SingleShootingLayer(prob, alg; kwargs...)
     return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params=eachindex(prob.p), measurements=[], observed = default_observed, kwargs...) where {DISCRETE}
     layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
     return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
 end
