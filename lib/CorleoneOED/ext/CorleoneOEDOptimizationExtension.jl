@@ -7,8 +7,6 @@ using Optimization
 using SymbolicIndexingInterface
 using Random
 
-@info "Loading CorleoneOEDOptimizationExtension..."
-
 function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:SingleShootingLayer},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
@@ -20,7 +18,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         kwargs...) where {T}
 
     u0 = T.(u0)
-    #p = !isa(p, SciMLBase.NullParameters) ? T.(p) : p
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -101,7 +98,6 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         lcons = lcons, ucons = ucons,
     )
 end
-
 
 function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer},
         crit::CorleoneOED.AbstractCriterion;

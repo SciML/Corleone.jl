@@ -5,7 +5,6 @@ using SymbolicIndexingInterface
 using ComponentArrays
 using LuxCore
 using Random
-@info "Loading CorleoneOptimizationExtension..."
 
 function Optimization.OptimizationProblem(layer::SingleShootingLayer,
         loss::Union{Symbol,Expr};
