@@ -33,18 +33,18 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, nexp:
     MultiExperimentLayer{DISCRETE, false, typeof(layer), typeof(params)}(layer, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::AbstractVector{AbstractVector{Int}}; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::AbstractVector{<:AbstractVector{<:Int}}; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = [OEDLayer{DISCRETE}(prob, alg; params=param, measurements=measurements, observed=observed, kwargs...) for param in params]
     MultiExperimentLayer{DISCRETE, true, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector, nexp::Int; params=eachindex(prob.p), measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params=eachindex(prob.p), measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     layers = [OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...) for param in params]
     MultiExperimentLayer{DISCRETE, false, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector, params::AbstractVector{AbstractVector{Int}}=[eachindex(prob.p) for _ in 1:nexp]; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, params::AbstractVector{<:AbstractVector{<:Int}}=[eachindex(prob.p) for _ in 1:nexp]; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = [OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...) for param in params]
     MultiExperimentLayer{DISCRETE, false, typeof(layers), typeof(params)}(layers, nexp, params)
@@ -53,7 +53,7 @@ end
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, true})
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multi.n_exp])
     exp_ps = Tuple(map(1:multi.n_exp) do i
-        LuxCore.initialparameters(rng, multiexp.layers[i])
+        LuxCore.initialparameters(rng, multi.layers[i])
     end)
     return NamedTuple{exp_names}(exp_ps)
 end
@@ -68,7 +68,7 @@ end
 function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, true})
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multi.n_exp])
     exp_ps = Tuple(map(1:multi.n_exp) do i
-        LuxCore.initialstates(rng, multiexp.layers[i])
+        LuxCore.initialstates(rng, multi.layers[i])
     end)
     return NamedTuple{exp_names}(exp_ps)
 end
