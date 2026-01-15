@@ -17,8 +17,10 @@ function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE,FIXED,SPLIT}) wher
     (; n_exp) = oed
     type_color, no_color = SciMLBase.get_colorizers(io)
     measurement_text = DISCRETE ? "discrete " : "continuous "
+    layer_text = FIXED ? "Fixed " : ""
 
     print(io,
+        no_color, layer_text,
         type_color, "MultiExperimentLayer ", no_color, "with ",
         type_color, measurement_text,
         no_color, "measurement model and ",
@@ -156,7 +158,7 @@ Computes the block structure as defined by the `MultiExperimentLayer`, which may
 two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
 experiment level.
 """
-function get_block_structure(layer::MultiExperimentLayer{<:Any, true})
+function get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, true})
     blocks = map(layer.layers) do _layer
         get_block_structure(_layer)
     end |> Tuple
@@ -169,7 +171,7 @@ function get_block_structure(layer::MultiExperimentLayer{<:Any, true})
     return block_structure
 end
 
-function get_block_structure(layer::MultiExperimentLayer{<:Any, false})
+function get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, false})
     blocks = map(1:layer.n_exp) do i
         get_block_structure(layer.layers)
     end |> Tuple
