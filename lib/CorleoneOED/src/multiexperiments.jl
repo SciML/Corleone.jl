@@ -52,7 +52,7 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, param
 end
 
 function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params=eachindex(prob.p), measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
-    layers = OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...)
+    layers = OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=params, measurements=measurements, observed=observed, kwargs...)
     fixed = false
     MultiExperimentLayer{DISCRETE, false, false, typeof(layers), typeof(params)}(layers, nexp, params)
 end
@@ -155,8 +155,6 @@ function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, 
         fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))[1]
     end, st
 end
-
-
 
 Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, true}) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])

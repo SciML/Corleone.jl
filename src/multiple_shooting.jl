@@ -82,7 +82,7 @@ end
 
 function LuxCore.parameterlength(shooting::MultipleShootingLayer)
 	last(get_block_structure(shooting))
-end 
+end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
     (; shooting_intervals, layer) = shooting
@@ -136,6 +136,21 @@ end
 
 function shooting_constraints(traj::Trajectory)
     return reduce(vcat, shooting_violations(traj))
+end
+
+function shooting_constraints(trajs::AbstractVector{<:Trajectory})
+    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
+end
+
+function shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
+    i = 0
+    for traj in trajs
+        for subvec in traj.shooting, j in eachindex(subvec)
+            i += 1
+            res[i] = subvec[j]
+        end
+    end
+    return res
 end
 
 function shooting_constraints!(res::AbstractVector, traj::Trajectory)

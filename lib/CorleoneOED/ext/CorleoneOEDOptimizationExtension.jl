@@ -11,8 +11,11 @@ n_observed(layer::OEDLayer) = length(layer.sampling_indices)
 n_observed(layer::MultiExperimentLayer{<:Any, <:Any, false}) = layer.n_exp * length(layer.layers.sampling_indices)
 n_observed(layer::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(x->length(x.sampling_indices), layer.layers))
 
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, false}) = multi.n_exp * Corleone.get_number_of_shooting_constraints(multi.layers)
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
 
-function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, false, false}},
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, false, false, <:SingleShootingLayer}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -104,7 +107,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
     )
 end
 
-function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer},
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, MultiExperimentLayer{<:Any, <:Any, false, <:OEDLayer{<:Any, <:Any, false, <:MultipleShootingLayer}}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -126,7 +129,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         end
     end
 
-    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
+    @assert length(M) == n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(n_observed(layer)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
@@ -168,14 +171,16 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
                     ps = ComponentArray(p, ax)
                     sols, _ = layer(nothing, ps, st)
                     shooting = Corleone.shooting_constraints(sols)
-                    res .= vcat(shooting, CorleoneOED.get_sampling_sums(layer, nothing, ps, st))
+                    sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
+                    @info size(res) size(shooting) size(sampling)
+                    res .= vcat(shooting, sampling)
                 end
             end
             sampling_cons
         end
     end
 
-    nshooting = Corleone.get_number_of_shooting_constraints(layer.layer)
+    nshooting = Corleone.get_number_of_shooting_constraints(layer)
 
     lcons, ucons = begin
         if isnothing(constraints)
