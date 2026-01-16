@@ -15,7 +15,7 @@ Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, false}) = multi.n_exp * Corleone.get_number_of_shooting_constraints(multi.layers)
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
 
-function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, false, false, <:SingleShootingLayer}},
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:SingleShootingLayer},MultiExperimentLayer{<:Any, false, <:Any, <:SingleShootingLayer}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -107,7 +107,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
     )
 end
 
-function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, MultiExperimentLayer{<:Any, <:Any, false, <:OEDLayer{<:Any, <:Any, false, <:MultipleShootingLayer}}},
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:MultipleShootingLayer},MultiExperimentLayer{<:Any, false, <:Any, <:MultipleShootingLayer}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -118,6 +118,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
         kwargs...) where {T}
 
     u0 = T.(u0)
+
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)

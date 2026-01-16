@@ -4,7 +4,7 @@ Generalization of OEDLayer to multiple experiments that can be jointly optimized
 # Fields
 $(FIELDS)
 """
-struct MultiExperimentLayer{DISCRETE,FIXED,SPLIT,L,P} <: LuxCore.AbstractLuxLayer
+struct MultiExperimentLayer{DISCRETE,FIXED,SPLIT,SHOOTING,L,P} <: LuxCore.AbstractLuxLayer
     "Layers defining multiexperiments"
     layers::L
     "Number of experiments"
@@ -30,8 +30,8 @@ function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE,FIXED,SPLIT}) wher
     if SPLIT
         print(io,
         no_color, "Considered parameters are split among the experiments:\n")
-        [print(io, "Experiment $i considers parameters: $param." * (i == length(params) ? "" : "\n")
-        ) for (i,param) in enumerate(params)]
+        [print(io, "Experiment $i considers parameters: $param." * (i == length(params.original) ? "" : "\n")
+        ) for (i,param) in enumerate(params.original)]
     end
 end
 
@@ -39,7 +39,7 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, nexp:
                 params=eachindex(prob.p), measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     layer = OEDLayer{DISCRETE}(prob, alg; params=params, measurements=measurements, observed=observed, kwargs...)
     fixed = is_fixed(layer)
-    MultiExperimentLayer{DISCRETE, fixed, false, typeof(layer), typeof(params)}(layer, nexp, params)
+    MultiExperimentLayer{DISCRETE, fixed, false, SingleShootingLayer, typeof(layer), typeof(params)}(layer, nexp, params)
 end
 
 function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::AbstractVector{<:AbstractVector{<:Int}}; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
@@ -48,13 +48,19 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, param
         OEDLayer{DISCRETE}(prob, alg; params=param, measurements=measurements, observed=observed, kwargs...)
     end
     fixed = all(is_fixed.(layers))
-    MultiExperimentLayer{DISCRETE, fixed, true, typeof(layers), typeof(params)}(layers, nexp, params)
+
+    all_params = union(params...)
+    common = sort(all_params)
+    idxmap = Dict(val => i for (i, val) in enumerate(common))
+
+    new_params = (;original=params, all=common, permutation=idxmap)
+
+    MultiExperimentLayer{DISCRETE, fixed, true, SingleShootingLayer, typeof(layers), typeof(new_params)}(layers, nexp, new_params)
 end
 
 function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params=eachindex(prob.p), measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     layers = OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=params, measurements=measurements, observed=observed, kwargs...)
-    fixed = false
-    MultiExperimentLayer{DISCRETE, false, false, typeof(layers), typeof(params)}(layers, nexp, params)
+    MultiExperimentLayer{DISCRETE, false, false, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
 function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, params::AbstractVector{<:AbstractVector{<:Int}}=[eachindex(prob.p) for _ in 1:nexp]; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
@@ -62,8 +68,7 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shoot
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...)
     end
-    fixed = false
-    MultiExperimentLayer{DISCRETE, false, true, typeof(layers), typeof(params)}(layers, nexp, params)
+    MultiExperimentLayer{DISCRETE, false, true, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true})
@@ -122,7 +127,7 @@ function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, p
 end
 
 function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
-    n_obs = cumsum(vcat(0, [length(x.sampling_indices)] for x in multi.layers))
+    n_obs = cumsum(vcat(0, [length(x.sampling_indices) for x in multi.layers]))
     for (i,layer,field) in zip(1:length(multi.layers),multi.layers,fields)
         get_sampling_sums!(view(res, n_obs[i]+1:n_obs[i+1]), layer, x, getproperty(ps, field), getproperty(st, field))
     end
@@ -151,9 +156,18 @@ function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, false}, x,
 end
 
 function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
-    map(enumerate(fields)) do (i,field)
+    fim = map(enumerate(fields)) do (i,field)
         fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))[1]
-    end, st
+    end
+
+    np = length(multi.params.all)
+    F = zeros(eltype(fim[1]), (np, np))
+    for (i,fimi) in enumerate(fim)
+        idxs = [multi.params.permutation[j] for j in multi.params.original[i]]
+        F[idxs, idxs] .+= fimi
+    end
+
+    F, st
 end
 
 Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, true}) = begin
