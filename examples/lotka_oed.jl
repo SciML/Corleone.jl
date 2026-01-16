@@ -30,9 +30,10 @@ control = ControlParameter(
     collect(0.0:0.25:11.75), name = :fishing, bounds = (0.,1.)
 )
 
-layer = SingleShootingLayer(prob, Tsit5(), controls=(1 => control,))
+# Fixed and without controls
+layer = SingleShootingLayer(prob, Tsit5(), bounds_p=([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]))
 
-oed = OEDLayer{false}(
+oed = OEDLayer{true}(
   layer,
   params=[2,3],
   measurements=[
@@ -40,228 +41,135 @@ oed = OEDLayer{false}(
     ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
   ],
   observed=(u, p, t) -> u[1:2],
-  #svd=true, ns=2,
-  #threshold_singular_vectors=0.0
 )
 
 ps, st = LuxCore.setup(Random.default_rng(), oed)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(oed) .|> ComponentArray
-
-sol, _ = oed(nothing, p, st)
-
-ff, _ = fisher_information(oed, nothing, ps, st)
-
-plot(sol, idxs=[1,2,3,4,5,6])
-
-objective = let ax = getaxes(p), crit = ACriterion(), oed = oed
-    (p, st) -> begin
-        ps = ComponentArray(p, ax)
-        first(crit(oed, nothing, ps, st))
-    end
-end
-
-
-objective(p, st)
-
-
-sampling_cons = let ax = getaxes(p), oed = oed
-    (res, p, st) -> begin
-        ps = ComponentArray(p, ax)
-        #CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
-        res .= [sum(ps.controls[48+(i-1)*48+1:48+i*48]) for i=1:2]
-    end
-end
-
-sampling_cons(zeros(2), p, st)
-
-
-
-optfun = OptimizationFunction(
-    objective, AutoForwardDiff()#, cons=sampling_cons
-)
-
-optprob = OptimizationProblem(optfun, collect(p), st, lb=collect(lb), ub=collect(ub))#, lcons=[0.0], ucons=[12.0, 12.0])
-
-uopt = solve(optprob, Ipopt.Optimizer(),
-    tol=1e-6,
-    hessian_approximation="limited-memory",
-    max_iter=50,
-    #print_level=3,
-)
-
-
-sol, _  = oed(nothing, uopt.u + zero(p), st)
-
-plot(sol)
-
-
-ps, st = LuxCore.setup(Random.default_rng(), oed)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(oed)
 
 sol, _ = oed(nothing, ps, st)
 
+CorleoneOED._local_information_gain(oed, sol)
+CorleoneOED.__fisher_information(oed, sol)
+CorleoneOED.fisher_information(oed, sol,ps,st)
+CorleoneOED.get_sampling_sums(oed, sol, ps, st)
+CorleoneOED.get_sampling_sums!(zeros(2), oed, sol, ps, st)
 
-crit= ACriterion()
 
-sampling = Corleone.get_sampling_constraint(ol)
-sampling(p, nothing)
 
-sampling_cons = let sampling=sampling
-    (res, p, ::Any) -> begin
-        res .= sampling(p, nothing)
-    end
-end
-
-optfun = OptimizationFunction(
-    crit(ol), AutoForwardDiff(), cons = sampling_cons
-)
-
-optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
-)
+optprob = OptimizationProblem(oed, ACriterion(); M =[12.0, 12.0])
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     #tol = 1e-10,
-     hessian_approximation = "limited-memory",
-     max_iter = 300
+    tol=1e-6,
+    #hessian_approximation="limited-memory",
+    max_iter=5500,
+    #print_level=3,
 )
+#
+optu = uopt.u + zero(ComponentArray(ps))
+sol, _  = oed(nothing, optu, st)
 
-optsol, _ = ol(nothing, uopt + zero(p), st)
+CorleoneOED.get_sampling_sums(oed, sol, optu, st)
 
-nc = Corleone.control_blocks(ol)
 f = Figure()
 ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
 ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
 ax3 = CairoMakie.Axis(f[2,:], xticks = 0:1:12, title="Sampling")
-[plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(ol)[:]])))]
-stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
-stairs!(ax3, last(ol.layer.controls).t, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
+plot!(ax, sol, idxs=[1,2])
+plot!(ax2, sol, idxs=[3,4,5,6])
+#stairs!(ax3, sol, vars=[:w₁, :w₂])
+sampling = [optu.controls[x] for x in st.observation_grid.grid[1:end-1]]
+stairs!(ax3, first.(sampling))
+stairs!(ax3, last.(sampling))
+
 f
 
-multiplier = uopt.original.inner.mult_g
+# Single Shooting with controls
+layer = SingleShootingLayer(prob, Tsit5(), controls = (1 => control, ),
+                bounds_p=([1.0, 1.0], [1.0, 1.0]))
 
-IG = InformationGain(ol, uopt)
-
-f = Figure()
-ax = CairoMakie.Axis(f[1,1])
-scatter!(ax, IG.t, tr.(IG.global_information_gain[1]))
-CairoMakie.hlines!(ax, multiplier[1:1])
-
-ax1 = CairoMakie.Axis(f[1,2])
-scatter!(ax1, IG.t, tr.(IG.global_information_gain[2]))
-CairoMakie.hlines!(ax1, multiplier[2:2])
-CairoMakie.linkyaxes!(ax1, ax)
-f
-
-
-# Single Shooting
-dt = 0.25
-oed_layer = Corleone.OEDLayer(prob, Tsit5(); params=[2,3], controls = (control,),
-            control_indices = [1], dt = dt)
-ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
-p = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(oed_layer)
-sols, _ = oed_layer(nothing, ps, st)
-
-criterion = crit(oed_layer)
-criterion(p, nothing)
-
-sampling = get_sampling_constraint(oed_layer)
-sampling_cons = let ax = getaxes(p), sampling=sampling
-    (res, p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        res .= sampling(ps, nothing)
-    end
-end
-
-sampling_cons(zeros(2),collect(p), nothing)
-
-optfun = OptimizationFunction(
-    criterion, AutoForwardDiff(), cons = sampling_cons
+oed = OEDLayer{true}(
+  layer,
+  params=[2,3],
+  measurements=[
+    ControlParameter(collect(0.0:0.25:11.75), controls=.5 * ones(48), bounds=(0.0, 1.0)),
+    ControlParameter(collect(0.0:0.25:11.75), controls=.5 * ones(48), bounds=(0.0, 1.0)),
+  ],
+  observed=(u, p, t) -> u[1:2],
 )
 
-optprob = OptimizationProblem(
-    optfun, collect(p), lb = collect(lb), ub = collect(ub), lcons=zeros(2), ucons=[4.0, 4.0]
-)
+ps, st = LuxCore.setup(Random.default_rng(), oed)
+
+sol, _ = oed(nothing, ps, st)
+sol.sys.variables
+
+optprob = OptimizationProblem(oed, ACriterion(); M =[12.0, 12.0])
+
+CorleoneOED.get_sampling_sums(oed, sol, ps, st)
 
 uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-6,
-     hessian_approximation = "limited-memory",
-     max_iter = 300
+    tol=1e-6,
+    hessian_approximation="limited-memory",
+    max_iter=500,
+    #print_level=3,
 )
 
-optsol, _ = oed_layer(nothing, uopt + zero(p), st)
+optu = uopt.u + zero(ComponentArray(ps))
+sol, _  = oed(nothing, optu, st)
 
-nc = Corleone.control_blocks(oed_layer)
 f = Figure()
-ax = CairoMakie.Axis(f[1,1], xticks=0:2:12, title="States + control")
-ax1 = CairoMakie.Axis(f[2,1], xticks=0:2:12, title="Sensitivities")
-ax2 = CairoMakie.Axis(f[1,2], xticks=0:2:12, title="FIM")
-ax3 = CairoMakie.Axis(f[2,2], xticks=0:2:12, title="Sampling")
-[plot!(ax, optsol.t, sol) for sol in eachrow(Array(optsol))[1:2]]
-[plot!(ax1, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.sensitivity_variables(oed_layer)[:]])))]
-[plot!(ax2, optsol.t, sol) for sol in eachrow(reduce(hcat, (optsol[Corleone.fisher_variables(oed_layer)])))]
-stairs!(ax, control.t, (uopt + zero(p)).controls[nc[1]+1:nc[2]])
-stairs!(ax3, 0.0:dt:12.0-dt, (uopt + zero(p)).controls[nc[2]+1:nc[3]])
-stairs!(ax3, 0.0:dt:12.0-dt, (uopt + zero(p)).controls[nc[3]+1:nc[4]])
+ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
+ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
+ax3 = CairoMakie.Axis(f[2,1], xticks = 0:1:12, title="Sampling")
+ax4 = CairoMakie.Axis(f[2,2], xticks = 0:1:12, title="Controls")
+plot!(ax, sol, idxs=[1,2])
+plot!(ax2, sol, idxs=[3,4,5,6])
+sampling = [optu.controls[x] for x in st.observation_grid.grid[1:end-1]]
+stairs!(ax3, first.(sampling))
+stairs!(ax3, last.(sampling))
+stairs!(ax4, sol, vars=[:p₁])
 f
 
-
-## Multiple Shooting
-shooting_points = [0.0,4.0, 8.0, 12.0]
-oed_mslayer = OEDLayer(prob, Tsit5(), shooting_points; params=[2,3], dt=dt,
-            control_indices = [1], controls=(control,),
-            bounds_nodes = (0.05 * ones(2), 10*ones(2))
-            )
+## TODO: Multiple Shooting
+shooting_points = [0.0,6.0]
 
 
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points..., controls = (1 => control, ),
+                bounds_p=([1.0, 1.0], [1.0, 1.0]))
 
-oed_msps, oed_msst = LuxCore.setup(Random.default_rng(), oed_mslayer)
-# Or use any of the provided Initialization schemes
-oed_msps, oed_msst = ForwardSolveInitialization()(Random.default_rng(), oed_mslayer)
-oed_msp = ComponentArray(oed_msps)
-oed_ms_lb, oed_ms_ub = Corleone.get_bounds(oed_mslayer)
-oed_sols, _ = oed_mslayer(nothing, oed_msp, oed_msst)
+
+oed = OEDLayer{false}(
+  layer,
+  params=[2,3],
+  measurements=[
+    ControlParameter(collect(0.0:0.25:11.75), controls=.1*ones(48), bounds=(0.0, 1.0)),
+    ControlParameter(collect(0.0:0.25:11.75), controls=.15*ones(48), bounds=(0.0, 1.0)),
+  ],
+  observed=(u, p, t) -> u[1:2],
+)
+
+ps, st = LuxCore.setup(Random.default_rng(), oed)
+
+sol, _ = oed(nothing, ps, st)
+plot(sol)
+
+CorleoneOED._local_information_gain(oed, sol)
+CorleoneOED.__fisher_information(oed, sol)
+CorleoneOED.fisher_information(oed, sol,ps,st)
+CorleoneOED.get_sampling_sums(oed, sol, ps, st)
+CorleoneOED.get_sampling_sums!(zeros(2), oed, sol, ps, st)
+Corleone.shooting_constraints(sol)
 
 crit = ACriterion()
-criterion = crit(oed_mslayer)
-criterion(oed_msp, nothing)
+crit(oed, nothing, ps, st)
 
-sampling = Corleone.get_sampling_constraint(oed_mslayer)
-sampling(oed_msp, nothing)
-
-shooting_constraints = let layer = oed_mslayer, st = oed_msst, ax = getaxes(oed_msp), sampling=sampling, matching = Corleone.get_shooting_constraints(oed_mslayer)
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        matching_ = matching(sols, ps)
-        sampling_ = sampling(ps, st)
-        return vcat(matching_, sampling_)
-    end
-end
-
-eq_cons(res, x, p) = res .= shooting_constraints(x, p)
-
-optfun = OptimizationFunction(
-    criterion, AutoForwardDiff(), cons = eq_cons
-)
-constraints_eval = shooting_constraints(oed_msp, nothing)
-ucons = zero(constraints_eval)
-ucons[end-1:end] .= 4.0
-optprob = OptimizationProblem(
-    optfun, collect(oed_msp), lb = collect(oed_ms_lb), ub = collect(oed_ms_ub), lcons = zero(constraints_eval), ucons=ucons
-)
+optprob = OptimizationProblem(oed, ACriterion(); M= [4.0,4.0])
 
 uopt = solve(optprob, Ipopt.Optimizer(),
      tol = 1e-6,
      hessian_approximation = "limited-memory",
-     max_iter = 100
+     max_iter = 500
 )
 
-blocks = Corleone.get_block_structure(oed_mslayer)
+blocks = Corleone.get_block_structure(oed.layer)
 
 uopt = solve(optprob, BlockSQPOpt(),
     opttol = 1e-6,
@@ -270,24 +178,18 @@ uopt = solve(optprob, BlockSQPOpt(),
     maxiters = 100
 )
 
-sol_u = uopt + zero(oed_msp)
-mssol, _ = oed_mslayer(nothing, oed_msp, oed_msst)
+optu = uopt + zero(ComponentArray(ps))
+sol, _ = oed(nothing, optu, st)
 
-nc = Corleone.control_blocks(oed_mslayer)
 f = Figure()
-ax = CairoMakie.Axis(f[1,1], title="States + control")
-ax1 = CairoMakie.Axis(f[2,1], title="Sensitivities")
-ax2 = CairoMakie.Axis(f[1,2], title="FIM")
-ax3 = CairoMakie.Axis(f[2,2], title="Sampling")
-[plot!(ax,  sol.t, Array(sol)[i,:])  for sol in mssol for i in 1:2]
-[plot!(ax1, sol.t, Array(sol)[i,:])  for sol in mssol for i in 3:6]
-[plot!(ax2, sol.t, Array(sol)[i,:])  for sol in mssol for i in 7:9]
-f
-
-[stairs!(ax, c.controls[1].t,  sol_u["layer_$i"].controls[nc[i][1]+1:nc[i][2]], color=:black) for (i,c) in enumerate(oed_mslayer.layer.layers)]
-[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[nc[i][2]+1:nc[i][3]], color=Makie.wong_colors()[1]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
-[stairs!(ax3, c.controls[1].t, sol_u["layer_$i"].controls[nc[i][3]+1:nc[i][4]], color=Makie.wong_colors()[2]) for (i,c) in enumerate(oed_mslayer.layer.layers)]
-
+ax = CairoMakie.Axis(f[1,1], xticks = 0:2:12, title="States")
+ax2 = CairoMakie.Axis(f[1,2], xticks = 0:2:12, title="Sensitivities")
+ax3 = CairoMakie.Axis(f[2,1], xticks = 0:1:12, title="Sampling")
+ax4 = CairoMakie.Axis(f[2,2], xticks = 0:1:12, title="Controls")
+plot!(ax, sol, idxs=[1,2])
+plot!(ax2, sol, idxs=[3,4,5,6])
+stairs!(ax3, sol, vars = [:w₁, :w₂])
+stairs!(ax4, sol, vars=[:p₁])
 f
 
 IG = InformationGain(oed_mslayer, uopt)

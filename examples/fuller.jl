@@ -38,36 +38,14 @@ control = ControlParameter(
 layer = SingleShootingLayer(prob, Tsit5(), controls= (1 => control,))
 
 ps, st = LuxCore.setup(Random.default_rng(), layer)
-cp = ComponentArray(ps)
-lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
-loss = let layer = layer, st = st, ax = getaxes(cp)
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        last(sols.u)[3]
-    end
-end
-
-cons = let layer = layer, st = st, ax = getaxes(cp)
-    (p, ::Any) -> begin
-        ps = ComponentArray(p, ax)
-        sols, _ = layer(nothing, ps, st)
-        return last(sols.u)[1:2]
-    end
-end
-
-eq_cons(res, _x, _p) = res  .= cons(_x,_p)
-
-optfun = OptimizationFunction(
-    loss, AutoForwardDiff(), cons=eq_cons
-)
+constraints = Dict(:x₁ => (t=last(tspan), bounds= (1e-2, 1e-2)),
+                  :x₂ => (t=last(tspan), bounds = (0.0, 0.0)))
 
 optprob = OptimizationProblem(
-    optfun, collect(cp), lb = collect(lb), ub = collect(ub),
-    lcons = [1e-2, 0.0],
-    ucons = [1e-2, 0.0]
+    layer, :x₃, constraints=constraints
 )
+
 
 uopt = solve(optprob, Ipopt.Optimizer(),
     tol = 1e-12,
@@ -75,7 +53,7 @@ uopt = solve(optprob, Ipopt.Optimizer(),
     max_iter = 250
 )
 
-optsol, _ = layer(nothing, uopt + zero(cp), st)
+optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
 
 f = Figure()
 ax = CairoMakie.Axis(f[1,1])

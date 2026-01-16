@@ -4,11 +4,11 @@ $(SIGNATURES)
 Initializes all shooting nodes with random values.
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
 """
 function random_initialization(
     rng::Random.AbstractRNG,
@@ -38,11 +38,11 @@ $(SIGNATURES)
 Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
 - `u_infinity::AbstractArray` the value at the last timepoint for all states.
 """
 function linear_initialization(
@@ -92,31 +92,31 @@ end
 $(SIGNATURES)
 
 
-Initializes all shooting nodes with user-provided values. Initial values are given as an iterable collection of 
+Initializes all shooting nodes with user-provided values. Initial values are given as an iterable collection of
 `AbstractArray`s, `Dict`s, or a vector of `Pair`s.  The variable indices are interpretated depending on the passed value
 
 - `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
-- `Dict` assumes the keys represent indices of the initial condition. 
+- `Dict` assumes the keys represent indices of the initial condition.
 - A `Vector` or `Tuple` of `Pair`s assumes the first value represents an index of the initial condition.
 
 Other options simply skip the corresponding interval.
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
-- `u0s` the collection of initial condtions.  
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
+- `u0s` the collection of initial condtions.
 
-# Example 
-```julia 
-# Assumes a shooting layer with 3 intervals 
-# Skips the first interval 
-# Sets the first index of the second interval to 3.0 
+# Example
+```julia
+# Assumes a shooting layer with 3 intervals
+# Skips the first interval
+# Sets the first index of the second interval to 3.0
 # Sets the second index of the third interval to 5.0 and the 5th index to -1.0
 custom_initialization(rng, shooting, u0s = [nothing, Dict(1 => 3.0), (2 => 5.0, 5 => -1.0)])
-``` 
+```
 """
 function custom_initialization(
     rng::Random.AbstractRNG,
@@ -143,11 +143,11 @@ Initializes the problem using a forward solve of the problem. This results in a 
 trajectory.
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
 """
 function forward_initialization(
     rng::Random.AbstractRNG,
@@ -176,28 +176,28 @@ $(SIGNATURES)
 Initializes all shooting nodes with user-provided value. The variable indices are interpretated depending on the passed value
 
 - `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
-- `Dict` assumes the keys represent indices of the initial condition. 
+- `Dict` assumes the keys represent indices of the initial condition.
 - A `Vector` or `Tuple` of `Pair`s assumes the first value represents an index of the initial condition.
 
 Other options simply skip the corresponding interval.
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
-- `u0` the initial condtion.  
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
+- `u0` the initial condtion.
 
-# Example 
-```julia 
-# Assumes a shooting layer with 3 intervals 
-# Sets the first index of all intervals to 3.0 
+# Example
+```julia
+# Assumes a shooting layer with 3 intervals
+# Sets the first index of all intervals to 3.0
 constant_initialization(rng, shooting, u0 = Dict(1 => 3.0))
 constant_initialization(rng, shooting, u0 = (1 => 3.0,))
 # Set the initial condition to the given vector
 constant_initialization(rng, shooting, u0 = [1., 2., 4.])
-``` 
+```
 """
 function constant_initialization(
     rng::Random.AbstractRNG,
@@ -218,18 +218,18 @@ end
 """
 $(SIGNATURES)
 
-Initializes the shooting nodes in a hybrid method by applying the provided methods and indices `f` 
+Initializes the shooting nodes in a hybrid method by applying the provided methods and indices `f`
 sequentially. Here we assume the structure `interval => method` for the initialization.
 
 # Arguments
-- `rng::Random.AbstractRNG` a random number generator 
+- `rng::Random.AbstractRNG` a random number generator
 - `shooting::MultipleShootingLayer` a shooting layer
 - `f::Pair`s of the interval index and applied method
 
-# Keyworded Arguments 
-- `ps` the default parameters of the `shooting` layer. 
+# Keyworded Arguments
+- `ps` the default parameters of the `shooting` layer.
 
-All other keyworded arguments are passed on to the functions below. 
+All other keyworded arguments are passed on to the functions below.
 """
 function hybrid_initialization(
     rng::Random.AbstractRNG,
@@ -241,7 +241,6 @@ function hybrid_initialization(
 	(intervals, method), rest = Base.first(f), Base.tail(f)
 	pnew = method(rng, shooting; ps = deepcopy(ps), kwargs...)
 	names = ntuple(i->keys(ps)[intervals[i]],size(intervals,1))
-	@info names
 	pnew = merge(ps, NamedTuple{names}(pnew))
     return hybrid_initialization(rng, shooting, rest...; ps=pnew, kwargs...)
 end

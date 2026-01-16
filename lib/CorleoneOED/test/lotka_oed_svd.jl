@@ -62,28 +62,17 @@ res = zeros(3)
 @test CorleoneOED.get_sampling_sums(oed, nothing, ps, st) == res[1:2]
 @test_nowarn @inferred CorleoneOED.get_sampling_sums(oed, nothing, ps, st)
 
-objective = let ax = getaxes(p), crit = ACriterion(), oed = oed
-    (p, st) -> begin
-        ps = ComponentArray(p, ax)
-        first(crit(oed, nothing, ps, st))
-    end
-end
 
-@test objective(p, st) ≈ 0.05352869250783344
+optprob = OptimizationProblem(oed, ACriterion(), M=[4.0,4.0])
 
-sampling_cons = let ax = getaxes(p), oed = oed
-    (res, p, st) -> begin
-        ps = ComponentArray(p, ax)
-        CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
-        return res
-    end
-end
+@test optprob.f(optprob.u0, optprob.p) ≈ 0.05352869250783344
 
-optfun = OptimizationFunction(
-    objective, AutoForwardDiff(), cons=sampling_cons
+uopt = solve(optprob, Ipopt.Optimizer(),
+    tol=1e-6,
+    hessian_approximation="limited-memory",
+    max_iter=100,
+    print_level=0,
 )
-
-optprob = OptimizationProblem(optfun, collect(p), st, lb=collect(lb), ub=collect(ub), lcons=[0.0, 0.0], ucons=[4.0, 4.0])
 
 uopt = solve(optprob, Ipopt.Optimizer(),
     tol=1e-6,

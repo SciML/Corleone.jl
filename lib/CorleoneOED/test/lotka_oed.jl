@@ -61,50 +61,48 @@ res = zeros(3)
 @test CorleoneOED.get_sampling_sums(oed, nothing, ps, st) == res[1:2]
 @test_nowarn @inferred CorleoneOED.get_sampling_sums(oed, nothing, ps, st)
 
-objective = let ax = getaxes(p), crit = ACriterion(), oed = oed
-    (p, st) -> begin
-        ps = ComponentArray(p, ax)
-        first(crit(oed, nothing, ps, st))
+
+shooting_points = [0.0, 3.0, 6.0, 9.0]
+multi_layer = MultipleShootingLayer(prob, Tsit5(), shooting_points..., controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
+
+for _layer in [layer, multi_layer]
+    _oed = OEDLayer{false}(
+        _layer,
+        params=[2, 3],
+        measurements=[
+            ControlParameter(collect(tgrid1), controls=ones(length(tgrid1)), bounds=(0.0, 1.0)),
+            ControlParameter(collect(tgrid2), controls=ones(length(tgrid2)), bounds=(0.0, 1.0)),
+        ],
+        observed=(u, p, t) -> u[1:2],
+    )
+
+    _ps, _st = LuxCore.setup(StableRNG(1), _oed)
+    _p = ComponentArray(_ps)
+    _optprob = OptimizationProblem(_oed, ACriterion(), M=[4.0,4.0])
+
+    @test _optprob.f(_optprob.u0, _optprob.p) ≈ (_layer == layer ? 0.05352869250783344 : 0.6199466255548527)
+
+    _uopt = solve(_optprob, Ipopt.Optimizer(),
+        tol=1e-6,
+        hessian_approximation="limited-memory",
+        max_iter=100,
+        print_level=0,
+    )
+
+    @testset "Solution" begin
+        @test _uopt.objective ≈ 0.03707508955468313
+        @test _uopt.retcode == SciMLBase.ReturnCode.Success
+        opt_p = zero(_p) .+ _uopt
+        sol, _ = _oed(nothing, opt_p, _st)
+        c1 = reduce(vcat, map(Base.Fix2(getindex, 10), sol.u))
+        u1 = reduce(vcat, map(Base.Fix2(getindex, 11), sol.u))
+        u2 = reduce(vcat, map(Base.Fix2(getindex, 12), sol.u))
+        @test sol.u[1][1:2] == u0
+        @test isapprox(sensitivities(_oed, sol)[end], [0.0224954223439133 -1.2367919565412857; -4.44473522371497 -2.9641449776773956], atol=1e-6)
+        F, _ = fisher_information(_oed, nothing, opt_p, _st)
+        @test F ≈ [38.58695777364362 5.304118558316029; 5.304118558316029 92.03122059902915]
+        @test sol.t[c1.>0.1] == [0.0, 0.15, 0.25, 0.3, 0.45, 0.5, 0.6, 0.75, 0.9, 1.0, 4.8, 4.95, 5.0, 5.1, 5.25, 5.4, 5.5, 5.55, 5.7, 5.75, 5.85, 6.0, 6.15, 6.25, 6.3, 6.45, 6.5, 6.6, 6.75, 6.9, 7.0, 7.05, 7.2, 7.25, 7.35, 7.5, 7.65, 7.75]
+        @test sol.t[u1.>0.1] == [2.55, 2.7, 2.75, 2.85, 3.0, 3.15, 3.25, 3.3, 3.45, 3.5, 3.6, 3.75, 3.9, 4.0, 4.05, 4.2, 4.25, 4.35, 4.5, 4.65, 4.75, 4.8, 4.95, 5.0, 10.65, 10.75, 10.8, 10.95, 11.0, 11.1, 11.25, 11.4, 11.5, 11.55, 11.7, 11.75, 12.0]
+        @test sol.t[u2.>0.1] == [3.0, 3.15, 3.25, 3.3, 3.45, 3.5, 3.6, 3.75, 3.9, 4.0, 4.05, 4.2, 4.25, 4.35, 4.5, 4.65, 4.75, 4.8, 4.95, 5.0, 5.1, 5.25, 5.4, 10.65, 10.75, 10.8, 10.95, 11.0, 11.1, 11.25, 11.4, 11.5, 11.55, 11.7, 11.75, 12.0]
     end
 end
-
-@test objective(p, st) ≈ 0.05352869250783344
-
-sampling_cons = let ax = getaxes(p), oed = oed
-    (res, p, st) -> begin
-        ps = ComponentArray(p, ax)
-        CorleoneOED.get_sampling_sums!(res, oed, nothing, ps, st)
-        return res
-    end
-end
-
-optfun = OptimizationFunction(
-    objective, AutoForwardDiff(), cons=sampling_cons
-)
-
-optprob = OptimizationProblem(optfun, collect(p), st, lb=collect(lb), ub=collect(ub), lcons=[0.0, 0.0], ucons=[4.0, 4.0])
-
-uopt = solve(optprob, Ipopt.Optimizer(),
-    tol=1e-6,
-    hessian_approximation="limited-memory",
-    max_iter=100,
-    print_level=0,
-)
-
-@testset "Solution" begin
-    @test uopt.objective ≈ 0.03707508955468313 
-	@test uopt.retcode == SciMLBase.ReturnCode.Success
-	opt_p = zero(p) .+ uopt
-    sol, _ = oed(nothing, opt_p, st)
-    c1 = reduce(vcat, map(Base.Fix2(getindex, 10), sol.u))
-    u1 = reduce(vcat, map(Base.Fix2(getindex, 11), sol.u))
-    u2 = reduce(vcat, map(Base.Fix2(getindex, 12), sol.u))
-    @test sol.u[1][1:2] == u0
-    @test sensitivities(oed, sol)[end] ≈ [0.0224954223439133 -1.2367919565412857; -4.44473522371497 -2.9641449776773956] 
-    F, _ = fisher_information(oed, nothing, opt_p, st)
-    @test F ≈ [38.58695777364362 5.304118558316029; 5.304118558316029 92.03122059902915] 
-    @test sol.t[c1.>0.1] == [0.0, 0.15, 0.25, 0.3, 0.45, 0.5, 0.6, 0.75, 0.9, 1.0, 4.8, 4.95, 5.0, 5.1, 5.25, 5.4, 5.5, 5.55, 5.7, 5.75, 5.85, 6.0, 6.15, 6.25, 6.3, 6.45, 6.5, 6.6, 6.75, 6.9, 7.0, 7.05, 7.2, 7.25, 7.35, 7.5, 7.65, 7.75]
-    @test sol.t[u1.>0.1] == [2.55, 2.7, 2.75, 2.85, 3.0, 3.15, 3.25, 3.3, 3.45, 3.5, 3.6, 3.75, 3.9, 4.0, 4.05, 4.2, 4.25, 4.35, 4.5, 4.65, 4.75, 4.8, 4.95, 5.0, 10.65, 10.75, 10.8, 10.95, 11.0, 11.1, 11.25, 11.4, 11.5, 11.55, 11.7, 11.75, 12.0]
-    @test sol.t[u2.>0.1] == [3.0, 3.15, 3.25, 3.3, 3.45, 3.5, 3.6, 3.75, 3.9, 4.0, 4.05, 4.2, 4.25, 4.35, 4.5, 4.65, 4.75, 4.8, 4.95, 5.0, 5.1, 5.25, 5.4, 10.65, 10.75, 10.8, 10.95, 11.0, 11.1, 11.25, 11.4, 11.5, 11.55, 11.7, 11.75, 12.0]
-end
-

@@ -1,5 +1,5 @@
 function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm;
-  control_indices=Int64[], svd=false,
+  control_indices=Int64[], svd=false, fixed::Bool=false,
   kwargs...)
   sys = Corleone.retrieve_symbol_cache(prob, [])
   states = SymbolicIndexingInterface.variable_symbols(sys)
@@ -25,7 +25,7 @@ function augment_system(mode::Val, prob::SciMLBase.AbstractDEProblem, alg::SciML
   else
     config = derive_sensitivity_equations(prob, alg, config; control_indices, kwargs...)
   end
-  finalize_config(mode, prob, config; control_indices, kwargs...)
+  finalize_config(mode, Val(fixed), prob, config; control_indices, kwargs...)
 end
 
 function symbolify_equations(prob::SciMLBase.AbstractDEProblem, config; kwargs...)
@@ -163,8 +163,8 @@ end
 
 finalize_config(::Any, args...; kwargs...) = throw(ErrorException("The OED cannot be derived based on the given information. This should never happen. Please open up an issue."))
 
-# Just the sensitivities, no weigthing, no
-function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Discrete},Val{:DiscreteSampled}}}
+# Discrete
+function finalize_config(::T, ::Any, prob, config; kwargs...) where {T<:Union{Val{:Discrete},Val{:DiscreteSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
   (; observed_jacobian, observed) = config
@@ -178,9 +178,9 @@ function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Disc
     end
     #G = observed_jacobian * sensitivities
     output_expression = G'G
-  else
+  else # DiscreteSampled
     output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
-      observed_jacobian[i, :] * sensitivities
+      observed_jacobian[i:i, :] * sensitivities
     end)
   end
   config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations,
@@ -192,7 +192,8 @@ function finalize_config(::T, prob, config; kwargs...) where {T<:Union{Val{:Disc
   build_new_system(prob, config; kwargs...)
 end
 
-function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
+# Continuous, non fixed version
+function finalize_config(::T, ::Val{false}, prob, config; control_indices=Int64[], kwargs...) where {T<:Union{Val{:Continuous},Val{:ContinuousSampled}}}
   (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
   (; sensitivities, differential_sensitivities, sensitivity_equations) = config
   (; observed_jacobian, observed) = config
@@ -207,12 +208,12 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
       observed_jacobian[i:i, :] * sensitivities
     end
     output_expression = G'G
-  else
+  else # ContinuousSampled
     w = Symbolics.variables(:w, axes(observed_jacobian, 1))
     w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
     output_expression = sum(enumerate(w)) do (i, wi)
-      Gi = observed_jacobian[i:i, :] * sensitivities
-      w[i] * Gi'Gi
+        Gi = observed_jacobian[i:i, :] * sensitivities
+        w[i] * Gi'Gi
     end
     idx = axes(w, 1) .+ size(parameters, 1)
     append!(parameters, w)
@@ -237,6 +238,40 @@ function finalize_config(::T, prob, config; control_indices=Int64[], kwargs...) 
   build_new_system(prob, config; control_indices, kwargs...)
 end
 
+# Fixed version for ContinuousSampled
+function finalize_config(::T, ::Val{true}, prob, config; control_indices=Int64[], kwargs...) where {T<:Val{:ContinuousSampled}}
+  (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+  (; sensitivities, differential_sensitivities, sensitivity_equations) = config
+  (; observed_jacobian, observed) = config
+  n = size(sensitivities, 2)
+  selector = triu(trues(n, n))
+  F = Symbolics.variables(:F, 1:size(observed_jacobian,1), 1:n, 1:n)
+  F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
+  dF = Symbolics.variables(:dF, 1:size(observed_jacobian,1), 1:n, 1:n)
+  output_expression = reduce(vcat, map(axes(observed_jacobian, 1)) do i
+      ((observed_jacobian[i:i, :] * sensitivities)' * (observed_jacobian[i:i, :] * sensitivities))[selector]
+  end)
+  fisher = [selector[i, j] ? F[k, i, j] : F[k, j, i] for i in 1:n, j in 1:n, k in 1:size(observed_jacobian,1)]
+
+  _F = reduce(vcat, [F[k,:,:][selector] for k in axes(F,1)])
+  _dF = reduce(vcat, [dF[k,:,:][selector] for k in axes(dF,1)])
+  w = Symbolics.variables(:w, axes(observed_jacobian, 1))
+  w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
+  idx = axes(w, 1) .+ size(parameters, 1)
+  append!(parameters, w)
+  append!(control_indices, idx)
+  new_vars = vcat(vars, vec(sensitivities), _F)
+  new_differential_vars = vcat(differential_vars, vec(differential_sensitivities), _dF)
+  new_equations = vcat(equations, vec(sensitivity_equations), output_expression)
+  config = merge(config, (; vars=new_vars, differential_vars=new_differential_vars, equations=new_equations,
+    observed=(;
+      fisher=fisher,
+      sensitivities=sensitivities,
+      observed,
+    )))
+  build_new_system(prob, config; control_indices, kwargs...)
+end
+
 function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwargs...)
   (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
   (; observed_jacobian, observed, sensitivities) = config
@@ -244,7 +279,7 @@ function build_new_system(prob::ODEProblem, config; control_indices=Int64[], kwa
   ex_local = reduce(vcat, map(axes(observed_jacobian, 1)) do i
     G = observed_jacobian[i:i, :] * sensitivities
 	end)
-	observed = merge(observed, (; local_weighted_sensitivity= Num.(ex_local)))
+  observed = merge(observed, (; local_weighted_sensitivity= Num.(ex_local)))
   IIP = SciMLBase.isinplace(prob)
   foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression=Val{false}, cse=true)
   u0 = Symbolics.getdefaultval.(vars)
