@@ -7,7 +7,12 @@ using Optimization
 using SymbolicIndexingInterface
 using Random
 
-function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:SingleShootingLayer},
+n_observed(layer::OEDLayer) = length(layer.sampling_indices)
+n_observed(layer::MultiExperimentLayer{<:Any, <:Any, false}) = layer.n_exp * length(layer.layers.sampling_indices)
+n_observed(layer::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(x->length(x.sampling_indices), layer.layers))
+
+
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, false, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, false, false}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -29,7 +34,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, false, <:
         end
     end
 
-    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
+    @assert length(M) == n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(n_observed(layer)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
@@ -290,6 +295,5 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
         lcons = lcons, ucons = ucons,
     )
 end
-
 
 end
