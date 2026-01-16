@@ -14,7 +14,7 @@ struct MultiExperimentLayer{DISCRETE,FIXED,SPLIT,L,P} <: LuxCore.AbstractLuxLaye
 end
 
 function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE,FIXED,SPLIT}) where {DISCRETE,FIXED,SPLIT}
-    (; n_exp) = oed
+    (; n_exp, params) = oed
     type_color, no_color = SciMLBase.get_colorizers(io)
     measurement_text = DISCRETE ? "discrete " : "continuous "
     layer_text = FIXED ? "Fixed " : ""
@@ -25,8 +25,14 @@ function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE,FIXED,SPLIT}) wher
         type_color, measurement_text,
         no_color, "measurement model and ",
         no_color, n_exp,
-        no_color, " experiments."
+        no_color, " experiments.\n"
     )
+    if SPLIT
+        print(io,
+        no_color, "Considered parameters are split among the experiments:\n")
+        [print(io, "Experiment $i considers parameters: $param." * (i == length(params) ? "" : "\n")
+        ) for (i,param) in enumerate(params)]
+    end
 end
 
 function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, nexp::Int;
@@ -115,10 +121,26 @@ function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, p
     end)
 end
 
+function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
+    n_obs = cumsum(vcat(0, [length(x.sampling_indices)] for x in multi.layers))
+    for (i,layer,field) in zip(1:length(multi.layers),multi.layers,fields)
+        get_sampling_sums!(view(res, n_obs[i]+1:n_obs[i+1]), layer, x, getproperty(ps, field), getproperty(st, field))
+    end
+end
+
+
 function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps,st::NamedTuple{fields}) where {fields}
     reduce(vcat, map(fields) do field
         get_sampling_sums(multi.layers, x, getproperty(ps, field), getproperty(st, field))
     end)
+end
+
+
+function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
+    n_obs = length(multi.layers.sampling_indices)
+    for (i,field) in enumerate(fields)
+        get_sampling_sums!(view(res, (i-1)*n_obs+1:i*n_obs), multi.layers, x, getproperty(ps, field), getproperty(st, field))
+    end
 end
 
 
@@ -136,18 +158,18 @@ end
 
 
 
-get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, true}) = begin
+Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, true}) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
     exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        get_bounds(layer.layers[i])
+        Corleone.get_bounds(layer.layers[i])
     end
     NamedTuple{exp_names}(first.(exp_bounds)), NamedTuple{exp_names}(last.(exp_bounds))
 end
 
-get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, false}) = begin
+Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, false}) = begin
     exp_names = Tuple([Symbol("experiment_$i") for i=1:layer.n_exp])
     exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        get_bounds(layer.layers)
+        Corleone.get_bounds(layer.layers)
     end
     NamedTuple{exp_names}(first.(exp_bounds)), NamedTuple{exp_names}(last.(exp_bounds))
 end
