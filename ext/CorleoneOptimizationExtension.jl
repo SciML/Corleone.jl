@@ -10,22 +10,20 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
         loss::Union{Symbol,Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        p = SciMLBase.NullParameters(),
         integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
         kwargs...) where {T}
 
     u0 = T.(u0)
-    p = !isa(p, SciMLBase.NullParameters) ? T.(p) : p
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     sol, _ = layer(nothing, ps, st)
     getter = SymbolicIndexingInterface.getsym(sol, loss)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter
-        (p, ::Any) -> begin
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter
+        (p, st) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
             last(getter(sols))
@@ -49,8 +47,8 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
             push!(getter_constraints, getsym(sol, k))
         end
 
-        sampling_cons = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
-            (res, p, ::Any) -> begin
+        sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
+            (res, p, st) -> begin
                 ps = ComponentArray(p, ax)
                 sols, _ = layer(nothing, ps, st)
 
@@ -88,7 +86,7 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     opt_f = OptimizationFunction(objective, AD; cons=cons)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], p, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
         lcons = lcons, ucons = ucons,
     )
 end
@@ -97,21 +95,20 @@ end
 function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
         loss::Union{Symbol,Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
-        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))), p = SciMLBase.NullParameters(),
+        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
         integer_constraints::Bool = false,
         constraints = nothing, variable_type::Type{T} = Float64,
         kwargs...) where {T}
 
     u0 = T.(u0)
-    p = !isa(p, SciMLBase.NullParameters) ? T.(p) : p
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     sol, _ = layer(nothing, ps, st)
     getter = SymbolicIndexingInterface.getsym(sol, loss)
 
-    objective = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
-        (p, ::Any) -> begin
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps))
+        (p, st) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
             last(getter(sols))
@@ -130,8 +127,8 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
 
     cons = begin
         if isnothing(constraints)
-            shooting_constraints = let layer = layer, st = st, ax = getaxes(ComponentArray(ps))
-                (res, p, ::Any) -> begin
+            shooting_constraints = let layer = layer, ax = getaxes(ComponentArray(ps))
+                (res, p, st) -> begin
                     ps = ComponentArray(p, ax)
                     sols, _ = layer(nothing, ps, st)
                     Corleone.shooting_constraints!(res, sols)
@@ -144,8 +141,8 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
                 push!(getter_constraints, getsym(sol, k))
             end
 
-            shooting_constraints = let layer = layer, st = st, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
-                (res, p, ::Any) -> begin
+            shooting_constraints = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
+                (res, p, st) -> begin
                     ps = ComponentArray(p, ax)
                     sols, _ = layer(nothing, ps, st)
                     matching = Corleone.shooting_constraints(sols)
@@ -183,7 +180,7 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
         cons = shooting_constraints)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], p, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
         lcons = lcons, ucons = ucons,
     )
 end
