@@ -42,11 +42,11 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, nexp:
     MultiExperimentLayer{DISCRETE, fixed, false, SingleShootingLayer, typeof(layer), typeof(params)}(layer, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::AbstractVector{<:AbstractVector{<:Int}}; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::Vector{Vector{Int64}}; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg; params=param, measurements=measurements, observed=observed, kwargs...)
-    end
+    end |> Tuple
     fixed = all(is_fixed.(layers))
 
     all_params = union(params...)
@@ -63,11 +63,11 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shoot
     MultiExperimentLayer{DISCRETE, false, false, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, params::AbstractVector{<:AbstractVector{<:Int}}=[eachindex(prob.p) for _ in 1:nexp]; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, params::Vector{Vector{Int64}}=[eachindex(prob.p) for _ in 1:nexp]; measurements=[], observed=default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...)
-    end
+    end |> Tuple
     MultiExperimentLayer{DISCRETE, false, true, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
