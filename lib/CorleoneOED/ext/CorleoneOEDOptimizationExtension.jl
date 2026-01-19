@@ -173,7 +173,6 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
                     sols, _ = layer(nothing, ps, st)
                     shooting = Corleone.shooting_constraints(sols)
                     sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-                    @info size(res) size(shooting) size(sampling)
                     res .= vcat(shooting, sampling)
                 end
             end
