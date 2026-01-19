@@ -209,9 +209,9 @@ Computes the block structure as defined by the `MultiExperimentLayer`, which may
 two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
 experiment level.
 """
-function get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, true})
+function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, true})
     blocks = map(layer.layers) do _layer
-        get_block_structure(_layer)
+        Corleone.get_block_structure(_layer)
     end |> Tuple
 
     for i=1:layer.n_exp-1
@@ -222,9 +222,9 @@ function get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, true})
     return block_structure
 end
 
-function get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, false})
+function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, false})
     blocks = map(1:layer.n_exp) do i
-        get_block_structure(layer.layers)
+        Corleone.get_block_structure(layer.layers)
     end |> Tuple
 
     for i=1:layer.n_exp-1
