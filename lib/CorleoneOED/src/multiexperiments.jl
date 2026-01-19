@@ -68,7 +68,13 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shoot
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg, shooting_points...; params=param, measurements=measurements, observed=observed, kwargs...)
     end |> Tuple
-    MultiExperimentLayer{DISCRETE, false, true, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
+    all_params = union(params...)
+    common = sort(all_params)
+    idxmap = Dict(val => i for (i, val) in enumerate(common))
+
+    new_params = (;original=params, all=common, permutation=idxmap)
+
+    MultiExperimentLayer{DISCRETE, false, true, MultipleShootingLayer, typeof(layers), typeof(new_params)}(layers, nexp, new_params)
 end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true})
@@ -78,7 +84,6 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperime
     end)
     return NamedTuple{exp_names}(exp_ps)
 end
-
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multi.n_exp])

@@ -113,52 +113,83 @@ end
 @testset "Multiexperiments" begin
     # Case 1: Experiments for same set of parameters
     num_exp = 2
+    shooting_points = [0.0, 3.0, 6.0, 9.0]
     for discrete in [false, true]
         for split in [false true]
             for fixed in [false, true]
+                for shooting in [false, true]
+                    fixed && shooting && continue
 
-                multi = begin
-                    if split
-                        MultiExperimentLayer{discrete}(prob, Tsit5(), [[2,3],[3]];
-                                    bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
-                                    controls = fixed ? [] : (1 => control, ),
-                                    measurements=[
-                                        ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
-                                        ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
-                                    ],
-                                    observed=(u, p, t) -> u[1:2])
-                    else
-                        MultiExperimentLayer{discrete}(prob, Tsit5(), num_exp;
-                                    params = [2,3],
-                                    bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
-                                    controls = fixed ? [] : (1 => control, ),
-                                    measurements=[
-                                        ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
-                                        ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
-                                    ],
-                                    observed=(u, p, t) -> u[1:2])
+                    multi = begin
+                        if split
+                            if shooting
+                                MultiExperimentLayer{discrete}(prob, Tsit5(), shooting_points, [[2,3],[3]];
+                                        bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
+                                        controls = fixed ? [] : (1 => control, ),
+                                        measurements=[
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                        ],
+                                        observed=(u, p, t) -> u[1:2])
+                            else
+                                MultiExperimentLayer{discrete}(prob, Tsit5(), [[2,3],[3]];
+                                        bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
+                                        controls = fixed ? [] : (1 => control, ),
+                                        measurements=[
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                        ],
+                                        observed=(u, p, t) -> u[1:2])
+                            end
+                        else
+                            if shooting
+                                MultiExperimentLayer{discrete}(prob, Tsit5(), shooting_points, num_exp;
+                                        params = [2,3],
+                                        bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
+                                        controls = fixed ? [] : (1 => control, ),
+                                        measurements=[
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                        ],
+                                        observed=(u, p, t) -> u[1:2])
+                            else
+                                MultiExperimentLayer{discrete}(prob, Tsit5(), num_exp;
+                                        params = [2,3],
+                                        bounds_p= fixed ? ([0.0, 1.0, 1.0], [0.0, 1.0, 1.0]) : ([1.0, 1.0], [1.0, 1.0]),
+                                        controls = fixed ? [] : (1 => control, ),
+                                        measurements=[
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                            ControlParameter(collect(0.0:0.25:11.75), controls=ones(48), bounds=(0.0, 1.0)),
+                                        ],
+                                        observed=(u, p, t) -> u[1:2])
+                            end
+                        end
+                    end
+                    ps, st = LuxCore.setup(StableRNG(1), multi)
+                    sol, _ = multi(nothing, ps, st)
+                    if !shooting
+                        @test_nowarn @inferred multi(nothing, ps, st)
+                        @test_nowarn @inferred CorleoneOED.fisher_information(multi, nothing, ps, st)
+                    end
+                    if fixed
+                        @test CorleoneOED.__fisher_information(multi, sol, ps, st) == first(CorleoneOED.fisher_information(multi, nothing, ps, st))
+                    end
+
+                    if !shooting
+                        res = zeros(2*num_exp)
+                        @test_nowarn @inferred CorleoneOED.get_sampling_sums(multi, nothing, ps, st)
+                        @test_nowarn @inferred CorleoneOED.get_sampling_sums!(res, multi, nothing, ps, st)
+                        @test res == (discrete ? [48.0, 48.0, 48.0, 48.0] : [12.0, 12.0, 12.0, 12.0])
+
+                        lb, ub = Corleone.get_bounds(multi) .|> ComponentArray
+                        @test lb[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), zeros(fixed ? 2 * 48 : 3*48)), num_exp)
+                        @test ub[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), ones(fixed ? 2 * 48 : 3*48)), num_exp)
+
+                        blocks = Corleone.get_block_structure(multi)
+
+                        @test blocks == (!fixed ? vcat(0, cumsum([2 + 48 * 3 for _ in 1:num_exp])) :  vcat(0, cumsum([3 + 48 * 2 for _ in 1:num_exp])))
                     end
                 end
-                ps, st = LuxCore.setup(StableRNG(1), multi)
-                sol, _ = multi(nothing, ps, st)
-                @test_nowarn @inferred multi(nothing, ps, st)
-                if fixed
-                    @test CorleoneOED.__fisher_information(multi, sol, ps, st) == first(CorleoneOED.fisher_information(multi, nothing, ps, st))
-                end
-                @test_nowarn @inferred CorleoneOED.fisher_information(multi, nothing, ps, st)
-
-                res = zeros(2*num_exp)
-                @test_nowarn @inferred CorleoneOED.get_sampling_sums(multi, nothing, ps, st)
-                @test_nowarn @inferred CorleoneOED.get_sampling_sums!(res, multi, nothing, ps, st)
-                @test res == (discrete ? [48.0, 48.0, 48.0, 48.0] : [12.0, 12.0, 12.0, 12.0])
-
-                lb, ub = Corleone.get_bounds(multi) .|> ComponentArray
-                @test lb[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), zeros(fixed ? 2 * 48 : 3*48)), num_exp)
-                @test ub[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), ones(fixed ? 2 * 48 : 3*48)), num_exp)
-
-                blocks = Corleone.get_block_structure(multi)
-
-                @test blocks == (!fixed ? vcat(0, cumsum([2 + 48 * 3 for _ in 1:num_exp])) :  vcat(0, cumsum([3 + 48 * 2 for _ in 1:num_exp])))
             end
         end
     end
