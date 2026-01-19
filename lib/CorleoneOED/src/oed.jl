@@ -230,7 +230,6 @@ function __fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLa
     return [Gs[nc[i]+1:nc[i+1]] for i in 1:size(nc,1)-1]
 end
 
-
 function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory, ps, st::NamedTuple)
     (; controls) = ps
     (; active_controls) = st
@@ -268,6 +267,12 @@ fisher_information(oed::OEDLayer{true,true,false,<:SingleShootingLayer}, x, ps, 
     observation_grid(ps.controls, Gs), st
 end
 
+# FIXED DISCRETE and SAMPLING -> use helper function
+fisher_information(oed::OEDLayer{true,true,true}, x, ps, st::NamedTuple) = begin
+    traj, st = oed(x, ps, st)
+    __fisher_information(oed, traj, ps, st), st
+end
+
 fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     Gs = __fisher_information(oed, traj, ps, st)
@@ -277,7 +282,6 @@ fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLayer}, x, ps
     end), st
 
 end
-
 
 # DISCRETE -> SUM
 fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin

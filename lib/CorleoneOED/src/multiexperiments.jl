@@ -176,7 +176,6 @@ function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, 
     fim = map(enumerate(fields)) do (i,field)
         fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))[1]
     end
-
     np = length(multi.params.all)
     F = zeros(eltype(fim[1]), (np, np))
     for (i,fimi) in enumerate(fim)

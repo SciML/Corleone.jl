@@ -117,9 +117,6 @@ end
         for split in [false true]
             for fixed in [false, true]
 
-                if discrete & split
-                    continue
-                end
                 multi = begin
                     if split
                         MultiExperimentLayer{discrete}(prob, Tsit5(), [[2,3],[3]];
