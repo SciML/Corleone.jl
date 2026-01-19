@@ -121,15 +121,15 @@ function (layer::MultiExperimentLayer{<:Any, <:Any, true})(x, ps, st)
 end
 
 function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
-    reduce(vcat, map(zip(multi.layers,fields)) do (layer,field)
-        get_sampling_sums(layer, x, getproperty(ps, field), getproperty(st, field))
+    reduce(vcat, map(enumerate(fields)) do (i,field)
+        get_sampling_sums(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))
     end)
 end
 
 function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
     n_obs = cumsum(vcat(0, [length(x.sampling_indices) for x in multi.layers]))
-    for (i,layer,field) in zip(1:length(multi.layers),multi.layers,fields)
-        get_sampling_sums!(view(res, n_obs[i]+1:n_obs[i+1]), layer, x, getproperty(ps, field), getproperty(st, field))
+    for (i,field) in zip(1:length(multi.layers),fields)
+        get_sampling_sums!(view(res, n_obs[i]+1:n_obs[i+1]), multi.layers[i], x, getproperty(ps, field), getproperty(st, field))
     end
 end
 
