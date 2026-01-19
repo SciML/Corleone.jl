@@ -207,7 +207,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
 end
 
 
-function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
+function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, true},MultiExperimentLayer{<:Any,true}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
@@ -222,7 +222,14 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     p = ComponentArray(ps)
-    p.controls .= 1.0 # Solve initial system with all ones for sampling
+    if isa(layer, OEDLayer)
+        p.controls .= 1.0 # Solve initial system with all ones for sampling
+    else # MultiExperiments
+        for field in keys(st)
+            p[field].controls .= 1.0
+        end
+    end
+
     sol, _ = layer(nothing, p, st)
 
     objective = let layer = layer, ax = getaxes(ComponentArray(ps)), sol=sol
@@ -232,7 +239,7 @@ function Optimization.OptimizationProblem(layer::OEDLayer{<:Any, true, true},
         end
     end
 
-    @assert length(M) == length(layer.sampling_indices) "Dimensions of upper bound on sampling constraints do not match, expected $(length(layer.sampling_indices)), got $(length(M))."
+    @assert length(M) == n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(n_observed(layer)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray

@@ -94,13 +94,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLa
     return NamedTuple{exp_names}(exp_ps)
 end
 
-
 function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})
     exp_names = Tuple([Symbol("experiment_$i") for i=1:multi.n_exp])
     exp_ps = Tuple([LuxCore.initialstates(rng, multi.layers) for _ in 1:multi.n_exp])
     return NamedTuple{exp_names}(exp_ps)
 end
-
 
 function (layer::MultiExperimentLayer{<:Any, <:Any, false})(x, ps, st)
     sols = map(1:layer.n_exp) do i
@@ -133,13 +131,11 @@ function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:A
     end
 end
 
-
 function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps,st::NamedTuple{fields}) where {fields}
     reduce(vcat, map(fields) do field
         get_sampling_sums(multi.layers, x, getproperty(ps, field), getproperty(st, field))
     end)
 end
-
 
 function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
     n_obs = length(multi.layers.sampling_indices)
@@ -148,6 +144,27 @@ function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:A
     end
 end
 
+function __fisher_information(multi::MultiExperimentLayer{<:Any, true, false}, trajs::Vector{<:Trajectory}, ps, st::NamedTuple{fields}) where {fields}
+    sum(map(zip(trajs,fields)) do (traj, field)
+        __fisher_information(multi.layers, traj, getproperty(ps, field), getproperty(st, field))
+    end)
+end
+
+function __fisher_information(multi::MultiExperimentLayer{<:Any, true, true}, trajs::Vector{<:Trajectory}, ps, st::NamedTuple{fields}) where {fields}
+    fims = map(zip(enumerate(trajs),fields)) do ((i,traj), field)
+        __fisher_information(multi.layers[i], traj, getproperty(ps, field), getproperty(st, field))
+    end
+
+    np = length(multi.params.all)
+    F = zeros(eltype(fims[1]), (np, np))
+
+    for (i,fim) in enumerate(fims)
+        idxs = [multi.params.permutation[j] for j in multi.params.original[i]]
+        F[idxs, idxs] .+= fim
+    end
+
+    F
+end
 
 function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
     sum(map(fields) do field
