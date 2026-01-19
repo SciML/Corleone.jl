@@ -155,6 +155,10 @@ end
                 lb, ub = Corleone.get_bounds(multi) .|> ComponentArray
                 @test lb[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), zeros(fixed ? 2 * 48 : 3*48)), num_exp)
                 @test ub[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), ones(fixed ? 2 * 48 : 3*48)), num_exp)
+
+                blocks = Corleone.get_block_structure(multi)
+
+                @test blocks == (!fixed ? vcat(0, cumsum([2 + 48 * 3 for _ in 1:num_exp])) :  vcat(0, cumsum([3 + 48 * 2 for _ in 1:num_exp])))
             end
         end
     end
