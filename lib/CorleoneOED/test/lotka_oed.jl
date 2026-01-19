@@ -142,15 +142,19 @@ end
                 ps, st = LuxCore.setup(StableRNG(1), multi)
                 sol, _ = multi(nothing, ps, st)
                 @test_nowarn @inferred multi(nothing, ps, st)
-                #if fixed
-                #    @test_nowarn @inferred CorleoneOED.__fisher_information(multi, sol, ps, st)
-                #end
+                if fixed
+                    @test CorleoneOED.__fisher_information(multi, sol, ps, st) == first(CorleoneOED.fisher_information(multi, nothing, ps, st))
+                end
                 @test_nowarn @inferred CorleoneOED.fisher_information(multi, nothing, ps, st)
 
                 res = zeros(2*num_exp)
                 @test_nowarn @inferred CorleoneOED.get_sampling_sums(multi, nothing, ps, st)
                 @test_nowarn @inferred CorleoneOED.get_sampling_sums!(res, multi, nothing, ps, st)
                 @test res == (discrete ? [48.0, 48.0, 48.0, 48.0] : [12.0, 12.0, 12.0, 12.0])
+
+                lb, ub = Corleone.get_bounds(multi) .|> ComponentArray
+                @test lb[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), zeros(fixed ? 2 * 48 : 3*48)), num_exp)
+                @test ub[:] == repeat(vcat(fixed ? 0.0 : [], ones(2), ones(fixed ? 2 * 48 : 3*48)), num_exp)
             end
         end
     end
