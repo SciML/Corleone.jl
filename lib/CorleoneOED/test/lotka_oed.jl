@@ -167,10 +167,9 @@ end
                     end
                     ps, st = LuxCore.setup(StableRNG(1), multi)
                     sol, _ = multi(nothing, ps, st)
-                    if !shooting
-                        @test_nowarn @inferred multi(nothing, ps, st)
-                        @test_nowarn @inferred CorleoneOED.fisher_information(multi, nothing, ps, st)
-                    end
+
+                    @test_nowarn @inferred first(multi(nothing, ps, st))
+                    @test_nowarn @inferred first(CorleoneOED.fisher_information(multi, nothing, ps, st))
                     if fixed
                         @test CorleoneOED.__fisher_information(multi, sol, ps, st) == first(CorleoneOED.fisher_information(multi, nothing, ps, st))
                     end
