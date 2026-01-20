@@ -138,21 +138,6 @@ function shooting_constraints(traj::Trajectory)
     return reduce(vcat, shooting_violations(traj))
 end
 
-function shooting_constraints(trajs::AbstractVector{<:Trajectory})
-    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
-end
-
-function shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
-    i = 0
-    for traj in trajs
-        for subvec in traj.shooting, j in eachindex(subvec)
-            i += 1
-            res[i] = subvec[j]
-        end
-    end
-    return res
-end
-
 function shooting_constraints!(res::AbstractVector, traj::Trajectory)
     i = 0
     for subvec in traj.shooting, j in eachindex(subvec)
@@ -185,30 +170,4 @@ function get_bounds(mslayer::MultipleShootingLayer)
         get_bounds(layer; tspan=tspan, shooting=i > 1)
     end
     return NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
-end
-
-"""
-    merge_ms_controls(layer)
-
-Merges corresponding control definitions of the several `SingleShootingLayer` layers
-collected in the `MultipleShootingLayer` into one control definition.
-"""
-function merge_ms_controls(layer::MultipleShootingLayer)
-    nc = length(layer.layers[1].controls)
-
-    map(1:nc) do i
-        defs_control = map(layer.layers) do _l
-            ci = _l.controls[i]
-
-            (get_timegrid(ci), get_controls(Random.default_rng(), ci), get_bounds(ci))
-        end
-        name = first(layer.layers).controls[i].name
-        new_timegrid = reduce(vcat, first.(defs_control))
-        new_controls = reduce(vcat, [x[2] for x in defs_control])
-        new_bounds = (
-            reduce(vcat, first.(last.(defs_control))),
-            reduce(vcat, last.(last.(defs_control))),
-        )
-        ControlParameter(new_timegrid; name=name, controls=new_controls, bounds=new_bounds)
-    end
 end

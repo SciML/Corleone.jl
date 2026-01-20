@@ -238,3 +238,18 @@ function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, 
 
     return block_structure
 end
+
+function Corleone.shooting_constraints(trajs::AbstractVector{<:Trajectory})
+    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
+end
+
+function Corleone.shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
+    i = 0
+    for traj in trajs
+        for subvec in traj.shooting, j in eachindex(subvec)
+            i += 1
+            res[i] = subvec[j]
+        end
+    end
+    return res
+end
