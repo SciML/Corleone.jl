@@ -189,6 +189,9 @@ end
 
                         @test blocks == (!fixed ? vcat(0, cumsum([2 + 48 * 3 for _ in 1:num_exp])) :  vcat(0, cumsum([3 + 48 * 2 for _ in 1:num_exp])))
                     end
+
+                    max_meas = discrete ? 12.0 * ones(2 * num_exp) : 4.0 * ones(2 * num_exp)
+                    @test_nowarn OptimizationProblem(multi, ACriterion(); M = max_meas)
                 end
             end
         end
