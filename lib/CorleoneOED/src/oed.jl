@@ -32,8 +32,7 @@ struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:
     sampling_indices::Vector{Int64}
 end
 
-is_fixed(oed::OEDLayer{<:Any, <:Any, true}) = true
-is_fixed(oed::OEDLayer{<:Any, <:Any, false}) = false
+is_fixed(oed::OEDLayer{<:Any,<:Any,T}) where T = T
 
 function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRETE,SAMPLED,FIXED}
     (; layer, observed, sampling_indices) = oed
