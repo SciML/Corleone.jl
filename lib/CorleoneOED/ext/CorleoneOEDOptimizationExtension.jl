@@ -246,7 +246,6 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
@@ -271,9 +270,6 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
 
-    # No integers
-    integrality = Bool.(u0 * 0)
-
     # Constraints
     cons = setup_constraints(layer, sol, constraints)
     lcons, ucons = extract_constraint_bounds(layer, constraints, M)
@@ -282,7 +278,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
     opt_f = OptimizationFunction(objective, AD; cons=cons)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end
@@ -291,7 +287,6 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, tru
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
@@ -326,9 +321,6 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, tru
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
 
-    # No integers
-    integrality = Bool.(u0 * 0)
-
     # Constraints
     cons = setup_constraints(layer, sol, constraints)
     lcons, ucons = extract_constraint_bounds(layer, constraints, M)
@@ -337,7 +329,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, tru
     opt_f = OptimizationFunction(objective, AD; cons=cons)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end
