@@ -47,23 +47,19 @@ end
 function extract_constraint_bounds(layer::MultiExperimentLayer, constraints::NamedTuple{fields}, M) where {fields}
     nshooting = Corleone.get_number_of_shooting_constraints(layer)
     lcons, ucons = begin
-        if isnothing(constraints)
-            zeros(nshooting+length(M)), vcat(zeros(nshooting),M)
-        else
-            _lb = reduce(vcat, map(fields) do field
-                local_constraint = getproperty(constraints, field)
-                reduce(vcat, map(enumerate(local_constraint)) do (i, (k,v))
-                    first(v.bounds)
-                end)
+        _lb = reduce(vcat, map(fields) do field
+            local_constraint = getproperty(constraints, field)
+            reduce(vcat, map(enumerate(local_constraint)) do (i, (k,v))
+                first(v.bounds)
             end)
-            _ub = reduce(vcat, map(fields) do field
-                local_constraint = getproperty(constraints, field)
-                reduce(vcat, map(enumerate(local_constraint)) do (i, (k,v))
-                    last(v.bounds)
-                end)
+        end)
+        _ub = reduce(vcat, map(fields) do field
+            local_constraint = getproperty(constraints, field)
+            reduce(vcat, map(enumerate(local_constraint)) do (i, (k,v))
+                last(v.bounds)
             end)
-            vcat(_lb, zeros(nshooting), zero(M)), vcat(_ub, zeros(nshooting), M)
-        end
+        end)
+        vcat(_lb, zeros(nshooting), zero(M)), vcat(_ub, zeros(nshooting), M)
     end
     return lcons, ucons
 end
@@ -156,23 +152,30 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Si
     return sampling_cons
 end
 
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}, sols, constraints::NamedTuple{fields}) where {fields}
+function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}, sols, constraints::NamedTuple)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     getter_constraints = []
-    for (i,field) in enumerate(fields)
-        local_constraints = getproperty(constraints, field)
-        push!(getter_constraints, map(local_constraints) do (k,v)
-            getsym(sols[i], k)
-        end)
+    constrained_experiments = Int64[]
+    for i in 1:layer.n_exp
+        field = Symbol("experiment_$i")
+        if hasproperty(constraints, field)
+            local_constraints = getproperty(constraints, field)
+            push!(getter_constraints, map(local_constraints) do (k,v)
+                getsym(sols[i], k)
+            end)
+            push!(constrained_experiments, i)
+        else
+            push!(getter_constraints, [])
+        end
     end
 
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), fields=fields, getter=getter_constraints, constraints=constraints
+    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints, idxs=constrained_experiments
         (res, p, st) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
             sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            cons = map(enumerate(fields)) do (i,field)
-                local_constraints = getproperty(constraints, field)
+            cons = map(constrained_experiments) do i
+                local_constraints = getproperty(constraints, Symbol("experiment_$i"))
                 reduce(vcat, map(zip(local_constraints,getter[i])) do ((k,v), getter_i)
                     # Caution: timepoints for controls need to be in sols.t!
                     idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
@@ -200,24 +203,31 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Mu
     return sampling_cons
 end
 
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}, sols, constraints::NamedTuple{fields}) where {fields}
+function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}, sols, constraints::NamedTuple)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     getter_constraints = []
-    for (i,field) in enumerate(fields)
-        local_constraints = getproperty(constraints, field)
-        push!(getter_constraints, map(local_constraints) do (k,v)
-            getsym(sols[i], k)
-        end)
+    constrained_experiments = Int64[]
+    for i in 1:layer.n_exp
+        field = Symbol("experiment_$i")
+        if hasproperty(constraints, field)
+            local_constraints = getproperty(constraints, field)
+            push!(getter_constraints, map(local_constraints) do (k,v)
+                getsym(sols[i], k)
+            end)
+            push!(constrained_experiments, i)
+        else
+            push!(getter_constraints, [])
+        end
     end
 
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), fields=fields, getter=getter_constraints, constraints=constraints
+    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints, idxs=constrained_experiments
         (res, p, st) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
             sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
             shooting = Corleone.shooting_constraints(sols)
-            cons = map(enumerate(fields)) do (i,field)
-                local_constraints = getproperty(constraints, field)
+            cons = map(constrained_experiments) do i
+                local_constraints = getproperty(constraints, Symbol("experiment_$i"))
                 reduce(vcat, map(zip(local_constraints,getter[i])) do ((k,v), getter_i)
                     # Caution: timepoints for controls need to be in sols.t!
                     idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
