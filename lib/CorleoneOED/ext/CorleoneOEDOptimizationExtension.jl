@@ -160,9 +160,7 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Si
         field = Symbol("experiment_$i")
         if hasproperty(constraints, field)
             local_constraints = getproperty(constraints, field)
-            push!(getter_constraints, map(local_constraints) do (k,v)
-                getsym(sols[i], k)
-            end)
+            push!(getter_constraints, [getsym(sols[i], k) for (k,v) in local_constraints])
             push!(constrained_experiments, i)
         else
             push!(getter_constraints, [])
@@ -176,9 +174,9 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Si
             sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
             cons = map(constrained_experiments) do i
                 local_constraints = getproperty(constraints, Symbol("experiment_$i"))
-                reduce(vcat, map(zip(local_constraints,getter[i])) do ((k,v), getter_i)
+                reduce(vcat, map(zip(local_constraints, getter[i])) do ((k,v), getter_i)
                     # Caution: timepoints for controls need to be in sols.t!
-                    idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
+                    idxs = map(ti -> findfirst(x -> x .== ti , sols[i].t), v.t)
                     getter_i(sols[i])[idxs]
                 end)
             end
@@ -211,9 +209,7 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Mu
         field = Symbol("experiment_$i")
         if hasproperty(constraints, field)
             local_constraints = getproperty(constraints, field)
-            push!(getter_constraints, map(local_constraints) do (k,v)
-                getsym(sols[i], k)
-            end)
+            push!(getter_constraints, [getsym(sols[i], k) for (k,v) in local_constraints])
             push!(constrained_experiments, i)
         else
             push!(getter_constraints, [])
@@ -230,7 +226,7 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Mu
                 local_constraints = getproperty(constraints, Symbol("experiment_$i"))
                 reduce(vcat, map(zip(local_constraints,getter[i])) do ((k,v), getter_i)
                     # Caution: timepoints for controls need to be in sols.t!
-                    idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
+                    idxs = map(ti -> findfirst(x -> x .== ti , sols[i].t), v.t)
                     getter_i(sols[i])[idxs]
                 end)
             end
@@ -246,7 +242,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
+        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}, <:NamedTuple} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
         kwargs...) where {T}
@@ -287,7 +283,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, tru
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
+        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}, <:NamedTuple} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
         kwargs...) where {T}
