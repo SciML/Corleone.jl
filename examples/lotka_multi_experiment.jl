@@ -91,7 +91,7 @@ multi = MultiExperimentLayer{false}(prob, Tsit5(), 2; #[[2,3],[3]];
 )
 
 # Or one experiment for each parameter (or combinations)
-multi = MultiExperimentLayer{false}(prob, Tsit5(), [[2],[3]];
+multi = MultiExperimentLayer{false}(prob, Tsit5(), [[2,3],[3]];
     bounds_p=([1.0, 1.0], [1.0, 1.0]),
     controls = (1 => control, ),
     measurements=[
@@ -124,8 +124,8 @@ for i = 1:multi.n_exp
     ax2 = CairoMakie.Axis(f[3,i], xticks=0:2:12)
     ax3 = CairoMakie.Axis(f[4,i], xticks=0:2:12, limits=(nothing, (-0.05,1.05)))
     plot!(ax, optsol[i], idxs=[1,2])
-    plot!(ax1, optsol[i], idxs=collect(values(optsol[1].sys.variables))[startswith.(string.(keys(optsol[1].sys.variables)), "G")])
-    plot!(ax2, optsol[i], idxs=collect(values(optsol[1].sys.variables))[startswith.(string.(keys(optsol[1].sys.variables)), "F")])
+    plot!(ax1, optsol[i], idxs=collect(values(optsol[i].sys.variables))[startswith.(string.(keys(optsol[i].sys.variables)), "G")])
+    plot!(ax2, optsol[i], idxs=collect(values(optsol[i].sys.variables))[startswith.(string.(keys(optsol[i].sys.variables)), "F")])
     stairs!(ax, optsol[i], vars=[:p₁], color=:black)
     stairs!(ax3, optsol[i], vars=[:w₁, :w₂])
 end
