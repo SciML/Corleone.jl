@@ -33,6 +33,8 @@ struct SingleShootingLayer{P,A,C,B,PB,SI,PI} <: LuxCore.AbstractLuxLayer
     bounds_p::PB
     "Initialization of p"
     parameter_initialization::PI
+    "Indices of differential states that are quadratures, i.e. they do not enter into the right hand side of `problem`"
+    quadrature_indices::Vector{Int64}
 end
 
 function default_u0(
@@ -94,6 +96,7 @@ function SingleShootingLayer(
     state_initialization=default_u0,
     bounds_p=nothing,
     parameter_initialization=default_p0,
+    quadrature_indices = Int64[],
     kwargs...,
 )
     _prob = init_problem(remake(prob; kwargs...), alg)
@@ -106,10 +109,12 @@ function SingleShootingLayer(
     p_vec = p_vec[tunable_p]
     ic_bounds = isnothing(bounds_ic) ? (to_val(u0, -Inf), to_val(u0, Inf)) : bounds_ic
     p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
-
+    quadrature_indices = isempty(quadrature_indices) ? Int64[] : collect(quadrature_indices)
+    
     @assert size(ic_bounds[1]) == size(ic_bounds[2]) == size(u0) "The size of the initial states and its bounds is inconsistent."
     @assert size(p_bounds[1]) == size(p_bounds[2]) == size(p_vec) "The size of the initial parameter vector and its bounds is inconsistent."
-
+    @assert all(checkbounds(Bool, u0, quadrature_index) for quadrature_index in quadrature_indices) "Some quadrature indices are inconsistent with the state dimension"
+    
     return SingleShootingLayer(
         _prob,
         alg,
@@ -121,6 +126,7 @@ function SingleShootingLayer(
         tunable_p,
         p_bounds,
         parameter_initialization,
+        quadrature_indices
     )
 end
 
@@ -134,10 +140,12 @@ end
 function __get_tunable_p(layer::SingleShootingLayer)
     return first(SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p))
 end
+get_quadrature_indices(layer::SingleShootingLayer) = layer.quadrature_indices
 
 function get_bounds(layer::SingleShootingLayer; shooting=false, kwargs...)
-    (; bounds_ic, bounds_p, controls, tunable_ic) = layer
-    bounds_ic = shooting ? bounds_ic : map(Base.Fix2(getindex, tunable_ic), bounds_ic)
+    (; bounds_ic, bounds_p, controls, tunable_ic, quadrature_indices) = layer
+    state_indices = setdiff(eachindex(first(bounds_ic)), quadrature_indices)
+    bounds_ic = shooting ? map(Base.Fix2(getindex, state_indices), bounds_ic) : map(Base.Fix2(getindex, tunable_ic), bounds_ic)
     if !isempty(controls)
         control_lb, control_ub = collect_local_control_bounds(controls...; tspan = layer.problem.tspan, kwargs...)
     else
@@ -175,11 +183,12 @@ function __initialparameters(
         bounds_p,
         tunable_p,
         control_indices,
+        quadrature_indices,
     ) = layer
     problem = remake(problem; tspan, u0)
     return (;
         u0=state_initialization(
-            rng, problem, shooting_layer ? eachindex(u0) : tunable_ic, bounds_ic
+            rng, problem, shooting_layer ? setdiff(eachindex(u0), quadrature_indices) : tunable_ic, bounds_ic
         ),
         p=parameter_initialization(rng, problem, tunable_p, bounds_p),
         controls=if isempty(layer.controls)
@@ -194,7 +203,7 @@ function __parameterlength(
     layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...
 )
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
-    N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
+    N = shooting_layer ? prod(size(layer.problem.u0)) - length(layer.quadrature_indices) : size(layer.tunable_ic, 1)
     N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
     if !isempty(layer.controls)
         N += sum(layer.controls) do control
@@ -258,6 +267,8 @@ function (ic::InitialConditionRemaker)(::Any, u0::AbstractArray)
     return u0
 end
 
+statelength(ic::InitialConditionRemaker) = length(ic.sorting)
+
 function __initialstates(
     rng::Random.AbstractRNG,
     layer::SingleShootingLayer;
@@ -265,7 +276,7 @@ function __initialstates(
     shooting_layer=false,
     kwargs...,
 )
-    (; tunable_ic, control_indices, problem, controls) = layer
+    (; tunable_ic, control_indices, problem, controls, quadrature_indices) = layer
     (; u0) = problem
 
     initial_condition = if !shooting_layer
@@ -321,7 +332,7 @@ function __initialstates(
     end
     shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
     if shooting_layer
-        shooting_indices[eachindex(u0)] .= true
+        shooting_indices[setdiff(eachindex(u0), quadrature_indices)] .= true
         for (i, c) in enumerate(controls)
             shooting_indices[lastindex(u0) + i] = !find_shooting_indices(first(tspans), c)
         end

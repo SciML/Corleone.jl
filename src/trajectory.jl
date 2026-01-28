@@ -6,7 +6,7 @@ $(FIELDS)
 # Note 
 If present, `shooting_points` contains a list of `Tuple`s `(timeseries_index, last_shooting_point)`.  
 """
-struct Trajectory{S,U,P,T}
+struct Trajectory{S,U,P,T,SH}
     "The symbolic system used for SymbolicIndexingInterface"
     sys::S
     "The state trajectory"
@@ -16,7 +16,7 @@ struct Trajectory{S,U,P,T}
     "The timepoints"
     t::T
     "The shooting values"
-    shooting::U
+    shooting::SH
     "The shooting indices"
     shooting_indices::Vector{Int64}
 end
