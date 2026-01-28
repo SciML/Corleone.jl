@@ -282,16 +282,13 @@ function __initialstates(
     initial_condition = if !shooting_layer
         constant_ics = setdiff(eachindex(u0), tunable_ic)
         sorting = sortperm(vcat(constant_ics, tunable_ic))
-        shape = size(u0)
         constants = constant_ics
         InitialConditionRemaker(sorting, constants)
     else
-        constant_ics = Int64[]
-        tunable_ic = eachindex(u0)
-        sorting = sortperm(vcat(constant_ics, tunable_ic))
-        shape = size(u0)
-        constants = constant_ics
-        InitialConditionRemaker(sorting, constants)
+        constant_ic = quadrature_indices
+        tunables = setdiff(eachindex(u0), constant_ic)
+        sorting = sortperm(vcat(constant_ic, tunables))
+        InitialConditionRemaker(sorting, constant_ic)
     end
     # Setup the parameters
     p_vec, repack, _ = SciMLStructures.canonicalize(
@@ -353,9 +350,10 @@ end
 find_active_controls(grid::AbstractArray) = map(unique, eachrow(grid))
 find_active_controls(grid::Tuple) = unique!(reduce(vcat, map(find_active_controls, grid)))
 
-function (layer::SingleShootingLayer)(::Any, ps, st)
+function (layer::SingleShootingLayer)(::Any, ps, st, shooting_layer=false)
     (; initial_condition) = st
-    u0 = initial_condition(ps.u0, layer.problem.u0)
+    fixval = shooting_layer ? zeros(statelength(initial_condition)) : layer.problem.u0
+    u0 = initial_condition(ps.u0, fixval)
     return layer(u0, ps, st)
 end
 

@@ -88,18 +88,18 @@ uopt = solve(optprob, Ipopt.Optimizer(),
 
 blocks = Corleone.get_block_structure(mslayer)
 
-# using blockSQP
-# opt_BSQP_sparse = blockSQP.sparse_options()
-# # Activate adaptive temination
-# opt_BSQP_sparse.enable_premature_termination = true
-# opt_BSQP_sparse.max_extra_steps = 10
+using blockSQP
+opt_BSQP_sparse = blockSQP.sparse_options()
+# Activate adaptive temination
+opt_BSQP_sparse.enable_premature_termination = true
+opt_BSQP_sparse.max_extra_steps = 10
 
-# uopt = solve(optprob, BlockSQPOpt(),
-#     opttol = 1e-6,
-#     options = opt_BSQP_sparse,
-#     sparsity = blocks,
-#     maxiters = 300
-# )
+uopt = solve(optprob, BlockSQPOpt(),
+    opttol = 1e-6,
+    options = opt_BSQP_sparse,
+    sparsity = blocks,
+    maxiters = 300
+)
 
 mssol, _ = mslayer(nothing, uopt + zero(msp), msst)
 

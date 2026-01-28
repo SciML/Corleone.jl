@@ -12,7 +12,7 @@ using Optimization
 using OptimizationMOI
 using Ipopt
 using blockSQP
-using SymbolicIndexingInterface
+# using SymbolicIndexingInterface
 
 function lotka_dynamics(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]

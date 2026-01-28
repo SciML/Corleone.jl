@@ -97,32 +97,23 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShooti
     return NamedTuple{names}(vals)
 end
 
-
-function add_initial_quadratures(ps, sts::NamedTuple{fields}, quadrature_indices) where {fields}
-    isempty(quadrature_indices) && return ps, sts
-    
-    let nx = statelength(first(sts).initial_condition), state_indices = setdiff(Base.OneTo(nx), quadrature_indices)
-        return NamedTuple{(keys(ps)...,)}(
-            (ps[first(keys(ps))],
-            ((_p = ps[key];
-                (u0 = (_u0 = zeros(eltype(_p.u0),nx); _u0[state_indices] = _p.u0; _u0),
-                 p = _p.p,
-                 controls = _p.controls
-                 )
-              ) for key in Base.tail(keys(ps))
-             )...,)), sts
-    end
+function _parallel_solve(
+    shooting::MultipleShootingLayer,
+    u0,
+    ps,
+    st::NamedTuple{fields},
+) where {fields}
+    args = collect(ntuple(
+        i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i]), i > 1), length(st)
+    ))
+    return mythreadmap(shooting.ensemble_alg, Base.Splat(shooting.layer), args)
 end
 
 function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where {fields}
-    (; layer, ensemble_alg) = shooting
-    quadrature_indices = get_quadrature_indices(shooting)
-    
-    ps, st = add_initial_quadratures(ps, st, quadrature_indices)
-    ret = Corleone._parallel_solve(ensemble_alg, layer, u0, ps, st)
+    ret = Corleone._parallel_solve(shooting, u0, ps, st)
     u = first.(ret)
     sts = NamedTuple{fields}(last.(ret))
-    return Trajectory(u, sts, quadrature_indices), sts
+    return Trajectory(u, sts, get_quadrature_indices(shooting)), sts
 end
 
 function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where TR <: Trajectory
