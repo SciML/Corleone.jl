@@ -3,8 +3,6 @@ module CorleoneOEDZygoteExtension
 using CorleoneOED
 using Zygote
 
-@info "Loading CorleoneOEDZygoteExtension..."
-
 function CorleoneOED._get_sampling_sums!(
     res::Zygote.Buffer, oed::OEDLayer{false,true,true}, x, ps, st, ::Val{RESET}
 ) where {RESET}

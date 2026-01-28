@@ -10,7 +10,6 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
         loss::Union{Symbol,Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        integer_constraints::Bool = false,
         constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
         kwargs...) where {T}
@@ -34,9 +33,6 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
-
-    # No integers
-    integrality = Bool.(u0 * 0)
 
     # Constraints
     cons = begin
@@ -86,7 +82,7 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     opt_f = OptimizationFunction(objective, AD; cons=cons)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end
@@ -96,7 +92,6 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
         loss::Union{Symbol,Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        integer_constraints::Bool = false,
         constraints = nothing, variable_type::Type{T} = Float64,
         kwargs...) where {T}
 
@@ -119,9 +114,6 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
-
-    # No integers
-    integrality = Bool.(u0 * 0)
 
     nshooting = Corleone.get_number_of_shooting_constraints(layer)
 
@@ -180,10 +172,8 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
         cons = shooting_constraints)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:], int = integrality[:],
+    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end
-
-
 end

@@ -75,18 +75,9 @@ for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
   @test ub.controls == ones(N)
   @test size(p, 1) == LuxCore.parameterlength(layer)
 
-  objective = let layer = layer, ax = getaxes(p), st = st
-    (p, ::Any) -> begin
-      ps = ComponentArray(p, ax)
-      sol, _ = layer(nothing, ps, st)
-      last(sol.u)[3]
-    end
-  end
+  optprob = OptimizationProblem(layer, :x₃; AD=AD)
 
-  @test isapprox(objective(p, nothing), 6.062277454291031, atol=1e-4)
-
-  optfun = OptimizationFunction(objective, AD)
-  optprob = OptimizationProblem(optfun, collect(p), lb=reduce(vcat, collect(lb)), ub=reduce(vcat, collect(ub)))
+  @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1e-4)
 
   sol = solve(optprob, Ipopt.Optimizer(), max_iter=1000, tol=5e-6,
     hessian_approximation="limited-memory")
@@ -99,4 +90,3 @@ for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
   @test isempty(p_opt.u0)
   @test p_opt.p == p0[2:end]
 end
-

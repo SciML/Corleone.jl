@@ -213,7 +213,7 @@ function finalize_config(::T, ::Val{false}, prob, config; control_indices=Int64[
     w = Symbolics.setdefaultval.(w, one(eltype(prob.u0)))
     output_expression = sum(enumerate(w)) do (i, wi)
         Gi = observed_jacobian[i:i, :] * sensitivities
-        w[i] * Gi'Gi
+        wi* Gi'Gi
     end
     idx = axes(w, 1) .+ size(parameters, 1)
     append!(parameters, w)
@@ -305,7 +305,7 @@ function build_new_system(prob::DAEProblem, config; control_indices=Int64[], kwa
   (; observed_jacobian, observed, sensitivities) = config
   # Append the local information gain
   ex_local = reduce(vcat, map(axes(observed_jacobian, 1)) do i
-    G = observed_jacobian[i, :] * sensitivities
+    G = observed_jacobian[i:i, :] * sensitivities
 	end)
 	observed = merge(observed, (; local_weighted_sensitivity= Num.(ex_local)))
   IIP = SciMLBase.isinplace(prob)

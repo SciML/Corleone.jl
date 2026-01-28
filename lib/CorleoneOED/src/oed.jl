@@ -15,6 +15,8 @@ function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector
     end
 end
 
+default_observed = (u,p,t) -> u
+
 """
 $(TYPEDEF)
 
@@ -29,6 +31,8 @@ struct OEDLayer{DISCRETE,SAMPLED,FIXED,L,O} <: LuxCore.AbstractLuxWrapperLayer{:
     "The sampling indices"
     sampling_indices::Vector{Int64}
 end
+
+is_fixed(oed::OEDLayer{<:Any,<:Any,T}) where T = T
 
 function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRETE,SAMPLED,FIXED}
     (; layer, observed, sampling_indices) = oed
@@ -45,12 +49,12 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE,SAMPLED,FIXED}) where {DISCRET
     Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params=eachindex(prob.p), measurements=[], observed = default_observed, kwargs...) where {DISCRETE}
     layer = SingleShootingLayer(prob, alg; kwargs...)
     return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params=eachindex(prob.p), measurements=[], observed = (u,p,t) -> u, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params=eachindex(prob.p), measurements=[], observed = default_observed, kwargs...) where {DISCRETE}
     layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
     return OEDLayer{DISCRETE}(layer; params=params, measurements=measurements, observed=observed, kwargs...)
 end
@@ -129,6 +133,9 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements=[]
     OEDLayer{DISCRETE,SAMPLED,FIXED,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
 end
 
+n_observed(layer::OEDLayer) = length(layer.sampling_indices)
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
 
 # This is the only case where we need to sample the trajectory
@@ -144,8 +151,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         unique!(sort!(grid))
         findall(∈(grid), overall_grid)
     end
-    # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)#,subdivide=100)
+    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)
     measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
@@ -186,8 +192,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true,
             unique!(sort!(grid))
             findall(∈(grid), overall_grid)
         end
-        # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan)#, subdivide=100)
+        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan)
         measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
             unique(mi)
         end
@@ -224,7 +229,6 @@ function __fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLa
     Gs = oed.observed.fisher(traj)
     return [Gs[nc[i]+1:nc[i+1]] for i in 1:size(nc,1)-1]
 end
-
 
 function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory, ps, st::NamedTuple)
     (; controls) = ps
@@ -263,6 +267,12 @@ fisher_information(oed::OEDLayer{true,true,false,<:SingleShootingLayer}, x, ps, 
     observation_grid(ps.controls, Gs), st
 end
 
+# FIXED DISCRETE and SAMPLING -> use helper function
+fisher_information(oed::OEDLayer{true,true,true}, x, ps, st::NamedTuple) = begin
+    traj, st = oed(x, ps, st)
+    __fisher_information(oed, traj, ps, st), st
+end
+
 fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     Gs = __fisher_information(oed, traj, ps, st)
@@ -272,7 +282,6 @@ fisher_information(oed::OEDLayer{true,true,false,<:MultipleShootingLayer}, x, ps
     end), st
 
 end
-
 
 # DISCRETE -> SUM
 fisher_information(oed::OEDLayer{true,false}, x, ps, st::NamedTuple) = begin
