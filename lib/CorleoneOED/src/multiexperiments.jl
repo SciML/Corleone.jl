@@ -123,6 +123,13 @@ function (layer::MultiExperimentLayer{<:Any, <:Any, true})(x, ps, st)
     return sols, st
 end
 
+n_observed(layer::MultiExperimentLayer{<:Any, <:Any, false}) = layer.n_exp * length(layer.layers.sampling_indices)
+n_observed(layer::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(x->length(x.sampling_indices), layer.layers))
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, false, <:MultipleShootingLayer}) = multi.n_exp * Corleone.get_number_of_shooting_constraints(multi.layers)
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
+
+
 function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
     reduce(vcat, map(enumerate(fields)) do (i,field)
         get_sampling_sums(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))

@@ -133,6 +133,9 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements=[]
     OEDLayer{DISCRETE,SAMPLED,FIXED,typeof(newlayer),typeof(observed)}(newlayer, observed, samplings)
 end
 
+n_observed(layer::OEDLayer) = length(layer.sampling_indices)
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
 
 # This is the only case where we need to sample the trajectory
@@ -148,8 +151,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         unique!(sort!(grid))
         findall(∈(grid), overall_grid)
     end
-    # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)#,subdivide=100)
+    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)
     measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
@@ -190,8 +192,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true,true,
             unique!(sort!(grid))
             findall(∈(grid), overall_grid)
         end
-        # TODO: REMOVED THE SUBDIVIDE, AS FOR NON-UNIFORM GRIDS THIS CRASHES LATER WHEN > 100 ENTRIES IN THE GRID. FIX!
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan)#, subdivide=100)
+        _measurement_indices = Corleone.build_index_grid(controls...; tspan=tspan)
         measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
             unique(mi)
         end

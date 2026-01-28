@@ -7,18 +7,8 @@ using Optimization
 using SymbolicIndexingInterface
 using Random
 
-n_observed(layer::OEDLayer) = length(layer.sampling_indices)
-n_observed(layer::MultiExperimentLayer{<:Any, <:Any, false}) = layer.n_exp * length(layer.layers.sampling_indices)
-n_observed(layer::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(x->length(x.sampling_indices), layer.layers))
-
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, false, <:MultipleShootingLayer}) = multi.n_exp * Corleone.get_number_of_shooting_constraints(multi.layers)
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
-
-default_M(layer::OEDLayer{false}) = zeros(n_observed(layer)) .+ last(Corleone.get_tspan(layer.layer))
-default_M(layer::OEDLayer{true}) = zeros(n_observed(layer)) .+ [length(x.t) for x in layer.controls]
+default_M(layer::OEDLayer{false}) = zeros(CorleoneOED.n_observed(layer)) .+ last(Corleone.get_tspan(layer.layer))
+default_M(layer::OEDLayer{true}) = zeros(CorleoneOED.n_observed(layer)) .+ [length(x.t) for x in layer.controls]
 default_M(layer::MultiExperimentLayer{false, <:Any, false}) = reduce(vcat, [default_M(layer.layers) for _ in 1:layer.n_exp])
 default_M(layer::MultiExperimentLayer{false, <:Any, true}) = reduce(vcat, map(default_M, layer.layers))
 
@@ -259,7 +249,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, fal
         end
     end
 
-    @assert length(M) == n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(n_observed(layer)), got $(length(M))."
+    @assert length(M) == CorleoneOED.n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(CorleoneOED.n_observed(layer)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
@@ -310,7 +300,7 @@ function Optimization.OptimizationProblem(layer::Union{OEDLayer{<:Any, true, tru
         end
     end
 
-    @assert length(M) == n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(n_observed(layer)), got $(length(M))."
+    @assert length(M) == CorleoneOED.n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(CorleoneOED.n_observed(layer)), got $(length(M))."
 
     # Bounds based on the variables
     lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
