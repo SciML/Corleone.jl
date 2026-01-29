@@ -43,7 +43,7 @@ sol, _ = layer(nothing, ps, st)
 
 x = reduce(hcat, sol.u)
 
-for (i, sym) in enumerate((:x₁, :x₂, :x₃, :u₁))
+for (i, sym) in enumerate((:x₁, :x₂, :x₃, :fishing))
     getter = getsym(sol, sym)
     @test getter(sol) == x[i, :]
 end
