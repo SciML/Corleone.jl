@@ -30,35 +30,35 @@ Implements the FisherECriterion, i.e., -``\\min\\{\\lambda: \\lambda \\textrm{ i
 """
 struct FisherECriterion <: AbstractCriterion end
 
-function (crit::AbstractCriterion)(layer::Union{OEDLayer,MultiExperimentLayer}, x, ps, st::NamedTuple)
-	F,st = fisher_information(layer, x, ps, st)
-	crit(F), st
+function (crit::AbstractCriterion)(layer::Union{OEDLayer, MultiExperimentLayer}, x, ps, st::NamedTuple)
+    F, st = fisher_information(layer, x, ps, st)
+    return crit(F), st
 end
 
 function (crit::AbstractCriterion)(F::AbstractMatrix)
-    crit(Symmetric(F))
+    return crit(Symmetric(F))
 end
 
 function (crit::ACriterion)(F::Symmetric)
-    tr(inv(F))
+    return tr(inv(F))
 end
 
 function (crit::DCriterion)(F::Symmetric)
-    inv(det(F))
+    return inv(det(F))
 end
 
 function (crit::ECriterion)(F::Symmetric)
-    maximum(eigvals(inv(F)))
+    return maximum(eigvals(inv(F)))
 end
 
 function (crit::FisherACriterion)(F::Symmetric)
-    -tr(F)
+    return -tr(F)
 end
 
 function (crit::FisherDCriterion)(F::Symmetric)
-    -det(F)
+    return -det(F)
 end
 
 function (crit::FisherECriterion)(F::Symmetric)
-    -minimum(eigvals(F))
+    return -minimum(eigvals(F))
 end

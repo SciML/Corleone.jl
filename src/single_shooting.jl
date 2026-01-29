@@ -12,7 +12,7 @@ $(FIELDS)
 Note: The orders of both `controls` and `control_indices`, and `bounds_ic` and `tunable_ic`
 are assumed to be identical!
 """
-struct SingleShootingLayer{P,A,C,B,PB,SI,PI} <: LuxCore.AbstractLuxLayer
+struct SingleShootingLayer{P, A, C, B, PB, SI, PI} <: LuxCore.AbstractLuxLayer
     "The underlying differential equation problem"
     problem::P
     "The algorithm with which `problem` is integrated."
@@ -36,14 +36,14 @@ struct SingleShootingLayer{P,A,C,B,PB,SI,PI} <: LuxCore.AbstractLuxLayer
 end
 
 function default_u0(
-    rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, tunables, (lb, ub)
-)
+        rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, tunables, (lb, ub)
+    )
     return clamp.(problem.u0[tunables], lb[tunables], ub[tunables])
 end
 
 function default_p0(
-    rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, parameters, bounds
-)
+        rng::Random.AbstractRNG, problem::SciMLBase.AbstractDEProblem, parameters, bounds
+    )
     pvec, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.p)
     return clamp.(pvec[parameters], bounds...)
 end
@@ -67,11 +67,11 @@ function init_problem(prob, alg)
 end
 
 function remake_problem(prob::ODEProblem, state)
-    return remake(prob; u0=state.u)
+    return remake(prob; u0 = state.u)
 end
 
 function remake_problem(prob::DAEProblem, state)
-    return remake(prob; u0=state.u, du0=state.du)
+    return remake(prob; u0 = state.u, du0 = state.du)
 end
 
 """
@@ -86,16 +86,16 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable ineg
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
 """
 function SingleShootingLayer(
-    prob,
-    alg;
-    controls=[],
-    tunable_ic=Int64[],
-    bounds_ic=nothing,
-    state_initialization=default_u0,
-    bounds_p=nothing,
-    parameter_initialization=default_p0,
-    kwargs...,
-)
+        prob,
+        alg;
+        controls = [],
+        tunable_ic = Int64[],
+        bounds_ic = nothing,
+        state_initialization = default_u0,
+        bounds_p = nothing,
+        parameter_initialization = default_p0,
+        kwargs...,
+    )
     _prob = init_problem(remake(prob; kwargs...), alg)
     controls = collect(controls)
     control_indices = isempty(controls) ? Int64[] : first.(controls)
@@ -135,7 +135,7 @@ function __get_tunable_p(layer::SingleShootingLayer)
     return first(SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p))
 end
 
-function get_bounds(layer::SingleShootingLayer; shooting=false, kwargs...)
+function get_bounds(layer::SingleShootingLayer; shooting = false, kwargs...)
     (; bounds_ic, bounds_p, controls, tunable_ic) = layer
     bounds_ic = shooting ? bounds_ic : map(Base.Fix2(getindex, tunable_ic), bounds_ic)
     if !isempty(controls)
@@ -144,8 +144,8 @@ function get_bounds(layer::SingleShootingLayer; shooting=false, kwargs...)
         control_ub = control_lb = eltype(first(bounds_ic))[]
     end
     return (
-        (; u0=first(bounds_ic), p=first(bounds_p), controls=control_lb),
-        (; u0=last(bounds_ic), p=last(bounds_p), controls=control_ub),
+        (; u0 = first(bounds_ic), p = first(bounds_p), controls = control_lb),
+        (; u0 = last(bounds_ic), p = last(bounds_p), controls = control_ub),
     )
 end
 
@@ -159,13 +159,13 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
 end
 
 function __initialparameters(
-    rng::Random.AbstractRNG,
-    layer::SingleShootingLayer;
-    tspan=layer.problem.tspan,
-    u0=layer.problem.u0,
-    shooting_layer=false,
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        layer::SingleShootingLayer;
+        tspan = layer.problem.tspan,
+        u0 = layer.problem.u0,
+        shooting_layer = false,
+        kwargs...,
+    )
     (;
         problem,
         state_initialization,
@@ -178,11 +178,11 @@ function __initialparameters(
     ) = layer
     problem = remake(problem; tspan, u0)
     return (;
-        u0=state_initialization(
+        u0 = state_initialization(
             rng, problem, shooting_layer ? eachindex(u0) : tunable_ic, bounds_ic
         ),
-        p=parameter_initialization(rng, problem, tunable_p, bounds_p),
-        controls=if isempty(layer.controls)
+        p = parameter_initialization(rng, problem, tunable_p, bounds_p),
+        controls = if isempty(layer.controls)
             eltype(layer.problem.u0)[]
         else
             collect_local_controls(rng, layer.controls...; tspan, kwargs...)
@@ -191,8 +191,8 @@ function __initialparameters(
 end
 
 function __parameterlength(
-    layer::SingleShootingLayer; tspan=layer.problem.tspan, shooting_layer=false, kwargs...
-)
+        layer::SingleShootingLayer; tspan = layer.problem.tspan, shooting_layer = false, kwargs...
+    )
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     N = shooting_layer ? prod(size(layer.problem.u0)) : size(layer.tunable_ic, 1)
     N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
@@ -208,7 +208,7 @@ function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices)
     return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices)
 end
 
-_subscript(i::Integer) = (i |> digits |> reverse .|> dgt->Char(0x2080+dgt)) |> join
+_subscript(i::Integer) = (i |> digits |> reverse .|> dgt -> Char(0x2080 + dgt)) |> join
 
 function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
     p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
@@ -217,9 +217,9 @@ function retrieve_symbol_cache(::Nothing, u0, p, control_indices)
     p_id = 0
     parameter_symbols = [
         if i ∈ control_indices
-            Symbol(:u, _subscript(u_id += 1))
+                Symbol(:u, _subscript(u_id += 1))
         else
-            Symbol(:p, _subscript(p_id += 1))
+                Symbol(:p, _subscript(p_id += 1))
         end for i in eachindex(p0)
     ]
     tsym = [:t]
@@ -229,8 +229,8 @@ end
 function retrieve_symbol_cache(cache::SymbolCache, u0, p, control_indices)
     psym = parameter_symbols(cache)
     vsym = variable_symbols(cache)
-    sort!(psym; by=xi -> SymbolicIndexingInterface.parameter_index(cache, xi))
-    sort!(vsym; by=xi -> SymbolicIndexingInterface.variable_index(cache, xi))
+    sort!(psym; by = xi -> SymbolicIndexingInterface.parameter_index(cache, xi))
+    sort!(vsym; by = xi -> SymbolicIndexingInterface.variable_index(cache, xi))
     return _retrieve_symbol_cache(
         vsym, psym, independent_variable_symbols(cache), control_indices
     )
@@ -247,8 +247,8 @@ struct InitialConditionRemaker <: Function
 end
 
 function (ic::InitialConditionRemaker)(
-    u::AbstractVector{T}, u0::AbstractArray
-) where {T<:Number}
+        u::AbstractVector{T}, u0::AbstractArray
+    ) where {T <: Number}
     (; constants, sorting) = ic
     isempty(u) && return T.(u0)
     return reshape(vcat(vec(u0[constants]), u)[sorting], size(u0))
@@ -259,12 +259,12 @@ function (ic::InitialConditionRemaker)(::Any, u0::AbstractArray)
 end
 
 function __initialstates(
-    rng::Random.AbstractRNG,
-    layer::SingleShootingLayer;
-    tspan=layer.problem.tspan,
-    shooting_layer=false,
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        layer::SingleShootingLayer;
+        tspan = layer.problem.tspan,
+        shooting_layer = false,
+        kwargs...,
+    )
     (; tunable_ic, control_indices, problem, controls) = layer
     (; u0) = problem
 
@@ -287,7 +287,7 @@ function __initialstates(
         SciMLStructures.Tunable(), layer.problem.p
     )
 
-    # We filter controls which do not act on the dynamics 
+    # We filter controls which do not act on the dynamics
     active_controls = control_indices .<= lastindex(p_vec)
     control_indices = control_indices[active_controls]
     controls = controls[active_controls]
@@ -313,8 +313,8 @@ function __initialstates(
 
     # Next we setup the tspans and the indices
     if !isempty(controls)
-        grid = build_index_grid(controls...; tspan, subdivide=100)
-        tspans = collect_tspans(controls...; tspan, subdivide=100)
+        grid = build_index_grid(controls...; tspan, subdivide = 100)
+        tspans = collect_tspans(controls...; tspan, subdivide = 100)
     else
         grid = Int64[i for i in control_indices]
         tspans = (problem.tspan,)
@@ -330,12 +330,12 @@ function __initialstates(
     symcache = retrieve_symbol_cache(problem, control_indices)
     return (;
         initial_condition,
-        index_grid=grid,
+        index_grid = grid,
         tspans,
         parameter_vector,
         symcache,
         shooting_indices,
-        active_controls=find_active_controls(grid),
+        active_controls = find_active_controls(grid),
     )
 end
 
@@ -367,8 +367,8 @@ end
 sequential_solve(args...) = _sequential_solve(args...)
 
 @generated function _sequential_solve(
-    problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N,Tuple}, sys
-) where {N}
+        problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N, Tuple}, sys
+    ) where {N}
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
@@ -406,15 +406,15 @@ sequential_solve(args...) = _sequential_solve(args...)
 end
 
 @generated function _sequential_solve(
-    problem,
-    alg,
-    u0,
-    param,
-    ps,
-    index_grid::AbstractArray,
-    tspans::NTuple{N,Tuple{<:Real,<:Real}},
-    sys,
-) where {N}
+        problem,
+        alg,
+        u0,
+        param,
+        ps,
+        index_grid::AbstractArray,
+        tspans::NTuple{N, Tuple{<:Real, <:Real}},
+        sys,
+    ) where {N}
     solutions = [gensym() for _ in 1:N]
     u0s = [gensym() for _ in 1:N]
     ex = Expr[]
@@ -430,12 +430,12 @@ end
                 $(solutions[i]) = solve(
                     problem,
                     alg;
-                    u0=$(u0s[i]),
-                    dense=false,
-                    save_start=$(i == 1),
-                    save_end=true,
-                    tspan=tspans[$(i)],
-                    p=param($(psym[i])),
+                    u0 = $(u0s[i]),
+                    dense = false,
+                    save_start = $(i == 1),
+                    save_end = true,
+                    tspan = tspans[$(i)],
+                    p = param($(psym[i])),
                 )
             ),
         )
@@ -465,15 +465,17 @@ __getidx(x, id) = x[id]
 __getidx(x::NamedTuple, id) = getproperty(x, id)
 
 function _parallel_solve(
-    alg::SciMLBase.EnsembleAlgorithm,
-    layer::SingleShootingLayer,
-    u0,
-    ps,
-    st::NamedTuple{fields},
-) where {fields}
-    args = collect(ntuple(
-        i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)
-    ))
+        alg::SciMLBase.EnsembleAlgorithm,
+        layer::SingleShootingLayer,
+        u0,
+        ps,
+        st::NamedTuple{fields},
+    ) where {fields}
+    args = collect(
+        ntuple(
+            i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)
+        )
+    )
     return mythreadmap(alg, Base.Splat(layer), args)
 end
 
@@ -485,7 +487,7 @@ As this is a `SingleShootingLayer`, this hessian is dense.
 See also [``MultipleShootingLayer``](@ref).
 """
 function get_block_structure(
-    layer::SingleShootingLayer, tspan=layer.problem.tspan, kwargs...
-)
+        layer::SingleShootingLayer, tspan = layer.problem.tspan, kwargs...
+    )
     return vcat(0, LuxCore.parameterlength(layer; tspan, kwargs...))
 end
