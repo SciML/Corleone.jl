@@ -11,11 +11,11 @@ Initializes all shooting nodes with random values.
 - `ps` the default parameters of the `shooting` layer.
 """
 function random_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        kwargs...,
+    )
     (; layer) = shooting
     (; tunable_ic) = layer
     u0 = last(ps).u0
@@ -27,7 +27,7 @@ function random_initialization(
         else
             _random_value(rng, lbi.u0, ubi.u0)
         end
-        merge(plocal, (; u0=unew))
+        merge(plocal, (; u0 = unew))
     end
     return NamedTuple{keys(ps)}(vals)
 end
@@ -46,12 +46,12 @@ Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
 - `u_infinity::AbstractArray` the value at the last timepoint for all states.
 """
 function linear_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    u_infinity=last(ps).u0,
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        u_infinity = last(ps).u0,
+        kwargs...,
+    )
     (; shooting_intervals, layer) = shooting
     (; problem, tunable_ic) = layer
     isempty(u_infinity) && return ps
@@ -75,13 +75,13 @@ function __setu0!(u0::AbstractArray, unew::AbstractArray, tunable_ics)
 end
 
 function __setu0!(u0::AbstractArray, unew::Dict, tunable_ics)
-    map(tunable_ics) do i
+    return map(tunable_ics) do i
         get(unew, i, u0[i])
     end
 end
 
 function __setu0!(u0::AbstractArray, unew::Base.AbstractVecOrTuple{<:Pair}, tunable_ics)
-    map(tunable_ics) do i
+    return map(tunable_ics) do i
         id = findfirst(==(i), first.(unew))
         isnothing(id) && u0[i]
         last.(unew)[id]
@@ -119,12 +119,12 @@ custom_initialization(rng, shooting, u0s = [nothing, Dict(1 => 3.0), (2 => 5.0, 
 ```
 """
 function custom_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    u0s=[],
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        u0s = [],
+        kwargs...,
+    )
     (; layer) = shooting
     (; tunable_ic) = layer
     isempty(u0s) && return ps
@@ -150,16 +150,16 @@ trajectory.
 - `ps` the default parameters of the `shooting` layer.
 """
 function forward_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-	fixed_indices = Int[],
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        fixed_indices = Int[],
+        kwargs...,
+    )
     (; layer) = shooting
     st = LuxCore.initialstates(rng, shooting)
     u0s = [first(ps).u0]
-	for (i,(sps, sst)) in enumerate(zip(ps, st))
+    for (i, (sps, sst)) in enumerate(zip(ps, st))
         u0 = i ∈ fixed_indices ? sps.u0 : last(u0s)
         sps.u0 .= u0[eachindex(sps.u0)]
         pred, _ = layer(nothing, sps, sst)
@@ -200,12 +200,12 @@ constant_initialization(rng, shooting, u0 = [1., 2., 4.])
 ```
 """
 function constant_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    u0=nothing,
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        u0 = nothing,
+        kwargs...,
+    )
     (; layer) = shooting
     (; tunable_ic) = layer
     isempty(u0) && return ps
@@ -232,25 +232,25 @@ sequentially. Here we assume the structure `interval => method` for the initiali
 All other keyworded arguments are passed on to the functions below.
 """
 function hybrid_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer,
-    f::Pair...;
-    ps=default_initialization(rng, shooting),
-    kwargs...,
-)
-	(intervals, method), rest = Base.first(f), Base.tail(f)
-	pnew = method(rng, shooting; ps = deepcopy(ps), kwargs...)
-	names = ntuple(i->keys(ps)[intervals[i]],size(intervals,1))
-	pnew = merge(ps, NamedTuple{names}(pnew))
-    return hybrid_initialization(rng, shooting, rest...; ps=pnew, kwargs...)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer,
+        f::Pair...;
+        ps = default_initialization(rng, shooting),
+        kwargs...,
+    )
+    (intervals, method), rest = Base.first(f), Base.tail(f)
+    pnew = method(rng, shooting; ps = deepcopy(ps), kwargs...)
+    names = ntuple(i -> keys(ps)[intervals[i]], size(intervals, 1))
+    pnew = merge(ps, NamedTuple{names}(pnew))
+    return hybrid_initialization(rng, shooting, rest...; ps = pnew, kwargs...)
 end
 
 function hybrid_initialization(
-    rng::Random.AbstractRNG,
-    shooting::MultipleShootingLayer;
-    ps=default_initialization(rng, shooting),
-    kwargs...,
-)
+        rng::Random.AbstractRNG,
+        shooting::MultipleShootingLayer;
+        ps = default_initialization(rng, shooting),
+        kwargs...,
+    )
     return ps
 end
 

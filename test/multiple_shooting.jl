@@ -20,15 +20,15 @@ tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
 
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6)
 
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)
-control = ControlParameter(cgrid; name=:fishing, bounds=(0.0, 1.0), controls=zeros(N))
+control = ControlParameter(cgrid; name = :fishing, bounds = (0.0, 1.0), controls = zeros(N))
 
 # Multiple Shooting
 shooting_points = [0.0, 3.0, 6.0, 9.0]
-layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls=[1 => control])
+layer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = [1 => control])
 Ni = Int(N / length(shooting_points))
 np_without_controls =
     length(setdiff(eachindex(prob.p), layer.layer.control_indices)) *
@@ -112,7 +112,7 @@ end
 @testset "Parallel" begin
     for alg in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
         layer = MultipleShootingLayer(
-            prob, Tsit5(), shooting_points...; ensemble_alg=alg, controls=[1 => control]
+            prob, Tsit5(), shooting_points...; ensemble_alg = alg, controls = [1 => control]
         )
         ps, st = LuxCore.setup(rng, layer)
         @test_nowarn @inferred first(layer(nothing, ps, st))
@@ -122,22 +122,24 @@ end
 
 @testset "Initialization" begin
     @testset "Forward solve" begin
-        sol_at_shooting_points = solve(prob, Tsit5(); saveat=shooting_points)
+        sol_at_shooting_points = solve(prob, Tsit5(); saveat = shooting_points)
         layer = MultipleShootingLayer(
             prob,
             Tsit5(),
             shooting_points...;
-            controls=[1 => control],
-            initialization=forward_initialization,
+            controls = [1 => control],
+            initialization = forward_initialization,
         )
         ps, st = LuxCore.setup(rng, layer)
-        @test all([
-            isapprox(
-                sol_at_shooting_points[i],
-                getproperty(ps, Symbol("interval_$i")).u0;
-                atol=1e-5,
-            ) for i in 2:4
-        ])
+        @test all(
+            [
+                isapprox(
+                        sol_at_shooting_points[i],
+                        getproperty(ps, Symbol("interval_$i")).u0;
+                        atol = 1.0e-5,
+                    ) for i in 2:4
+            ]
+        )
         trajectory, _ = layer(nothing, ps, st)
         @test all(iszero, reduce(vcat, trajectory.shooting))
     end
@@ -146,9 +148,9 @@ end
             prob,
             Tsit5(),
             shooting_points...;
-            controls=[1 => control],
-            initialization=(args...) ->
-                constant_initialization(args...; u0=[0.9, 1.1, 3.0]),
+            controls = [1 => control],
+            initialization = (args...) ->
+            constant_initialization(args...; u0 = [0.9, 1.1, 3.0]),
         )
         ps = LuxCore.initialparameters(rng, layer)
         @test isempty(first(ps).u0)
@@ -162,31 +164,33 @@ end
             prob,
             Tsit5(),
             shooting_points...;
-            controls=[1 => control],
-            initialization=(args...) ->
-                linear_initialization(args...; u_infinity=[2.0, 1.0, 1.34]),
+            controls = [1 => control],
+            initialization = (args...) ->
+            linear_initialization(args...; u_infinity = [2.0, 1.0, 1.34]),
         )
         ps = LuxCore.initialparameters(rng, layer)
         @test isempty(ps.interval_1.u0)
-        @test isapprox(ps.interval_2.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 3 / 12, atol=1e-7)
-        @test isapprox(ps.interval_3.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 6 / 12, atol=1e-7)
-        @test isapprox(ps.interval_4.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 9 / 12, atol=1e-7)
+        @test isapprox(ps.interval_2.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 3 / 12, atol = 1.0e-7)
+        @test isapprox(ps.interval_3.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 6 / 12, atol = 1.0e-7)
+        @test isapprox(ps.interval_4.u0, u0 .+ ([2.0, 1.0, 1.34] .- u0) * 9 / 12, atol = 1.0e-7)
     end
     @testset "Custom" begin
         layer = MultipleShootingLayer(
             prob,
             Tsit5(),
             shooting_points...;
-            controls=[1 => control],
-            initialization=(args...) -> custom_initialization(
-                args...; u0s=vcat([u0], [[1.0, 1.1, 1.34] for i in 1:3])
+            controls = [1 => control],
+            initialization = (args...) -> custom_initialization(
+                args...; u0s = vcat([u0], [[1.0, 1.1, 1.34] for i in 1:3])
             ),
         )
         ps = LuxCore.initialparameters(rng, layer)
         @test isempty(ps.interval_1.u0)
-        @test all([
-            getproperty(ps, Symbol("interval_$i")).u0 == [1.0, 1.1, 1.34] for i in 2:4
-        ])
+        @test all(
+            [
+                getproperty(ps, Symbol("interval_$i")).u0 == [1.0, 1.1, 1.34] for i in 2:4
+            ]
+        )
     end
     @testset "Hybrid" begin
         inits = (2 => custom_initialization, [3, 4] => forward_initialization)
@@ -194,12 +198,12 @@ end
             prob,
             Tsit5(),
             shooting_points...;
-            controls=[1 => control],
-            initialization=(args...) -> hybrid_initialization(
+            controls = [1 => control],
+            initialization = (args...) -> hybrid_initialization(
                 args...,
                 inits...;
-                u0s=vcat([u0], Dict(2 => 3.0, 3 => -5.0), [[1.0, 1.1, 1.34] for i in 1:2]),
-                fixed_indices=[2, 4],
+                u0s = vcat([u0], Dict(2 => 3.0, 3 => -5.0), [[1.0, 1.1, 1.34] for i in 1:2]),
+                fixed_indices = [2, 4],
             ),
         )
         ps, st = LuxCore.setup(rng, layer)

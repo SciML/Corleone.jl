@@ -1,4 +1,4 @@
-struct MultipleShootingLayer{L,I,E,Z} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct MultipleShootingLayer{L, I, E, Z} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The original layer"
     layer::L
     "The shooting intervals"
@@ -33,7 +33,7 @@ function default_initialization(rng::Random.AbstractRNG, shooting::MultipleShoot
     names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
     vals = ntuple(
         i -> __initialparameters(
-            rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1
+            rng, layer; tspan = shooting_intervals[i], shooting_layer = i != 1
         ),
         length(shooting_intervals),
     )
@@ -45,31 +45,31 @@ function MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...)
 end
 
 function MultipleShootingLayer(
-    prob::SciMLBase.AbstractDEProblem,
-    alg::SciMLBase.DEAlgorithm,
-    tpoints::Real...;
-    ensemble_alg=EnsembleSerial(),
-    initialization=default_initialization,
-    kwargs...,
-)
+        prob::SciMLBase.AbstractDEProblem,
+        alg::SciMLBase.DEAlgorithm,
+        tpoints::Real...;
+        ensemble_alg = EnsembleSerial(),
+        initialization = default_initialization,
+        kwargs...,
+    )
     layer = SingleShootingLayer(prob, alg; kwargs...)
     return MultipleShootingLayer(layer, tpoints...; ensemble_alg, initialization, kwargs...)
 end
 
 function MultipleShootingLayer(
-    layer,
-    tpoints::Real...;
-    ensemble_alg=EnsembleSerial(),
-    initialization=default_initialization,
-    kwargs...,
-)
+        layer,
+        tpoints::Real...;
+        ensemble_alg = EnsembleSerial(),
+        initialization = default_initialization,
+        kwargs...,
+    )
     tspans = vcat(collect(tpoints), collect(layer.problem.tspan))
     sort!(tspans)
     unique!(tspans)
     tspans = [tispan for tispan in zip(tspans[1:(end - 1)], tspans[2:end])]
     tspans = tuple(tspans...)
     return MultipleShootingLayer{
-        typeof(layer),typeof(tspans),typeof(ensemble_alg),typeof(initialization)
+        typeof(layer), typeof(tspans), typeof(ensemble_alg), typeof(initialization),
     }(
         layer, tspans, ensemble_alg, initialization
     )
@@ -81,7 +81,7 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, shooting::MultipleSh
 end
 
 function LuxCore.parameterlength(shooting::MultipleShootingLayer)
-	last(get_block_structure(shooting))
+    return last(get_block_structure(shooting))
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
@@ -89,7 +89,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShooti
     names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
     vals = ntuple(
         i ->
-            __initialstates(rng, layer; tspan=shooting_intervals[i], shooting_layer=i != 1),
+        __initialstates(rng, layer; tspan = shooting_intervals[i], shooting_layer = i != 1),
         length(shooting_intervals),
     )
     return NamedTuple{names}(vals)
@@ -126,12 +126,12 @@ function Trajectory(u::AbstractVector, sts)
 end
 
 function get_number_of_shooting_constraints(
-    shooting::MultipleShootingLayer,
-    ps=LuxCore.initialparameters(Random.default_rng(), shooting),
-    st=LuxCore.initialstates(Random.default_rng(), shooting),
-)
+        shooting::MultipleShootingLayer,
+        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
+        st = LuxCore.initialstates(Random.default_rng(), shooting),
+    )
     return sum(xi -> size(xi.shooting_indices, 1), Base.tail(st)) +
-           sum(xi -> size(xi.p, 1), Base.front(ps))
+        sum(xi -> size(xi.p, 1), Base.front(ps))
 end
 
 function shooting_constraints(traj::Trajectory)
@@ -157,7 +157,7 @@ function get_block_structure(mslayer::MultipleShootingLayer)
     (; layer, shooting_intervals) = mslayer
     ps_lengths = collect(
         map(enumerate(shooting_intervals)) do (i, tspan)
-            __parameterlength(layer; tspan=tspan, shooting_layer=i > 1)
+            __parameterlength(layer; tspan = tspan, shooting_layer = i > 1)
         end,
     )
     return vcat(0, cumsum(ps_lengths))
@@ -167,7 +167,7 @@ function get_bounds(mslayer::MultipleShootingLayer)
     (; layer, shooting_intervals) = mslayer
     names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
     bounds = map(enumerate(shooting_intervals)) do (i, tspan)
-        get_bounds(layer; tspan=tspan, shooting=i > 1)
+        get_bounds(layer; tspan = tspan, shooting = i > 1)
     end
     return NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
 end
