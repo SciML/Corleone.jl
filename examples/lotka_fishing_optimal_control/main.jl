@@ -1,13 +1,13 @@
 #src ---
 #src title: The Lotka Volterra Fishing Problem
-#src description: A beginner-friendly guide to your first simulation.
+#src description: A classic example to relaxed mixed-integer optimal control
 #src tags:
 #src   - Lotka Volterra 
 #src   - Optimal Control
 #src icon: 🎣
 #src ---
 
-# # Lotka Volterra Fishing Example 
+ # Lotka Volterra Fishing Example 
 
 # This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
