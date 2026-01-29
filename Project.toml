@@ -1,7 +1,7 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 version = "1.0.2-DEV"
+authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -42,7 +42,7 @@ LuxCore = "1.4"
 Makie = "0.24"
 OhMyThreads = "0.8"
 Optimization = "4.3"
-OptimizationMOI = "0.5"
+OptimizationMOI = "0.5, 1"
 OrdinaryDiffEqBDF = "1.10"
 OrdinaryDiffEqTsit5 = "1.5"
 Random = "1"
