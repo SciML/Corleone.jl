@@ -4,11 +4,8 @@ Pkg.activate(@__DIR__)
 
 if !isfile(joinpath(@__DIR__, "Project.toml"))
     # We add Corleone
-    if ("-ParentCorleone" in ARGS || "--ParentCorleone" in ARGS)
-        Pkg.develop(path = joinpath(@__DIR__, ".."))
-    else   
-        Pkg.add(url="https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev="main")
-    end
+    Pkg.develop(path = string(@__DIR__, "/.."))
+    Pkg.develop(path = string(@__DIR__, "/../lib/CorleoneOED"))
     # We add all other deps
     Pkg.add("OrdinaryDiffEq")
     Pkg.add("SciMLSensitivity")
@@ -24,10 +21,6 @@ if !isfile(joinpath(@__DIR__, "Project.toml"))
 else
     # We add Corleone
     Pkg.rm("Corleone")
-    if ("-ParentCorleone" in ARGS || "--ParentCorleone" in ARGS)
-        Pkg.develop(path = joinpath(Base.@__DIR__, ".."))
-    else  
-        Pkg.add(url="https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev="main")
-    end
+    Pkg.add(url="https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev="main")
     Pkg.resolve()
 end
