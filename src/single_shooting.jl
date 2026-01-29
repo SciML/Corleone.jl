@@ -215,10 +215,11 @@ function retrieve_symbol_cache(::Nothing, u0, p, control_indices, controls)
     state_symbols = [Symbol(:x, _subscript(i)) for i in eachindex(u0)]
     u_id = 0
     p_id = 0
+    order_controls = sortperm(control_indices)
     parameter_symbols = [
         if i ∈ control_indices
             u_id +=1
-            controls[u_id].name
+            controls[order_controls[u_id]].name
         else
             Symbol(:p, _subscript(p_id += 1))
         end for i in eachindex(p0)
