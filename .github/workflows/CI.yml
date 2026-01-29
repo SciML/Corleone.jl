@@ -1,40 +1,69 @@
 name: CI
 on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
   push:
     branches:
       - main
-    tags: ['*']
-  pull_request:
-  workflow_dispatch:
-concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+    paths-ignore:
+      - 'docs/**'
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
-      contents: read
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.group == 'Downstream' }}
     strategy:
       fail-fast: false
       matrix:
+        group:
+          - Corleone
+          - CorleoneOED
         version:
-          - '1.10'
-          - 'pre'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+          - '1.11'
+          - 'lts'
     steps:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v2
+      - uses: actions/cache@v5
+        env:
+          cache-name: cache-artifacts
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-test-${{ matrix.version }}-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ matrix.version }}-${{ env.cache-name }}-
+            ${{ runner.os }}-test-${{ matrix.version }}-
+            ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - name: ${{ matrix.group }}
+        env:
+            GROUP: ${{ matrix.group }}
+        shell: julia --color=yes --check-bounds=yes --depwarn=yes {0}
+        run: |
+          using Pkg
+          const GROUP = get(ENV, "GROUP", "Core")
+
+          function dev_subpkg(subpkgs::Vector{String})
+            specs = [PackageSpec(path = "lib/$subpkg") for subpkg in subpkgs]
+            Pkg.develop(specs)
+          end
+
+          if GROUP == "Corleone"
+            Pkg.activate(".")
+          else
+            subpkg_path = "lib/${{ matrix.group }}"
+            Pkg.activate(subpkg_path)
+          end
+
+          @info "Starting tests"
+          Pkg.test()
+      - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src,lib/CorleoneOED/src
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
