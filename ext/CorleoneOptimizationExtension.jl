@@ -77,7 +77,7 @@ function Optimization.OptimizationProblem(
             )
             _ub = reduce(
                 vcat, map(enumerate(constraints)) do (i, (k, v))
-                    first(v.bounds)
+                    last(v.bounds)
                 end
             )
             _lb, _ub
@@ -171,7 +171,7 @@ function Optimization.OptimizationProblem(
             )
             _ub = reduce(
                 vcat, map(enumerate(constraints)) do (i, (k, v))
-                    first(v.bounds)
+                    last(v.bounds)
                 end
             )
             vcat(_lb, zeros(T, nshooting)), vcat(_ub, zeros(T, nshooting))
