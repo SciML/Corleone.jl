@@ -204,22 +204,21 @@ function __parameterlength(
     return N
 end
 
-function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices, controls)
-    return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices, controls)
+function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id=1:length(control_indices)])
+    return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices; control_names=control_names)
 end
 
 _subscript(i::Integer) = (i |> digits |> reverse .|> dgt -> Char(0x2080 + dgt)) |> join
 
-function retrieve_symbol_cache(::Nothing, u0, p, control_indices, controls)
+function retrieve_symbol_cache(::Nothing, u0, p, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id=1:length(control_indices)])
     p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
     state_symbols = [Symbol(:x, _subscript(i)) for i in eachindex(u0)]
     u_id = 0
     p_id = 0
-    order_controls = sortperm(control_indices)
     parameter_symbols = [
         if i ∈ control_indices
             u_id +=1
-            controls[order_controls[u_id]].name
+            control_names[u_id]
         else
             Symbol(:p, _subscript(p_id += 1))
         end for i in eachindex(p0)
@@ -228,7 +227,7 @@ function retrieve_symbol_cache(::Nothing, u0, p, control_indices, controls)
     return _retrieve_symbol_cache(state_symbols, parameter_symbols, tsym, control_indices)
 end
 
-function retrieve_symbol_cache(cache::SymbolCache, u0, p, control_indices)
+function retrieve_symbol_cache(cache::SymbolCache, u0, p, control_indices; kwargs...)
     psym = parameter_symbols(cache)
     vsym = variable_symbols(cache)
     sort!(psym; by = xi -> SymbolicIndexingInterface.parameter_index(cache, xi))
@@ -329,7 +328,8 @@ function __initialstates(
         end
     end
     shooting_indices = findall(shooting_indices)
-    symcache = retrieve_symbol_cache(problem, control_indices, controls)
+    control_names = [controls[i].name for i in sortperm(control_indices)]
+    symcache = retrieve_symbol_cache(problem, control_indices; control_names)
     return (;
         initial_condition,
         index_grid = grid,
