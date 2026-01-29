@@ -40,3 +40,40 @@ c5 = ControlParameter(1.0:10.0, bounds = (-ones(10), ones(10)), controls = colle
 
 c5 = ControlParameter(1.0:10.0, bounds = (ones(10), -ones(10)), controls = collect(0.0:0.1:1.0))
 @test_throws "Bounds are inconsistent" Corleone.check_consistency(rng, c5)
+
+
+@testset "Correct assignment of symbols" begin
+    function egerstedt(du, u, p, t)
+        x, y, _ = u
+        u1, u2, u3 = p
+        du[1] = -x * u1 + (x + y) * u2 + (x - y) * u3
+        du[2] = (x + 2 * y) * u1 + (x - 2 * y) * u2 + (x + y) * u3
+        return du[3] = x^2 + y^2
+    end
+
+    tspan = (0.0, 1.0)
+    u0 = [0.5, 0.5, 0.0]
+    p = 1 / 3 * ones(3)
+
+    prob = ODEProblem(egerstedt, u0, tspan, p)
+
+    N = 20
+    cgrid = collect(LinRange(tspan..., N + 1))[1:(end - 1)]
+    c1 = ControlParameter(
+        cgrid, name = :con1, bounds = (0.0, 1.0), controls = LinRange(0.0, 0.2, N)
+    )
+    c2 = ControlParameter(
+        cgrid, name = :con2, bounds = (0.0, 1.0), controls = LinRange(0.3, 0.5, N)
+    )
+    c3 = ControlParameter(
+        cgrid, name = :con3, bounds = (0.0, 1.0), controls = LinRange(0.6, 0.8, N)
+    )
+
+    layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = ([2, 3, 1] .=> [c2, c3, c1]))
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    sol, _ = layer(nothing, ps, st)
+
+    @test all(0.6 .<= sol[:con3] .<= 0.8)
+    @test all(0.3 .<= sol[:con2] .<= 0.5)
+    @test all(0.0 .<= sol[:con1] .<= 0.2)
+end

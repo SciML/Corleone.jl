@@ -101,7 +101,7 @@ end
                 tol = 1.0e-10,
                 hessian_approximation = "limited-memory",
                 max_iter = 300,
-                print_level = 3,
+                print_level = 0,
             )
 
             popt = uopt + zero(ComponentArray(ps))
