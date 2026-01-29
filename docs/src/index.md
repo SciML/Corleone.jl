@@ -1,4 +1,4 @@
-# Corleone.jl Documentation
+# Corleone 
 
 ## Introduction 
 
@@ -20,8 +20,8 @@ direct single shooting or direct multiple shooting.
 To install `Corleone.jl`, run the following 
 
 ```julia
-using Pkg 
-Pkg.add(url="https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev="main") 
+using Pkg
+Pkg.add("Corleone")
 ```
 
 ## Contents

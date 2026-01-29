@@ -1,42 +1,62 @@
-using Pkg
-Pkg.activate(@__DIR__)
+#src ---
+#src title: The Lotka Volterra Fishing Problem 2
+#src description: A beginner-friendly guide to your first simulation.
+#src tags:
+#src   - Lotka Volterra 
+#src   - Optimal Control
+#src   - Control
+#src icon: 🎣🎣
+#src ---
+
+# # Lotka Volterra Fishing Example 
+
+# This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
+
+# ## Setup 
+# We will use `Corleone` to define our optimal control problem. 
 using Corleone
-using OrdinaryDiffEq
-using SciMLSensitivity
-using ComponentArrays
+
+# Additionally, we will need the folllowing packages 
+# - [`LuxCore`]() and [`Random`]() for basic setup functions
+# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
+# - [`SymbolicIndexingInterface`]() to conviniently access variables and controls of the solution
+# - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
+# - [`CairoMakie`]() to plot the solution
+
 using LuxCore
 using Random
-
-using CairoMakie
+using OrdinaryDiffEqTsit5
+using SymbolicIndexingInterface
 using Optimization
 using OptimizationMOI
 using Ipopt
-using blockSQP
-using SymbolicIndexingInterface
+using ComponentArrays
+using CairoMakie
+
+# ## Lotka Volterrra Dynamics 
 
 function lotka_dynamics(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
     du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
     return du[3] = (u[1] - 1.0)^2 + (u[2] - 1.0)^2
 end
-
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
-
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0) #, sensealg=SciMLBase.NoAD())
+
+# ## Single Shooting Approach
+
 
 cgrid = collect(0.0:0.1:11.9)
 control = ControlParameter(
     cgrid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(cgrid))
 )
-
-# Single Shooting
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
-ps, st = LuxCore.setup(Random.default_rng(), layer)
 
-optprob = OptimizationProblem(layer, :x₃) #; AD=AutoReverseDiff())
+# Given that we have an optimi
 
+optprob = OptimizationProblem(layer, :x₃)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol = 1.0e-6,
@@ -44,8 +64,9 @@ uopt = solve(
     max_iter = 300
 )
 
+#
+ps, st = LuxCore.setup(Random.default_rng(), layer)
 optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
-
 f = Figure()
 ax = CairoMakie.Axis(f[1, 1])
 scatterlines!(ax, optsol, vars = [:x₁, :x₂])
@@ -55,7 +76,10 @@ stairs!(ax1, optsol, vars = [:u₁])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 f
 
-## Multiple Shooting
+
+
+# ## Multiple Shooting
+
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
 mslayer = MultipleShootingLayer(
     prob, Tsit5(), shooting_points...; controls = (1 => control,),
@@ -73,16 +97,6 @@ uopt = solve(
     tol = 1.0e-5,
     hessian_approximation = "limited-memory",
     max_iter = 300 # 165
-)
-
-blocks = Corleone.get_block_structure(mslayer)
-
-uopt = solve(
-    optprob, BlockSQPOpt(),
-    opttol = 1.0e-6,
-    options = blockSQP.sparse_options(),
-    sparsity = blocks,
-    maxiters = 300 # 165
 )
 
 mssol, _ = mslayer(nothing, uopt + zero(ComponentArray(msps)), msst)
