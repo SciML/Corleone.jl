@@ -41,8 +41,8 @@ end
 
 tutorials = map(
     [
-        abspath("examples/lotka_fishing_optimal_control/main.jl"),
         abspath("examples/harmonic_oscillator/main.jl"),
+        abspath("examples/lotka_fishing_optimal_control/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
