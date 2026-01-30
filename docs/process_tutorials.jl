@@ -28,6 +28,7 @@ function make_tutorial(path)
     isfile(path) || return nothing
     activate_env = dirname(path)
     Pkg.activate(activate_env)
+    Pkg.develop(path = joinpath(@__DIR__, ".."))
     Pkg.instantiate()
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
