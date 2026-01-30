@@ -10,11 +10,12 @@
 
 # Let’s start by modeling the [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator). This example is one of the simplest optimal control problems. Lets assume we want to It reads as
 
-# \begin{align}
+# ```math
+# \begin{aligned}
 # \min_u & \int_0^T w_1 (x - x_f)^2 + w_2 u^2 dt \\
 # \text{s.t.} \quad & \dot{x} = a x + b u
-# \end{align}
-
+# \end{aligned}
+# ```
 # First, we load the necessary packages to model the problem.
 
 # ## Setup
@@ -32,6 +33,7 @@ using Random
 using OrdinaryDiffEqTsit5
 using Optimization
 using OptimizationLBFGSB
+using ForwardDiff
 using ComponentArrays
 using CairoMakie
 
