@@ -76,7 +76,7 @@ function plot_lqr_solution(solution; show_setpoint = true)
     if show_setpoint
         hlines!(axes[1], [3.0], color = :black, linestyle = :dash)
     end
-    stairs!(axes[2], solution, vars = [:u₁])
+    stairs!(axes[2], solution, vars = [:input])
     plot!(axes[3], solution, vars = [:x₂])
     for (i, title) in enumerate(["State", "Control", "Costs"])
         f[i, 2] = Legend(f, axes[i], title, framevisible = false)
