@@ -1,6 +1,6 @@
-# Corleone 
+# Corleone 🦁
 
-## Introduction 
+## Introduction  
 
 Corleone is a software package aimed at the flexible formulation and fast
 solving of optimal control and optimum experimental design problems. 
@@ -13,7 +13,7 @@ direct single shooting or direct multiple shooting.
 - Single Shooting and Multiple Shooting available
 - Flexible initialization of all multiple shooting nodes
 - Batch experiments: Experiments can be designed either as single experiments, or optimized simultaneously as batch experiments
-- OED: Measurements can be specified either as continuous or discrete
+- OED: Measurements can be specified either as continuous or discrete [sager_2013_jan_samplingdecisionsoptimum](@cite)
 
 ## Installation
 
@@ -23,13 +23,3 @@ To install `Corleone.jl`, run the following
 using Pkg
 Pkg.add("Corleone")
 ```
-
-## Contents
-```@contents
-```
-
-## Index
-
-```@index
-```
-

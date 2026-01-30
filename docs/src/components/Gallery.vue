@@ -1,29 +1,28 @@
 <template>
   <div class="gallery-container">
     <div class="controls">
-      <input 
-        v-model="searchQuery" 
-        type="text" 
-        placeholder="Search tutorials..." 
-        class="search-input"
-      />
+      <div class="search-header">
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="Search tutorials..." 
+          class="search-input"
+        />
+        <button v-if="hasActiveFilters" @click="resetFilters" class="reset-btn">
+          Reset All
+        </button>
+      </div>
       
       <div class="filter-bar">
-        <button 
-          class="filter-chip" 
-          :class="{ active: selectedTag === null }"
-          @click="selectedTag = null"
-        >
-          All
-        </button>
         <button 
           v-for="tag in allTags" 
           :key="tag" 
           class="filter-chip"
-          :class="{ active: selectedTag === tag }"
-          @click="selectedTag = (selectedTag === tag ? null : tag)"
+          :class="{ active: selectedTags.has(tag) }"
+          @click="toggleTag(tag)"
         >
           {{ tag }}
+          <span v-if="selectedTags.has(tag)" class="check">✓</span>
         </button>
       </div>
     </div>
@@ -36,7 +35,12 @@
         </div>
 
         <div class="tag-list">
-          <span v-for="tag in item.tags" :key="tag" class="tag-pill">
+          <span 
+            v-for="tag in item.tags" 
+            :key="tag" 
+            class="tag-pill"
+            :class="{ highlighted: selectedTags.has(tag) }"
+          >
             {{ tag }}
           </span>
         </div>
@@ -47,6 +51,10 @@
           <a :href="item.link" class="link">Read Tutorial →</a>
         </div>
       </div>
+    </div>
+
+    <div v-if="filteredData.length === 0" class="empty-state">
+      <p>No tutorials match your current filters.</p>
     </div>
   </div>
 </template>
@@ -65,24 +73,42 @@ interface Tutorial {
 const props = defineProps<{ items: Tutorial[] }>()
 
 const searchQuery = ref('')
-const selectedTag = ref<string | null>(null)
+const selectedTags = ref<Set<string>>(new Set())
 
-// Automatically extract unique tags from your Julia data
+// Extract unique tags
 const allTags = computed(() => {
   const tags = new Set<string>()
-  props.items.forEach(item => {
-    item.tags?.forEach(t => tags.add(t))
-  })
+  props.items.forEach(item => item.tags?.forEach(t => tags.add(t)))
   return Array.from(tags).sort()
 })
 
+const hasActiveFilters = computed(() => {
+  return searchQuery.value !== '' || selectedTags.value.size > 0
+})
+
+function toggleTag(tag: string) {
+  if (selectedTags.value.has(tag)) {
+    selectedTags.value.delete(tag)
+  } else {
+    selectedTags.value.add(tag)
+  }
+}
+
+function resetFilters() {
+  searchQuery.value = ''
+  selectedTags.value.clear()
+}
+
 const filteredData = computed(() => {
   return props.items.filter(item => {
+    // Search filter
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                           item.description.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchesTag = !selectedTag.value || item.tags?.includes(selectedTag.value)
     
-    return matchesSearch && matchesTag
+    // Multi-tag filter: Item must contain ALL selected tags
+    const matchesTags = Array.from(selectedTags.value).every(t => item.tags?.includes(t))
+    
+    return matchesSearch && matchesTags
   })
 })
 </script>
@@ -95,15 +121,26 @@ const filteredData = computed(() => {
   gap: 1rem;
 }
 
+.search-header {
+  display: flex;
+  gap: 10px;
+}
+
 .search-input {
-  width: 100%;
+  flex-grow: 1;
   padding: 12px 16px;
   border-radius: 8px;
   border: 1px solid var(--vp-c-divider);
   background: var(--vp-c-bg-alt);
 }
 
-/* Filter Chips Styling */
+.reset-btn {
+  font-size: 0.8rem;
+  color: var(--vp-c-brand-1);
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
@@ -114,24 +151,22 @@ const filteredData = computed(() => {
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
-  font-weight: 500;
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
-  transition: all 0.2s ease;
   cursor: pointer;
-}
-
-.filter-chip:hover {
-  border-color: var(--vp-c-brand-1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .filter-chip.active {
-  background: var(--vp-c-brand-1);
-  color: white;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
   border-color: var(--vp-c-brand-1);
 }
 
-/* Card Styling */
+.check { font-size: 0.7rem; }
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -156,11 +191,19 @@ const filteredData = computed(() => {
   color: var(--vp-c-text-2);
 }
 
-.description {
-  margin: 1rem 0;
-  font-size: 0.9rem;
+/* Highlight tags in the card if they are part of the active filter */
+.tag-pill.highlighted {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-weight: bold;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
   color: var(--vp-c-text-2);
-  flex-grow: 1;
+  border: 2px dashed var(--vp-c-divider);
+  border-radius: 12px;
 }
 
 .link {
