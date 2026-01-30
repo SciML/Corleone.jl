@@ -43,3 +43,11 @@ makedocs(
     remotes = nothing,
     plugins = [links, bib],
 )
+
+DocumenterVitepress.deploydocs(;
+    repo = "github.com/SciML/Corleone.jl",
+    target = joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
+    devbranch = "main", # or master, trunk, ...
+    push_preview = true,
+)

@@ -28,6 +28,7 @@ function make_tutorial(path)
     isfile(path) || return nothing
     activate_env = dirname(path)
     Pkg.activate(activate_env)
+    Pkg.instantiate()
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
     fname = replace(lowercase(get(metadata, "title", first(splitext(scriptname)))), " " => "_")
@@ -46,7 +47,7 @@ end
 tutorials = map(
     [
         abspath("examples/linear_quadratic/main.jl"),
-        abspath("examples/lotka_fishing_optimal_control/main.jl"),
+     #   abspath("examples/lotka_fishing_optimal_control/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
