@@ -45,7 +45,7 @@ end
 
 tutorials = map(
     [
-        abspath("examples/harmonic_oscillator/main.jl"),
+        abspath("examples/linear_quadratic/main.jl"),
         abspath("examples/lotka_fishing_optimal_control/main.jl"),
     ]
 ) do tutorial

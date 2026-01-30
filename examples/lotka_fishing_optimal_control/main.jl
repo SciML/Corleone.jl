@@ -7,8 +7,6 @@
 #src icon: 🎣
 #src ---
 
- # Lotka Volterra Fishing Example 
-
 # This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
 # ## Setup 
