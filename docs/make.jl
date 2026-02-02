@@ -1,9 +1,8 @@
 using Pkg
 
-Pkg.develop(path = joinpath(@__DIR__, ".."))
+Pkg.develop(path=joinpath(@__DIR__, ".."))
 
 using Documenter, Corleone
-using DocumenterVitepress
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
@@ -19,20 +18,27 @@ include("process_tutorials.jl")
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
-    sitename = "Corleone.jl",
-    authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone],
-    format = DocumenterVitepress.MarkdownVitepress(
-        repo = "github.com/SciML/Corleone.jl",
-        devbranch = "main", # or master, trunk, ...
-        devurl = "dev",
-        # if you use something else than yourname.github.io/YourPackage.jl
+    sitename="Corleone.jl",
+    authors="Carl Julius Martensen, Christoph Plate, et al.",
+    modules=[Corleone],
+    format= Documenter.HTML(
+        assets = ["assets/favicon.ico"],
+        canonical = "https://docs.sciml.ai/Corleone/stable/"
     ),
+    #DocumenterVitepress.MarkdownVitepress(
+    #    repo = "github.com/SciML/Corleone.jl",
+    #    devbranch = "main", # or master, trunk, ...
+    #    devurl = "dev",
+    # if you use something else than yourname.github.io/YourPackage.jl
+    #),
     pages = [
         "Home" => "index.md",
         "Getting Started" => "examples/the_linear_quadratic_regulator.md",
-        "Tutorials" => "tutorials.md",
-        "References" => "references.md", 
+		"Tutorials" => [
+			"Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
+			"Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+		], #"tutorials.md",
+        "References" => "references.md",
         "API" => "api.md"
         #tutorials,
         #"Examples" => [#"Optimal Control" => "./examples/lotka.md",
@@ -42,15 +48,19 @@ makedocs(
         #],
         # "API Reference" => "api.md",
     ],
-    checkdocs = :none,
-    remotes = nothing,
-    plugins = [links, bib],
+    checkdocs=:none,
+    remotes=nothing,
+    plugins=[links, bib],
 )
 
-DocumenterVitepress.deploydocs(;
-    repo = "github.com/SciML/Corleone.jl",
-    target = joinpath(@__DIR__, "build"),
-    branch = "gh-pages",
-    devbranch = "main", # or master, trunk, ...
-    push_preview = true,
+deploydocs(
+    repo = "github.com/SciML/Corleone.git";
+    push_preview = true
 )
+#DocumenterVitepress.deploydocs(;
+#    repo="github.com/SciML/Corleone.jl",
+#    target=joinpath(@__DIR__, "build"),
+#    branch="gh-pages",
+#    devbranch="main", # or master, trunk, ...
+#    push_preview=true,
+#)
