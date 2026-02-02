@@ -11,12 +11,16 @@ function Optimization.OptimizationProblem(
         loss::Union{Symbol, Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr, Symbol}, <:NamedTuple{(:t, :bounds)}}} = nothing,
+        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
         kwargs...
     ) where {T}
 
     u0 = T.(u0)
+
+    if !isnothing(constraints)
+        @assert all(collect(keys(constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
+    end
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -100,11 +104,16 @@ function Optimization.OptimizationProblem(
         loss::Union{Symbol, Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints = nothing, variable_type::Type{T} = Float64,
+        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}} = nothing,
+        variable_type::Type{T} = Float64,
         kwargs...
     ) where {T}
 
     u0 = T.(u0)
+
+    if !isnothing(constraints)
+        @assert all(collect(keys(constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
+    end
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
