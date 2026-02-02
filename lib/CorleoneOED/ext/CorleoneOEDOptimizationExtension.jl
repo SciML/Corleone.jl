@@ -12,6 +12,21 @@ default_M(layer::OEDLayer{true}) = zeros(CorleoneOED.n_observed(layer)) .+ [leng
 default_M(layer::MultiExperimentLayer{false, <:Any, false}) = reduce(vcat, [default_M(layer.layers) for _ in 1:layer.n_exp])
 default_M(layer::MultiExperimentLayer{false, <:Any, true}) = reduce(vcat, map(default_M, layer.layers))
 
+check_constraints(layer::OEDLayer, constraints) = begin
+    if !isnothing(constraints)
+        @assert all(collect(keys(constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
+    end
+end
+
+check_constraints(layer::MultiExperimentLayer, constraints) = begin
+    if !isnothing(constraints)
+        @assert typeof(constraints) <: NamedTuple
+        for local_constraints in constraints
+            @assert all(collect(keys(local_constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
+        end
+    end
+end
+
 function extract_constraint_bounds(layer::Union{OEDLayer, MultiExperimentLayer}, constraints::Nothing, M)
     nshooting = Corleone.get_number_of_shooting_constraints(layer)
     lcons, ucons = begin
@@ -249,13 +264,14 @@ function Optimization.OptimizationProblem(
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr, Symbol}, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
+        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
         kwargs...
     ) where {T}
 
     u0 = T.(u0)
+    check_constraints(layer, constraints)
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
@@ -293,13 +309,14 @@ function Optimization.OptimizationProblem(
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr, Symbol}, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
+        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
         variable_type::Type{T} = Float64,
         M = default_M(layer),
         kwargs...
     ) where {T}
 
     u0 = T.(u0)
+    check_constraints(layer, constraints)
 
     # Our objective function
     ps, st = LuxCore.setup(Random.default_rng(), layer)
