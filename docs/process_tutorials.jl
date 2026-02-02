@@ -15,12 +15,33 @@ end
 function preprocess_script(content)
     content = replace(content, "TODAY" => Date(now()))
     content *= """
-        # ## Appendix
-
-        using InteractiveUtils
-        InteractiveUtils.versioninfo()
+            # ## Appendix
+            # ```@raw html
+            # <details><summary>This example was built using these direct dependencies,</summary>
+            # ```
+            using Pkg 
+            Pkg.status() 
+            # ```@raw html
+            # </details>
+            # ```
+            # ```@raw html
+            # <details><summary>and using this machine and Julia version.</summary>
+            # ```
+            using InteractiveUtils
+            InteractiveUtils.versioninfo()
+            # ```@raw html
+            # </details>
+            # ```
+            # ```@raw html
+            # <details><summary>A more complete overview of all dependencies and their versions is also provided.</summary>
+            # ```
+            using Pkg 
+            Pkg.status(; mode = PKGMODE_MANIFEST) 
+            # ```@raw html
+            # </details>
+            # ```
     """
-    content
+    return content
 end
 
 
@@ -35,11 +56,13 @@ function make_tutorial(path)
     fname = replace(lowercase(get(metadata, "title", first(splitext(scriptname)))), " " => "_")
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
-    Literate.markdown(path, outpath, 
-        execute = true, 
+    Literate.markdown(
+        path, outpath,
+        execute = true,
         preprocess = preprocess_script,
-       # flavor = Literate.CommonMarkFlavor(), 
-        name = fname)
+        # flavor = Literate.CommonMarkFlavor(),
+        name = fname
+    )
     Pkg.activate(@__DIR__)
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
@@ -48,7 +71,7 @@ end
 tutorials = map(
     [
         abspath("examples/linear_quadratic/main.jl"),
-     #   abspath("examples/lotka_fishing_optimal_control/main.jl"),
+        #   abspath("examples/lotka_fishing_optimal_control/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
@@ -72,8 +95,8 @@ function generate_searchable_index(tutorials)
     <Gallery :items="data" />
     ``` 
     """
-    
-    write(output_path, output)
+
+    return write(output_path, output)
 end
 
 generate_searchable_index(tutorials)

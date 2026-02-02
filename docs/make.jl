@@ -30,8 +30,11 @@ makedocs(
     ),
     pages = [
         "Home" => "index.md",
+        "Getting Started" => "examples/the_linear_quadratic_regulator.md",
         "Tutorials" => "tutorials.md",
-        "References" => "references.md", #tutorials,
+        "References" => "references.md", 
+        "API" => "api.md"
+        #tutorials,
         #"Examples" => [#"Optimal Control" => "./examples/lotka.md",
         #"Multiple Shooting" => "./examples/multiple_shooting.md",
         # "Optimal Experimental Design" => "./examples/lotka_oed.md",

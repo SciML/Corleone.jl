@@ -1,19 +1,46 @@
-# Corleone 🦁
+```@raw html
+---
+# https://vitepress.dev/reference/default-theme-home-page
+layout: home
 
-## Introduction  
+hero:
+  name: Corleone.jl 
+  text: Fast & Performant Direct Shooting in JuliaLang
+  tagline: 🚀 Shoot for the stars with the performance of SciML & the flexibility of Lux.
+  actions:
+    - theme: brand
+      text: Tutorials
+      link: tutorials
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/SciML/Corleone.jl
+  image:
+    src: logo.png
+    alt: Corleone.jl
 
-Corleone is a software package aimed at the flexible formulation and fast
-solving of optimal control and optimum experimental design problems. 
-It uses a first-discretize-then-optimize approach using either 
-direct single shooting or direct multiple shooting.
+features:
+  - icon: 🚀
+    title: Fast & Interoperable
+    details: Corleone aims to provide an easy-to-use but still flexible framework to solve various optimal control problems.
+    link: /introduction
 
-## Features
+  - icon: 🔋
+    title: SciML 
+    details: Build upon the performant tools of SciML, e.g. OrdinaryDiffEq.jl and Optimization.jl, it comes with batteries included.
+    link: https://sciml.ai/
 
-- Support of ODE and DAE models 
-- Single Shooting and Multiple Shooting available
-- Flexible initialization of all multiple shooting nodes
-- Batch experiments: Experiments can be designed either as single experiments, or optimized simultaneously as batch experiments
-- OED: Measurements can be specified either as continuous or discrete [sager_2013_jan_samplingdecisionsoptimum](@cite)
+  - icon: 🤖 
+    title: ML Ready 
+    details: Corleone is build upon LuxCore.jl. 
+    link: https://lux.csail.mit.edu/stable/
+
+  - icon: 🧪
+    title: Optimal Experimental Design
+    details: Automatically derive optimal experimental designs for your models, leveraging the capabilities of Symbolics.jl
+    link: /oed
+---
+```
+
 
 ## Installation
 
@@ -22,4 +49,13 @@ To install `Corleone.jl`, run the following
 ```julia
 using Pkg
 Pkg.add("Corleone")
+```
+
+## Optimal Experimental Design 
+
+To derive optimal experimental designs [sager_2013_jan_samplingdecisionsoptimum](@cite) simply add `CorleoneOED.jl` by running 
+
+```julia
+using Pkg
+Pkg.add("CorleoneOED")
 ```
