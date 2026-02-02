@@ -92,11 +92,11 @@ plot_lqr_solution(solution)
 # Transforming the given layer into an [`SciMLBase.OptimizationProblem`](@extref) is a one liner. We simply give in the predictor and the cost to minimize.
 optprob = OptimizationProblem(
     predictor, :x₂
-)
+);
 # And solve it using [`OptimizationLBFGSB.LBFGSB`](@extref)
 uopt = solve(
     optprob, OptimizationLBFGSB.LBFGSB()
-)
+);
 # Finally, lets have a look at the optimized solution.
 optimized_solution, _ = predictor(nothing, uopt + zero(ComponentArray(ps)), st)
 plot_lqr_solution(optimized_solution)

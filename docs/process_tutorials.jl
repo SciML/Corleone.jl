@@ -71,7 +71,7 @@ end
 tutorials = map(
     [
         abspath("examples/linear_quadratic/main.jl"),
-        #   abspath("examples/lotka_fishing_optimal_control/main.jl"),
+        abspath("examples/lotka_fishing_optimal_control/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
