@@ -110,7 +110,6 @@ function _parallel_solve(
 end
 
 function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where {fields}
-    (; layer, ensemble_alg) = shooting
     ret = Corleone._parallel_solve(shooting, u0, ps, st)
     u = first.(ret)
     sts = NamedTuple{fields}(last.(ret))
