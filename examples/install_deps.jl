@@ -21,6 +21,6 @@ if !isfile(joinpath(@__DIR__, "Project.toml"))
 else
     # We add Corleone
     Pkg.rm("Corleone")
-    Pkg.add(url="https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev="main")
+    Pkg.add(url = "https://kosinus.math.uni-magdeburg.de/mathopt/software/corleone", rev = "main")
     Pkg.resolve()
 end

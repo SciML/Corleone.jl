@@ -6,7 +6,7 @@ $(FIELDS)
 # Note 
 If present, `shooting_points` contains a list of `Tuple`s `(timeseries_index, last_shooting_point)`.  
 """
-struct Trajectory{S,U,P,T,SH}
+struct Trajectory{S, U, P, T, SH}
     "The symbolic system used for SymbolicIndexingInterface"
     sys::S
     "The state trajectory"
@@ -23,8 +23,8 @@ end
 
 SymbolicIndexingInterface.is_timeseries(::Type{<:Trajectory}) = Timeseries()
 function SymbolicIndexingInterface.is_timeseries(
-    ::Type{<:Trajectory{S,U,P,Nothing}}
-) where {S,U,P}
+        ::Type{<:Trajectory{S, U, P, Nothing}}
+    ) where {S, U, P}
     return NotTimeseries()
 end
 SymbolicIndexingInterface.symbolic_container(fp::Trajectory) = fp.sys

@@ -9,20 +9,22 @@ using LinearAlgebra
 rng = Random.default_rng()
 
 function lotka_dynamics(u, p, t)
-    return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
-            -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]]
+    return [
+        u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
+        -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    ]
 end
 
-tspan = (0., 12.)
+tspan = (0.0, 12.0)
 u0 = [0.5, 0.7]
 p0 = [0.0, 1.0, 1.0]
 
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6)
 
 @testset "Continuous case" begin
-    layer_all_p = OEDLayer(prob, Tsit5(); params=[2,3], observed = (u,p,t) -> u[1:2])
-    layer_p1 = OEDLayer(prob, Tsit5(); params=[2], observed = (u,p,t) -> u[1:2])
-    layer_p2 = OEDLayer(prob, Tsit5(); params=[3], observed = (u,p,t) -> u[1:2])
+    layer_all_p = OEDLayer(prob, Tsit5(); params = [2, 3], observed = (u, p, t) -> u[1:2])
+    layer_p1 = OEDLayer(prob, Tsit5(); params = [2], observed = (u, p, t) -> u[1:2])
+    layer_p2 = OEDLayer(prob, Tsit5(); params = [3], observed = (u, p, t) -> u[1:2])
 
     multilayer_all_p = MultiExperimentLayer(layer_all_p, 1)
     multilayer_p1_p2 = MultiExperimentLayer(layer_p1, layer_p2)
@@ -61,20 +63,20 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol=1e-8, reltol=1e-6)
     F22_p2_h1 = Corleone.symmetric_from_vector(sols_p1_p2[2][F_p2_1][end])
     F22_p2_h2 = Corleone.symmetric_from_vector(sols_p1_p2[2][F_p2_2][end])
 
-    @test isapprox(F11_all[1,1], only(F11_p1_h1))
-    @test isapprox(F22_all[1,1], only(F11_p1_h2))
-    @test isapprox(F11_all[2,2], only(F22_p2_h1))
-    @test isapprox(F22_all[2,2], only(F22_p2_h2))
+    @test isapprox(F11_all[1, 1], only(F11_p1_h1))
+    @test isapprox(F22_all[1, 1], only(F11_p1_h2))
+    @test isapprox(F11_all[2, 2], only(F22_p2_h1))
+    @test isapprox(F22_all[2, 2], only(F22_p2_h2))
 
 
-    @test isapprox(crit(F11_all + F22_all), phi_all , atol=1e-8)
-    @test isapprox(crit(F11_p1_h1+F11_p1_h2+F22_p2_h1+F22_p2_h2), phi_p1_p2, atol=1e-8)
+    @test isapprox(crit(F11_all + F22_all), phi_all, atol = 1.0e-8)
+    @test isapprox(crit(F11_p1_h1 + F11_p1_h2 + F22_p2_h1 + F22_p2_h2), phi_p1_p2, atol = 1.0e-8)
 end
 
 @testset "Discrete case" begin
-    layer_all_p = OEDLayer(prob, Tsit5(); params=[2,3], observed = (u,p,t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
-    layer_p1 = OEDLayer(prob, Tsit5(); params=[2], observed = (u,p,t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
-    layer_p2 = OEDLayer(prob, Tsit5(); params=[3], observed = (u,p,t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
+    layer_all_p = OEDLayer(prob, Tsit5(); params = [2, 3], observed = (u, p, t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
+    layer_p1 = OEDLayer(prob, Tsit5(); params = [2], observed = (u, p, t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
+    layer_p2 = OEDLayer(prob, Tsit5(); params = [3], observed = (u, p, t) -> u[1:2], measurement_points = 0.5:1.0:11.5)
 
     multilayer_all_p = MultiExperimentLayer(layer_all_p, 1)
     multilayer_p1_p2 = MultiExperimentLayer(layer_p1, layer_p2)
@@ -86,5 +88,5 @@ end
 
     F_p1_p2 = Corleone.fim(multilayer_p1_p2, ComponentArray(ps1))
 
-    @test isapprox(tr(F_all_p),tr(F_p1_p2), atol=1e-5)
+    @test isapprox(tr(F_all_p), tr(F_p1_p2), atol = 1.0e-5)
 end

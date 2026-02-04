@@ -6,13 +6,15 @@ using ComponentArrays
 using LuxCore
 using Random
 
-function Optimization.OptimizationProblem(layer::SingleShootingLayer,
-        loss::Union{Symbol,Expr};
+function Optimization.OptimizationProblem(
+        layer::SingleShootingLayer,
+        loss::Union{Symbol, Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{<:Union{Expr,Symbol},<:NamedTuple{(:t,:bounds)}}} = nothing,
+        constraints::Union{Nothing, <:Dict{<:Union{Expr, Symbol}, <:NamedTuple{(:t, :bounds)}}} = nothing,
         variable_type::Type{T} = Float64,
-        kwargs...) where {T}
+        kwargs...
+    ) where {T}
 
     u0 = T.(u0)
 
@@ -21,7 +23,7 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     sol, _ = layer(nothing, ps, st)
     getter = SymbolicIndexingInterface.getsym(sol, loss)
 
-    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter
         (p, st) -> begin
             ps = ComponentArray(p, ax)
             sols, _ = layer(nothing, ps, st)
@@ -38,27 +40,27 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
     cons = begin
         if !isnothing(constraints)
 
-        getter_constraints = []
-        for (k,v) in constraints
-            push!(getter_constraints, getsym(sol, k))
-        end
-
-        sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
-            (res, p, st) -> begin
-                ps = ComponentArray(p, ax)
-                sols, _ = layer(nothing, ps, st)
-
-                cons = map(enumerate(constraints)) do (i, (k,v))
-                    # Caution: timepoints for controls need to be in sols.t!
-                    idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
-                    getter[i](sols)[idxs]
-                end
-
-                res .= reduce(vcat, cons)
+            getter_constraints = []
+            for (k, v) in constraints
+                push!(getter_constraints, getsym(sol, k))
             end
-        end
 
-        sampling_cons
+            sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
+                (res, p, st) -> begin
+                    ps = ComponentArray(p, ax)
+                    sols, _ = layer(nothing, ps, st)
+
+                    cons = map(enumerate(constraints)) do (i, (k, v))
+                        # Caution: timepoints for controls need to be in sols.t!
+                        idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
+                        getter[i](sols)[idxs]
+                    end
+
+                    res .= reduce(vcat, cons)
+                end
+            end
+
+            sampling_cons
         else
             nothing
         end
@@ -68,32 +70,39 @@ function Optimization.OptimizationProblem(layer::SingleShootingLayer,
         if isnothing(constraints)
             nothing, nothing
         else
-            _lb = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
-                first(v.bounds)
-            end)
-            _ub = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
-                first(v.bounds)
-            end)
+            _lb = reduce(
+                vcat, map(enumerate(constraints)) do (i, (k, v))
+                    first(v.bounds)
+                end
+            )
+            _ub = reduce(
+                vcat, map(enumerate(constraints)) do (i, (k, v))
+                    first(v.bounds)
+                end
+            )
             _lb, _ub
         end
     end
 
     # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD; cons=cons)
+    opt_f = OptimizationFunction(objective, AD; cons = cons)
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
+    return OptimizationProblem(
+        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end
 
 
-function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
-        loss::Union{Symbol,Expr};
+function Optimization.OptimizationProblem(
+        layer::MultipleShootingLayer,
+        loss::Union{Symbol, Expr};
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
         constraints = nothing, variable_type::Type{T} = Float64,
-        kwargs...) where {T}
+        kwargs...
+    ) where {T}
 
     u0 = T.(u0)
 
@@ -129,19 +138,19 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
             shooting_constraints
         else
             getter_constraints = []
-            for (k,v) in constraints
+            for (k, v) in constraints
                 push!(getter_constraints, getsym(sol, k))
             end
 
-            shooting_constraints = let layer = layer, ax = getaxes(ComponentArray(ps)), getter=getter_constraints, constraints=constraints
+            shooting_constraints = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
                 (res, p, st) -> begin
                     ps = ComponentArray(p, ax)
                     sols, _ = layer(nothing, ps, st)
                     matching = Corleone.shooting_constraints(sols)
 
-                    cons = map(enumerate(constraints)) do (i, (k,v))
+                    cons = map(enumerate(constraints)) do (i, (k, v))
                         # Caution: timepoints for controls need to be in sols.t!
-                        idxs = map(ti -> findfirst(x -> x .== ti , sols.t), v.t)
+                        idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
                         getter[i](sols)[idxs]
                     end
 
@@ -155,12 +164,16 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
 
     lcons, ucons = begin
         if !isnothing(constraints)
-            _lb = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
-                first(v.bounds)
-            end)
-            _ub = reduce(vcat, map(enumerate(constraints)) do (i, (k,v))
-                first(v.bounds)
-            end)
+            _lb = reduce(
+                vcat, map(enumerate(constraints)) do (i, (k, v))
+                    first(v.bounds)
+                end
+            )
+            _ub = reduce(
+                vcat, map(enumerate(constraints)) do (i, (k, v))
+                    first(v.bounds)
+                end
+            )
             vcat(_lb, zeros(T, nshooting)), vcat(_ub, zeros(T, nshooting))
         else
             zeros(T, nshooting), zeros(T, nshooting)
@@ -168,11 +181,14 @@ function Optimization.OptimizationProblem(layer::MultipleShootingLayer,
     end
 
     # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD;
-        cons = shooting_constraints)
+    opt_f = OptimizationFunction(
+        objective, AD;
+        cons = shooting_constraints
+    )
 
     # Return the optimization problem
-    OptimizationProblem(opt_f, u0[:], st, lb = lb[:], ub = ub[:],
+    return OptimizationProblem(
+        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
         lcons = lcons, ucons = ucons,
     )
 end

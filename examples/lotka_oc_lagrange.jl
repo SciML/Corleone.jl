@@ -10,13 +10,15 @@ using Optimization
 using OptimizationMOI
 
 function lotka_dynamics(u, p, t)
-    return [u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
-            -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2];
-            (u[1]-1.0)^2 + (u[2] - 1.0)^2]
+    return [
+        u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1];
+        -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2];
+        (u[1] - 1.0)^2 + (u[2] - 1.0)^2
+    ]
 end
 
-tspan = (0., 12.)
-u0 = [0.5, 0.7, 0.]
+tspan = (0.0, 12.0)
+u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
 
 lotka_dynamics(u0, p0, tspan[1])
@@ -28,14 +30,15 @@ N_stages = 40
 N_controls = 120
 
 control = ControlParameter(
-    range(0.,12.,N_controls + 1), name = :fishing, bounds=(0.0,1.0)
+    range(0.0, 12.0, N_controls + 1), name = :fishing, bounds = (0.0, 1.0)
 )
 
-shooting_points = [range(0.,12.,N_stages + 1)...]
-mslayer = MultipleShootingLayer(prob, Tsit5(), shooting_points...; controls = (1 => control,),
-                            bounds_p = ([1.0, 1.0], [1.0, 1.0]), 
-                            quadrature_indices = 3:3
-                            )
+shooting_points = [range(0.0, 12.0, N_stages + 1)...]
+mslayer = MultipleShootingLayer(
+    prob, Tsit5(), shooting_points...; controls = (1 => control,),
+    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
+    quadrature_indices = 3:3
+)
 
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 msp = ComponentArray(msps)
@@ -45,8 +48,9 @@ function stage_set_all!(MSCARR::ComponentArray, inner_ind, val)
     for interval in keys(MSCARR)
         view(MSCARR, interval)[inner_ind] .= val[1:length(view(MSCARR, interval)[inner_ind])]
     end
+    return
 end
-stage_set_all!(ms_lb, :u0, [0., 0., -Inf])
+stage_set_all!(ms_lb, :u0, [0.0, 0.0, -Inf])
 
 msloss = let layer = mslayer, st = msst, ax = getaxes(msp)
     (p, ::Any) -> begin
@@ -65,7 +69,7 @@ shooting_constraints = let layer = mslayer, st = msst, ax = getaxes(msp)
 end
 
 const N_match::Int64 = Corleone.get_number_of_shooting_constraints(mslayer, msps, msst)
-matching_fun(p::AbstractVector{T}) where T = (res = Vector{T}(undef, N_match); shooting_constraints(res, p, nothing); res)
+matching_fun(p::AbstractVector{T}) where {T} = (res = Vector{T}(undef, N_match); shooting_constraints(res, p, nothing); res)
 
 matching = shooting_constraints(zeros(Corleone.get_number_of_shooting_constraints(mslayer, msps, msst)), msp, nothing)
 
@@ -75,14 +79,15 @@ optfun = OptimizationFunction(
 
 
 optprob = OptimizationProblem(
-    optfun, collect(msp), lb = collect(ms_lb), ub = collect(ms_ub), lcons = zero(matching), ucons=zero(matching)
+    optfun, collect(msp), lb = collect(ms_lb), ub = collect(ms_ub), lcons = zero(matching), ucons = zero(matching)
 )
 
 using Ipopt
-uopt = solve(optprob, Ipopt.Optimizer(),
-     tol = 1e-6,
-     hessian_approximation = "limited-memory",
-     max_iter = 300
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-6,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 )
 
 
@@ -94,8 +99,9 @@ opt_BSQP_sparse = blockSQP.sparse_options()
 opt_BSQP_sparse.enable_premature_termination = true
 opt_BSQP_sparse.max_extra_steps = 10
 
-uopt = solve(optprob, BlockSQPOpt(),
-    opttol = 1e-6,
+uopt = solve(
+    optprob, BlockSQPOpt(),
+    opttol = 1.0e-6,
     options = opt_BSQP_sparse,
     sparsity = blocks,
     maxiters = 300
@@ -104,11 +110,10 @@ uopt = solve(optprob, BlockSQPOpt(),
 mssol, _ = mslayer(nothing, uopt + zero(msp), msst)
 
 f = Figure()
-ax = CairoMakie.Axis(f[1,1])
-scatterlines!(ax, mssol, vars=[:x₁, :x₂])
+ax = CairoMakie.Axis(f[1, 1])
+scatterlines!(ax, mssol, vars = [:x₁, :x₂])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
-ax1 = CairoMakie.Axis(f[2,1])
-stairs!(ax1, mssol, vars=[:u₁])
+ax1 = CairoMakie.Axis(f[2, 1])
+stairs!(ax1, mssol, vars = [:u₁])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 display(f)
-
