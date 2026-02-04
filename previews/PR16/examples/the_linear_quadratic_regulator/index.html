@@ -10,7 +10,7 @@ using OptimizationLBFGSB
 using ForwardDiff
 using ComponentArrays
 using CairoMakie</code></pre><pre><code class="nohighlight hljs">Precompiling packages...
-   1341.7 ms  ✓ FilePathsBaseTestExt (serial)
+   1242.7 ms  ✓ FilePathsBaseTestExt (serial)
   1 dependency successfully precompiled in 1 seconds
 Precompiling packages...
 Info Given FilePathsURIsExt was explicitly requested, output will be shown live [0K
@@ -60,7 +60,7 @@ Info Given FilePathsURIsExt was explicitly requested, output will be shown live 
 │    
 │    FilePathsURIsExt 
 │    
-│    Failed to precompile FilePathsURIsExt [159e7594-57f7-51fe-8c60-75839224e477] to &quot;/home/runner/.julia/compiled/v1.12/FilePathsURIsExt/jl_2ftpgi&quot;.
+│    Failed to precompile FilePathsURIsExt [159e7594-57f7-51fe-8c60-75839224e477] to &quot;/home/runner/.julia/compiled/v1.12/FilePathsURIsExt/jl_2UllHe&quot;.
 │    ERROR: LoadError: ArgumentError: Package URIs [5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4] is required but does not seem to be installed:
 │     - Run `Pkg.instantiate()` to install all recorded dependencies.
 │    
@@ -99,11 +99,11 @@ Info Given FilePathsURIsExt was explicitly requested, output will be shown live 
 │    in expression starting at stdin:
 └ @ Base loading.jl:1617
 Precompiling packages...
-   1175.4 ms  ✓ DistributionsTestExt (serial)
+   1080.9 ms  ✓ DistributionsTestExt (serial)
   1 dependency successfully precompiled in 1 seconds
 Precompiling packages...
-   1428.8 ms  ✓ AbstractFFTsTestExt (serial)
-  1 dependency successfully precompiled in 2 seconds
+   1299.8 ms  ✓ AbstractFFTsTestExt (serial)
+  1 dependency successfully precompiled in 1 seconds
 </code></pre><h2 id="LQR-Dynamics"><a class="docs-heading-anchor" href="#LQR-Dynamics">LQR Dynamics</a><a id="LQR-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#LQR-Dynamics" title="Permalink"></a></h2><p>Next, we set up the dynamics and the objective as a single function.</p><pre><code class="language-julia hljs">function lqr_dynamics(x, p, t)
     a, b, u = p
     du = a .* x[1] .+ b .* u
@@ -158,7 +158,7 @@ plot_lqr_solution(optimized_solution)</code></pre><img width=600 height=450 styl
         Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/examples/linear_quadratic/Project.toml`
   [13f3f980] CairoMakie v0.15.8
   [b0b7db55] ComponentArrays v0.15.31
-  [2751e0db] Corleone v1.0.2-DEV `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.1 `~/work/Corleone.jl/Corleone.jl`
   [f6369f11] ForwardDiff v1.3.2
   [bb33d45b] LuxCore v1.5.3
   [7f7a1694] Optimization v5.4.0
@@ -219,7 +219,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [88cd18e8] ConsoleProgressMonitor v0.1.2
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
-  [2751e0db] Corleone v1.0.2-DEV `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.1 `~/work/Corleone.jl/Corleone.jl`
   [adafc99b] CpuId v0.3.1
   [9a962f9c] DataAPI v1.16.0
   [864edb3b] DataStructures v0.19.3
@@ -313,7 +313,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [bca83a33] OptimizationBase v4.2.0
   [22f7324a] OptimizationLBFGSB v1.3.0
   [bac558e1] OrderedCollections v1.8.1
-  [bbf590c4] OrdinaryDiffEqCore v3.4.1
+  [bbf590c4] OrdinaryDiffEqCore v3.4.2
   [b1df2697] OrdinaryDiffEqTsit5 v1.9.0
   [90014a1f] PDMats v0.11.37
   [f57f5aa1] PNGFiles v0.4.4
@@ -497,4 +497,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.64.0+1
   [3f19e933] p7zip_jll v17.7.0+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href>Linear Quadratic Regulator »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 4 February 2026 16:44">Wednesday 4 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href>Linear Quadratic Regulator »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 4 February 2026 18:08">Wednesday 4 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
