@@ -54,7 +54,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/SciML/Corleone.git";
+    repo = "github.com/SciML/Corleone.jl";
     push_preview = true
 )
 #DocumenterVitepress.deploydocs(;
