@@ -64,7 +64,7 @@ end
 
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer.layer
+    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
 
     FIXED = isempty(control_indices) && isempty(tunable_ic)
     SAMPLED = !isempty(measurements)
@@ -92,7 +92,7 @@ function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements 
 
     shooting_points = [t[1] for t in layer.shooting_intervals]
     newlayer = MultipleShootingLayer(
-        newproblem, algorithm, shooting_points...; controls = ctrls, tunable_ic = copy(tunable_ic), state_initialization, bounds_p, parameter_initialization
+        newproblem, algorithm, shooting_points...; controls = ctrls, tunable_ic = copy(tunable_ic), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
     )
 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
@@ -100,7 +100,7 @@ end
 
 function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization) = layer
+    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer
 
     FIXED = isempty(control_indices) && isempty(tunable_ic)
     SAMPLED = !isempty(measurements)
@@ -133,7 +133,7 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = 
         push!(ub, zero(eltype(newproblem.u0)))
     end
     newlayer = SingleShootingLayer(
-        newproblem, algorithm; controls = ctrls, tunable_ic = copy(tunable_ic), bounds_ic = (lb, ub), state_initialization, bounds_p, parameter_initialization
+        newproblem, algorithm; controls = ctrls, tunable_ic = copy(tunable_ic), bounds_ic = (lb, ub), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
     )
 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
