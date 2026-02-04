@@ -98,14 +98,16 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShooti
 end
 
 function _parallel_solve(
-    shooting::MultipleShootingLayer,
-    u0,
-    ps,
-    st::NamedTuple{fields},
-) where {fields}
-    args = collect(ntuple(
-        i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i]), i > 1), length(st)
-    ))
+        shooting::MultipleShootingLayer,
+        u0,
+        ps,
+        st::NamedTuple{fields},
+    ) where {fields}
+    args = collect(
+        ntuple(
+            i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i]), i > 1), length(st)
+        )
+    )
     return mythreadmap(shooting.ensemble_alg, Base.Splat(shooting.layer), args)
 end
 
@@ -116,7 +118,7 @@ function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where
     return Trajectory(u, sts, get_quadrature_indices(shooting)), sts
 end
 
-function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where TR <: Trajectory
+function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where {TR <: Trajectory}
     size(u, 1) == 1 && return only(u)
     p = first(u).p
     sys = first(u).sys
@@ -134,13 +136,19 @@ function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where TR <: 
         nx = statelength(sts[i + 1].initial_condition)
         controlidx = setdiff(idx, Base.OneTo(nx))
         stateidx = setdiff(idx, controlidx)
-        
-        (u0 = last(uprev)[stateidx] .- first(unext)[stateidx], 
-         p = u[i].p .- u[i + 1].p,
-         controls = last(uprev)[controlidx] .- first(unext)[controlidx])
+
+        (
+            u0 = last(uprev)[stateidx] .- first(unext)[stateidx],
+            p = u[i].p .- u[i + 1].p,
+            controls = last(uprev)[controlidx] .- first(unext)[controlidx],
+        )
     end
-    shootings = NamedTuple{(keys(sts)...,)}((shooting_val_1,
-                                             shooting_vals...,))
+    shootings = NamedTuple{(keys(sts)...,)}(
+        (
+            shooting_val_1,
+            shooting_vals...,
+        )
+    )
     # Sum up the quadratures
     q_prev = us[1][end][quadrature_indices]
     for i in eachindex(us)[2:end]
@@ -156,26 +164,26 @@ function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where TR <: 
 end
 
 function get_number_of_state_matchings(
-    shooting::MultipleShootingLayer,
-    ps=LuxCore.initialparameters(Random.default_rng(), shooting),
-    st=LuxCore.initialstates(Random.default_rng(), shooting),
-)
+        shooting::MultipleShootingLayer,
+        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
+        st = LuxCore.initialstates(Random.default_rng(), shooting),
+    )
     return sum(xi -> size(intersect(xi.shooting_indices, Base.OneTo(statelength(xi.initial_condition))), 1), Base.tail(st))
 end
 
 function get_number_of_parameter_matchings(
-    shooting::MultipleShootingLayer,
-    ps=LuxCore.initialparameters(Random.default_rng(), shooting),
-    st=LuxCore.initialstates(Random.default_rng(), shooting),
-)
+        shooting::MultipleShootingLayer,
+        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
+        st = LuxCore.initialstates(Random.default_rng(), shooting),
+    )
     return sum(xi -> size(xi.p, 1), Base.front(ps))
 end
 
 function get_number_of_control_matchings(
-    shooting::MultipleShootingLayer,
-    ps=LuxCore.initialparameters(Random.default_rng(), shooting),
-    st=LuxCore.initialstates(Random.default_rng(), shooting),
-)
+        shooting::MultipleShootingLayer,
+        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
+        st = LuxCore.initialstates(Random.default_rng(), shooting),
+    )
     return sum(xi -> size(setdiff(xi.shooting_indices, Base.OneTo(statelength(xi.initial_condition))), 1), Base.tail(st))
 end
 
@@ -185,8 +193,8 @@ function get_number_of_shooting_constraints(
         st = LuxCore.initialstates(Random.default_rng(), shooting),
     )
     return get_number_of_state_matchings(shooting, ps, st) +
-           get_number_of_control_matchings(shooting, ps, st) +
-           get_number_of_parameter_matchings(shooting, ps, st)
+        get_number_of_control_matchings(shooting, ps, st) +
+        get_number_of_parameter_matchings(shooting, ps, st)
 end
 
 deepvcat(V::AbstractVector) = V
@@ -200,15 +208,17 @@ and per-stage sorted by states - parameters - controls
 """
 stage_ordered_shooting_constraints(traj::Trajectory) = deepvcat(traj.shooting)
 
-function collect_into!(res::AbstractVector, sval::SV, ind::Vector{Int64} = [0]) where SV <: AbstractVector
+function collect_into!(res::AbstractVector, sval::SV, ind::Vector{Int64} = [0]) where {SV <: AbstractVector}
     for i in eachindex(sval)
         res[ind[1] += 1] = sval[i]
     end
+    return
 end
 function collect_into!(res::AbstractVector, sval::NamedTuple, ind::Vector{Int64} = [0])
     for key in keys(sval)
         collect_into!(res, sval[key], ind)
     end
+    return
 end
 
 """
@@ -216,31 +226,31 @@ end
     
 In-place version of `stage_ordered_shooting_constraints`\" function`
 """
-function stage_ordered_shooting_constraints!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple}
+function stage_ordered_shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
     collect_into!(res, traj.shooting)
     return res
 end
 
 
-function _matchings(traj::Trajectory{S,U,P,T,SH}, kind::Symbol) where {S,U,P,T,SH <: NamedTuple}
-    map(keys(traj.shooting)) do key
+function _matchings(traj::Trajectory{S, U, P, T, SH}, kind::Symbol) where {S, U, P, T, SH <: NamedTuple}
+    return map(keys(traj.shooting)) do key
         traj.shooting[key][kind]
     end |> Base.Fix1(reduce, vcat)
 end
-state_matchings(traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings(traj, :u0)
-parameter_matchings(traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings(traj, :p)
-control_matchings(traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings(traj, :controls)
+state_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :u0)
+parameter_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :p)
+control_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :controls)
 
-function _matchings!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}, kind::Symbol, ind::Vector{Int64} = [1]) where {S,U,P,T,SH <: NamedTuple}
+function _matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}, kind::Symbol, ind::Vector{Int64} = [1]) where {S, U, P, T, SH <: NamedTuple}
     for key in keys(traj.shooting)
         res[UnitRange(ind[1], (ind[1] += length(traj.shooting[key][kind])) - 1)] = traj.shooting[key][kind]
     end
     return res
 end
 
-state_matchings!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings!(res, traj, :u0)
-parameter_matchings!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings!(res, traj, :p)
-control_matchings!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = _matchings!(res, traj, :controls)
+state_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :u0)
+parameter_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :p)
+control_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :controls)
 
 """
     shooting_constraints(traj)
@@ -248,14 +258,14 @@ control_matchings!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U
 Returns the shooting violations sorted sorted by states - parameters - controls
 and per-kind sorted by shooting-stage.
 """
-shooting_constraints(traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
+shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
 
 """
     shooting_constraints!(res, traj)
     
 In-place version of `shooting_constraints`.
 """
-function shooting_constraints!(res::AbstractVector, traj::Trajectory{S,U,P,T,SH}) where {S,U,P,T,SH <: NamedTuple}
+function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
     ind = [1]
     for kind in (:u0, :p, :controls)
         _matchings!(res, traj, kind, ind)

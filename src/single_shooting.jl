@@ -183,7 +183,7 @@ function __initialparameters(
         bounds_p,
         tunable_p,
         control_indices,
-        quadrature_indices
+        quadrature_indices,
     ) = layer
     problem = remake(problem; tspan, u0)
     return (;
@@ -213,23 +213,23 @@ function __parameterlength(
     return N
 end
 
-function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id=1:length(control_indices)])
-    return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices; control_names=control_names)
+function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id in 1:length(control_indices)])
+    return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices; control_names = control_names)
 end
 
 _subscript(i::Integer) = (i |> digits |> reverse .|> dgt -> Char(0x2080 + dgt)) |> join
 
-function retrieve_symbol_cache(::Nothing, u0, p, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id=1:length(control_indices)])
+function retrieve_symbol_cache(::Nothing, u0, p, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id in 1:length(control_indices)])
     p0, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), p)
     state_symbols = [Symbol(:x, _subscript(i)) for i in eachindex(u0)]
     u_id = 0
     p_id = 0
     parameter_symbols = [
         if i ∈ control_indices
-            u_id +=1
-            control_names[u_id]
+                u_id += 1
+                control_names[u_id]
         else
-            Symbol(:p, _subscript(p_id += 1))
+                Symbol(:p, _subscript(p_id += 1))
         end for i in eachindex(p0)
     ]
     tsym = [:t]
