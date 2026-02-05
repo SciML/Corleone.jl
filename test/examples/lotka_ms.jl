@@ -54,3 +54,34 @@ sol = solve(
 
 @test SciMLBase.successful_retcode(sol)
 @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+
+
+layer = MultipleShootingLayer(prob, Tsit5(), 0.0, 3.0, 6.0, 9.0; controls = (1 => control,), bounds_ic = ([0.1, 0.1, 0.0], [100.0, 100.0, 100.0]), bounds_p = ([1.0, 1.0], [1.0, 1.0]), quadrature_indices = 3:3)
+
+ps, st = LuxCore.setup(rng, layer)
+sol, _ = layer(nothing, ps, st)
+
+@test_nowarn @inferred first(layer(nothing, ps, st))
+@test_nowarn @inferred last(layer(nothing, ps, st))
+
+@test allunique(sol.t)
+
+p = ComponentArray(ps)
+lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
+
+@test size(p, 1) == LuxCore.parameterlength(layer)
+
+optprob = OptimizationProblem(layer, :x₃)
+
+@test isapprox(optprob.f(optprob.u0, optprob.p), 1.2417260108009376, atol = 1.0e-4)
+
+res = zeros(3 * 5)
+@test isapprox(optprob.f.cons(res, p, st), [1.3757549609694821, 0.2235735751355118, 1.375754960969481, 0.22357357513551102, 1.3757549609694824, 0.2235735751355129, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+sol = solve(
+    optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 1.0e-3,
+    hessian_approximation = "limited-memory"
+)
+
+@test SciMLBase.successful_retcode(sol)
+@test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
