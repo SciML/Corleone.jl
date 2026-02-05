@@ -55,16 +55,16 @@ lb, ub = Corleone.get_bounds(layer)
         1.375754960969482,
         0.22357357513551113,
         1.2417260108009396,
-        0.0,
-        0.0,
         1.3757549609694817,
         0.22357357513551046,
         1.2417260108009387,
-        0.0,
-        0.0,
         1.3757549609694821,
         0.2235735751355138,
         1.2417260108009425,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
         0.0,
         0.0,
     ]
@@ -76,16 +76,16 @@ lb, ub = Corleone.get_bounds(layer)
         1.375754960969482,
         0.22357357513551113,
         1.2417260108009396,
-        0.0,
-        0.0,
         1.3757549609694817,
         0.22357357513551046,
         1.2417260108009387,
-        0.0,
-        0.0,
         1.3757549609694821,
         0.2235735751355138,
         1.2417260108009425,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
         0.0,
         0.0,
     ]
@@ -141,7 +141,8 @@ end
             ]
         )
         trajectory, _ = layer(nothing, ps, st)
-        @test all(iszero, reduce(vcat, trajectory.shooting))
+        # @test all(iszero, reduce(vcat, trajectory.shooting))
+        @test all(iszero, Corleone.deepvcat(trajectory.shooting))
     end
     @testset "Constant" begin
         layer = MultipleShootingLayer(

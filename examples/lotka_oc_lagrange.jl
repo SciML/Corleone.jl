@@ -95,7 +95,7 @@ blocks = Corleone.get_block_structure(mslayer)
 
 using blockSQP
 opt_BSQP_sparse = blockSQP.sparse_options()
-# Activate adaptive temination
+# Activate adaptive termination
 opt_BSQP_sparse.enable_premature_termination = true
 opt_BSQP_sparse.max_extra_steps = 10
 
@@ -114,6 +114,6 @@ ax = CairoMakie.Axis(f[1, 1])
 scatterlines!(ax, mssol, vars = [:x₁, :x₂])
 f[1, 2] = Legend(f, ax, "States", framevisible = false)
 ax1 = CairoMakie.Axis(f[2, 1])
-stairs!(ax1, mssol, vars = [:u₁])
+stairs!(ax1, mssol, vars = [:fishing])
 f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
 display(f)
