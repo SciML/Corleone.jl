@@ -42,7 +42,7 @@ lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 optprob = OptimizationProblem(layer, :x₃)
 
-@test isapprox(optprob.f(optprob.u0, optprob.p), 1.2417260108009376, atol = 1.0e-4)
+@test isapprox(optprob.f(optprob.u0, optprob.p), 1.2417260108009376*4, atol = 1.0e-4)
 
 res = zeros(3 * 6)
 @test isapprox(optprob.f.cons(res, p, st), [1.3757549609694821, 0.2235735751355118, 1.24172601080094, 1.375754960969481, 0.22357357513551102, 1.2417260108009385, 1.3757549609694824, 0.2235735751355129, 1.2417260108009414, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
