@@ -10,3 +10,4 @@ examples/Project.toml
 docs/src/examples
 /newdocs/build/
 /newdocs/Manifest.toml
+.vscode/
