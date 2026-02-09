@@ -22,15 +22,13 @@ ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
-[sources]
-Corleone = {path = "../.."}
-
 [extensions]
 CorleoneOEDOptimizationExtension = ["Optimization", "ComponentArrays"]
 CorleoneOEDZygoteExtension = "Zygote"
 
 [compat]
 Aqua = "0.8"
+Corleone = "0.0.1"
 ComponentArrays = "0.15"
 DocStringExtensions = "0.9"
 ForwardDiff = "1.3"
@@ -48,8 +46,8 @@ SciMLStructures = "1.7"
 StableRNGs = "1"
 SymbolicIndexingInterface = "0.3"
 Symbolics = "7"
-Zygote = "0.7"
 Test = "1"
+Zygote = "0.7"
 julia = "1.10"
 
 [extras]
@@ -61,6 +59,9 @@ OptimizationMOI = "fd9f6733-72f4-499f-8506-86b2bdd0dea1"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources.Corleone]
+path = "../.."
 
 [targets]
 test = ["Aqua", "ComponentArrays", "Ipopt", "Optimization", "OptimizationMOI", "OrdinaryDiffEqTsit5", "SafeTestsets", "Test"]
