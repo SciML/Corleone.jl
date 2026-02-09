@@ -47,10 +47,6 @@ end
 
 function make_tutorial(path)
     isfile(path) || return nothing
-    activate_env = dirname(path)
-    Pkg.activate(activate_env)
-    Pkg.develop(path = joinpath(@__DIR__, ".."))
-    Pkg.instantiate()
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
     fname = replace(lowercase(get(metadata, "title", first(splitext(scriptname)))), " " => "_")
@@ -63,7 +59,6 @@ function make_tutorial(path)
         # flavor = Literate.CommonMarkFlavor(),
         name = fname
     )
-    Pkg.activate(@__DIR__)
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
 end
