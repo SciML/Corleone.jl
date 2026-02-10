@@ -1,3 +1,15 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that integrates a differential equation using multiple shooting,
+i.e., the problem is lifted and integration is decoupled on disjunct time intervals given
+in `shooting_intervals`. Initial conditions on the `shooting_intervals` are degrees of
+freedom (except perhaps for the first layer), for which the initialization scheme
+`initialization` provides initial values. Parallelization is integration is possible,
+for which a suitable `EnsembleAlgorithm` can be specified with `ensemble_alg`.
+
+# Fields
+$(FIELDS)
+"""
 struct MultipleShootingLayer{L, I, E, Z} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The original layer"
     layer::L
@@ -202,7 +214,7 @@ deepvcat(NTV::NamedTuple) = reduce(vcat, NTV |> values .|> deepvcat)
 
 """
     stage_ordered_shooting_constraints(traj)
-    
+
 Returns the shooting violations sorted by shooting-stage
 and per-stage sorted by states - parameters - controls
 """
@@ -223,7 +235,7 @@ end
 
 """
     stage_ordered_shooting_constraints!(res, traj)
-    
+
 In-place version of `stage_ordered_shooting_constraints`\" function`
 """
 function stage_ordered_shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
@@ -254,7 +266,7 @@ control_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where 
 
 """
     shooting_constraints(traj)
-    
+
 Returns the shooting violations sorted sorted by states - parameters - controls
 and per-kind sorted by shooting-stage.
 """
@@ -262,7 +274,7 @@ shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: 
 
 """
     shooting_constraints!(res, traj)
-    
+
 In-place version of `shooting_constraints`.
 """
 function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}

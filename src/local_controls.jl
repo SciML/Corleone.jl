@@ -20,7 +20,7 @@ default_u(rng, t, bounds) = zeros(eltype(t), size(t))
 default_bounds(t::AbstractVector{T}) where {T <: Real} = (fill(typemin(T), size(t)), fill(typemax(T), size(t)))
 
 """
-$(METHODLIST)
+$(SIGNATURES)
 
 Constructs a `ControlParameter` with piecewise constant discretizations introduced at
 timepoints `t`. Optionally

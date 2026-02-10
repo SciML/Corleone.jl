@@ -237,7 +237,8 @@ Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, false}) = begin
 end
 
 """
-$(METHODLIST)
+$(SIGNATURES)
+
 Computes the block structure as defined by the `MultiExperimentLayer`, which may come from
 two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
 experiment level.

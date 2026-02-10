@@ -77,8 +77,9 @@ function remake_problem(prob::DAEProblem, state)
 end
 
 """
-$(METHODLIST)
-Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable inegration method
+$(SIGNATURES)
+
+Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable `AbstractDEAlgorithm`
 `alg`.
 
 # Arguments
