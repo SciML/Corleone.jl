@@ -7,7 +7,7 @@
 #src icon: 🎣
 #src ---
 
-# This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Experimental_Design).
+# This is a quick intro based on [the Lotka Volterra Experimental Design Problem](https://mintoc.de/index.php?title=Lotka_Experimental_Design).
 
 # ## Setup
 # We will use `Corleone` and `CorleoneOED`to model the optimal experimental design problem.
@@ -42,12 +42,38 @@ u0 = [0.5, 0.7]
 p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
-# ## Construct OEDLayer from SingleShootingLayer
+# ## Construct the `OEDLayer`
+
+# For optimal experimental design problems, `CorleoneOED` provides the `OEDLayer`. Like the
+# `SingleShootingLayer` and the `MultipleShootingLayer`, the `OEDLayer` is a callable layer,
+# that integrates the problem with the specified integrator and applies the piecewise
+# constant controls to it. The `OEDLayer` however also adds differential states and
+# differential equations for a) the forward sentitivities of the solution with respect to
+# the parameters and b) the Fisher information matrix to the dynamical system.
+# To construct it, we again define first the piecewise constant control discretization on
+# a control grid.
 
 cgrid = collect(0.0:0.1:11.9)
 control = ControlParameter(
     cgrid, name=:fishing, bounds=(0.0, 1.0), controls=ones(length(cgrid))
 )
+
+# Now, there are different possibilities to construct the `OEDLayer`. It can be constructed
+# either directly from the `ODEProblem`, or we can first build a `SingleShootingLayer`
+# from the problem and with that the `OEDLayer`.
+
+oed = OEDLayer{false}(
+    prob, Tsit5(),
+    params = [2, 3],
+    controls = (1 => control,),
+    bounds_p=([1.0, 1.0], [1.0, 1.0]),
+    measurements = [
+        ControlParameter(collect(0.0:0.25:11.75), controls = 0.5 * ones(48), bounds = (0.0, 1.0)),
+        ControlParameter(collect(0.0:0.25:11.75), controls = 0.5 * ones(48), bounds = (0.0, 1.0)),
+    ],
+    observed = (u, p, t) -> u[1:2],
+)
+
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
 
 oed = OEDLayer{false}(
@@ -59,6 +85,24 @@ oed = OEDLayer{false}(
     ],
     observed = (u, p, t) -> u[1:2],
 )
+# ## Set up and solve the problem
+
+# With the `OEDLayer` set up, we can define the `OptimizationProblem` in one line by
+# giving a suitable criterion to minimize, e.g., the `ACriterion`. Here, the trace of the
+# inverse of the Fisher information matrix is minimized. An upper bound `M` on the maximum
+# time of measurements is specified via `M`.
+
+optprob = OptimizationProblem(oed, ACriterion(); M=[4.0, 4.0])
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol=1.0e-6,
+    hessian_approximation="limited-memory",
+    max_iter=150
+);
+
+# After solving, we now only need to investigate the solution.
+ps, st = LuxCore.setup(Random.default_rng(), oed)
+optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
 
 function plot_lotka(sol)
     f = Figure()
@@ -72,17 +116,5 @@ function plot_lotka(sol)
     stairs!(ax4, sol, vars = [:p₁])
     f
 end
-
-optprob = OptimizationProblem(oed, ACriterion(); M=[4.0, 4.0])
-uopt = solve(
-    optprob, Ipopt.Optimizer(),
-    tol=1.0e-6,
-    hessian_approximation="limited-memory",
-    max_iter=300
-);
-
-#
-ps, st = LuxCore.setup(Random.default_rng(), oed)
-optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
 
 plot_lotka(optsol)

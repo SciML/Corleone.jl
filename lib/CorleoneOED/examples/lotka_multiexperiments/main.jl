@@ -9,7 +9,8 @@
 #src ---
 
 # ## Setup
-# We will use `Corleone` and `CorleoneOED`to model the optimal experimental design problem.
+# We will use `Corleone` and `CorleoneOED`to model the optimal experimental design problem
+# with multiple experiments optimized simultaneously.
 using Corleone, CorleoneOED
 
 # Additionally, we will need the folllowing packages
@@ -41,7 +42,7 @@ u0 = [0.5, 0.7]
 p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
-# ## Construct OEDLayer from SingleShootingLayer
+# ## Construct the `MultiExperimentLayer`
 
 cgrid = collect(0.0:0.25:11.75)
 control = ControlParameter(
@@ -75,8 +76,14 @@ function plot_lotka(sols)
     f
 end
 
+## # Set up and solve the problem
+
+# The problem is set up like the single experiment problem by providing a suitable criterion
+# and an upper bound on the measurements. Here, we take the `DCriterion`, i.e., the determinant
+# of the inverse of the Fisher information matrix.
+
 optprob = OptimizationProblem(
-    multi_exp, ACriterion(); M = zeros(4) .+ 4.0
+    multi_exp, DCriterion(); M = zeros(4) .+ 4.0
 )
 
 uopt = solve(
