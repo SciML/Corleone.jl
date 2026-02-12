@@ -79,18 +79,18 @@ end
 ## # Set up and solve the problem
 
 # The problem is set up like the single experiment problem by providing a suitable criterion
-# and an upper bound on the measurements. Here, we take the `DCriterion`, i.e., the determinant
+# and an upper bound on the measurements. Here, we take the `ACriterion`, i.e., the trace
 # of the inverse of the Fisher information matrix.
 
 optprob = OptimizationProblem(
-    multi_exp, DCriterion(); M = zeros(4) .+ 4.0
+    multi_exp, ACriterion(); M = zeros(4) .+ 4.0
 )
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-7,
     hessian_approximation="limited-memory",
-    max_iter=100
+    max_iter=3
 );
 
 #

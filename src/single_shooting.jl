@@ -493,11 +493,10 @@ function _parallel_solve(
 end
 
 """
-    get_block_structure(layer)
+$(SIGNATURES)
 
 Compute the block structure of the hessian of the Lagrangian of an optimal control problem.
-As this is a `SingleShootingLayer`, this hessian is dense.
-See also [``MultipleShootingLayer``](@ref).
+As this is a `SingleShootingLayer`, this hessian is dense. See also [``MultipleShootingLayer``](@ref).
 """
 function get_block_structure(
         layer::SingleShootingLayer, tspan = layer.problem.tspan, kwargs...

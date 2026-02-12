@@ -88,7 +88,7 @@ oed = OEDLayer{false}(
 # ## Set up and solve the problem
 
 # With the `OEDLayer` set up, we can define the `OptimizationProblem` in one line by
-# giving a suitable criterion to minimize, e.g., the `ACriterion`. Here, the trace of the
+# giving a suitable criterion to minimize, e.g., the `DCriterion`. Here, the determinant of the
 # inverse of the Fisher information matrix is minimized. An upper bound `M` on the maximum
 # time of measurements is specified via `M`.
 
@@ -97,7 +97,7 @@ uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,
     hessian_approximation="limited-memory",
-    max_iter=150
+    max_iter=3
 );
 
 # After solving, we now only need to investigate the solution.

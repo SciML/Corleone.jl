@@ -32,6 +32,8 @@ using CairoMakie
 
 # ## Lotka Volterrra Dynamics
 
+# First, in the ODEProblem has to be defined in a standard way.
+
 function lotka_dynamics(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
     du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
@@ -44,6 +46,8 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
 # ## Single Shooting Approach
 
+# Then, as shown before in [the LQR example](@ref control_lqr), the discretized
+# control needs to be defined and applied to the problem by constructing a `SingleShootingLayer`
 cgrid = collect(0.0:0.1:11.9)
 control = ControlParameter(
     cgrid, name=:fishing, bounds=(0.0, 1.0), controls=ones(length(cgrid))
@@ -61,12 +65,14 @@ function plot_lotka(sol)
     f
 end
 
+# The OptimizationProblem minimizing the terminal value of state `x₃` is easily set up and solved.
+
 optprob = OptimizationProblem(layer, :x₃)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,
     hessian_approximation="limited-memory",
-    max_iter=300
+    max_iter=3
 );
 
 #
@@ -80,7 +86,7 @@ plot_lotka(optsol)
 # We can also partition the time horizon into smaller intervals on which the integration
 # is decoupled. At these shooting points, variables are introduced for the initial values
 # of the differential states. By this lifting approach, nonlinearities can be reduced.
-# In Corleone, this can be done by constructing a `MultipleShootingLayer` from the `ODEProblem`
+# In `Corleone`, this can be done by constructing a `MultipleShootingLayer` from the `ODEProblem`
 # and adding a vector of shooting points. The optimization problem is constructed in the
 # same way as with the `SingleShootingLayer`. However, in the background matching constraints
 # are added that require the final state on one shooting interval matches the initial state

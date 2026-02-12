@@ -52,7 +52,7 @@ u0 = [1.0, 0.0]
 p0 = [-1.0, 1.0, 0.0]
 lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 
-# ## Optimal Control Problem
+# ## [Optimal Control Problem](@id control_lqr)
 # To convert this into an optimal control problem, we want to apply a piecewise constant control
 
 control_function = ControlParameter(
@@ -100,4 +100,3 @@ uopt = solve(
 # Finally, lets have a look at the optimized solution.
 optimized_solution, _ = predictor(nothing, uopt + zero(ComponentArray(ps)), st)
 plot_lqr_solution(optimized_solution)
-
