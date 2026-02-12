@@ -163,4 +163,4 @@ uopt = solve(
 
 # After solving, we now only need to investigate the solution.
 optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
-plot_lotka(optsol)
+plot_oed(optsol)
