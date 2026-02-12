@@ -8,9 +8,35 @@
 #src ---
 
 # This is a quick intro based on [the Lotka Volterra Experimental Design Problem](https://mintoc.de/index.php?title=Lotka_Experimental_Design).
+# The goal here is to design experiments which yield data with which the model parameters
+# can be estimated with low uncertainty. The degrees of freedom are the fishing control
+# as before in [the Lotka OC example](@ref lotka_oc_setup). However, in OED problems
+# also the decision when to perform measurements are addressed.
+
+# In mathematical terms, the problem we want to solve reads
+
+# ```math
+# \begin{aligned}
+# \min_{x,G,F,z,u,w} & \phi(F(t_f))  \\
+# \text{s.t.} \quad & \dot{x}(t)  =   f(x,p,t),\\
+#                   & \dot{G}(t) = f_x(x,p,t) G(t) + f_p(x,p,t), \\
+#                   & \dot{F}(t)  = \sum_{i=1}^{n_h} w^i(t) (h_x^i(\cdot) G(t))^\top h_x^i(\cdot) G(t), \\
+#                   & \dot{z}(t) = w(t), \\
+#                   & x(0) = x_0, \\
+#                   & G(0) = F(0) = 0, \\
+#                   & z(t_f) \le M,
+# \end{aligned}
+# ```
+# where ``F`` denotes the Fisher information matrix, ``G`` the sensitivites with respect to the
+# parameters, ``z`` the accumulated sampling decisions with upper bounds ``M``, ``h`` the measurement
+# functions specifying what can be measured. The variables ``w`` can be seen as controls whether or not to measure
+# a specific quantity at a certain point in time. The objective is given by ``\phi`` as a
+# suitable criterion to optimize, e.g., the ACriterion.
+
+
 
 # ## Setup
-# We will use `Corleone` and `CorleoneOED`to model the optimal experimental design problem.
+# We will use `Corleone` and `CorleoneOED` to model the optimal experimental design problem.
 using Corleone, CorleoneOED
 
 # Additionally, we will need the folllowing packages
@@ -47,9 +73,9 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 # For optimal experimental design problems, `CorleoneOED` provides the `OEDLayer`. Like the
 # `SingleShootingLayer` and the `MultipleShootingLayer`, the `OEDLayer` is a callable layer,
 # that integrates the problem with the specified integrator and applies the piecewise
-# constant controls to it. The `OEDLayer` however also adds differential states and
-# differential equations for a) the forward sentitivities of the solution with respect to
-# the parameters and b) the Fisher information matrix to the dynamical system.
+# constant controls to it. The `OEDLayer` however also adds to the dynamical system
+# the differential states and differential equations for a) the forward sentitivities
+# of the solution with respect to the parameters and b) the Fisher information matrix.
 # To construct it, we again define first the piecewise constant control discretization on
 # a control grid.
 
@@ -60,18 +86,23 @@ control = ControlParameter(
 
 # Now, there are different possibilities to construct the `OEDLayer`. It can be constructed
 # either directly from the `ODEProblem`, or we can first build a `SingleShootingLayer`
-# from the problem and with that the `OEDLayer`.
+# from the problem and with that the `OEDLayer`. In both cases, we need to specify some further
+# details. First, the parameters that need to be estimated need to be specified via the keyworded
+# argument `params`. Second, the measurement functions `h`, defining what quantities can be measured,
+# are added via the keyworded argument `observed`, which takes a function specifying the measurements.
+# Lastly, The keyworded argument `measurements` specifies the discretization of the sampling
+# controls ``w`` associated with the measurement functions.
 
 oed = OEDLayer{false}(
     prob, Tsit5(),
     params = [2, 3],
     controls = (1 => control,),
     bounds_p=([1.0, 1.0], [1.0, 1.0]),
+    observed = (u, p, t) -> u[1:2],
     measurements = [
         ControlParameter(collect(0.0:0.25:11.75), controls = 0.5 * ones(48), bounds = (0.0, 1.0)),
         ControlParameter(collect(0.0:0.25:11.75), controls = 0.5 * ones(48), bounds = (0.0, 1.0)),
     ],
-    observed = (u, p, t) -> u[1:2],
 )
 
 layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
@@ -85,6 +116,36 @@ oed = OEDLayer{false}(
     ],
     observed = (u, p, t) -> u[1:2],
 )
+
+# ## Investigate the capabilities of the `OEDLayer`
+
+# As said above, calling the layer with the appropriate arguments integrates the augmented dynamical system.
+# Setting up the `OEDLayer` gives the parameters of the layer, i.e., the discretized controls, sampling
+# controls, initial values and parameters of the problem that may be optimized.
+
+ps, st = LuxCore.setup(Random.default_rng(), oed)
+sol, _ = oed(nothing, ps, st)
+
+function plot_oed(sol)
+    f = Figure()
+    ax = CairoMakie.Axis(f[1, 1], xticks = 0:2:12, title = "States")
+    ax2 = CairoMakie.Axis(f[1, 2], xticks = 0:2:12, title = "Sensitivities")
+    ax3 = CairoMakie.Axis(f[2, 1], xticks = 0:1:12, title = "Sampling")
+    ax4 = CairoMakie.Axis(f[2, 2], xticks = 0:1:12, title = "Controls")
+    plot!(ax, sol, idxs = [1, 2])
+    plot!(ax2, sol, idxs = [3, 4, 5, 6])
+    stairs!(ax3, sol, vars=[:w₁, :w₂])
+    stairs!(ax4, sol, vars = [:p₁])
+    f
+end
+plot_oed(sol)
+
+# Moreover, `CorleoneOED` provides functionalities to directly calculate the Fisher information matrix
+# for current iterates.
+
+fim, _ = CorleoneOED.fisher_information(oed, nothing, ps, st)
+
+
 # ## Set up and solve the problem
 
 # With the `OEDLayer` set up, we can define the `OptimizationProblem` in one line by
@@ -101,20 +162,5 @@ uopt = solve(
 );
 
 # After solving, we now only need to investigate the solution.
-ps, st = LuxCore.setup(Random.default_rng(), oed)
 optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
-
-function plot_lotka(sol)
-    f = Figure()
-    ax = CairoMakie.Axis(f[1, 1], xticks = 0:2:12, title = "States")
-    ax2 = CairoMakie.Axis(f[1, 2], xticks = 0:2:12, title = "Sensitivities")
-    ax3 = CairoMakie.Axis(f[2, 1], xticks = 0:1:12, title = "Sampling")
-    ax4 = CairoMakie.Axis(f[2, 2], xticks = 0:1:12, title = "Controls")
-    plot!(ax, sol, idxs = [1, 2])
-    plot!(ax2, sol, idxs = [3, 4, 5, 6])
-    stairs!(ax3, sol, vars=[:w₁, :w₂])
-    stairs!(ax4, sol, vars = [:p₁])
-    f
-end
-
 plot_lotka(optsol)

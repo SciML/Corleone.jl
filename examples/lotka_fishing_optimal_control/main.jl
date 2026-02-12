@@ -9,7 +9,7 @@
 
 # This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
-# ## Setup
+# ## [Setup](@id lotka_oc_setup)
 # We will use `Corleone` to define our optimal control problem.
 using Corleone
 
