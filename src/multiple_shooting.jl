@@ -1,3 +1,15 @@
+"""
+$(TYPEDEF)
+Defines a callable layer that integrates a differential equation using multiple shooting,
+i.e., the problem is lifted and integration is decoupled on disjunct time intervals given
+in `shooting_intervals`. Initial conditions on the `shooting_intervals` are degrees of
+freedom (except perhaps for the first layer), for which the initialization scheme
+`initialization` provides initial values. Parallelization is integration is possible,
+for which a suitable `EnsembleAlgorithm` can be specified with `ensemble_alg`.
+
+# Fields
+$(FIELDS)
+"""
 struct MultipleShootingLayer{L, I, E, Z} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The original layer"
     layer::L
@@ -42,6 +54,12 @@ function default_initialization(rng::Random.AbstractRNG, shooting::MultipleShoot
     return NamedTuple{names}(vals)
 end
 
+```
+$(METHODLIST)
+
+Constructs a `MultipleShootingLayer` from given `AbstractDEProblem` `prob` with suitable
+integration method `alg` and vector of shooting points `tpoints`.
+```
 function MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...)
     return MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
 end
@@ -202,7 +220,7 @@ deepvcat(NTV::NamedTuple) = reduce(vcat, NTV |> values .|> deepvcat)
 
 """
     stage_ordered_shooting_constraints(traj)
-    
+
 Returns the shooting violations sorted by shooting-stage
 and per-stage sorted by states - parameters - controls
 """
@@ -222,9 +240,9 @@ function collect_into!(res::AbstractVector, sval::NamedTuple, ind::Vector{Int64}
 end
 
 """
-    stage_ordered_shooting_constraints!(res, traj)
-    
-In-place version of `stage_ordered_shooting_constraints`\" function`
+$(SIGNATURES)
+
+In-place version of `stage_ordered_shooting_constraints`.
 """
 function stage_ordered_shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
     collect_into!(res, traj.shooting)
@@ -253,16 +271,16 @@ parameter_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) wher
 control_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :controls)
 
 """
-    shooting_constraints(traj)
-    
-Returns the shooting violations sorted sorted by states - parameters - controls
-and per-kind sorted by shooting-stage.
+$(SIGNATURES)
+
+Returns the shooting violations sorted by states - parameters - controls and per-kind
+sorted by shooting-stage.
 """
 shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
 
 """
-    shooting_constraints!(res, traj)
-    
+$(SIGNATURES)
+
 In-place version of `shooting_constraints`.
 """
 function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
@@ -274,10 +292,12 @@ function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T,
 end
 
 """
-    get_block_structure(layer)
+$(SIGNATURES)
 
 Compute the block structure of the hessian of the Lagrangian of an optimal control problem
 as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
+Note: Constraints other than the matching conditions of the multiple shooting approach
+are not considered here and might alter the block structure.
 """
 function get_block_structure(mslayer::MultipleShootingLayer)
     (; layer, shooting_intervals) = mslayer
@@ -289,6 +309,10 @@ function get_block_structure(mslayer::MultipleShootingLayer)
     return vcat(0, cumsum(ps_lengths))
 end
 
+```
+$(SIGNATURES)
+Extracts lower and upper bounds of all optimization variables in the `MultipleShootingLayer`.
+```
 function get_bounds(mslayer::MultipleShootingLayer)
     (; layer, shooting_intervals) = mslayer
     names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))

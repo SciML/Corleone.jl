@@ -12,9 +12,9 @@ using YAML, JSON
 
 # Include the interlinks
 include("interlinks.jl")
-# Process the tutorials 
+# Process the tutorials
 include("process_tutorials.jl")
-# Include the bibliography 
+# Include the bibliography
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
@@ -23,7 +23,8 @@ makedocs(
     modules=[Corleone],
     format= Documenter.HTML(
         assets = ["assets/favicon.ico"],
-        canonical = "https://docs.sciml.ai/Corleone/stable/"
+        canonical = "https://docs.sciml.ai/Corleone/stable/",
+        size_threshold = 1_000_000,  # bytes
     ),
     #DocumenterVitepress.MarkdownVitepress(
     #    repo = "github.com/SciML/Corleone.jl",
@@ -37,6 +38,9 @@ makedocs(
 		"Tutorials" => [
 			"Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
 			"Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+            "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
+            "Discrete measurements" => "examples/compartmental_oed_problem.md",
+            "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md"
 		], #"tutorials.md",
         "References" => "references.md",
         "API" => "api.md"
@@ -53,10 +57,10 @@ makedocs(
     plugins=[links, bib],
 )
 
-deploydocs(
-    repo = "github.com/SciML/Corleone.jl";
-    push_preview = true
-)
+#deploydocs(
+#    repo = "github.com/SciML/Corleone.jl";
+#    push_preview = true
+#)
 #DocumenterVitepress.deploydocs(;
 #    repo="github.com/SciML/Corleone.jl",
 #    target=joinpath(@__DIR__, "build"),

@@ -1,6 +1,6 @@
 using Pkg
 Pkg.activate(@__DIR__)
-using Corleone
+using Corleone, CorleoneOED
 using OrdinaryDiffEq
 using SciMLSensitivity
 using ComponentArrays
@@ -127,15 +127,15 @@ optu = uopt + zero(ComponentArray(ps))
 optsol, _ = multi(nothing, optu, st)
 
 f = Figure(size = (800, 800))
-for i in 1:multi.n_exp
+for (i,sol) in enumerate(optsol)# in 1:multi.n_exp
     ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = "Experiment $i")
     ax1 = CairoMakie.Axis(f[2, i], xticks = 0:2:12)
     ax2 = CairoMakie.Axis(f[3, i], xticks = 0:2:12)
     ax3 = CairoMakie.Axis(f[4, i], xticks = 0:2:12, limits = (nothing, (-0.05, 1.05)))
-    plot!(ax, optsol[i], idxs = [1, 2])
-    plot!(ax1, optsol[i], idxs = collect(values(optsol[i].sys.variables))[startswith.(string.(keys(optsol[i].sys.variables)), "G")])
-    plot!(ax2, optsol[i], idxs = collect(values(optsol[i].sys.variables))[startswith.(string.(keys(optsol[i].sys.variables)), "F")])
-    stairs!(ax, optsol[i], vars = [:p₁], color = :black)
-    stairs!(ax3, optsol[i], vars = [:w₁, :w₂])
+    plot!(ax, sol, idxs = [1, 2])
+    plot!(ax1, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), "G")])
+    plot!(ax2, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), "F")])
+    stairs!(ax, sol, vars = [:p₁], color = :black)
+    stairs!(ax3, sol, vars = [:w₁, :w₂])
 end
 display(f)

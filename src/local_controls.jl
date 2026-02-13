@@ -20,7 +20,7 @@ default_u(rng, t, bounds) = zeros(eltype(t), size(t))
 default_bounds(t::AbstractVector{T}) where {T <: Real} = (fill(typemin(T), size(t)), fill(typemax(T), size(t)))
 
 """
-$(METHODLIST)
+$(SIGNATURES)
 
 Constructs a `ControlParameter` with piecewise constant discretizations introduced at
 timepoints `t`. Optionally
@@ -50,38 +50,28 @@ function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w), controls
     return ControlParameter{typeof(t), typeof(controls), typeof(bounds)}(name, t, controls, bounds)
 end
 
-"""
-Computes and returns a new tuple of `ControlParameter` with their timespans reduced to `(lo,hi)`.
-"""
-function restrict_controls(c::Tuple, lo, hi)
-    return map(c) do ci
-        restrict_controls(ci, lo, hi)
-    end
-end
-
-"""
-Computes and returns a new `ControlParameter` from `c` with timepoints restricted to
-`lo` .< `c.t` .< `hi`.
-"""
-function restrict_controls(c::ControlParameter, lo, hi)
-    idx = findall(lo .<= c.t .< hi)
-    controls = c.controls == default_u ? c.controls : c.controls[idx]
-    bounds = c.bounds == default_bounds ? c.bounds : (length(c.bounds[1]) == 1 ? c.bounds : (c.bounds[1][idx], c.bounds[2][idx]))
-    return ControlParameter(copy(c.t[idx]), name = c.name, controls = controls, bounds = bounds)
-end
-
 get_timegrid(parameters::ControlParameter, tspan = (-Inf, Inf)) = begin
     (; t) = parameters
     idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
     t[idx]
 end
 
+```
+$(SIGNATURES)
+
+Computes the number of discretized controls restricted to given `tspan`.
+```
 function control_length(parameters::ControlParameter; tspan = nothing, kwargs...)
     (; t) = parameters
     idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
     return size(idx, 1)
 end
 
+```
+$(SIGNATURES)
+
+Returns discretized controls of ControlParameter `params` restricted to given `tspan`.
+```
 function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}; raw = false, tspan = nothing, kwargs...)
     (; t, controls) = parameters
     raw && return controls
@@ -96,6 +86,11 @@ function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:An
     return parameters.controls(rng, t[idx], bounds)
 end
 
+```
+$(SIGNATURES)
+
+Returns bounds of discretized controls restricted to given `tspan`.
+```
 function get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}; tspan = nothing, kwargs...)
     (; t) = parameters
     idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
@@ -184,6 +179,7 @@ end
 
 find_shooting_indices(tspan, control::ControlParameter) = any(first(tspan) .== control.t)
 
+
 function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf), subdivide::Int64 = typemax(Int64))
     ts = map(controls) do ci
         get_timegrid(ci, tspan)
@@ -198,6 +194,10 @@ function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf), subd
     return tuple(fullgrid...)
 end
 
+```
+$(SIGNATURES)
+Collect all discretized `controls` in a flat vector.
+```
 function collect_local_controls(rng, controls::ControlParameter...; kwargs...)
     return reduce(
         vcat, map(controls) do control
@@ -206,6 +206,10 @@ function collect_local_controls(rng, controls::ControlParameter...; kwargs...)
     )
 end
 
+```
+$(SIGNATURES)
+Collect all lower and upper bounds of discretized `controls` in flat vectors.
+```
 function collect_local_control_bounds(controls::ControlParameter...; kwargs...)
     bounds = map(controls) do control
         get_bounds(control; kwargs...)
