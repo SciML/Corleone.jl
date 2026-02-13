@@ -71,8 +71,9 @@ multi_exp = MultiExperimentLayer{false}(
     observed = (u, p, t) -> u[1:2]
 )
 
-# Calling this We can define a plotting function and look at the initial experiments.
-
+# Calling this layer with the appropriate arguments integrates the two experiments.
+# We can define a plotting function and look at the initial experiments for the initial values
+# provided above.
 
 function plot_experiments(sols)
     f = Figure()

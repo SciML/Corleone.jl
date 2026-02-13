@@ -39,6 +39,7 @@ makedocs(
 			"Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
 			"Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
             "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
+            "Discrete measurements" => "examples/compartmental_oed_problem.md",
             "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md"
 		], #"tutorials.md",
         "References" => "references.md",
