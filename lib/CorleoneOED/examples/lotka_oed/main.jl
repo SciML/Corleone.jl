@@ -89,7 +89,7 @@ control = ControlParameter(
 # either directly from the `ODEProblem`, or we can first build a `SingleShootingLayer`
 # from the problem and with that the `OEDLayer`. In both cases, we need to specify some further
 # details. First, the parameters that need to be estimated need to be specified via the keyworded
-# argument `params`. Second, the measurement functions `h`, defining what quantities can be measured,
+# argument `params`. Second, the measurement functions ``h(x,p,t)``, defining what quantities can be measured,
 # are added via the keyworded argument `observed`, which takes a function specifying the measurements.
 # Lastly, The keyworded argument `measurements` specifies the discretization of the sampling
 # controls ``w`` associated with the measurement functions.
@@ -154,7 +154,7 @@ fim
 # inverse of the Fisher information matrix is minimized. An upper bound `M` on the maximum
 # time of measurements is specified via `M`.
 
-optprob = OptimizationProblem(oed, ACriterion(); M=[4.0, 4.0])
+optprob = OptimizationProblem(oed, DCriterion(); M=[4.0, 4.0])
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,

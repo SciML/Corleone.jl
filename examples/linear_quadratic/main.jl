@@ -8,6 +8,8 @@
 #src icon: 🌊
 #src ---
 
+# ## [Linear Quadratic Regulator](@id linear_quad_reg)
+
 # Let’s start by modeling the [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator). This example is one of the simplest optimal control problems. Lets assume we want to It reads as
 
 # ```math
