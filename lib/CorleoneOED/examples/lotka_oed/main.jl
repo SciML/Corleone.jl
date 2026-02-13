@@ -7,6 +7,7 @@
 #src icon: 🎣
 #src ---
 
+# ## [Lotka-Volterra OED](@id lotka_oed)
 # This is a quick intro based on [the Lotka Volterra Experimental Design Problem](https://mintoc.de/index.php?title=Lotka_Experimental_Design).
 # The goal here is to design experiments which yield data with which the model parameters
 # can be estimated with low uncertainty. The degrees of freedom are the fishing control
@@ -144,7 +145,7 @@ plot_oed(sol)
 # for current iterates.
 
 fim, _ = CorleoneOED.fisher_information(oed, nothing, ps, st)
-
+fim
 
 # ## Set up and solve the problem
 
@@ -158,7 +159,7 @@ uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,
     hessian_approximation="limited-memory",
-    max_iter=3
+    max_iter=300
 );
 
 # After solving, we now only need to investigate the solution.

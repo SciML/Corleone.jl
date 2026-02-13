@@ -72,7 +72,7 @@ uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,
     hessian_approximation="limited-memory",
-    max_iter=3
+    max_iter=300
 );
 
 #
@@ -108,7 +108,7 @@ uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-5,
     hessian_approximation="limited-memory",
-    max_iter=5 # 165
+    max_iter=300
 );
 
 mssol, _ = mslayer(nothing, uopt + zero(ComponentArray(msps)), msst);
