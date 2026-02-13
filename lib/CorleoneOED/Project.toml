@@ -28,7 +28,7 @@ CorleoneOEDZygoteExtension = "Zygote"
 
 [compat]
 Aqua = "0.8"
-Corleone = "0.0.1"
+Corleone = "0.0.2"
 ComponentArrays = "0.15"
 DocStringExtensions = "0.9"
 ForwardDiff = "1.3"
