@@ -1,0 +1,133 @@
+function Corleone.CorleoneDynamicOptProblem(
+        sys::ModelingToolkit.System,
+        inits::AbstractVector,
+        controls::Pair...;
+        algorithm::Corleone.SciMLBase.AbstractDEAlgorithm,
+        shooting::Union{<:AbstractVector{<:Real}, Nothing} = nothing,
+        tspan::Union{Tuple{Real, Real}, Nothing} = nothing,
+        kwargs...
+    )
+    iv = ModelingToolkit.get_iv(sys)
+    cost = ModelingToolkit.get_costs(sys)
+    constraints = ModelingToolkit.get_constraints(sys)
+
+    lagranges = Dict()
+    tpoints = Dict()
+    tcollector = Base.Fix1(collect_timepoints!, tpoints)
+
+    newcosts = map(cost) do c
+        collect_integrals!(lagranges, c, iv) |> tcollector
+    end
+
+    newcons = map(constraints) do c
+        c = Symbolics.canonical_form(c)
+        new_con = collect_integrals!(lagranges, c.lhs, iv) |> tcollector
+        isa(c, Inequality) ? new_con ≲ c.rhs : new_con ~ c.rhs
+    end
+
+    # Collect tspan
+    saveats = reduce(vcat, values(tpoints))
+    !isnothing(tspan) && append!(saveats, collect(tspan))
+    !isnothing(shooting) && append!(saveats, collect(shooting))
+    foreach(controls) do (_, grid)
+        append!(saveats, collect(grid))
+    end
+    unique!(sort!(saveats))
+    tspan = extrema(saveats)
+    if !isempty(lagranges)
+        # Add lagrangians and build the ODE Problem
+        sys = ModelingToolkit.add_accumulations(
+            sys, [v => only(arguments(k)) for (k, v) in lagranges]
+        )
+    end
+
+    inputs = collect(first.(controls))
+    sys = mtkcompile(sys; inputs)
+    prob = ODEProblem(sys, inits, tspan, saveat = saveats, check_compatibility = false, sensealg = ModelingToolkit.SciMLBase.NoAD())
+
+    # Build the layer
+
+    # Get the indices of the tunables
+    controls = map(controls) do (ui, tis)
+        ui = Symbolics.unwrap(ui)
+        i = SymbolicIndexingInterface.parameter_index(sys, ui).idx
+        lo, hi = ModelingToolkit.getbounds(ui)
+        u0 = Symbolics.getdefaultval(ui)
+        i => ControlParameter(tis, name = Symbolics.tosymbol(operation(ui)), bounds = (lo, hi), controls = fill(u0, size(tis)))
+    end
+
+    layer = if isnothing(shooting)
+        SingleShootingLayer(
+            prob, algorithm;
+            controls,
+        )
+    else
+        MultipleShootingLayer(
+            prob, algorithm, shooting...;
+            controls,
+        )
+    end
+    # Get the state
+    st = LuxCore.initialstates(Random.default_rng(), layer)
+    symcache = isnothing(shooting) ? st.symcache : first(st).symcache
+    # Build the getters
+    p = tunable_parameters(sys)
+    xs = map(x -> x(iv), collect(keys(tpoints)))
+    symgetters = map(vcat(xs, p)) do k
+        get_ = SymbolicIndexingInterface.getsym(symcache, k)
+        sym_ = Symbolics.tosymbol(maybeop(k))
+        sym_, get_
+    end
+    getters = Tuple(last.(symgetters))
+    # Build the substitution for the costs & constraints
+    vars_subs = Dict()
+    foreach(keys(tpoints)) do k
+        tvals = unique(sort!(tpoints[k]))
+        foreach(tvals) do ti
+            get!(vars_subs, k(ti), Expr(:call, getindex, k.name, findfirst(ti .== saveats)))
+        end
+    end
+
+    # Arguments for the objective and constraints
+    args_ = first.(symgetters)
+
+    # We currently assume a single cost
+    costbody = SymbolicUtils.Code.toexpr(substitute(only(newcosts), vars_subs))
+
+    costfun = @RuntimeGeneratedFunction(
+        :(
+            function ($(args_...))
+                $(costbody)
+            end
+        )
+    )
+    if !isempty(newcons)
+        res = gensym(:con)
+        conbody = map(enumerate(newcons)) do (i, con)
+            ex = SymbolicUtils.Code.toexpr(substitute(con.lhs, vars_subs))
+            :($(res)[$(i)] = $ex)
+        end
+        push!(conbody, :(return $(res)))
+
+        confun = @RuntimeGeneratedFunction(
+            :(
+                function ($(res), $(args_...))
+                    $(conbody...)
+                end
+            )
+        )
+        lcons = -Inf .* map(Base.Fix2(isa, Inequality), newcons)
+        ucons = zeros(Float64, size(newcons))
+    else
+        ucons = lcons = confun = nothing
+    end
+
+    return CorleoneDynamicOptProblem{typeof(layer), typeof(getters), typeof(costfun), typeof(confun), typeof(lcons)}(
+        layer,
+        getters,
+        costfun,
+        confun,
+        lcons,
+        ucons
+    )
+end
