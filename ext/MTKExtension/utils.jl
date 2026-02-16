@@ -38,7 +38,7 @@ function collect_integrals!(subs, ex, t)
         if isa(op, Symbolics.Integral)
             var = get!(subs, ex) do 
                 sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(subs) + 1)))
-                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0)) # [costvariable = true]))
+                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0 [tunable = false, bounds = (0., 0.)])) # [costvariable = true]))
                 var 
             end
             lo, hi = op.domain.domain.left, op.domain.domain.right

@@ -5,6 +5,7 @@ function Corleone.CorleoneDynamicOptProblem(
         algorithm::Corleone.SciMLBase.AbstractDEAlgorithm,
         shooting::Union{<:AbstractVector{<:Real}, Nothing} = nothing,
         tspan::Union{Tuple{Real, Real}, Nothing} = nothing,
+        sensealg = ModelingToolkit.SciMLBase.NoAD(),
         kwargs...
     )
     iv = ModelingToolkit.get_iv(sys)
@@ -43,9 +44,7 @@ function Corleone.CorleoneDynamicOptProblem(
 
     inputs = collect(first.(controls))
     sys = mtkcompile(sys; inputs)
-    prob = ODEProblem(sys, inits, tspan, saveat = saveats, check_compatibility = false, sensealg = ModelingToolkit.SciMLBase.NoAD())
-
-    # Build the layer
+    prob = ODEProblem(sys, inits, tspan, saveat = saveats, check_compatibility = false, sensealg = sensealg)
 
     # Get the indices of the tunables
     controls = map(controls) do (ui, tis)
@@ -55,16 +54,30 @@ function Corleone.CorleoneDynamicOptProblem(
         u0 = Symbolics.getdefaultval(ui)
         i => ControlParameter(tis, name = Symbolics.tosymbol(operation(ui)), bounds = (lo, hi), controls = fill(u0, size(tis)))
     end
-
+    vars = unknowns(sys)
+    sort!(vars, by = Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
+    tunable_ic = findall(i->ModelingToolkit.istunable(vars[i]), eachindex(vars))
+    bounds_ic = map(ModelingToolkit.getbounds, vars)
+    bounds_ic = (first.(bounds_ic), last.(bounds_ic))
+    p_tunable = tunable_parameters(sys)
+    sort!(p_tunable, by = Base.Fix1(SymbolicIndexingInterface.parameter_index, sys))
+    bounds_p = map(i->ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
+    bounds_p = (first.(bounds_p), last.(bounds_p))
     layer = if isnothing(shooting)
         SingleShootingLayer(
             prob, algorithm;
             controls,
+            tunable_ic, 
+            bounds_ic, 
+            bounds_p
         )
     else
         MultipleShootingLayer(
             prob, algorithm, shooting...;
             controls,
+            tunable_ic, 
+            bounds_ic, 
+            bounds_p
         )
     end
     # Get the state
