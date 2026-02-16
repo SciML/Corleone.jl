@@ -10,11 +10,15 @@ using OrdinaryDiffEqTsit5
 #include("../../ext/MTKExtension/utils.jl")
 #include("../../ext/MTKExtension/optimal_control.jl")
 
-@variables x(..) = 0.5 y(..) = 0.7
+@variables x(..) = 0.5 [tunable = false,] y(..) = 0.7
 @variables u(..) = 0.0 [bounds = (0.0, 1.0), input = true]
 @constants begin
     c₁ = 0.4
     c₂ = 0.2
+end
+@parameters begin 
+    α = 1.0, [tunable=false,]
+    β = 1.0, [tunable=true, bounds = (0.9, 1.1)]
 end
 
 cost = [
@@ -29,7 +33,7 @@ cons = [
 
 @named lotka = System(
     [
-        D(x(t)) ~ x(t) - x(t) * y(t) - c₁ * u(t),
+        D(x(t)) ~ α*x(t) - β * x(t) * y(t) - c₁ * u(t),
         D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t),
     ], t; costs = cost, constraints = cons
 )

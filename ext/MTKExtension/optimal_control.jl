@@ -54,15 +54,17 @@ function Corleone.CorleoneDynamicOptProblem(
         u0 = Symbolics.getdefaultval(ui)
         i => ControlParameter(tis, name = Symbolics.tosymbol(operation(ui)), bounds = (lo, hi), controls = fill(u0, size(tis)))
     end
+
     vars = unknowns(sys)
     sort!(vars, by = Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
     tunable_ic = findall(i->ModelingToolkit.istunable(vars[i]), eachindex(vars))
     bounds_ic = map(ModelingToolkit.getbounds, vars)
     bounds_ic = (first.(bounds_ic), last.(bounds_ic))
     p_tunable = tunable_parameters(sys)
-    sort!(p_tunable, by = Base.Fix1(SymbolicIndexingInterface.parameter_index, sys))
     bounds_p = map(i->ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
     bounds_p = (first.(bounds_p), last.(bounds_p))
+
+
     layer = if isnothing(shooting)
         SingleShootingLayer(
             prob, algorithm;
