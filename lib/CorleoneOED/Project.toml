@@ -1,7 +1,7 @@
 name = "CorleoneOED"
 uuid = "6590a4b1-d036-41fe-a5b4-03a980244101"
 authors = ["Christoph Plate", "Carl Julius Martensen", "Sebastian Sager"]
-version = "0.0.1"
+version = "0.0.2"
 
 [deps]
 Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
@@ -28,7 +28,7 @@ CorleoneOEDZygoteExtension = "Zygote"
 
 [compat]
 Aqua = "0.8"
-Corleone = "0.0.1"
+Corleone = "0.0.3"
 ComponentArrays = "0.15"
 DocStringExtensions = "0.9"
 ForwardDiff = "1.3"
