@@ -114,8 +114,21 @@ function CorleoneDynamicOptProblem(
                 return res
             end
         end
-    ucons = reduce(vcat, ub)
-    lcons = reduce(vcat, lb)
+        ucons = reduce(vcat, ub)
+        lcons = reduce(vcat, lb)
+    elseif isa(layer, MultipleShootingLayer)
+        n_shoot = get_number_of_shooting_constraints(layer)
+        push!(lb, zeros(n_shoot))
+        push!(ub, zeros(n_shoot))
+        constraints = let layer = layer
+            (res, ps, st) -> begin
+                traj, _ = layer(nothing, ps, st)
+                @views shooting_constraints!(res, traj)
+                return res
+            end
+        end
+        ucons = reduce(vcat, ub)
+        lcons = reduce(vcat, lb)
     else
         constraints = lcons = ucons = nothing
     end

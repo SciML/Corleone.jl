@@ -44,7 +44,7 @@ function Optimization.OptimizationProblem(
     objective = let obj = prob.objective, axes = ax
         (ps, st) -> obj(ComponentArray(ps, axes), st)
     end
-    if !isnothing(prob.constraints)
+    if !isnothing(prob.constraints) 
         constraints = let cons = prob.constraints, axes = ax
             (res, ps, st) -> cons(res, ComponentArray(ps, axes), st)
         end
