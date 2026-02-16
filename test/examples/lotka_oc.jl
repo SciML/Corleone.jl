@@ -75,7 +75,7 @@ for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
     @test ub.controls == ones(N)
     @test size(p, 1) == LuxCore.parameterlength(layer)
 
-    optprob = OptimizationProblem(layer, :x₃; AD = AD)
+    optprob = OptimizationProblem(layer, AD,Val(:ComponentArrays), loss = :x₃)
 
     @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
 

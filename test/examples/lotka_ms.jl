@@ -40,7 +40,7 @@ lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 @test size(p, 1) == LuxCore.parameterlength(layer)
 
-optprob = OptimizationProblem(layer, :x₃)
+optprob = OptimizationProblem(layer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
 
 @test isapprox(optprob.f(optprob.u0, optprob.p), 1.2417260108009376, atol = 1.0e-4)
 
@@ -71,7 +71,7 @@ lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
 
 @test size(p, 1) == LuxCore.parameterlength(layer)
 
-optprob = OptimizationProblem(layer, :x₃)
+optprob = OptimizationProblem(layer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
 
 @test isapprox(optprob.f(optprob.u0, optprob.p), 1.2417260108009376*4, atol = 1.0e-4)
 

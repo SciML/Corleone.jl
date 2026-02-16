@@ -26,8 +26,8 @@ Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
 CorleoneMakieExtension = "Makie"
+CorleoneComponentArraysExtension = ["ComponentArrays"]
 CorleoneModelingToolkitExtension = "ModelingToolkit"
-CorleoneOptimizationExtension = ["Optimization", "ComponentArrays"]
 
 [compat]
 Aqua = "0.8"

@@ -136,3 +136,36 @@ function CorleoneDynamicOptProblem(
         layer, nothing, objective, constraints, lcons, ucons
     )
 end
+
+function wrap_functions end #(::Any, args...) = @error "No valid vectorization for the parameters choosen. Please load either ComponentArrays.jl or Functors.jl"
+function to_vec end #(::AbstractCorleoneFunctionWrapper, args...) =@error "No valid vectorization for the parameters choosen. Please load either ComponentArrays.jl or Functors.jl" 
+
+function SciMLBase.OptimizationFunction(prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType, vectorizer; 
+    rng::Random.AbstractRNG = Random.default_rng(),
+    kwargs...)
+    p0, st = LuxCore.setup(rng, prob.layer) 
+    objective, cons = wrap_functions(vectorizer, p0, prob.objective, prob.constraints)
+    SciMLBase.OptimizationFunction{true}(objective, ad; cons, kwargs...)
+end
+
+function SciMLBase.OptimizationProblem(prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType, vectorizer; 
+    rng::Random.AbstractRNG = Random.default_rng(),
+    sense = nothing,
+    kwargs...)
+    p0, st = LuxCore.setup(rng, prob.layer) 
+    objective, cons = wrap_functions(vectorizer, p0, prob.objective, prob.constraints)
+    optf = SciMLBase.OptimizationFunction{true}(objective, ad; cons, kwargs...)
+    u0_, lb, ub = to_vec(objective, p0, Corleone.get_bounds(prob.layer)...)
+    SciMLBase.OptimizationProblem(optf, u0_, st; lb, ub, lcons = prob.lcons, ucons = prob.ucons, sense = sense)
+end
+
+function SciMLBase.OptimizationProblem(
+    layer::Union{SingleShootingLayer, MultipleShootingLayer}, 
+    ad::SciMLBase.ADTypes.AbstractADType, vectorizer;
+    loss::Union{Symbol, Expr},
+    constraints = [],
+    kwargs...
+    )
+    dynprob = CorleoneDynamicOptProblem(layer, loss, constraints...; kwargs...)
+    OptimizationProblem(dynprob, ad, vectorizer; kwargs...)
+end
