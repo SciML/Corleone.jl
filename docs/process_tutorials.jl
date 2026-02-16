@@ -19,8 +19,8 @@ function preprocess_script(content)
             # ```@raw html
             # <details><summary>This example was built using these direct dependencies,</summary>
             # ```
-            using Pkg 
-            Pkg.status() 
+            using Pkg
+            Pkg.status()
             # ```@raw html
             # </details>
             # ```
@@ -35,8 +35,8 @@ function preprocess_script(content)
             # ```@raw html
             # <details><summary>A more complete overview of all dependencies and their versions is also provided.</summary>
             # ```
-            using Pkg 
-            Pkg.status(; mode = PKGMODE_MANIFEST) 
+            using Pkg
+            Pkg.status(; mode = PKGMODE_MANIFEST)
             # ```@raw html
             # </details>
             # ```
@@ -67,6 +67,9 @@ tutorials = map(
     [
         abspath("examples/linear_quadratic/main.jl"),
         abspath("examples/lotka_fishing_optimal_control/main.jl"),
+        abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
+        abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
+        abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl")
     ]
 ) do tutorial
     make_tutorial(tutorial)
@@ -82,13 +85,13 @@ function generate_searchable_index(tutorials)
     ```@raw html
     <script setup lang="ts">
     import Gallery from "./components/Gallery.vue";
-    import data from "./assets/tutorial_data.json"; 
+    import data from "./assets/tutorial_data.json";
     </script>
 
     # Tutorials
 
     <Gallery :items="data" />
-    ``` 
+    ```
     """
 
     return write(output_path, output)
