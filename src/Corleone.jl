@@ -50,4 +50,8 @@ export default_initialization
 include("node_initialization.jl")
 export random_initialization, forward_initialization, linear_initialization
 export custom_initialization, constant_initialization, hybrid_initialization
+
+include("dynprob.jl")
+export CorleoneDynamicOptProblem
+
 end
