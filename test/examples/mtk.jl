@@ -27,7 +27,7 @@ cons = [
 
 @named lotka = System(
     [
-        D(x(t)) ~ α*x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
+        D(x(t)) ~ x(t) -  β * x(t) * y(t) - c₁ * u(t) * x(t),
         D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t) * y(t),
     ], t; costs = cost, constraints = cons
 )
@@ -36,7 +36,7 @@ dynopt = CorleoneDynamicOptProblem(
     lotka, [],
     u(t) => 0.0:0.1:11.9,
     algorithm = Tsit5(),
-    #shooting = [0.0, 5.0]
+    shooting = [0.0, 3.0, 6.0, 9.0]
 )
 
 using ComponentArrays, ForwardDiff
@@ -49,6 +49,9 @@ optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
 ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer) 
 
 traj, _ = dynopt.layer(nothing, ps, st)
+
+plot(traj, idxs = [1,2,3,4])
+
 vars = map(dynopt.getters) do get 
     get(traj)
 end
@@ -60,7 +63,7 @@ optprob.f(optprob.u0, optprob.p)
 
 sol = solve(
         optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-        #hessian_approximation = "limited-memory"
+       # hessian_approximation = "limited-memory"
     )
 
 
@@ -68,9 +71,11 @@ opttraj, _ = dynopt.layer(nothing, ComponentArray(sol.u ,optprob.f.f.ax), st)
 
 using CairoMakie
 
-plot(opttraj, idxs = [1, 2, 4])
+fff = plot(opttraj, idxs = [1, 2, 3])
+stairs!(opttraj, idxs = [4,])
+display(fff)
 
-using LuxCore, Random
+ using LuxCore, Random
 
 ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
 
