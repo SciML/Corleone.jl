@@ -22,7 +22,7 @@ using ComponentArrays, ForwardDiff
 using Optimization
 using OptimizationMOI, Ipopt
 using LuxCore, Random
-using CairoMakie 
+using CairoMakie
 
 # We start by defining our system
 
@@ -49,15 +49,15 @@ costs = [
 function plot_lotka(sol)
     f = Figure()
     ax = CairoMakie.Axis(f[1, 1])
-    scatterlines!(ax, sol, vars=[1,2,3])
-    f[1, 2] = Legend(f, ax, "States", framevisible=false)
+    scatterlines!(ax, sol, vars = [1, 2, 3])
+    f[1, 2] = Legend(f, ax, "States", framevisible = false)
     ax1 = CairoMakie.Axis(f[2, 1])
-    stairs!(ax1, sol, vars=[u(t),])
-    f[2, 2] = Legend(f, ax1, "Controls", framevisible=false)
-    f
+    stairs!(ax1, sol, vars = [u(t)])
+    f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
+    return f
 end
 
-# ## Single Shooting 
+# ## Single Shooting
 
 dynopt = CorleoneDynamicOptProblem(
     lotka_volterra, [],
@@ -77,7 +77,7 @@ u_opt = ComponentVector(sol.u, optprob.f.f.ax)
 opt_traj, _ = dynopt.layer(nothing, u_opt, LuxCore.initialstates(Random.default_rng(), dynopt.layer))
 
 plot_lotka(opt_traj)
-# ## Multiple Shooting 
+# ## Multiple Shooting
 dynopt = CorleoneDynamicOptProblem(
     lotka_volterra, [],
     u(t) => 0.0:0.1:11.9,
