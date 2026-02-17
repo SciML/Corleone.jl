@@ -57,11 +57,11 @@ function Corleone.CorleoneDynamicOptProblem(
 
     vars = unknowns(sys)
     sort!(vars, by = Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
-    tunable_ic = findall(i->ModelingToolkit.istunable(vars[i]), eachindex(vars))
+    tunable_ic = findall(i -> ModelingToolkit.istunable(vars[i]), eachindex(vars))
     bounds_ic = map(ModelingToolkit.getbounds, vars)
     bounds_ic = (first.(bounds_ic), last.(bounds_ic))
     p_tunable = tunable_parameters(sys)
-    bounds_p = map(i->ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
+    bounds_p = map(i -> ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
     bounds_p = (first.(bounds_p), last.(bounds_p))
 
 
@@ -69,16 +69,16 @@ function Corleone.CorleoneDynamicOptProblem(
         SingleShootingLayer(
             prob, algorithm;
             controls,
-            tunable_ic, 
-            bounds_ic, 
+            tunable_ic,
+            bounds_ic,
             bounds_p
         )
     else
         MultipleShootingLayer(
             prob, algorithm, shooting...;
             controls,
-            tunable_ic, 
-            bounds_ic, 
+            tunable_ic,
+            bounds_ic,
             bounds_p
         )
     end
@@ -116,6 +116,17 @@ function Corleone.CorleoneDynamicOptProblem(
             end
         )
     )
+
+    costs = let predictor = layer, obs = getters, objective = costfun
+        (ps, st) -> begin
+            traj, _ = predictor(nothing, ps, st)
+            vars = map(obs) do getter
+                getter(traj)
+            end
+            objective(vars...)
+        end
+    end
+
     if !isempty(newcons)
         res = gensym(:con)
         conbody = map(enumerate(newcons)) do (i, con)
@@ -133,15 +144,25 @@ function Corleone.CorleoneDynamicOptProblem(
         )
         lcons = -Inf .* map(Base.Fix2(isa, Inequality), newcons)
         ucons = zeros(Float64, size(newcons))
+
+        cons = let predictor = layer, obs = getters, constr = confun
+            (res, ps, st) -> begin
+                traj, _ = predictor(nothing, ps, st)
+                vars = map(obs) do getter
+                    getter(traj)
+                end
+                constr(res, vars...)
+            end
+        end
     else
-        ucons = lcons = confun = nothing
+        ucons = lcons = cons = nothing
     end
 
-    return CorleoneDynamicOptProblem{typeof(layer), typeof(getters), typeof(costfun), typeof(confun), typeof(lcons)}(
+    return CorleoneDynamicOptProblem{typeof(layer), typeof(getters), typeof(costs), typeof(cons), typeof(lcons)}(
         layer,
         getters,
-        costfun,
-        confun,
+        costs,
+        cons,
         lcons,
         ucons
     )

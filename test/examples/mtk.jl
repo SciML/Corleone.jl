@@ -1,16 +1,9 @@
 using Corleone
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
-
-#using ModelingToolkitBase
-#using InfiniteOpt
-using TestEnv; TestEnv.activate()
 using OrdinaryDiffEqTsit5
 
-#include("../../ext/MTKExtension/utils.jl")
-#include("../../ext/MTKExtension/optimal_control.jl")
-
-@variables x(..) = 0.5 [tunable = false,] y(..) = 0.7
+@variables x(..) = 0.5 [tunable = false,] y(..) = 0.7 [tunable=false,]
 @variables u(..) = 0.0 [bounds = (0.0, 1.0), input = true]
 @constants begin
     c₁ = 0.4
@@ -23,18 +16,19 @@ end
 
 cost = [
     Symbolics.Integral(t in (0.0, 12.0))(
-        (x(t) - 1.0)^2 + (y(t) - 1.0)^2
+        (x(t) - 1.0)^2 + (y(t) - 1.0)^2 
     ),
 ]
 
 cons = [
-    x(1.0) ≳ 1.0,
+    x(0.0) ≳ 0.2,
+    β ~ 1.0
 ]
 
 @named lotka = System(
     [
-        D(x(t)) ~ α*x(t) - β * x(t) * y(t) - c₁ * u(t),
-        D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t),
+        D(x(t)) ~ α*x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
+        D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t) * y(t),
     ], t; costs = cost, constraints = cons
 )
 
@@ -42,16 +36,39 @@ dynopt = CorleoneDynamicOptProblem(
     lotka, [],
     u(t) => 0.0:0.1:11.9,
     algorithm = Tsit5(),
-    shooting = [0.0, 5.0]
+    #shooting = [0.0, 5.0]
 )
 
+using ComponentArrays, ForwardDiff
+using Optimization 
+using OptimizationMOI, Ipopt
+using LuxCore, Random
 
-dynopt = CorleoneDynamicOptProblem(
-    lotka, [],
-    u(t) => 0.0:0.1:11.9,
-    algorithm = Tsit5(),
-    shooting = [0.0, 5.0]
-)
+optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
+
+ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer) 
+
+traj, _ = dynopt.layer(nothing, ps, st)
+vars = map(dynopt.getters) do get 
+    get(traj)
+end
+
+dynopt.objective(ps, st)
+
+optprob.f(optprob.u0, optprob.p)
+
+
+sol = solve(
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        #hessian_approximation = "limited-memory"
+    )
+
+
+opttraj, _ = dynopt.layer(nothing, ComponentArray(sol.u ,optprob.f.f.ax), st)
+
+using CairoMakie
+
+plot(opttraj, idxs = [1, 2, 4])
 
 using LuxCore, Random
 
