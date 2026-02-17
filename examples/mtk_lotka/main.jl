@@ -52,7 +52,7 @@ function plot_lotka(sol)
     scatterlines!(ax, sol, vars = [1, 2, 3])
     f[1, 2] = Legend(f, ax, "States", framevisible = false)
     ax1 = CairoMakie.Axis(f[2, 1])
-    stairs!(ax1, sol, vars = [u(t)])
+    stairs!(ax1, sol, vars = [4,])
     f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
     return f
 end
