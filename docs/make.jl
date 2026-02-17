@@ -1,7 +1,5 @@
 using Pkg
 
-Pkg.develop(path=joinpath(@__DIR__, ".."))
-
 using Documenter, Corleone
 using DocumenterInterLinks
 using DocumenterCitations
@@ -57,10 +55,10 @@ makedocs(
     plugins=[links, bib],
 )
 
-#deploydocs(
-#    repo = "github.com/SciML/Corleone.jl";
-#    push_preview = true
-#)
+deploydocs(
+    repo = "github.com/SciML/Corleone.jl";
+    push_preview = true
+)
 #DocumenterVitepress.deploydocs(;
 #    repo="github.com/SciML/Corleone.jl",
 #    target=joinpath(@__DIR__, "build"),
