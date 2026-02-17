@@ -111,7 +111,7 @@ function Corleone.CorleoneDynamicOptProblem(
 
     costfun = @RuntimeGeneratedFunction(
         :(
-            function ($(args_...))
+            function ($(args_...),)
                 $(costbody)
             end
         )
