@@ -143,15 +143,31 @@ function Corleone.CorleoneDynamicOptProblem(
             )
         )
         lcons = -Inf .* map(Base.Fix2(isa, Inequality), newcons)
-        ucons = zeros(Float64, size(newcons))
+        n_cons = size(newcons, 1)
+        ucons = zeros(Float64, n_cons)
+        n_shoot = Corleone.get_number_of_shooting_constraints(layer)
+        append!(lcons, zeros(n_shoot))
+        append!(ucons, zeros(n_shoot))
 
-        cons = let predictor = layer, obs = getters, constr = confun
+        cons = let predictor = layer, obs = getters, constr = confun, ncon = n_cons
             (res, ps, st) -> begin
                 traj, _ = predictor(nothing, ps, st)
                 vars = map(obs) do getter
                     getter(traj)
                 end
-                constr(res, vars...)
+                @views constr(res[1:ncon], vars...)
+                @views Corleone.shooting_constraints!(res[(ncon+1):end], traj)
+                return res
+            end
+        end
+    elseif isa(layer, MultipleShootingLayer)
+        n_shoot = Corleone.get_number_of_shooting_constraints(layer)
+        lcons = ucons =  zeros(n_shoot)
+        cons = let layer = layer
+            (res, ps, st) -> begin
+                traj, _ = layer(nothing, ps, st)
+                @views Corleone.shooting_constraints!(res, traj)
+                return res
             end
         end
     else
