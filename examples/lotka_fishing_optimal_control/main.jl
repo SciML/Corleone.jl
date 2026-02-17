@@ -68,7 +68,7 @@ end
 
 # The OptimizationProblem minimizing the terminal value of state `x₃` is easily set up and solved.
 
-optprob = OptimizationProblem(layer, AutoForwardDiff(), :x₃)
+optprob = OptimizationProblem(layer, AutoForwardDiff(), loss = :x₃)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol=1.0e-6,
