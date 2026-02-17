@@ -101,9 +101,7 @@ mslayer = MultipleShootingLayer(
 
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 
-optprob = OptimizationProblem(
-    mslayer, :x₃
-)
+optprob = OptimizationProblem(mslayer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
