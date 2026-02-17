@@ -8,7 +8,6 @@ function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, co
     sort!(u, by = ui -> SymbolicIndexingInterface.parameter_index(cache, ui).index)
     p = filter(!ModelingToolkit.isinput, p)
     x = [x..., u...]
-    @info p 
     SymbolCache(x, p, [iv])
 end
 
