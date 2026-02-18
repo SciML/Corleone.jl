@@ -109,12 +109,10 @@ function Corleone.CorleoneDynamicOptProblem(
     # We currently assume a single cost
     costbody = SymbolicUtils.Code.toexpr(substitute(only(newcosts), vars_subs))
 
+    costfn = :(($(args_...),) -> $costbody)
+
     costfun = @RuntimeGeneratedFunction(
-        :(
-            function ($(args_...))
-                $(costbody)
-            end
-        )
+        costfn
     )
 
     costs = let predictor = layer, obs = getters, objective = costfun
@@ -135,12 +133,10 @@ function Corleone.CorleoneDynamicOptProblem(
         end
         push!(conbody, :(return $(res)))
 
+        confn = :(($res, $(args_...)) -> $(conbody...))
+
         confun = @RuntimeGeneratedFunction(
-            :(
-                function ($(res), $(args_...))
-                    $(conbody...)
-                end
-            )
+            confn
         )
         lcons = -Inf .* map(Base.Fix2(isa, Inequality), newcons)
         n_cons = size(newcons, 1)
