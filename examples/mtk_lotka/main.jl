@@ -10,7 +10,7 @@
 
 # ## [ModelingToolkit Integration](@id mtk)
 # This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
-# It is similar to [the classical fishing example](@id lotka_fishing), but we will use [ModelingToolkit.jl]() to model it.
+# It is similar to [the classical fishing example](@ref lotka_fishing), but we will use [ModelingToolkit.jl]() to model it.
 
 # ## [Setup](@id mtk_setup)
 # We will use `Corleone` to define our optimal control problem.
