@@ -93,7 +93,7 @@ $(SIGNATURES)
 
 
 Initializes all shooting nodes with user-provided values. Initial values are given as an iterable collection of
-`AbstractArray`s, `Dict`s, or a vector of `Pair`s.  The variable indices are interpretated depending on the passed value
+`AbstractArray`s, `Dict`s, or a vector of `Pair`s.  The variable indices are interpreted depending on the passed value
 
 - `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
 - `Dict` assumes the keys represent indices of the initial condition.
@@ -107,7 +107,7 @@ Other options simply skip the corresponding interval.
 
 # Keyworded Arguments
 - `ps` the default parameters of the `shooting` layer.
-- `u0s` the collection of initial condtions.
+- `u0s` the collection of initial conditions.
 
 # Example
 ```julia
@@ -173,7 +173,7 @@ end
 $(SIGNATURES)
 
 
-Initializes all shooting nodes with user-provided value. The variable indices are interpretated depending on the passed value
+Initializes all shooting nodes with user-provided value. The variable indices are interpreted depending on the passed value
 
 - `AbstractArray` just sets the initial condition with the provided value. This assumes equal dimensionality.
 - `Dict` assumes the keys represent indices of the initial condition.
@@ -187,7 +187,7 @@ Other options simply skip the corresponding interval.
 
 # Keyworded Arguments
 - `ps` the default parameters of the `shooting` layer.
-- `u0` the initial condtion.
+- `u0` the initial condition.
 
 # Example
 ```julia
@@ -418,7 +418,7 @@ $(TYPEDEF)
 
 Initializes the shooting nodes in a hybrid method.
 Initialization of specific variables is done via a dictionary of variable indices of
-the underlying problem and the `AbstractNodeInitialization` for their initalization.
+the underlying problem and the `AbstractNodeInitialization` for their initialization.
 Variables not present in the keys of `inits` are initialized using the fallback
 initialization method given in `default_init`.
 # Fields

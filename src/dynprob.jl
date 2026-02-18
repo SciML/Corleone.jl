@@ -1,9 +1,9 @@
 """
 $(TYPEDEF)
 
-A struct for capturing the internal definition of a dynamic optimization problem. 
+A struct for capturing the internal definition of a dynamic optimization problem.
 
-# Fields 
+# Fields
 $(FIELDS)
 """
 struct CorleoneDynamicOptProblem{L, G, O, C, CB}
@@ -138,8 +138,8 @@ function CorleoneDynamicOptProblem(
     )
 end
 
-function wrap_functions end #(::Any, args...) = @error "No valid vectorization for the parameters choosen. Please load either ComponentArrays.jl or Functors.jl"
-function to_vec end #(::AbstractCorleoneFunctionWrapper, args...) =@error "No valid vectorization for the parameters choosen. Please load either ComponentArrays.jl or Functors.jl"
+function wrap_functions end #(::Any, args...) = @error "No valid vectorization for the chosen parameters. Please load either ComponentArrays.jl or Functors.jl"
+function to_vec end #(::AbstractCorleoneFunctionWrapper, args...) =@error "No valid vectorization for the chosen parameters. Please load either ComponentArrays.jl or Functors.jl"
 
 function SciMLBase.OptimizationFunction(
         prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType, vectorizer;

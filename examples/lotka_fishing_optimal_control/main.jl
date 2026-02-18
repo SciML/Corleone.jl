@@ -14,10 +14,10 @@
 # We will use `Corleone` to define our optimal control problem.
 using Corleone
 
-# Additionally, we will need the folllowing packages
+# Additionally, we will need the following packages
 # - [`LuxCore`]() and [`Random`]() for basic setup functions
 # - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`SymbolicIndexingInterface`]() to conviniently access variables and controls of the solution
+# - [`SymbolicIndexingInterface`]() to conveniently access variables and controls of the solution
 # - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
 # - [`CairoMakie`]() to plot the solution
 
