@@ -52,7 +52,7 @@ end
     foreach(x.constraints) do con
         next = (i - 1) + length(con)
         @views con(res[i:next], traj)
-        i = next
+        i = next + 1
     end
     return res
 end
@@ -81,6 +81,7 @@ function CorleoneDynamicOptProblem(
             end
         )
     end
+    @info length(tpoints) extrema(tpoints)
     cons = []
     lb = []
     ub = []
