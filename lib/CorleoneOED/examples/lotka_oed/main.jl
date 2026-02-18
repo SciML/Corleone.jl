@@ -28,7 +28,7 @@
 #                   & z(t_f) \le M,
 # \end{aligned}
 # ```
-# where ``F`` denotes the Fisher information matrix, ``G`` the sensitivites with respect to the
+# where ``F`` denotes the Fisher information matrix, ``G`` the sensitivities with respect to the
 # parameters, ``z`` the accumulated sampling decisions with upper bounds ``M``, ``h`` the measurement
 # functions specifying what can be measured. The variables ``w`` can be seen as controls whether or not to measure
 # a specific quantity at a certain point in time. The objective is given by ``\phi`` as a
@@ -39,10 +39,10 @@
 # We will use `Corleone` and `CorleoneOED` to model the optimal experimental design problem.
 using Corleone, CorleoneOED
 
-# Additionally, we will need the folllowing packages
+# Additionally, we will need the following packages
 # - [`LuxCore`]() and [`Random`]() for basic setup functions
 # - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`SymbolicIndexingInterface`]() to conviniently access variables and controls of the solution
+# - [`SymbolicIndexingInterface`]() to conveniently access variables and controls of the solution
 # - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
 # - [`CairoMakie`]() to plot the solution
 

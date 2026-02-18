@@ -24,7 +24,7 @@
 # We will use `Corleone` to define our optimal control problem.
 using Corleone
 
-# Additionally, we will need the folllowing packages
+# Additionally, we will need the following packages
 # - [`LuxCore`]() and [`Random`]() for basic setup functions
 # - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
 # - [`Optimization`](), [`OptimizationLBFGSB`](), and [`ComponentArrays`]() to setup and solve the optimization problem
