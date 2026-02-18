@@ -35,7 +35,6 @@
 # suitable criterion to optimize, e.g., the ACriterion.
 
 
-
 # ## Setup
 # We will use `Corleone` and `CorleoneOED` to model the optimal experimental design problem.
 using Corleone, CorleoneOED
@@ -82,7 +81,7 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
 cgrid = collect(0.0:0.1:11.9)
 control = ControlParameter(
-    cgrid, name=:fishing, bounds=(0.0, 1.0), controls=ones(length(cgrid))
+    cgrid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(cgrid))
 )
 
 # Now, there are different possibilities to construct the `OEDLayer`. It can be constructed
@@ -98,7 +97,7 @@ oed = OEDLayer{false}(
     prob, Tsit5(),
     params = [2, 3],
     controls = (1 => control,),
-    bounds_p=([1.0, 1.0], [1.0, 1.0]),
+    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
     observed = (u, p, t) -> u[1:2],
     measurements = [
         ControlParameter(collect(0.0:0.25:11.75), controls = 0.5 * ones(48), bounds = (0.0, 1.0)),
@@ -106,7 +105,7 @@ oed = OEDLayer{false}(
     ],
 )
 
-layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 
 oed = OEDLayer{false}(
     layer,
@@ -135,9 +134,9 @@ function plot_oed(sol)
     ax4 = CairoMakie.Axis(f[2, 2], xticks = 0:1:12, title = "Controls")
     plot!(ax, sol, idxs = [1, 2])
     plot!(ax2, sol, idxs = [3, 4, 5, 6])
-    stairs!(ax3, sol, vars=[:w₁, :w₂])
+    stairs!(ax3, sol, vars = [:w₁, :w₂])
     stairs!(ax4, sol, vars = [:p₁])
-    f
+    return f
 end
 plot_oed(sol)
 
@@ -154,12 +153,12 @@ fim
 # inverse of the Fisher information matrix is minimized. An upper bound `M` on the maximum
 # time of measurements is specified via `M`.
 
-optprob = OptimizationProblem(oed, DCriterion(); M=[4.0, 4.0])
+optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-6,
-    hessian_approximation="limited-memory",
-    max_iter=300
+    tol = 1.0e-6,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 );
 
 # After solving, we now only need to investigate the solution.

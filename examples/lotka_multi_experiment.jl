@@ -127,7 +127,7 @@ optu = uopt + zero(ComponentArray(ps))
 optsol, _ = multi(nothing, optu, st)
 
 f = Figure(size = (800, 800))
-for (i,sol) in enumerate(optsol)# in 1:multi.n_exp
+for (i, sol) in enumerate(optsol) # in 1:multi.n_exp
     ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = "Experiment $i")
     ax1 = CairoMakie.Axis(f[2, i], xticks = 0:2:12)
     ax2 = CairoMakie.Axis(f[3, i], xticks = 0:2:12)

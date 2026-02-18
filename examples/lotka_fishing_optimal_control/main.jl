@@ -51,29 +51,29 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 # control needs to be defined and applied to the problem by constructing a `SingleShootingLayer`
 cgrid = collect(0.0:0.1:11.9)
 control = ControlParameter(
-    cgrid, name=:fishing, bounds=(0.0, 1.0), controls=ones(length(cgrid))
+    cgrid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(cgrid))
 )
-layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls=(1 => control,), bounds_p=([1.0, 1.0], [1.0, 1.0]))
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 
 function plot_lotka(sol)
     f = Figure()
     ax = CairoMakie.Axis(f[1, 1])
-    scatterlines!(ax, sol, vars=[:x₁, :x₂])
-    f[1, 2] = Legend(f, ax, "States", framevisible=false)
+    scatterlines!(ax, sol, vars = [:x₁, :x₂])
+    f[1, 2] = Legend(f, ax, "States", framevisible = false)
     ax1 = CairoMakie.Axis(f[2, 1])
-    stairs!(ax1, sol, vars=[:fishing])
-    f[2, 2] = Legend(f, ax1, "Controls", framevisible=false)
-    f
+    stairs!(ax1, sol, vars = [:fishing])
+    f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
+    return f
 end
 
 # The OptimizationProblem minimizing the terminal value of state `x₃` is easily set up and solved.
 
-optprob = OptimizationProblem(layer, :x₃)
+optprob = OptimizationProblem(layer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-6,
-    hessian_approximation="limited-memory",
-    max_iter=300
+    tol = 1.0e-6,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 );
 
 #
@@ -95,21 +95,19 @@ plot_lotka(optsol)
 
 shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
 mslayer = MultipleShootingLayer(
-    prob, Tsit5(), shooting_points...; controls=(1 => control,),
-    bounds_p=([1.0, 1.0], [1.0, 1.0])
+    prob, Tsit5(), shooting_points...; controls = (1 => control,),
+    bounds_p = ([1.0, 1.0], [1.0, 1.0])
 )
 
 msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
 
-optprob = OptimizationProblem(
-    mslayer, :x₃
-)
+optprob = OptimizationProblem(mslayer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-5,
-    hessian_approximation="limited-memory",
-    max_iter=300
+    tol = 1.0e-5,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 );
 
 mssol, _ = mslayer(nothing, uopt + zero(ComponentArray(msps)), msst);

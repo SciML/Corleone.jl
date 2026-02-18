@@ -56,7 +56,7 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
 
 cgrid = collect(0.0:0.25:11.75)
 control = ControlParameter(
-    cgrid, name=:fishing, bounds=(0.0, 1.0)
+    cgrid, name = :fishing, bounds = (0.0, 1.0)
 )
 
 multi_exp = MultiExperimentLayer{false}(
@@ -77,17 +77,17 @@ multi_exp = MultiExperimentLayer{false}(
 
 function plot_experiments(sols)
     f = Figure()
-    for (i,sol) in enumerate(sols)
+    for (i, sol) in enumerate(sols)
         ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = "Experiment $i\nStates")
         ax2 = CairoMakie.Axis(f[2, i], xticks = 0:2:12, title = "Sensitivities")
         ax3 = CairoMakie.Axis(f[3, i], xticks = 0:1:12, title = "Sampling")
         ax4 = CairoMakie.Axis(f[4, i], xticks = 0:1:12, title = "Controls")
         plot!(ax, sol, idxs = [1, 2])
         plot!(ax2, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), "G")])
-        stairs!(ax3, sol, vars=[:w₁, :w₂])
+        stairs!(ax3, sol, vars = [:w₁, :w₂])
         stairs!(ax4, sol, vars = [:p₁])
     end
-    f
+    return f
 end
 ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
 
@@ -106,9 +106,9 @@ optprob = OptimizationProblem(
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-7,
-    hessian_approximation="limited-memory",
-    max_iter=300
+    tol = 1.0e-7,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 );
 
 #
@@ -146,9 +146,9 @@ optprob = OptimizationProblem(
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-7,
-    hessian_approximation="limited-memory",
-    max_iter=300
+    tol = 1.0e-7,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
 );
 
 #

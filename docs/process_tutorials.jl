@@ -67,9 +67,10 @@ tutorials = map(
     [
         abspath("examples/linear_quadratic/main.jl"),
         abspath("examples/lotka_fishing_optimal_control/main.jl"),
+        abspath("examples/mtk_lotka/main.jl"),
         abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
         abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
-        abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl")
+        abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)

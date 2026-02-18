@@ -205,6 +205,8 @@ function get_number_of_control_matchings(
     return sum(xi -> size(setdiff(xi.shooting_indices, Base.OneTo(statelength(xi.initial_condition))), 1), Base.tail(st))
 end
 
+get_number_of_shooting_constraints(::SingleShootingLayer) = 0
+
 function get_number_of_shooting_constraints(
         shooting::MultipleShootingLayer,
         ps = LuxCore.initialparameters(Random.default_rng(), shooting),
@@ -278,6 +280,7 @@ sorted by shooting-stage.
 """
 shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
 
+shooting_constraints(traj::Trajectory) = utype(traj)[]
 """
 $(SIGNATURES)
 
@@ -290,6 +293,8 @@ function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T,
     end
     return res
 end
+
+shooting_constraints!(res, traj::Trajectory) = res
 
 """
 $(SIGNATURES)
