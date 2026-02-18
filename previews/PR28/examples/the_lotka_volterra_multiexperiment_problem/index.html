@@ -22,7 +22,7 @@ u0: 2-element Vector{Float64}:
  0.5
  0.7</code></pre><h2 id="Construct-the-MultiExperimentLayer"><a class="docs-heading-anchor" href="#Construct-the-MultiExperimentLayer">Construct the <code>MultiExperimentLayer</code></a><a id="Construct-the-MultiExperimentLayer-1"></a><a class="docs-heading-anchor-permalink" href="#Construct-the-MultiExperimentLayer" title="Permalink"></a></h2><p>For designing multiple experiments at once, <code>CorleoneOED</code> provides the <code>MultiExperimentLayer</code>. It can be constructed analogous to the <code>OEDLayer</code> from an <code>ODEProblem</code> and a suitable algorithm, with an additional integer specifying the number of experiments to optimize. In this case we want to design two experiments.</p><pre><code class="language-julia hljs">cgrid = collect(0.0:0.25:11.75)
 control = ControlParameter(
-    cgrid, name=:fishing, bounds=(0.0, 1.0)
+    cgrid, name = :fishing, bounds = (0.0, 1.0)
 )
 
 multi_exp = MultiExperimentLayer{false}(
@@ -38,17 +38,17 @@ multi_exp = MultiExperimentLayer{false}(
 )</code></pre><pre><code class="nohighlight hljs">MultiExperimentLayer with continuous measurement model and 2 experiments.
 </code></pre><p>Calling this layer with the appropriate arguments integrates the two experiments. We can define a plotting function and look at the initial experiments for the initial values provided above.</p><pre><code class="language-julia hljs">function plot_experiments(sols)
     f = Figure()
-    for (i,sol) in enumerate(sols)
+    for (i, sol) in enumerate(sols)
         ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = &quot;Experiment $i\nStates&quot;)
         ax2 = CairoMakie.Axis(f[2, i], xticks = 0:2:12, title = &quot;Sensitivities&quot;)
         ax3 = CairoMakie.Axis(f[3, i], xticks = 0:1:12, title = &quot;Sampling&quot;)
         ax4 = CairoMakie.Axis(f[4, i], xticks = 0:1:12, title = &quot;Controls&quot;)
         plot!(ax, sol, idxs = [1, 2])
         plot!(ax2, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), &quot;G&quot;)])
-        stairs!(ax3, sol, vars=[:w₁, :w₂])
+        stairs!(ax3, sol, vars = [:w₁, :w₂])
         stairs!(ax4, sol, vars = [:p₁])
     end
-    f
+    return f
 end
 ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
 
@@ -59,9 +59,9 @@ plot_experiments(sols)</code></pre><img width=600 height=450 style='object-fit: 
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-7,
-    hessian_approximation=&quot;limited-memory&quot;,
-    max_iter=300
+    tol = 1.0e-7,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
 );</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:        0
@@ -196,7 +196,7 @@ Number of inequality constraint evaluations          = 91
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 90
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 71.758
+Total seconds in IPOPT                               = 71.237
 
 EXIT: Optimal Solution Found.
 </code></pre><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
@@ -222,9 +222,9 @@ optprob = OptimizationProblem(
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol=1.0e-7,
-    hessian_approximation=&quot;limited-memory&quot;,
-    max_iter=300
+    tol = 1.0e-7,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
 );</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.8.2.
 
 Number of nonzeros in equality constraint Jacobian...:        0
@@ -319,7 +319,7 @@ Number of inequality constraint evaluations          = 58
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 53
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 44.892
+Total seconds in IPOPT                               = 43.819
 
 EXIT: Optimal Solution Found.
 </code></pre><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), split_exp)
@@ -761,4 +761,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.64.0+1
   [3f19e933] p7zip_jll v17.7.0+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../compartmental_oed_problem/">« Discrete measurements</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 18 February 2026 06:09">Wednesday 18 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../compartmental_oed_problem/">« Discrete measurements</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Wednesday 18 February 2026 09:08">Wednesday 18 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
