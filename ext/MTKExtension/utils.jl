@@ -1,6 +1,6 @@
 maybeop(x) = iscall(x) ? operation(x) : x
 
-function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, control_indices; kwargs...) 
+function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, control_indices; kwargs...)
     x = unknowns(cache)
     p = tunable_parameters(cache)
     iv = ModelingToolkit.get_iv(cache)
@@ -8,7 +8,7 @@ function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, co
     sort!(u, by = ui -> SymbolicIndexingInterface.parameter_index(cache, ui).index)
     p = filter(!ModelingToolkit.isinput, p)
     x = [x..., u...]
-    SymbolCache(x, p, [iv])
+    return SymbolCache(x, p, [iv])
 end
 
 function collect_timepoints!(tpoints, ex)
@@ -16,14 +16,16 @@ function collect_timepoints!(tpoints, ex)
         op, args = operation(ex), arguments(ex)
         if SymbolicUtils.issym(op) && isa(first(args).val, Number) && length(args) == 1
             tp = first(args).val
-            vars = get!(tpoints, op, typeof(tp)[]) 
+            vars = get!(tpoints, op, typeof(tp)[])
             push!(vars, tp)
         end
-        return op(map(args) do x 
-            collect_timepoints!(tpoints, x)
-        end...)
-    end 
-    return ex 
+        return op(
+            map(args) do x
+                collect_timepoints!(tpoints, x)
+            end...
+        )
+    end
+    return ex
 end
 
 function collect_integrals!(subs, ex, t)
@@ -35,10 +37,10 @@ function collect_integrals!(subs, ex, t)
             end...
         )
         if isa(op, Symbolics.Integral)
-            var = get!(subs, ex) do 
+            var = get!(subs, ex) do
                 sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(subs) + 1)))
-                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0 [tunable = false, bounds = (0., Inf)])) # [costvariable = true]))
-                var 
+                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0 [tunable = false, bounds = (0.0, Inf)])) # [costvariable = true]))
+                var
             end
             lo, hi = op.domain.domain.left, op.domain.domain.right
             return operation(var)(hi) - operation(var)(lo)

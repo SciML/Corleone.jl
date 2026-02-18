@@ -16,10 +16,10 @@ include("process_tutorials.jl")
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
-    sitename="Corleone.jl",
-    authors="Carl Julius Martensen, Christoph Plate, et al.",
-    modules=[Corleone],
-    format= Documenter.HTML(
+    sitename = "Corleone.jl",
+    authors = "Carl Julius Martensen, Christoph Plate, et al.",
+    modules = [Corleone],
+    format = Documenter.HTML(
         assets = ["assets/favicon.ico"],
         canonical = "https://docs.sciml.ai/Corleone/stable/",
         size_threshold = 1_000_000,  # bytes
@@ -33,16 +33,16 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Getting Started" => "examples/the_linear_quadratic_regulator.md",
-		"Tutorials" => [
-			"Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
-			"Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+        "Tutorials" => [
+            "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
+            "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
             "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
             "Discrete measurements" => "examples/compartmental_oed_problem.md",
             "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
-			"ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
-		], #"tutorials.md",
+            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
+        ], #"tutorials.md",
         "References" => "references.md",
-        "API" => "api.md"
+        "API" => "api.md",
         #tutorials,
         #"Examples" => [#"Optimal Control" => "./examples/lotka.md",
         #"Multiple Shooting" => "./examples/multiple_shooting.md",
@@ -51,9 +51,9 @@ makedocs(
         #],
         # "API Reference" => "api.md",
     ],
-    checkdocs=:none,
-    remotes=nothing,
-    plugins=[links, bib],
+    checkdocs = :none,
+    remotes = nothing,
+    plugins = [links, bib],
 )
 
 deploydocs(

@@ -280,7 +280,7 @@ sorted by shooting-stage.
 """
 shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
 
-shooting_constraints(traj::Trajectory) =  utype(traj)[]
+shooting_constraints(traj::Trajectory) = utype(traj)[]
 """
 $(SIGNATURES)
 

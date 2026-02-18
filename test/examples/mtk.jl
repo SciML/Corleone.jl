@@ -46,7 +46,7 @@ cons = [
     )
 
     optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
-    
+
     @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons)
 
     ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
@@ -56,7 +56,7 @@ cons = [
     vars = map(dynopt.getters) do get
         get(traj)
     end
-    
+
     @test dynopt.objective(ps, st) ≈ optprob.f(optprob.u0, optprob.p)
     @test isapprox(dynopt.objective(ps, st), 6.062277381976436, atol = 1.0e-4)
 
@@ -65,7 +65,7 @@ cons = [
         hessian_approximation = "limited-memory"
     )
 
-    @test isapprox(sol.u[1], 1.0, atol = 1e-4)
+    @test isapprox(sol.u[1], 1.0, atol = 1.0e-4)
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 end
@@ -81,7 +81,7 @@ end
     optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
 
     @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons) + Corleone.get_number_of_shooting_constraints(dynopt.layer)
-    
+
     ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
 
     traj, _ = dynopt.layer(nothing, ps, st)
@@ -98,7 +98,7 @@ end
         hessian_approximation = "limited-memory"
     )
 
-    @test isapprox(sol.u[1], 1.0, atol = 1e-4)
+    @test isapprox(sol.u[1], 1.0, atol = 1.0e-4)
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 end

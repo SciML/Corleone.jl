@@ -21,7 +21,7 @@ using SafeTestsets
         @safetestset "Lotka MS" begin
             include("examples/lotka_ms.jl")
         end
-        @safetestset "Lotka MTK" begin 
+        @safetestset "Lotka MTK" begin
             include("examples/mtk.jl")
         end
     end

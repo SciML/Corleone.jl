@@ -46,9 +46,9 @@ function compartmental(du, u, p, t)
     return
 end
 
-tspan = (0., 50.)
-u0 = [0.]
-p0 = [0.05884, 4.298, 21.80]
+tspan = (0.0, 50.0)
+u0 = [0.0]
+p0 = [0.05884, 4.298, 21.8]
 prob = ODEProblem(compartmental, u0, tspan, p0)
 
 
@@ -68,7 +68,7 @@ w_init = 0.5 * ones(length(measurement_points))
 oed = OEDLayer{true}(
     prob, Tsit5(),
     params = [1, 2, 3],
-    bounds_p=(p0, p0),
+    bounds_p = (p0, p0),
     measurements = [
         ControlParameter(measurement_points, controls = w_init, bounds = (0.0, 1.0)),
     ],
@@ -85,13 +85,13 @@ sol, _ = oed(nothing, ps, st)
 
 function plot_oed(sol, sampling)
     f = Figure()
-    ax = CairoMakie.Axis(f[1, 1],  xticks = 0:10:50, title = "States")
+    ax = CairoMakie.Axis(f[1, 1], xticks = 0:10:50, title = "States")
     ax2 = CairoMakie.Axis(f[2, 1], xticks = 0:10:50, title = "Sensitivities")
     ax3 = CairoMakie.Axis(f[3, 1], xticks = 0:10:50, title = "Sampling")
     plot!(ax, sol, idxs = [1])
     plot!(ax2, sol, idxs = [2, 3, 4])
     scatter!(ax3, measurement_points, sampling)
-    f
+    return f
 end
 
 plot_oed(sol, ps.controls)
@@ -99,15 +99,16 @@ plot_oed(sol, ps.controls)
 # We assume now that we can measure at 6 of the 18 possible measurement times and specify
 # this upper bound via the keyworded argument `M` when constructing the optimization problem.
 
-optprob = OptimizationProblem(oed, DCriterion(); M =[6.0])
+optprob = OptimizationProblem(oed, DCriterion(); M = [6.0])
 
-uopt = solve(optprob, Ipopt.Optimizer(),
-    tol=1e-12,
-    hessian_approximation="limited-memory",
-    max_iter=100,
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-12,
+    hessian_approximation = "limited-memory",
+    max_iter = 100,
 )
 
 optu = uopt.u + zero(ComponentArray(ps))
-sol, _  = oed(nothing, optu, st)
+sol, _ = oed(nothing, optu, st)
 
 plot_oed(sol, optu.controls)

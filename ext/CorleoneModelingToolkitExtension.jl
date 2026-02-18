@@ -1,4 +1,4 @@
-module CorleoneModelingToolkitExtension 
+module CorleoneModelingToolkitExtension
 
 @info "Loading MTK Extension"
 

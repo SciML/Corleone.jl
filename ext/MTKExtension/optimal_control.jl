@@ -111,7 +111,7 @@ function Corleone.CorleoneDynamicOptProblem(
 
     costfun = @RuntimeGeneratedFunction(
         :(
-            function ($(args_...),)
+            function ($(args_...))
                 $(costbody)
             end
         )
@@ -156,13 +156,13 @@ function Corleone.CorleoneDynamicOptProblem(
                     getter(traj)
                 end
                 @views constr(res[1:ncon], vars...)
-                @views Corleone.shooting_constraints!(res[(ncon+1):end], traj)
+                @views Corleone.shooting_constraints!(res[(ncon + 1):end], traj)
                 return res
             end
         end
     elseif isa(layer, MultipleShootingLayer)
         n_shoot = Corleone.get_number_of_shooting_constraints(layer)
-        lcons = ucons =  zeros(n_shoot)
+        lcons = ucons = zeros(n_shoot)
         cons = let layer = layer
             (res, ps, st) -> begin
                 traj, _ = layer(nothing, ps, st)
