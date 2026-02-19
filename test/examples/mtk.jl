@@ -16,7 +16,7 @@ using LuxCore, Random
     c₂ = 0.2
 end
 @parameters begin
-    α = 1.0, [tunable = false]
+    α[1:1] = [1.0,] , [tunable = true, bounds = ([1., ], [1.,])]
     β = 1.0, [tunable = true, bounds = (0.9, 1.1)]
 end
 
@@ -33,7 +33,7 @@ cons = [
 
 @named lotka = System(
     [
-        D(x(t)) ~ x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
+        D(x(t)) ~ α[1] *  x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
         D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t) * y(t),
     ], t; costs = cost, constraints = cons
 )
@@ -65,7 +65,7 @@ cons = [
         hessian_approximation = "limited-memory"
     )
 
-    @test isapprox(sol.u[1], 1.0, atol = 1.0e-4)
+    @test isapprox(sol.u[1:2], ones(2), atol = 1.0e-4)
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 end
@@ -98,7 +98,7 @@ end
         hessian_approximation = "limited-memory"
     )
 
-    @test isapprox(sol.u[1], 1.0, atol = 1.0e-4)
+    @test isapprox(sol.u[1:2], [1.0, 1.0], atol = 1.0e-4)
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 end
