@@ -62,7 +62,9 @@ function Corleone.CorleoneDynamicOptProblem(
     bounds_ic = (first.(bounds_ic), last.(bounds_ic))
     p_tunable = tunable_parameters(sys)
     bounds_p = map(i -> ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
-    bounds_p = (first.(bounds_p), last.(bounds_p))
+    bounds_p = map((first.(bounds_p), last.(bounds_p))) do bound
+        collect(Iterators.flatten(bound))
+    end
 
 
     layer = if isnothing(shooting)
