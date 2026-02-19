@@ -16,7 +16,7 @@ using LuxCore, Random
     c₂ = 0.2
 end
 @parameters begin
-    α[1:1] = [1.0,] , [tunable = true, bounds = ([1., ], [1.,])]
+    α[1:1] = [1.0], [tunable = true, bounds = ([1.0], [1.0])]
     β = 1.0, [tunable = true, bounds = (0.9, 1.1)]
 end
 
@@ -33,7 +33,7 @@ cons = [
 
 @named lotka = System(
     [
-        D(x(t)) ~ α[1] *  x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
+        D(x(t)) ~ α[1] * x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
         D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t) * y(t),
     ], t; costs = cost, constraints = cons
 )
