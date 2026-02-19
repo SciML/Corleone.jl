@@ -81,7 +81,6 @@ function CorleoneDynamicOptProblem(
             end
         )
     end
-    @info length(tpoints) extrema(tpoints)
     cons = []
     lb = []
     ub = []
