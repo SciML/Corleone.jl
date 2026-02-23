@@ -5,7 +5,7 @@ function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, co
     p = tunable_parameters(cache)
     iv = ModelingToolkit.get_iv(cache)
     u = filter(ModelingToolkit.isinput, p)
-    sort!(u, by = ui -> SymbolicIndexingInterface.parameter_index(cache, ui).index)
+    sort!(u, by = ui -> SymbolicIndexingInterface.parameter_index(cache, ui).idx)
     p = filter(!ModelingToolkit.isinput, p)
     x = [x..., u...]
     return SymbolCache(x, p, [iv])
