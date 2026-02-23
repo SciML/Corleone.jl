@@ -161,7 +161,7 @@ Number of inequality constraint evaluations          = 31
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 31
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 50.187
+Total seconds in IPOPT                               = 50.997
 
 EXIT: Optimal Solution Found.
 </code></pre><p>After solving, we now only need to investigate the solution.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
@@ -171,15 +171,15 @@ plot_oed(optsol)</code></pre><img width=600 height=450 style='object-fit: contai
   [b0b7db55] ComponentArrays v0.15.32
   [2751e0db] Corleone v0.0.3 `~/work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v0.0.2
-  [e30172f5] Documenter v1.16.1
+  [e30172f5] Documenter v1.17.0
   [daee34ce] DocumenterCitations v1.4.1
   [d12716ef] DocumenterInterLinks v1.1.0
   [f6369f11] ForwardDiff v1.3.2
-  [b6b21f68] Ipopt v1.14.0
+  [b6b21f68] Ipopt v1.14.1
   [682c06a0] JSON v1.4.0
   [98b081ad] Literate v2.21.0
   [bb33d45b] LuxCore v1.5.3
-  [961ee093] ModelingToolkit v11.10.0
+  [961ee093] ModelingToolkit v11.11.0
   [7f7a1694] Optimization v5.5.0
   [22f7324a] OptimizationLBFGSB v1.4.0
   [fd9f6733] OptimizationMOI v1.2.0
@@ -194,9 +194,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 4 × AMD EPYC 9V74 80-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-18.1.7 (ORCJIT, znver3)
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver4)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -227,7 +227,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [caf10ac8] BipartiteGraphs v0.1.7
   [62783981] BitTwiddlingConvenienceFunctions v0.1.6
   [8e7c35d0] BlockArrays v1.9.3
-  [70df07ce] BracketingNonlinearSolve v1.8.0
+  [70df07ce] BracketingNonlinearSolve v1.10.0
   [fa961155] CEnum v0.5.0
   [2a0fbf3d] CPUSummary v0.2.7
   [96374032] CRlibm v1.0.2
@@ -263,7 +263,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [864edb3b] DataStructures v0.19.3
   [e2d170a0] DataValueInterfaces v1.0.0
   [927a84f5] DelaunayTriangulation v1.6.6
-  [2b5f629d] DiffEqBase v6.205.1
+  [2b5f629d] DiffEqBase v6.209.0
   [459566f4] DiffEqCallbacks v4.12.0
   [163ba53b] DiffResults v1.1.0
   [b552c78f] DiffRules v1.15.1
@@ -272,7 +272,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [31c24e10] Distributions v0.25.123
   [43dc2714] DocInventories v1.0.0
   [ffbed154] DocStringExtensions v0.9.5
-  [e30172f5] Documenter v1.16.1
+  [e30172f5] Documenter v1.17.0
   [daee34ce] DocumenterCitations v1.4.1
   [d12716ef] DocumenterInterLinks v1.1.0
   [5b8099bc] DomainSets v0.7.16
@@ -326,7 +326,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [d1acc4aa] IntervalArithmetic v1.0.2
   [8197267c] IntervalSets v0.7.13
   [3587e190] InverseFunctions v0.1.17
-  [b6b21f68] Ipopt v1.14.0
+  [b6b21f68] Ipopt v1.14.1
   [92d709cd] IrrationalConstants v0.2.6
   [f1662d9f] Isoband v0.1.1
   [c8e1da08] IterTools v1.10.0
@@ -346,7 +346,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8cdb02fc] LazyModules v0.3.1
   [1d6d02ad] LeftChildRightSiblingTrees v0.2.1
   [87fe0de2] LineSearch v0.1.6
-  [7ed4a6bd] LinearSolve v3.58.0
+  [7ed4a6bd] LinearSolve v3.59.1
   [98b081ad] Literate v2.21.0
   [2ab3a3ac] LogExpFunctions v0.3.29
   [e6f89c97] LoggingExtras v1.2.0
@@ -360,8 +360,8 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [0a4f8689] MathTeXEngine v0.6.7
   [bb5d69b7] MaybeInplace v0.1.4
   [e1d29d7a] Missings v1.2.0
-  [961ee093] ModelingToolkit v11.10.0
-  [7771a370] ModelingToolkitBase v1.13.1
+  [961ee093] ModelingToolkit v11.11.0
+  [7771a370] ModelingToolkitBase v1.16.0
   [6bb917b9] ModelingToolkitTearing v1.3.1
   [e94cdb99] MosaicViews v0.3.4
   [2e0e35c7] Moshi v0.3.7
@@ -370,7 +370,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [d8a4904e] MutableArithmetics v1.6.7
   [77ba4419] NaNMath v1.1.3
   [f09324ee] Netpbm v1.1.1
-  [be0214bd] NonlinearSolveBase v2.12.0
+  [be0214bd] NonlinearSolveBase v2.14.0
 ⌅ [5959db7a] NonlinearSolveFirstOrder v1.11.1
   [510215fc] Observables v0.5.5
   [6fe1bfb0] OffsetArrays v1.17.0
@@ -381,7 +381,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [22f7324a] OptimizationLBFGSB v1.4.0
   [fd9f6733] OptimizationMOI v1.2.0
   [bac558e1] OrderedCollections v1.8.1
-  [bbf590c4] OrdinaryDiffEqCore v3.5.2
+  [bbf590c4] OrdinaryDiffEqCore v3.9.0
   [b1df2697] OrdinaryDiffEqTsit5 v1.9.0
   [90014a1f] PDMats v0.11.37
   [f57f5aa1] PNGFiles v0.4.4
@@ -400,7 +400,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [27ebfcd6] Primes v0.5.7
   [33c8b6b6] ProgressLogging v0.1.6
   [92933f4c] ProgressMeter v1.11.0
-  [43287f4e] PtrArrays v1.3.0
+  [43287f4e] PtrArrays v1.4.0
   [4b34888f] QOI v1.0.2
   [1fd47b50] QuadGK v2.11.2
   [b3c3ace0] RangeArrays v0.3.2
@@ -419,9 +419,9 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [9dfe8606] SCCNonlinearSolve v1.11.0
   [fdea26ae] SIMD v3.7.2
   [94e857df] SIMDTypes v0.1.0
-  [0bca4576] SciMLBase v2.139.0
+  [0bca4576] SciMLBase v2.144.0
   [19f34311] SciMLJacobianOperators v0.1.12
-  [a6db7da4] SciMLLogging v1.9.0
+  [a6db7da4] SciMLLogging v1.9.1
   [c0aeaf25] SciMLOperators v1.15.1
   [431bcebd] SciMLPublic v1.0.1
   [53ae85a6] SciMLStructures v1.10.0
@@ -431,7 +431,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [65257c39] ShaderAbstractions v0.5.0
   [992d4aef] Showoff v1.0.3
   [73760f76] SignedDistanceFields v0.4.1
-  [727e6d20] SimpleNonlinearSolve v2.10.0
+  [727e6d20] SimpleNonlinearSolve v2.11.0
   [699a6c99] SimpleTraits v0.9.5
   [45858cf5] Sixel v0.1.5
   [a2af1166] SortingAlgorithms v1.2.2
@@ -444,7 +444,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [64909d44] StateSelection v1.3.0
   [aedffcd0] Static v1.3.1
   [0d7ed370] StaticArrayInterface v1.9.0
-  [90137ffa] StaticArrays v1.9.16
+  [90137ffa] StaticArrays v1.9.17
   [1e83bf80] StaticArraysCore v1.4.4
   [10745b16] Statistics v1.11.1
   [82ae8749] StatsAPI v1.8.0
@@ -457,7 +457,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [3384d301] SymbolicCompilerPasses v0.1.2
   [2efcf032] SymbolicIndexingInterface v0.3.46
   [19f23fe9] SymbolicLimits v1.1.0
-  [d1185830] SymbolicUtils v4.18.2
+  [d1185830] SymbolicUtils v4.18.3
   [0c5d862f] Symbolics v7.15.1
   [3783bdb8] TableTraits v1.0.1
   [bd369af6] Tables v1.12.1
@@ -601,4 +601,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.64.0+1
   [3f19e933] p7zip_jll v17.7.0+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Thursday 19 February 2026 11:46">Thursday 19 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 23 February 2026 07:24">Monday 23 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
