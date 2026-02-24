@@ -154,8 +154,8 @@ function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fiel
     (; problem_remaker, algorithm, controls) = layer
     (; timestops) = st
     problem, problem_st = problem_remaker(x, ps.problem_remaker, st.problem_remaker)
-    solutions = eval_problem(problem, algorithm, controls, ps, st, timestops)
-    return solutions, merge(st, (; problem_remaker=problem_st))
+    solutions, _ = eval_problem(problem, algorithm, controls, ps, st, timestops)
+    return Trajectory(layer, solutions...; control_parameters = ps.controls, control_states = st.controls), merge(st, (; problem_remaker=problem_st))
 end
 
 @generated function eval_problem(prob, algorithm, controls, ps, st, timestops::NTuple{N,<:Real}) where N
@@ -208,3 +208,36 @@ end
 get_problem(layer::SingleShootingLayer) = get_problem(layer.problem_remaker)
 get_tspan(layer::SingleShootingLayer) = get_tspan(layer.problem_remaker)
 
+
+function Trajectory(::SingleShootingLayer, sol...; 
+    control_parameters::NamedTuple = NamedTuple(),
+    control_states::NamedTuple = NamedTuple(),
+    kwargs...
+    )
+    u = reduce(vcat, map(sol) do s
+        maybevec(s.u)
+    end)
+    p = first(sol).prob.p
+    t = reduce(vcat, map(sol) do s
+       s.t
+    end)
+    sys = symbolic_container(first(sol))
+    timeseries_parameters = map(enumerate(keys(control_parameters))) do (i, k)
+        k => ParameterTimeseriesIndex(i, 1)
+    end
+
+    newsys = SymbolCache(
+        variable_symbols(sys),
+        parameter_symbols(sys),
+        independent_variable_symbols(sys);
+        timeseries_parameters = Dict(timeseries_parameters...)
+      )
+    tseries = map(keys(control_parameters)) do k 
+        DiffEqArray(
+            maybevec(getfield(control_parameters, k).u),
+            getfield(control_states, k).t,
+        )
+    end
+    controls = ParameterTimeseriesCollection(tseries, deepcopy(p))
+    Trajectory{typeof(newsys), typeof(u), typeof(p), typeof(t), typeof(controls), Nothing}(newsys, u, p, t, controls, nothing)
+end
