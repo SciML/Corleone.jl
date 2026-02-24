@@ -12,15 +12,13 @@ $(FIELDS)
 Note: The orders of both `controls` and `control_indices`, and `bounds_ic` and `tunable_ic`
 are assumed to be identical!
 """
-struct SingleShootingLayer{A,C,U,Q} <: LuxCore.AbstractLuxContainerLayer{(:controls, :problem_remaker)}
+struct SingleShootingLayer{A,C,U} <: LuxCore.AbstractLuxContainerLayer{(:controls, :problem_remaker)}
     "The initial problem remaker"
     problem_remaker::U
     "The algorithm with which `problem` is integrated."
     algorithm::A
     "The controls"
     controls::C
-    "The quadrature indices"
-    quadrature_indices::Q
 end
 
 function init_problem(prob, alg)
@@ -51,7 +49,6 @@ function SingleShootingLayer(
     prob::SciMLBase.AbstractDEProblem,
     alg::SciMLBase.AbstractDEAlgorithm;
     controls=(),
-    quadrature_indices=(),
     kwargs...,
 )
 
@@ -61,6 +58,7 @@ function SingleShootingLayer(
 
     u0syms = get(kwargs, :tunable_u0, ())
     tunable_psyms = get(kwargs, :tunable_p, ())
+    quadrature_indices = get(kwargs, :quadrature_indices, ())
 
     if !isempty(controls)
         @assert !isempty(psyms) "No parameter symbols could be found in the presence "
@@ -90,11 +88,23 @@ function SingleShootingLayer(
 
     rmk = ProblemRemaker(_prob; kwargs...)
 
-    return SingleShootingLayer{typeof(alg),typeof(controls),typeof(rmk),typeof(quadrature_indices)}(
+    return SingleShootingLayer{typeof(alg),typeof(controls),typeof(rmk)}(
         rmk,
         alg,
         controls,
-        quadrature_indices,
+    )
+end
+
+function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
+    problem_remaker = remake(layer.problem_remaker; kwargs...)
+    algorithm = get(kwargs, :algorithm, layer.algorithm)
+    controls = map(layer.controls) do control
+        remake(control; kwargs...)
+    end
+    SingleShootingLayer{typeof(algorithm),typeof(controls),typeof(problem_remaker),}(
+        problem_remaker,
+        algorithm,
+        controls,
     )
 end
 

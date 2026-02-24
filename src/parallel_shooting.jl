@@ -43,3 +43,12 @@ function _parallel_solve(
     ret =  mythreadmap(alg, Base.splat(LuxCore.apply), args)
     return NamedTuple{fields}(first.(ret)), NamedTuple{fields}(last.(ret))
 end
+
+function SciMLBase.remake(layer::ParallelShootingLayer; kwargs...)
+    layers = map(keys(layer.layers)) do k 
+        layer_kwargs = get(kwargs, k, kwargs)
+        k, remake(layer.layers[k]; layer_kwargs...)
+    end |> NamedTuple
+    ensemble_algorithm = get(kwargs, :ensemble_algorithm, layer.ensemble_algorithm)
+    ParallelShootingLayer(layer.name, layers, ensemble_algorithm)
+end

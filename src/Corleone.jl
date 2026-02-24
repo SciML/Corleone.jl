@@ -36,10 +36,6 @@ to_val(x::Tuple, val) = tuple(to_val.(x, val)...)
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 
-_clamp_tspan(layer::LuxCore.AbstractLuxLayer, tspan::Tuple{<:Real, <:Real}) = layer 
-clamp_tspan(layer::LuxCore.AbstractLuxLayer, tspan::Tuple{<:Real, <:Real}) = Functors.fmap(Base.Fix2(_clamp_tspan, tspan), layer)
-
-
 # Remakebuffer wrap 
 __remake_wrap(sys, p, idxs, vals) = isempty(idxs) ? p : remake_buffer(sys, p, idxs, vals)
 
