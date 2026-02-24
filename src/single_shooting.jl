@@ -95,6 +95,10 @@ function SingleShootingLayer(
     )
 end
 
+get_quadrature_indices(layer::SingleShootingLayer) = get_quadrature_indices(layer.problem_remaker)
+is_shooting_layer(layer::SingleShootingLayer) = true
+get_tunable_u0(layer::SingleShootingLayer) = get_tunable_u0(layer.problem_remaker)
+
 function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     problem_remaker = remake(layer.problem_remaker; kwargs...)
     algorithm = get(kwargs, :algorithm, layer.algorithm)
@@ -122,7 +126,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     control_states = map(Base.Fix1(LuxCore.initialstates, rng), controls)
     initial_states = LuxCore.initialstates(rng, problem_remaker)
     t = reduce(vcat, map(control_states) do cs
-        cs.t
+        deepcopy(cs.t)
     end)
     append!(t, collect(problem.tspan))
     sort!(t)

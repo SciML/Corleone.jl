@@ -3,6 +3,7 @@ using OrdinaryDiffEqTsit5
 using Test
 using Random
 using LuxCore
+
 using ComponentArrays
 using Optimization, OptimizationMOI, Ipopt
 
@@ -23,7 +24,75 @@ end
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
-prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6)
+prob = ODEProblem(
+    ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:fishing, :c₁, :c₂], :t)), 
+    u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6)
+
+control = PiecewiseConstantControl(:fishing, [1., 2., 3., 4.], [1., 2., 3., 4.], (0.0, 3.0))
+ps, st = LuxCore.setup(rng, control)
+control(5.0, ps, st)
+
+layer = Corleone.SingleShootingLayer(
+   prob, Tsit5(); controls = [control], tunable_u0 = (:x,), tunable_p = (:c₁,), quadrature_indices = (:c,), p_bounds = ((2.0,), (2.0,)), u0_bounds = ((0.0,), (1.0,))
+)
+
+ps, st = LuxCore.setup(rng, layer)
+
+@code_warntype layer(nothing, ps, st)
+
+player = MultipleShootingLayer(layer, 0., 2., 3.; ensemble_algorithm = EnsembleDistributed())
+ps, st = LuxCore.setup(rng, player)
+player(nothing, ps, st)
+
+
+
+
+
+### Examples 
+
+
+using BenchmarkTools
+@btime player(nothing, ps, st)
+
+
+Corleone.clamp_tspan(layer, (0.0, 2.5)) # |> Corleone.is_shooted
+
+Corleone.clamp_tspan(control, (2.5, 4.0))  |> Corleone.is_shooted
+
+ps, st = LuxCore.setup(rng, layer)
+
+layer(nothing, ps, st)
+
+get_bounds(layer)
+
+
+
+using ModelingToolkit
+using ModelingToolkit: t_nounits as t, D_nounits as D
+
+@parameters τ = 3.0 # parameters
+@variables x(t) = 0.0  u(..) = 0.0, [input = true, bounds = (0., 1.)]# dependent variables
+eqs = [D(x) ~ (1 - x) / τ + u(t)]
+
+@named fol_model = System(eqs, t)
+
+using OrdinaryDiffEq
+fol = mtkcompile(fol_model, inputs = [u(t)])
+prob = ODEProblem(fol, [], (0.0, 10.0))
+control = PiecewiseConstantControl(u(t), LinRange(0., 1., 10), collect(0.0:1.0:9.0), (0.0, 1.0))
+rmk = ProblemRemaker(prob, tunable_u0 = (), tunable_p = (τ, Initial(x)),)
+
+ps, st = LuxCore.setup(rng, rmk)
+ps = merge(ps, (; u0 = (), p = (2.0, 0.5)))
+prob_ , _ = rmk(nothing, ps, st)
+
+
+
+sol = solve(prob)
+u0 = getsym(prob, [:x, :y])(prob)
+u0 = remake_buffer(prob, prob.u0, [:x, :y], [1., 2.])
+
+SymbolicIndexingInterface.symbolic_container(prob.f)
 
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)

@@ -39,6 +39,8 @@ get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_v
 # Remakebuffer wrap 
 __remake_wrap(sys, p, idxs, vals) = isempty(idxs) ? p : remake_buffer(sys, p, idxs, vals)
 
+is_shooting_layer(x) = false
+
 # Random
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
@@ -60,6 +62,7 @@ export get_block_structure
 
 include("parallel_shooting.jl")
 export ParallelShootingLayer
+export MultipleShootingLayer
 #include("multiple_shooting.jl")
 #export MultipleShootingLayer
 #export default_initialization

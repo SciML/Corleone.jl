@@ -6,15 +6,15 @@ struct ParallelShootingLayer{L <: NamedTuple, A <: SciMLBase.EnsembleAlgorithm} 
     ensemble_algorithm::A
 end
 
-function ParallelShootingLayer(layer::SingleShootingLayer, shooting_points::Real...; name = gensym(:parallel_shooting), ensemble_algorithm::SciMLBase.EnsembleAlgorithm = EnsembleThreads())
-    shooting_points = unique!(sort!(vcat(collect(shooting_points), collect(get_tspan(layer)))))
-     # We need to add the initial time and the final time to the shooting points
-    tspans = collect((t0, tinf) for (t0, tinf) in zip(shooting_points[1:end-1], shooting_points[2:end]))
-    layers = map(eachindex(tspans)) do i
-        clamp_tspan(layer, tspans[i])
-    end 
+ParallelShootingLayer(layers::NamedTuple; kwargs...) = ParallelShootingLayer(
+    get(kwargs, :name, gensym(:parallel_shooting)), 
+    layers, 
+    get(kwargs, :ensemble_algorithm, EnsembleSerial()))
+
+function ParallelShootingLayer(layers::AbstractLuxLayer...; kwargs...)
+    @assert all(is_shooting_layer, layers) "All layers must be shooting layers."
     layers = NamedTuple{ntuple(i->Symbol(:layer,i), length(layers))}(layers)
-    ParallelShootingLayer(name, layers, ensemble_algorithm)
+    ParallelShootingLayer(layers; kwargs...)
 end
 
 function get_block_structure(layer::ParallelShootingLayer)
@@ -51,4 +51,40 @@ function SciMLBase.remake(layer::ParallelShootingLayer; kwargs...)
     end |> NamedTuple
     ensemble_algorithm = get(kwargs, :ensemble_algorithm, layer.ensemble_algorithm)
     ParallelShootingLayer(layer.name, layers, ensemble_algorithm)
+end
+
+"""
+$(TYPEDEF)
+
+Defines a layer for multiple shooting. Simply a wrapper for the [ParallelShootingLayer](@ref) but returns a single trajectory.
+"""
+struct MultipleShootingLayer{L} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    "The instance of a [ParallelShootingLayer](@ref) to be solved in parallel."
+    layer::L 
+end
+
+function MultipleShootingLayer(layer::LuxCore.AbstractLuxLayer, shooting_points::Real...; kwargs...)
+    @assert is_shooting_layer(layer) "The provided layer must be a shooting layer."
+    problem = get_problem(layer)
+    tspan = get_tspan(layer)
+    quadratures = get_quadrature_indices(layer)
+    tunables = setdiff(variable_symbols(problem), quadratures)
+    tpoints = unique!(sort!(vcat(collect(shooting_points), collect(tspan))))
+    layers = ntuple(i -> remake(layer, 
+        tspan = (tpoints[i], tpoints[i+1]),
+        tunable_u0 = i == 1 ? get_tunable_u0(layer) : tunables,
+    ), length(tpoints)-1)
+    layers = NamedTuple{ntuple(i->Symbol(:layer,i), length(layers))}(layers) 
+    layer = ParallelShootingLayer(layers; kwargs...)
+    MultipleShootingLayer{typeof(layer)}(layer)
+end
+
+function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
+    layer = remake(layer.layer; kwargs...)
+    MultipleShootingLayer{typeof(layer)}(layer)
+end
+
+function (layer::MultipleShootingLayer)(u0, ps, st)
+    results, st = layer.layer(u0, ps, st)
+    return results, st
 end

@@ -74,7 +74,7 @@ _maybevec(x) = vec(x)
 _maybevec(x::Number) = [x]
 
 LuxCore.parameterlength(control::PiecewiseConstantControl) = length(_maybevec(control.u[1])) * length(control.t)
-LuxCore.initialparameters(rng::Random.AbstractRNG, control::PiecewiseConstantControl) = (; u=clamp.(control.u, get_bounds(control)...))
+LuxCore.initialparameters(rng::Random.AbstractRNG, control::PiecewiseConstantControl) = (; u=clamp.(deepcopy(control.u), get_bounds(control)...))
 
 LuxCore.initialstates(rng::Random.AbstractRNG, control::PiecewiseConstantControl) = (; t=control.t, current=firstindex(control.t),
     lower=firstindex(control.t), upper=lastindex(control.t))
@@ -142,8 +142,8 @@ function ProblemRemaker(problem;
     ProblemRemaker{
         typeof(problem),typeof(tunable_u0),typeof(u0_bounds),typeof(tunable_p),
         typeof(p_bounds),typeof(quadrature_indices)}(
-            problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadrature_indices
-            )
+        problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadrature_indices
+    )
 end
 
 function SciMLBase.remake(remaker::ProblemRemaker; kwargs...)
@@ -153,13 +153,22 @@ function SciMLBase.remake(remaker::ProblemRemaker; kwargs...)
     u0_bounds = get(kwargs, :u0_bounds, remaker.u0_bounds)
     p_bounds = get(kwargs, :p_bounds, remaker.p_bounds)
     quadratures = get(kwargs, :quadrature_indices, remaker.quadrature_indices)
-    problem = remake(problem; kwargs...)
+    m = which(SciMLBase.remake, (typeof(problem),))
+    kw = Base.kwarg_decl(m)
+    if !isempty(kw)
+        _kwargs = (; (k => v for (k, v) in pairs(kwargs) if k in kw)...)
+    else
+        drop = Set((:problem, :tunable_u0, :tunable_p, :u0_bounds, :p_bounds, :quadrature_indices))
+        _kwargs = (; (k => v for (k, v) in pairs(kwargs) if !(k in drop))...)
+    end
+    problem = remake(problem; _kwargs...)
     ProblemRemaker{typeof(problem),typeof(tunable_u0),typeof(u0_bounds),typeof(tunable_p),typeof(p_bounds),typeof(quadratures)}(problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadratures)
 end
 
 get_problem(layer::ProblemRemaker) = layer.problem
 get_tspan(layer::ProblemRemaker) = layer.problem.tspan
-
+get_quadrature_indices(layer::ProblemRemaker) = layer.quadrature_indices
+get_tunable_u0(layer::ProblemRemaker) = layer.tunable_u0
 
 get_lower_bound(layer::ProblemRemaker) = (; u0=first(layer.u0_bounds), p=first(layer.p_bounds))
 get_upper_bound(layer::ProblemRemaker) = (; u0=last(layer.u0_bounds), p=last(layer.p_bounds))
