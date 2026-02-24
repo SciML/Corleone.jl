@@ -1,4 +1,7 @@
 using Corleone
+using TestEnv
+TestEnv.activate() 
+
 using OrdinaryDiffEqTsit5
 using Test
 using Random
@@ -40,13 +43,26 @@ ps, st = LuxCore.setup(rng, layer)
 
 @code_warntype layer(nothing, ps, st)
 
+loss = let layer = layer, st = st 
+    (p) -> begin
+        traj, _ = layer(nothing, p, st)
+        traj[:c][end]
+    end
+end
+using ForwardDiff
+
+ComponentVector(ps)
+
+ForwardDiff.gradient(loss, ComponentVector(ps))
+
 player = MultipleShootingLayer(layer, 0., 2., 3.; ensemble_algorithm = EnsembleDistributed())
 ps, st = LuxCore.setup(rng, player)
 player(nothing, ps, st)
 
 
+a_ts = DiffEqArray(Corleone.maybevec.(ps.controls[1].u), st.controls[1].t)
 
-
+ParameterTimeseriesCollection(xxx, ones(1))
 
 ### Examples 
 
