@@ -9,11 +9,13 @@ using LinearAlgebra
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
+import SciMLStructures as SS 
+
+# TODO We need to set this using Preferences 
+const MAXBINSIZE = 100
 
 using OhMyThreads
 using Distributed
-
-using ChainRulesCore
 
 using LuxCore
 using Functors
@@ -30,30 +32,48 @@ get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
 )
 to_val(::T, val) where {T <: Number} = T(val)
 to_val(x::AbstractArray{T}, val) where {T <: Number} = T(val) .+ zero(x)
+to_val(x::Tuple, val) = tuple(to_val.(x, val)...) 
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
+
+_clamp_tspan(layer::LuxCore.AbstractLuxLayer, tspan::Tuple{<:Real, <:Real}) = layer 
+clamp_tspan(layer::LuxCore.AbstractLuxLayer, tspan::Tuple{<:Real, <:Real}) = Functors.fmap(Base.Fix2(_clamp_tspan, tspan), layer)
+
+
+# Remakebuffer wrap 
+__remake_wrap(sys, p, idxs, vals) = isempty(idxs) ? p : remake_buffer(sys, p, idxs, vals)
 
 # Random
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
+export get_bounds
+
 include("trajectory.jl")
 export Trajectory
 
-include("local_controls.jl")
-export ControlParameter
+#include("local_controls.jl")
+#export ControlParameter
+
+include("parameters.jl")
+export ProblemRemaker
+export PiecewiseConstantControl
 
 include("single_shooting.jl")
-export SingleShootingLayer
-include("multiple_shooting.jl")
-export MultipleShootingLayer
-export default_initialization
-include("node_initialization.jl")
-export random_initialization, forward_initialization, linear_initialization
-export custom_initialization, constant_initialization, hybrid_initialization
+export SingleShootingLayer 
+export get_block_structure 
 
-abstract type AbstractCorleoneFunctionWrapper end
+include("parallel_shooting.jl")
+export ParallelShootingLayer
+#include("multiple_shooting.jl")
+#export MultipleShootingLayer
+#export default_initialization
+#include("node_initialization.jl")
+#export random_initialization, forward_initialization, linear_initialization
+#export custom_initialization, constant_initialization, hybrid_initialization
 
-include("dynprob.jl")
-export CorleoneDynamicOptProblem
+#abstract type AbstractCorleoneFunctionWrapper end
+
+#include("dynprob.jl")
+#export CorleoneDynamicOptProblem
 
 end
