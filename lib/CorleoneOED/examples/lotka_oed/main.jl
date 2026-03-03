@@ -164,3 +164,19 @@ uopt = solve(
 # After solving, we now only need to investigate the solution.
 optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
 plot_oed(optsol)
+
+
+# ## Sampling-free OED
+
+# If the decisions about when to measure are not degrees of freedom, because, for example,
+# continuous measurement is possible, the OEDLayer can also be constructed without
+# discretizing the measurements. In this case, only the specified controls are degrees of
+# freedom of the optimization.
+
+oed = OEDLayer{false}(
+    prob, Tsit5(),
+    params = [2, 3],
+    controls = (1 => control,),
+    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
+    observed = (u, p, t) -> u[1:2],
+)
