@@ -55,6 +55,7 @@ export Trajectory
 include("parameters.jl")
 export ProblemRemaker
 export PiecewiseConstantControl
+export ParameterConstructor, U0Constructor
 
 include("single_shooting.jl")
 export SingleShootingLayer 

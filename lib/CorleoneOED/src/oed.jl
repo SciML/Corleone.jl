@@ -64,20 +64,42 @@ end
 
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
+    # Extract the base layer (first shooting interval) to get problem info
+    base_layer = first(layer.layer.layers)
+    problem = base_layer.problem_remaker.problem
+    algorithm = base_layer.algorithm
+    controls = base_layer.controls
+    tunable_u0 = base_layer.problem_remaker.tunable_u0
+    u0_bounds = base_layer.problem_remaker.u0_bounds
+    tunable_p = base_layer.problem_remaker.tunable_p
+    p_bounds = base_layer.problem_remaker.p_bounds
+    quadrature_indices = base_layer.problem_remaker.quadrature_indices
 
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
+    # Recover the full tspan problem from the first sublayer's problem but with the
+    # complete tspan (the first sublayer only covers the first shooting interval)
+    first_tspan = problem.tspan
+    all_tspans = [sl.problem_remaker.problem.tspan for sl in values(layer.layer.layers)]
+    full_tspan = (first(first_tspan), last(last(all_tspans)))
+    full_problem = remake(problem, tspan = full_tspan)
+
+    control_syms = ntuple(i -> controls[i].idx, length(controls))
+    # Convert symbolic indices to integer indices for augmentation functions
+    control_int_indices = isempty(control_syms) ? Int64[] :
+        [parameter_index(full_problem, s) for s in control_syms]
+    tunable_u0_int = isempty(tunable_u0) ? Int64[] :
+        [variable_index(full_problem, s) for s in tunable_u0]
+    FIXED = isempty(control_syms) && isempty(tunable_u0)
     SAMPLED = !isempty(measurements)
     mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-    p_length = length(problem.p)
+    p_length = length(full_problem.p)
     samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
+    ctrls = vcat(collect(control_syms .=> collect(values(controls))), samplings .+ p_length .=> measurements)
     samplings = samplings .+ length(controls)
 
     newproblem, observed = augment_system(
-        mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
+        mode, full_problem, algorithm;
+        tunable_ic = tunable_u0_int,
+        control_indices = control_int_indices, fixed = FIXED,
         kwargs...
     )
 
@@ -86,34 +108,54 @@ function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements 
         ts = reduce(vcat, Corleone.get_timegrid.(measurements))
         unique!(sort!(ts))
     else
-        collect(problem.tspan)
+        collect(full_problem.tspan)
     end
     newproblem = remake(newproblem, saveat = saveats)
 
-    shooting_points = [t[1] for t in layer.shooting_intervals]
-    newlayer = MultipleShootingLayer(
-        newproblem, algorithm, shooting_points...; controls = ctrls, tunable_ic = copy(tunable_ic), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
+    # Extract internal shooting points (all but the first and last tspan endpoints)
+    shooting_points = [sl.problem_remaker.problem.tspan[1] for sl in values(layer.layer.layers)]
+    shooting_points = shooting_points[2:end]  # skip the first (= tspan start)
+
+    new_base_layer = SingleShootingLayer(
+        newproblem, algorithm;
+        controls = ctrls, tunable_u0 = collect(tunable_u0),
+        u0_bounds = u0_bounds, tunable_p = collect(tunable_p),
+        p_bounds = p_bounds, quadrature_indices = Int64[]
     )
+    newlayer = MultipleShootingLayer(new_base_layer, shooting_points...)
 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
 end
 
 function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer
+    problem = layer.problem_remaker.problem
+    algorithm = layer.algorithm
+    controls = layer.controls
+    tunable_u0 = layer.problem_remaker.tunable_u0
+    u0_bounds = layer.problem_remaker.u0_bounds
+    tunable_p = layer.problem_remaker.tunable_p
+    p_bounds = layer.problem_remaker.p_bounds
+    quadrature_indices = layer.problem_remaker.quadrature_indices
 
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
+    control_syms = ntuple(i -> controls[i].idx, length(controls))
+    # Convert symbolic indices to integer indices for augmentation functions
+    control_int_indices = isempty(control_syms) ? Int64[] :
+        [parameter_index(problem, s) for s in control_syms]
+    tunable_u0_int = isempty(tunable_u0) ? Int64[] :
+        [variable_index(problem, s) for s in tunable_u0]
+    FIXED = isempty(control_syms) && isempty(tunable_u0)
     SAMPLED = !isempty(measurements)
     mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
     p_length = length(problem.p)
     samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
+    ctrls = vcat(collect(control_syms .=> collect(values(controls))), samplings .+ p_length .=> measurements)
     samplings = samplings .+ length(controls)
 
     newproblem, observed = augment_system(
         mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
+        tunable_ic = tunable_u0_int,
+        control_indices = control_int_indices, fixed = FIXED,
         kwargs...
     )
 
@@ -126,14 +168,17 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = 
     end
     newproblem = remake(newproblem, saveat = saveats)
 
-    lb, ub = copy.(bounds_ic)
+    lb, ub = copy.(u0_bounds)
     for i in eachindex(newproblem.u0)
         i <= lastindex(problem.u0) && continue
         push!(lb, zero(eltype(newproblem.u0)))
         push!(ub, zero(eltype(newproblem.u0)))
     end
     newlayer = SingleShootingLayer(
-        newproblem, algorithm; controls = ctrls, tunable_ic = copy(tunable_ic), bounds_ic = (lb, ub), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
+        newproblem, algorithm;
+        controls = ctrls, tunable_u0 = collect(tunable_u0),
+        u0_bounds = (lb, ub), tunable_p = collect(tunable_p),
+        p_bounds = p_bounds, quadrature_indices = Int64[]
     )
 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
@@ -147,17 +192,19 @@ Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; k
 # This is the only case where we need to sample the trajectory
 function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true, true, <:Any, <:SingleShootingLayer}, OEDLayer{false, true, true}})
     (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer
+    problem = layer.problem_remaker.problem
+    controls = layer.controls
+    control_syms = ntuple(i -> controls[i].idx, length(controls))
     st = LuxCore.initialstates(rng, layer)
     # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
+    grids = Corleone.get_timegrid.(values(controls))
     overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
     unique!(sort!(overall_grid))
     observed_grid = map(grids[sampling_indices]) do grid
         unique!(sort!(grid))
         findall(∈(grid), overall_grid)
     end
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)
+    _measurement_indices = Corleone.build_index_grid(values(controls)...; problem.tspan)
     measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
         unique(mi)
     end
@@ -172,7 +219,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
 
     # in active controls, also the indices of the original, non-sampling controls must be added
     measurement_indices = typeof(oed) <: OEDLayer{true, true} ? begin
-            indices_all_controls = collect(1:length(control_indices))
+            indices_all_controls = collect(1:length(control_syms))
             map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
                 unique(mi)
         end
@@ -188,10 +235,12 @@ end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true, <:Any, <:MultipleShootingLayer})
     (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer.layer
+    base_layer = first(layer.layer.layers)
+    controls = base_layer.controls
+    control_syms = ntuple(i -> controls[i].idx, length(controls))
     st = LuxCore.initialstates(rng, layer)
     # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
+    grids = Corleone.get_timegrid.(values(controls))
 
     return map(st) do sti
         tspan = (first(first(sti.tspans)), last(last(sti.tspans)))
@@ -202,7 +251,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
             unique!(sort!(grid))
             findall(∈(grid), overall_grid)
         end
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan = tspan)
+        _measurement_indices = Corleone.build_index_grid(values(controls)...; tspan = tspan)
         measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
             unique(mi)
         end
@@ -217,7 +266,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
 
         # in active controls, also the indices of the original, non-sampling controls must be added
         measurement_indices = begin
-            indices_all_controls = collect(1:length(control_indices))
+            indices_all_controls = collect(1:length(control_syms))
             map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
                 unique(mi)
             end
