@@ -149,8 +149,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     # Build parameter and u0 constructors using SciMLStructures-based approach.
     # Storing these in the state (rather than ps) ensures they are not differentiated
     # through, while the actual values from ps still flow through AD correctly.
-    control_syms = ntuple(i -> controls[i].idx, length(controls))
-    p_constructor = ParameterConstructor(problem, problem_remaker.tunable_p, control_syms)
+    p_constructor = ParameterConstructor(problem, problem_remaker.tunable_p, control_indices)
     u0_constructor = U0Constructor(problem, problem_remaker.tunable_u0)
 
     (; controls=control_states, problem_remaker=initial_states, 

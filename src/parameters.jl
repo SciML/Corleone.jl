@@ -60,9 +60,9 @@ function _clamp_tspan(control::PiecewiseConstantControl, (t0, tinf)::Tuple{<:Rea
         end
     end
 
-    # Edge case: if all timepoints are before t0 (t0 is after the last control point),
+    # Edge case: if all timepoints are strictly before t0 (t0 is after the last control point),
     # use the last control value as a constant for the entire [t0, tinf) interval.
-    if !any(mask) && !isempty(t) && t[end] <= t0
+    if !any(mask) && !isempty(t) && t[end] < t0
         mask[end] = true
         t[end] = t0
         shoot = true

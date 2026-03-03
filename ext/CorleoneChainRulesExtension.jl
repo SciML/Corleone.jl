@@ -5,7 +5,7 @@ using ChainRulesCore
 using Corleone: __remake_wrap
 using SymbolicIndexingInterface
 
-ChainRulesCore.@non_differentiable SymbolicIndexingInterface.symbolic_container(x)
+ChainRulesCore.@non_differentiable SymbolicIndexingInterface.symbolic_container(::Any)
 
 function ChainRulesCore.rrule(::typeof(Corleone.__remake_wrap), sys, p, idxs, vals)
     y = __remake_wrap(sys, copy(p), idxs, vals)

@@ -117,9 +117,10 @@ function _combine_shooting_trajectories(results::NamedTuple{fields}, quadrature_
 
     # Compute shooting constraint violations (state and parameter matching at boundaries).
     # The first interval has empty violations (it is the reference interval).
-    T_elem = eltype(first(first(us)))
-    non_quad = isempty(quadrature_indices) ? eachindex(first(first(us))) :
-               setdiff(eachindex(first(first(us))), quadrature_indices)
+    first_state = first(first(us))
+    T_elem = eltype(first_state)
+    non_quad = isempty(quadrature_indices) ? eachindex(first_state) :
+               setdiff(eachindex(first_state), quadrature_indices)
     shooting_val_1 = (; u0=T_elem[], p=eltype(p)[], controls=T_elem[])
     shooting_vals = map(eachindex(us)[1:(end - 1)]) do i
         uprev = us[i]
