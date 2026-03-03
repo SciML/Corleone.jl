@@ -39,14 +39,14 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCR
     type_color, no_color = SciMLBase.get_colorizers(io)
     layer_text = FIXED ? "Fixed " : ""
     preposition = SAMPLED ? "with " : "without "
-    measurement_colot = SAMPLED ? type_color : no_color
+    measurement_color = SAMPLED ? type_color : no_color
     measurement_text = SAMPLED ? (DISCRETE ? "discrete " : "continuous ") : "specified "
     print(
         io,
         no_color, layer_text,
         type_color, "OEDLayer ",
         no_color, preposition,
-        measurement_colot, measurement_text,
+        measurement_color, measurement_text,
         no_color, "measurement model ",
         no_color, "and ", type_color, "$(size(sampling_indices, 1)) ", no_color, "observed functions.\n"
     )
