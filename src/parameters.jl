@@ -184,13 +184,18 @@ LuxCore.parameterlength(layer::ProblemRemaker) = begin
     isempty(u0) ? 0 : length(u0) + (isempty(p) ? 0 : length(p))
 end
 
-LuxCore.initialstates(rng::Random.AbstractRNG, layer::ProblemRemaker) = (;)
-LuxCore.statelength(::ProblemRemaker) = 0
+LuxCore.initialstates(rng::Random.AbstractRNG, layer::ProblemRemaker) = (;
+    setter = setp_oop(layer.problem, layer.tunable_p),
+)
+LuxCore.statelength(::ProblemRemaker) = 1
+
 
 function (layer::ProblemRemaker)(::Any, ps, st)
     (; u0, p) = ps
     (; problem) = layer
+    #(; setter) = st
+    #p_ = setter(problem, p)
     u0_ = __remake_wrap(problem, problem.u0, layer.tunable_u0, u0)
     p_ = __remake_wrap(problem, problem.p, layer.tunable_p, p)
-    remake(remake(problem, u0=u0_), p=p_), st
+    remake(problem, u0=u0_, p=p_), st
 end

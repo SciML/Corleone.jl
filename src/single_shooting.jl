@@ -201,7 +201,7 @@ end
     for i in Base.OneTo(N-1)
          push!(exprs, :(($(csym), $(sts[i])) = _eval_controls(controls, timestops[$i], ps.controls, st.controls))) 
          push!(exprs, :($psym = __remake_wrap(problem, problem.p, collect(st.control_indices), collect($csym))))
-         push!(exprs, :($(sols[i]) = solve(problem, algorithm, tspan = (timestops[$i], timestops[$(i+1)])))) 
+         push!(exprs, :($(sols[i]) = solve(problem, algorithm, p=$psym, tspan = (timestops[$i], timestops[$(i+1)])))) 
          push!(exprs, :(problem = remake(problem, u0=$(sols[i]).u[end])))
     end
     push!(exprs, Expr(:tuple, sols...))
