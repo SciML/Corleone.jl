@@ -145,8 +145,16 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
       )
 
     control_indices = ntuple(i -> controls[i].idx, length(controls))
+
+    # Build parameter and u0 constructors using SciMLStructures-based approach.
+    # Storing these in the state (rather than ps) ensures they are not differentiated
+    # through, while the actual values from ps still flow through AD correctly.
+    p_constructor = ParameterConstructor(problem, problem_remaker.tunable_p, control_indices)
+    u0_constructor = U0Constructor(problem, problem_remaker.tunable_u0)
+
     (; controls=control_states, problem_remaker=initial_states, 
-    timestops=Tuple(t), control_indices=control_indices, sys = newsys)
+    timestops=Tuple(t), control_indices=control_indices, sys = newsys,
+    p_constructor=p_constructor, u0_constructor=u0_constructor)
 end
 
 @generated function _eval_controls(controls::NamedTuple{fields}, t, ps, st) where {fields}
@@ -166,13 +174,15 @@ end
 
 function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fields}
     (; problem_remaker, algorithm, controls) = layer
-    (; timestops) = st
-    problem, problem_st = problem_remaker(x, ps.problem_remaker, st.problem_remaker)
+    (; timestops, u0_constructor) = st
+    # Build initial condition using u0_constructor from state for AD-friendly handling.
+    u0 = u0_constructor(ps.problem_remaker.u0)
+    problem = remake(problem_remaker.problem, u0=u0)
     solutions, _ = eval_problem(problem, algorithm, controls, ps, st, timestops)
     return Trajectory(layer, solutions...; 
         control_parameters = ps.controls, control_states = st.controls, 
         sys = st.sys,
-        ), merge(st, (; problem_remaker=problem_st))
+        ), st
 end
 
 @generated function eval_problem(prob, algorithm, controls, ps, st, timestops::NTuple{N,<:Real}) where N
@@ -200,7 +210,8 @@ end
     exprs = Expr[] 
     for i in Base.OneTo(N-1)
          push!(exprs, :(($(csym), $(sts[i])) = _eval_controls(controls, timestops[$i], ps.controls, st.controls))) 
-         push!(exprs, :($psym = __remake_wrap(problem, problem.p, collect(st.control_indices), collect($csym))))
+         push!(exprs, :($psym = st.p_constructor(ps.problem_remaker.p, $csym)))
+         push!(exprs, :(problem = remake(problem, p=$psym)))
          push!(exprs, :($(sols[i]) = solve(problem, algorithm, tspan = (timestops[$i], timestops[$(i+1)])))) 
          push!(exprs, :(problem = remake(problem, u0=$(sols[i]).u[end])))
     end

@@ -60,6 +60,14 @@ function _clamp_tspan(control::PiecewiseConstantControl, (t0, tinf)::Tuple{<:Rea
         end
     end
 
+    # Edge case: if all timepoints are strictly before t0 (t0 is after the last control point),
+    # use the last control value as a constant for the entire [t0, tinf) interval.
+    if !any(mask) && !isempty(t) && t[end] < t0
+        mask[end] = true
+        t[end] = t0
+        shoot = true
+    end
+
     PiecewiseConstantControl(
         control.idx,
         u[mask],
@@ -130,13 +138,14 @@ function ProblemRemaker(problem;
     p_bounds::Union{Nothing,Tuple}=nothing,
     kwargs...
 )
-    # TODO Check here for Nums.  
+    # TODO Check here for Nums.
+    # Use collect to ensure bounds are vectors (not tuples), for AD compatibility
     if isnothing(u0_bounds)
-        u0b = getsym(problem, tunable_u0)(problem)
+        u0b = collect(getsym(problem, tunable_u0)(problem))
         u0_bounds = (u0b, u0b)
     end
     if isnothing(p_bounds)
-        pb = getsym(problem, tunable_p)(problem)
+        pb = collect(getsym(problem, tunable_p)(problem))
         p_bounds = (pb, pb)
     end
     ProblemRemaker{
@@ -174,8 +183,8 @@ get_lower_bound(layer::ProblemRemaker) = (; u0=first(layer.u0_bounds), p=first(l
 get_upper_bound(layer::ProblemRemaker) = (; u0=last(layer.u0_bounds), p=last(layer.p_bounds))
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ProblemRemaker) = (;
-    u0=clamp.(getsym(layer.problem, layer.tunable_u0)(layer.problem), layer.u0_bounds...),
-    p=clamp.(getsym(layer.problem, layer.tunable_p)(layer.problem), layer.p_bounds...)
+    u0=collect(clamp.(getsym(layer.problem, layer.tunable_u0)(layer.problem), layer.u0_bounds...)),
+    p=collect(clamp.(getsym(layer.problem, layer.tunable_p)(layer.problem), layer.p_bounds...))
 )
 
 LuxCore.parameterlength(layer::ProblemRemaker) = begin
@@ -193,4 +202,85 @@ function (layer::ProblemRemaker)(::Any, ps, st)
     u0_ = __remake_wrap(problem, problem.u0, layer.tunable_u0, u0)
     p_ = __remake_wrap(problem, problem.p, layer.tunable_p, p)
     remake(remake(problem, u0=u0_), p=p_), st
+end
+
+"""
+$(TYPEDEF)
+
+A callable struct that reconstructs the full parameter vector from optimization variables
+(tunable parameters and control values) using a SciMLStructures-based approach.
+Stored in the initial state of each shooting layer for AD-friendly parameter handling.
+
+# Fields
+$(FIELDS)
+"""
+struct ParameterConstructor{P, TI, CI, R}
+    "Canonical (flat) initial parameter array used as template"
+    p_canonical::P
+    "Integer indices of tunable parameters within the canonical array"
+    tunable_p_idx::TI
+    "Integer indices of control parameters within the canonical array"
+    control_idx::CI
+    "Repack function from SciMLStructures.canonicalize to reconstruct the original type"
+    repack::R
+end
+
+function ParameterConstructor(prob, tunable_p_syms, control_syms)
+    p_canonical, repack, _ = SS.canonicalize(SS.Tunable(), prob.p)
+    p_canonical = copy(p_canonical)
+    tunable_p_idx = isempty(tunable_p_syms) ? Int[] :
+        [parameter_index(prob, s) for s in tunable_p_syms]
+    control_idx = isempty(control_syms) ? Int[] :
+        [parameter_index(prob, s) for s in control_syms]
+    ParameterConstructor(p_canonical, tunable_p_idx, control_idx, repack)
+end
+
+function (pc::ParameterConstructor)(p_tunable, control_vals)
+    T = promote_type(eltype(pc.p_canonical), eltype(p_tunable), eltype(control_vals))
+    result = similar(pc.p_canonical, T)
+    copyto!(result, pc.p_canonical)
+    for (j, i) in enumerate(pc.tunable_p_idx)
+        result[i] = p_tunable[j]
+    end
+    for (j, i) in enumerate(pc.control_idx)
+        result[i] = control_vals[j]
+    end
+    return pc.repack(result)
+end
+
+"""
+$(TYPEDEF)
+
+A callable struct that reconstructs the full initial condition vector from the tunable
+initial condition values. Stored in the initial state of each shooting layer for
+AD-friendly parameter handling.
+
+# Fields
+$(FIELDS)
+"""
+struct U0Constructor{U, TI, R}
+    "Canonical (flat) initial u0 array used as template"
+    u0_canonical::U
+    "Integer indices of tunable u0 entries within the canonical array"
+    tunable_u0_idx::TI
+    "Repack function from SciMLStructures.canonicalize to reconstruct the original type"
+    repack::R
+end
+
+function U0Constructor(prob, tunable_u0_syms)
+    u0_canonical, repack, _ = SS.canonicalize(SS.Tunable(), prob.u0)
+    u0_canonical = copy(u0_canonical)
+    tunable_u0_idx = isempty(tunable_u0_syms) ? Int[] :
+        [variable_index(prob, s) for s in tunable_u0_syms]
+    U0Constructor(u0_canonical, tunable_u0_idx, repack)
+end
+
+function (uc::U0Constructor)(u0_tunable)
+    T = promote_type(eltype(uc.u0_canonical), eltype(u0_tunable))
+    result = similar(uc.u0_canonical, T)
+    copyto!(result, uc.u0_canonical)
+    for (j, i) in enumerate(uc.tunable_u0_idx)
+        result[i] = u0_tunable[j]
+    end
+    return uc.repack(result)
 end
