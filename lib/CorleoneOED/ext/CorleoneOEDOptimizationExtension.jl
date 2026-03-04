@@ -92,6 +92,24 @@ function setup_constraints(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingL
     return sampling_cons
 end
 
+function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:SingleShootingLayer}, sol, constraints::Nothing)
+    return nothing
+end
+
+function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:MultipleShootingLayer}, sol, constraints::Nothing)
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
+        (res, p, st) -> begin
+            ps = ComponentArray(p, ax)
+            sols, _ = layer(nothing, ps, st)
+            shooting = Corleone.shooting_constraints(sols)
+            res .= shooting
+        end
+    end
+    return sampling_cons
+end
+
+
 function setup_constraints(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLayer}, sol, constraints)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     getter_constraints = []
@@ -112,6 +130,30 @@ function setup_constraints(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingL
             end
 
             res .= vcat(reduce(vcat, cons), sampling)
+        end
+    end
+
+    return sampling_cons
+end
+
+function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:SingleShootingLayer}, sol, constraints)
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    getter_constraints = []
+    for (k, v) in constraints
+        push!(getter_constraints, getsym(sol, k))
+    end
+
+    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
+        (res, p, st) -> begin
+            ps = ComponentArray(p, ax)
+            sols, _ = layer(nothing, ps, st)
+            cons = map(enumerate(constraints)) do (i, (k, v))
+                # Caution: timepoints for controls need to be in sols.t!
+                idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
+                getter[i](sols)[idxs]
+            end
+
+            res .= reduce(vcat, cons)
         end
     end
 
@@ -358,5 +400,51 @@ function Optimization.OptimizationProblem(
         lcons = lcons, ucons = ucons,
     )
 end
+
+function Optimization.OptimizationProblem(
+        layer::OEDLayer{<:Any, false},
+        crit::CorleoneOED.AbstractCriterion;
+        AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
+        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
+        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}} = nothing,
+        variable_type::Type{T} = Float64,
+        kwargs...
+    ) where {T}
+
+    u0 = T.(u0)
+    check_constraints(layer, constraints)
+
+    # Our objective function
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    p = ComponentArray(ps)
+
+    sol, _ = layer(nothing, p, st)
+
+    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), sol = sol
+        (p, st) -> begin
+            ps = ComponentArray(p, ax)
+            first(crit(CorleoneOED.fisher_information(layer, sol, ps, st)[1]))
+        end
+    end
+
+    # Bounds based on the variables
+    lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
+
+    @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
+
+    # Constraints
+    cons = setup_constraints(layer, sol, constraints)
+    lcons, ucons = extract_constraint_bounds(layer, constraints, eltype(lb)[])
+
+    # Declare the Optimization function
+    opt_f = OptimizationFunction(objective, AD; cons = cons)
+
+    # Return the optimization problem
+    return OptimizationProblem(
+        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
+        lcons = lcons, ucons = ucons,
+    )
+end
+
 
 end
