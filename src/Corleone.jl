@@ -95,9 +95,6 @@ export get_bounds
 include("trajectory.jl")
 export Trajectory
 
-#include("local_controls.jl")
-#export ControlParameter
-
 include("parameters.jl")
 export ProblemRemaker
 export PiecewiseConstantControl
@@ -109,6 +106,7 @@ export get_block_structure
 include("parallel_shooting.jl")
 export ParallelShootingLayer
 export MultipleShootingLayer
+
 #include("multiple_shooting.jl")
 #export MultipleShootingLayer
 #export default_initialization

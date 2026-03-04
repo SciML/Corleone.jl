@@ -169,6 +169,7 @@ get_problem(layer::ProblemRemaker) = layer.problem
 get_tspan(layer::ProblemRemaker) = layer.problem.tspan
 get_quadrature_indices(layer::ProblemRemaker) = layer.quadrature_indices
 get_tunable_u0(layer::ProblemRemaker) = layer.tunable_u0
+get_tunable_p(layer::ProblemRemaker) = layer.tunable_p
 
 get_lower_bound(layer::ProblemRemaker) = (; u0=first(layer.u0_bounds), p=first(layer.p_bounds))
 get_upper_bound(layer::ProblemRemaker) = (; u0=last(layer.u0_bounds), p=last(layer.p_bounds))

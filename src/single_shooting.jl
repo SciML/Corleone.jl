@@ -98,6 +98,9 @@ end
 get_quadrature_indices(layer::SingleShootingLayer) = get_quadrature_indices(layer.problem_remaker)
 is_shooting_layer(layer::SingleShootingLayer) = true
 get_tunable_u0(layer::SingleShootingLayer) = get_tunable_u0(layer.problem_remaker)
+get_tunable_p(layer::SingleShootingLayer) = get_tunable_p(layer.problem_remaker)
+get_control_symbols(layer::SingleShootingLayer) = collect(keys(layer.controls))
+
 
 function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     problem_remaker = remake(layer.problem_remaker; kwargs...)
@@ -201,7 +204,7 @@ end
     for i in Base.OneTo(N-1)
          push!(exprs, :(($(csym), $(sts[i])) = _eval_controls(controls, timestops[$i], ps.controls, st.controls))) 
          push!(exprs, :($psym = __remake_wrap(problem, problem.p, collect(st.control_indices), collect($csym))))
-         push!(exprs, :($(sols[i]) = solve(problem, algorithm, p=$psym, tspan = (timestops[$i], timestops[$(i+1)])))) 
+         push!(exprs, :($(sols[i]) = solve(problem, algorithm, p=$psym, tspan = (timestops[$i], timestops[$(i+1)]), save_everystep=false, save_start=$(i == 1), save_end=true))) 
          push!(exprs, :(problem = remake(problem, u0=$(sols[i]).u[end])))
     end
     push!(exprs, Expr(:tuple, sols...))
@@ -239,7 +242,7 @@ function Trajectory(::SingleShootingLayer, sol...;
     t = reduce(vcat, map(sol) do s
        s.t
     end)
-   
+
     tseries = map(keys(control_parameters)) do k 
         DiffEqArray(
             maybevec(getproperty(control_parameters, k).u),
