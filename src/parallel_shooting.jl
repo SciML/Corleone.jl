@@ -58,9 +58,11 @@ $(TYPEDEF)
 
 Defines a layer for multiple shooting. Simply a wrapper for the [ParallelShootingLayer](@ref) but returns a single trajectory.
 """
-struct MultipleShootingLayer{L} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct MultipleShootingLayer{L, S <: NamedTuple} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The instance of a [ParallelShootingLayer](@ref) to be solved in parallel."
     layer::L 
+    "Indicator for shooting constraints for each of the layers."
+    shooting_variables::S
 end
 
 get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(first(values(layer.layer.layers)))
@@ -80,91 +82,92 @@ function MultipleShootingLayer(layer::LuxCore.AbstractLuxLayer, shooting_points:
         tspan = (tpoints[i], tpoints[i+1]),
         tunable_u0 = i == 1 ? get_tunable_u0(layer) : tunables,
     ), length(tpoints)-1)
-    layers = NamedTuple{ntuple(i->Symbol(:layer,i), length(layers))}(layers) 
+    layers = NamedTuple{ntuple(i->Symbol(:layer_,i), length(layers))}(layers) 
+    i = 0 
+    shooting_variables = map(layers) do layer 
+        if i > 0  
+            get_shooting_variables(layer) 
+        else
+            i += 1
+            []
+        end
+    end
     layer = ParallelShootingLayer(layers; kwargs...)
-    MultipleShootingLayer{typeof(layer)}(layer)
+
+    MultipleShootingLayer{typeof(layer), typeof(shooting_variables)}(layer, shooting_variables)
 end
 
 function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
     layer = remake(layer.layer; kwargs...)
-    MultipleShootingLayer{typeof(layer)}(layer)
+    MultipleShootingLayer{typeof(layer), typeof(layer.shooting_variables)}(layer, layer.shooting_variables)
 end
-
-
-"""
-$(SIGNATURES)
-
-Construct a single [`Trajectory`](@ref) from the per-segment trajectories returned by the
-`ParallelShootingLayer` wrapped inside `layer`. The function:
-
-- concatenates state arrays `u` and time arrays `t` across segments (omitting the
-  duplicated endpoint of each intermediate segment),
-- accumulates quadrature states across segment boundaries,
-- records state and parameter shooting (continuity) violations at each interior node as a
-  `NamedTuple` keyed by the segment field names, and
-- merges the per-segment `ParameterTimeseriesCollection` control timeseries into one.
-"""
-function Trajectory(layer::MultipleShootingLayer, results::NamedTuple{fields}; 
-    kwargs...
-    ) where {fields}
-
-    us = map(state_values, values(results))
-    ts = map(current_time, values(results))
-
-    p_getter = getsym(first(values(results)), get_tunable_p(layer))
-    quads = get_quadrature_indices(layer)
-    state_getter = getsym(first(values(results)), filter(∉(quads), variable_symbols(get_problem(layer))))
-    control_getter = getsym(first(values(results)), get_control_symbols(first(values(layer.layer.layers))))
-    p = p_getter(first(values(results)))
-
-    quadrature_indices = Base.Fix1(variable_index, first(values(results))).(quads)
-    q_prev = us[1][end][quadrature_indices]
-    for i in eachindex(us)[2:end]
-        for j in eachindex(us[i])
-            us[i][j][quadrature_indices] += q_prev
-        end
-        q_prev = us[i][end][quadrature_indices]
-    end
-
-    unew = reduce(
-        vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:(end - 1)], eachindex(us))
-    )
-    tnew = reduce(
-        vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:(end - 1)], eachindex(ts))
-    )
-    shooting_val_1 = ((u0 = eltype(first(unew))[], p = eltype(p)[], controls = eltype(first(first(unew)))[]))
-    shooting_vals = map(eachindex(Base.front(fields))) do i
-        uprev = results[fields[i]]
-        unext = results[fields[i + 1]]
-
-        (
-            u0 = last(state_getter(uprev)) .- first(state_getter(unext)),
-            p = p_getter(uprev) .- p_getter(unext),
-            controls = last(control_getter(uprev)) .- first(control_getter(unext)),
-        )
-    end
-    shootings = NamedTuple{fields}(
-        (shooting_val_1, shooting_vals...)
-    )
-    controls = map(get_control_symbols(first(values(layer.layer.layers)))) do k 
-        cget = getsym(first(values(results)), k)
-        DiffEqArray(
-            reduce(vcat, map(cget, values(results)))[1:end-1],
-            tnew 
-        )
-    end
-
-    Trajectory(
-        first(results).sys, 
-        unew, p, 
-        tnew, 
-        ParameterTimeseriesCollection(controls, deepcopy(p)),
-        shootings
-    )
-end
-
 
 function (layer::MultipleShootingLayer)(u0, ps, st)
     results, st = layer.layer(u0, ps, st)
-    return results#Trajectory(layer, results), st
+    return Trajectory(layer, results), st
 end
+
+function _reduce_controls(control, controls...)
+    prev_signals = _reduce_controls(controls...)
+    map(zip(control.collection, prev_signals)) do (a, b)
+        DiffEqArray(
+            vcat(a.u, b.u), 
+            vcat(a.t, b.t)
+        )
+    end
+end
+
+_reduce_controls(control) = control.collection
+
+function reduce_controls(controls...)
+    signals = _reduce_controls(controls...)
+    return ParameterTimeseriesCollection(
+        signals, 
+        first(controls).paramcache
+    )
+end
+
+function Trajectory(layer::MultipleShootingLayer, results::NamedTuple{fields}; 
+    kwargs...
+    ) where fields
+
+    sys = symbolic_container(first(results))
+    p = first(results).p
+
+    quadratures = get_quadrature_indices(layer)
+    quad_idx = Base.Fix1(variable_index, sys).(quadratures)
+    q0 = zero(first(results)[quadratures][1])
+    
+
+    u = reduce(vcat, map(enumerate(results)) do (i, res)
+        unew = map(res.u) do uj 
+            l = 0 
+            [k ∈ quad_idx ?  uj[k] + q0[l+=1] : uj[k] for k in eachindex(uj)]
+        end
+        q0 = unew[end][quad_idx]
+        i == lastindex(results) ? unew : unew[1:end-1]
+    end)
+
+    t = reduce(vcat, map(enumerate(results)) do (i, res)
+        i == lastindex(results) ? res.t : res.t[1:end-1]
+    end)
+    controls = reduce_controls(map(Base.Fix2(getfield, :controls), values(results))...)
+    utype = eltype(first(results).u[1])
+    shooting_violations = map(Base.OneTo(length(results)-1)) do i 
+        u_next = results[i+1]
+        u_prev = results[i]
+        vars = layer.shooting_variables[i+1]
+        (; 
+            u0 = utype.(u_prev[vars.u0][end] .- u_next[vars.u0][1]),
+            p = isempty(vars.p) ? utype[] : u_prev.ps[vars.p] .- u_next.ps[vars.p],
+            controls = isempty(vars.controls) ? utype[] : u_prev.ps[vars.controls][end] .- u_next.ps[vars.controls][1],
+        )
+    end
+    shooting_violations = (; 
+        u0 = reduce(vcat, map(sv -> sv.u0, shooting_violations)),
+        p = reduce(vcat, map(sv -> sv.p, shooting_violations)),
+        controls = reduce(vcat, map(sv -> sv.controls, shooting_violations)),
+    )
+    Trajectory{typeof(sys), typeof(u), typeof(p), typeof(t), typeof(controls), typeof(shooting_violations)}(sys, u, p, t, controls, shooting_violations)
+end
+

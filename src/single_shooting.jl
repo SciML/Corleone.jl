@@ -97,10 +97,18 @@ end
 
 get_quadrature_indices(layer::SingleShootingLayer) = get_quadrature_indices(layer.problem_remaker)
 is_shooting_layer(layer::SingleShootingLayer) = true
+
 get_tunable_u0(layer::SingleShootingLayer) = get_tunable_u0(layer.problem_remaker)
 get_tunable_p(layer::SingleShootingLayer) = get_tunable_p(layer.problem_remaker)
 get_control_symbols(layer::SingleShootingLayer) = collect(keys(layer.controls))
 
+get_shooting_controls(layer::SingleShootingLayer) = [k for k in keys(layer.controls) if is_shooted(getproperty(layer.controls, k))]
+get_shooting_u0s(layer::SingleShootingLayer) = filter(∉(get_quadrature_indices(layer)), variable_symbols(get_problem(layer)))
+get_shooting_ps(layer::SingleShootingLayer) = get_tunable_p(layer)
+
+get_shooting_variables(layer::SingleShootingLayer) = (; 
+    u0 = get_shooting_u0s(layer), p = get_shooting_ps(layer), controls = get_shooting_controls(layer)
+)
 
 function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     problem_remaker = remake(layer.problem_remaker; kwargs...)
@@ -167,15 +175,20 @@ end
     return Expr(:block, expr...)
 end
 
-function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fields}
+function __apply(layer::SingleShootingLayer, x, ps, st::NamedTuple{fields}) where {fields}
     (; problem_remaker, algorithm, controls) = layer
     (; timestops) = st
     problem, problem_st = problem_remaker(x, ps.problem_remaker, st.problem_remaker)
     solutions, _ = eval_problem(problem, algorithm, controls, ps, st, timestops)
-    return Trajectory(layer, solutions...; 
+    return solutions, merge(st, (; problem_remaker=problem_st))
+end
+    
+function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fields}
+    solutions, st =  __apply(layer, x, ps, st)
+    return Trajectory(layer, solutions...;
         control_parameters = ps.controls, control_states = st.controls, 
         sys = st.sys,
-        ), merge(st, (; problem_remaker=problem_st))
+        ), st
 end
 
 @generated function eval_problem(prob, algorithm, controls, ps, st, timestops::NTuple{N,<:Real}) where N
