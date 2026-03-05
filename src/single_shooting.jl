@@ -204,7 +204,7 @@ end
         start = partions[i]
         stop = partions[i+1]
         push!(expr, :($(sols[i]) = _eval_problem(prob, algorithm, controls, ps, st, timestops[$(start):$(stop)])))
-        push!(expr, :(prob = remake(prob, u0=last($(sols[i])).u[end])))
+        push!(expr, :(prob = remake(prob, u0=last(last($(sols[i]))))))
         push!(retex.args, Expr(:..., sols[i]))
     end
     push!(expr, :(return $retex, st))
@@ -221,7 +221,7 @@ end
          push!(exprs, :(($(csym), $(sts[i])) = _eval_controls(controls, timestops[$i], ps.controls, st.controls))) 
          push!(exprs, :($psym = __remake_wrap(problem, problem.p, collect(st.control_indices), collect($csym))))
          push!(exprs, :($(sols[i]) = solve(problem, algorithm, p=$psym, tspan = (timestops[$i], timestops[$(i+1)]), save_everystep=false, save_start=$(i == 1), save_end=true))) 
-         push!(exprs, :(problem = remake(problem, u0=$(sols[i]).u[end])))
+         push!(exprs, :(problem = remake(problem, u0=last($(sols[i])))))
     end
     push!(exprs, Expr(:tuple, sols...))
     return Expr(:block, exprs...)

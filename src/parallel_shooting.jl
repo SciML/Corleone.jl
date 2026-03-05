@@ -134,7 +134,7 @@ _vecadd(u::AbstractArray{T}, v) where T = [u[i] .+ v for i in eachindex(u)]
                 push!(exprs, :($(us[i]) = _vecadd(sols.$(f).u[1:end-1], $(qs[i]))))
             else
                 push!(exprs, :($(us[i]) = sols.$(f).u[1:end-1]))
-                push!(exprs, :($(qs[i]) = zero(last(sols.$(f).u))))
+                push!(exprs, :($(qs[i]) = zero(sols.$(f).u[1])))
             end
             push!(exprs, :($(ts[i]) = sols.$(f).t[1:end-1]))
             push!(exprs, :($(qs[i+1]) = _subselect(sols.$(f).u[end], quad_idxs) + $(qs[i])))
@@ -143,8 +143,9 @@ _vecadd(u::AbstractArray{T}, v) where T = [u[i] .+ v for i in eachindex(u)]
             push!(exprs, :($(ts[i]) = sols.$(f).t))
         end
     end
-    push!(exprs, :(vcat($(us...)), vcat($(ts...))))
-    Expr(:block, exprs...)
+    push!(exprs, :(return (vcat($(us...)), vcat($(ts...)))))
+    ex = Expr(:block, exprs...)
+    return ex
 end
 
 @generated function shooting_constraints(variables::NamedTuple{fields}, prev, next) where {fields}
