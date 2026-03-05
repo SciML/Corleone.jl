@@ -1,4 +1,4 @@
-struct ParallelShootingLayer{L <: NamedTuple, A <: SciMLBase.EnsembleAlgorithm} <: LuxCore.AbstractLuxWrapperLayer{:layers}
+struct ParallelShootingLayer{L<:NamedTuple,A<:SciMLBase.EnsembleAlgorithm} <: LuxCore.AbstractLuxWrapperLayer{:layers}
     name::Symbol
     "The layers to be solved in parallel. Each layer should be a SingleShootingLayer."
     layers::L
@@ -7,13 +7,13 @@ struct ParallelShootingLayer{L <: NamedTuple, A <: SciMLBase.EnsembleAlgorithm} 
 end
 
 ParallelShootingLayer(layers::NamedTuple; kwargs...) = ParallelShootingLayer(
-    get(kwargs, :name, gensym(:parallel_shooting)), 
-    layers, 
+    get(kwargs, :name, gensym(:parallel_shooting)),
+    layers,
     get(kwargs, :ensemble_algorithm, EnsembleSerial()))
 
 function ParallelShootingLayer(layers::AbstractLuxLayer...; kwargs...)
     @assert all(is_shooting_layer, layers) "All layers must be shooting layers."
-    layers = NamedTuple{ntuple(i->Symbol(:layer,i), length(layers))}(layers)
+    layers = NamedTuple{ntuple(i -> Symbol(:layer, i), length(layers))}(layers)
     ParallelShootingLayer(layers; kwargs...)
 end
 
@@ -29,23 +29,23 @@ __getidx(x, id) = x[id]
 __getidx(x::NamedTuple, id) = getproperty(x, id)
 
 function _parallel_solve(
-        alg::SciMLBase.EnsembleAlgorithm,
-        layers::NamedTuple{fields},
-        u0,
-        ps,
-        st::NamedTuple{fields},
-    ) where {fields}
+    alg::SciMLBase.EnsembleAlgorithm,
+    layers::NamedTuple{fields},
+    u0,
+    ps,
+    st::NamedTuple{fields},
+) where {fields}
 
     args = ntuple(
-            i -> (__getidx(layers, fields[i]), u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)
-        )
-    
-    ret =  mythreadmap(alg, Base.splat(LuxCore.apply), args)
+        i -> (__getidx(layers, fields[i]), u0, __getidx(ps, fields[i]), __getidx(st, fields[i])), length(st)
+    )
+
+    ret = mythreadmap(alg, Base.splat(LuxCore.apply), args)
     return NamedTuple{fields}(first.(ret)), NamedTuple{fields}(last.(ret))
 end
 
 function SciMLBase.remake(layer::ParallelShootingLayer; kwargs...)
-    layers = map(keys(layer.layers)) do k 
+    layers = map(keys(layer.layers)) do k
         layer_kwargs = get(kwargs, k, kwargs)
         k, remake(layer.layers[k]; layer_kwargs...)
     end |> NamedTuple
@@ -58,9 +58,9 @@ $(TYPEDEF)
 
 Defines a layer for multiple shooting. Simply a wrapper for the [ParallelShootingLayer](@ref) but returns a single trajectory.
 """
-struct MultipleShootingLayer{L, S <: NamedTuple} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct MultipleShootingLayer{L,S<:NamedTuple} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The instance of a [ParallelShootingLayer](@ref) to be solved in parallel."
-    layer::L 
+    layer::L
     "Indicator for shooting constraints for each of the layers."
     shooting_variables::S
 end
@@ -78,28 +78,20 @@ function MultipleShootingLayer(layer::LuxCore.AbstractLuxLayer, shooting_points:
     quadratures = get_quadrature_indices(layer)
     tunables = setdiff(variable_symbols(problem), quadratures)
     tpoints = unique!(sort!(vcat(collect(shooting_points), collect(tspan))))
-    layers = ntuple(i -> remake(layer, 
-        tspan = (tpoints[i], tpoints[i+1]),
-        tunable_u0 = i == 1 ? get_tunable_u0(layer) : tunables,
-    ), length(tpoints)-1)
-    layers = NamedTuple{ntuple(i->Symbol(:layer_,i), length(layers))}(layers) 
-    i = 0 
-    shooting_variables = map(layers) do layer 
-        if i > 0  
-            get_shooting_variables(layer) 
-        else
-            i += 1
-            []
-        end
-    end
+    layers = ntuple(i -> remake(layer,
+            tspan=(tpoints[i], tpoints[i+1]),
+            tunable_u0=i == 1 ? get_tunable_u0(layer) : tunables,
+        ), length(tpoints) - 1)
+    layers = NamedTuple{ntuple(i -> Symbol(:layer_, i), length(layers))}(layers)
+    shooting_variables = map(get_shooting_variables, layers) 
     layer = ParallelShootingLayer(layers; kwargs...)
 
-    MultipleShootingLayer{typeof(layer), typeof(shooting_variables)}(layer, shooting_variables)
+    MultipleShootingLayer{typeof(layer),typeof(shooting_variables)}(layer, shooting_variables)
 end
 
 function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
     layer = remake(layer.layer; kwargs...)
-    MultipleShootingLayer{typeof(layer), typeof(layer.shooting_variables)}(layer, layer.shooting_variables)
+    MultipleShootingLayer{typeof(layer),typeof(layer.shooting_variables)}(layer, layer.shooting_variables)
 end
 
 function (layer::MultipleShootingLayer)(u0, ps, st)
@@ -111,7 +103,7 @@ function _reduce_controls(control, controls...)
     prev_signals = _reduce_controls(controls...)
     map(zip(control.collection, prev_signals)) do (a, b)
         DiffEqArray(
-            vcat(a.u, b.u), 
+            vcat(a.u, b.u),
             vcat(a.t, b.t)
         )
     end
@@ -122,52 +114,87 @@ _reduce_controls(control) = control.collection
 function reduce_controls(controls...)
     signals = _reduce_controls(controls...)
     return ParameterTimeseriesCollection(
-        signals, 
+        signals,
         first(controls).paramcache
     )
 end
 
-function Trajectory(layer::MultipleShootingLayer, results::NamedTuple{fields}; 
+_subselect(u::AbstractArray{T}, idxs) where T = [i ∈ idxs ? u[i] : zero(T) for i in eachindex(u)]
+_vecadd(u::AbstractArray{T}, v) where T = [u[i] .+ v for i in eachindex(u)]
+
+
+@generated function __collect_multiple_shooting_solutions(sols::NamedTuple{fields}, quad_idxs) where {fields}
+    us = [gensym(:u) for _ in fields]
+    ts = [gensym(:t) for _ in fields]
+    qs = [gensym(:q) for _ in fields]
+    exprs = Expr[]
+    for (i, f) in enumerate(fields)
+        if i < lastindex(fields)
+            if i > firstindex(fields)
+                push!(exprs, :($(us[i]) = _vecadd(sols.$(f).u[1:end-1], $(qs[i]))))
+            else
+                push!(exprs, :($(us[i]) = sols.$(f).u[1:end-1]))
+                push!(exprs, :($(qs[i]) = zero(last(sols.$(f).u))))
+            end
+            push!(exprs, :($(ts[i]) = sols.$(f).t[1:end-1]))
+            push!(exprs, :($(qs[i+1]) = _subselect(sols.$(f).u[end], quad_idxs) + $(qs[i])))
+        else
+            push!(exprs, :($(us[i]) = _vecadd(sols.$(f).u, $(qs[i]))))
+            push!(exprs, :($(ts[i]) = sols.$(f).t))
+        end
+    end
+    push!(exprs, :(vcat($(us...)), vcat($(ts...))))
+    Expr(:block, exprs...)
+end
+
+@generated function shooting_constraints(variables::NamedTuple{fields}, prev, next) where {fields}
+    results = [gensym() for i in 1:3]
+    exprs = Expr[]
+    for (i, k) in enumerate((:u0, :p, :controls))
+        if k ∈ fields
+            if k == :u0
+                push!(exprs, :($(results[i]) = prev[variables.$(k)][end] .- next[variables.$(k)][1]))
+            elseif k == :p && !isempty(variables.p)
+                push!(exprs, :($(results[i]) = prev.ps[variables.$(k)] .- next.ps[variables.$(k)]))
+            else # controls
+                 push!(exprs, :($(results[i]) = prev.ps[variables.$(k)][end] .- next.ps[variables.$(k)][1]))
+            end
+        else
+             push!(exprs, :($(results[i]) = utype(prev)[]))
+        end
+    end
+    push!(exprs, :(($(results[1]), $(results[2]), $(results[3]))))
+    Expr(:block, exprs...)
+end
+
+@generated function shooting_constraints(results::NamedTuple{fields}, shooting_vars::NamedTuple{fields}) where {fields}
+    N = length(fields) - 1
+    u0s = [gensym(:u0) for _ in 1:N]
+    ps = [gensym(:p) for _ in 1:N]
+    controls = [gensym(:controls) for _ in 1:N]
+    exprs = Expr[]  
+    for i in 1:N 
+        push!(exprs, :(($(u0s[i]), $(ps[i]), $(controls[i])) = shooting_constraints(shooting_vars.$(fields[i+1]), 
+            results.$(fields[i]), 
+            results.$(fields[i+1])))
+        )
+    end
+    push!(exprs, :(vcat($(u0s...)), vcat($(ps...)), vcat($(controls...))))
+    Expr(:block, exprs...)
+end
+
+function Trajectory(layer::MultipleShootingLayer, results::NamedTuple{fields};
     kwargs...
-    ) where fields
+) where fields
 
     sys = symbolic_container(first(results))
     p = first(results).p
 
     quadratures = get_quadrature_indices(layer)
     quad_idx = Base.Fix1(variable_index, sys).(quadratures)
-    q0 = zero(first(results)[quadratures][1])
-    
-
-    u = reduce(vcat, map(enumerate(results)) do (i, res)
-        unew = map(res.u) do uj 
-            l = 0 
-            [k ∈ quad_idx ?  uj[k] + q0[l+=1] : uj[k] for k in eachindex(uj)]
-        end
-        q0 = unew[end][quad_idx]
-        i == lastindex(results) ? unew : unew[1:end-1]
-    end)
-
-    t = reduce(vcat, map(enumerate(results)) do (i, res)
-        i == lastindex(results) ? res.t : res.t[1:end-1]
-    end)
+    u, t = __collect_multiple_shooting_solutions(results, quad_idx)
     controls = reduce_controls(map(Base.Fix2(getfield, :controls), values(results))...)
-    utype = eltype(first(results).u[1])
-    shooting_violations = map(Base.OneTo(length(results)-1)) do i 
-        u_next = results[i+1]
-        u_prev = results[i]
-        vars = layer.shooting_variables[i+1]
-        (; 
-            u0 = utype.(u_prev[vars.u0][end] .- u_next[vars.u0][1]),
-            p = isempty(vars.p) ? utype[] : u_prev.ps[vars.p] .- u_next.ps[vars.p],
-            controls = isempty(vars.controls) ? utype[] : u_prev.ps[vars.controls][end] .- u_next.ps[vars.controls][1],
-        )
-    end
-    shooting_violations = (; 
-        u0 = reduce(vcat, map(sv -> sv.u0, shooting_violations)),
-        p = reduce(vcat, map(sv -> sv.p, shooting_violations)),
-        controls = reduce(vcat, map(sv -> sv.controls, shooting_violations)),
-    )
-    Trajectory{typeof(sys), typeof(u), typeof(p), typeof(t), typeof(controls), typeof(shooting_violations)}(sys, u, p, t, controls, shooting_violations)
+    shooting_violations = shooting_constraints(results, layer.shooting_variables)
+    Trajectory{typeof(sys),typeof(u),typeof(p),typeof(t),typeof(controls),typeof(shooting_violations)}(sys, u, p, t, controls, shooting_violations)
 end
 

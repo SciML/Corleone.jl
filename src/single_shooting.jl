@@ -103,13 +103,19 @@ get_tunable_p(layer::SingleShootingLayer) = get_tunable_p(layer.problem_remaker)
 get_control_symbols(layer::SingleShootingLayer) = collect(keys(layer.controls))
 
 get_shooting_controls(layer::SingleShootingLayer) = [k for k in keys(layer.controls) if is_shooted(getproperty(layer.controls, k))]
-get_shooting_u0s(layer::SingleShootingLayer) = filter(∉(get_quadrature_indices(layer)), variable_symbols(get_problem(layer)))
+get_shooting_u0s(layer::SingleShootingLayer) = get_tunable_u0(layer)
 get_shooting_ps(layer::SingleShootingLayer) = get_tunable_p(layer)
 
-get_shooting_variables(layer::SingleShootingLayer) = (; 
-    u0 = get_shooting_u0s(layer), p = get_shooting_ps(layer), controls = get_shooting_controls(layer)
-)
-
+function get_shooting_variables(layer::SingleShootingLayer)
+ u0 = get_shooting_u0s(layer) 
+ p = get_shooting_ps(layer)
+ controls = get_shooting_controls(layer)
+ nt = [
+    (k, v) for (k,v) in zip((:u0, :p, :controls), (u0, p, controls)) if !isempty(v)
+ ]
+ isempty(nt) ? NamedTuple() : NamedTuple(nt)
+end 
+   
 function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     problem_remaker = remake(layer.problem_remaker; kwargs...)
     algorithm = get(kwargs, :algorithm, layer.algorithm)
@@ -238,7 +244,7 @@ end
 get_problem(layer::SingleShootingLayer) = get_problem(layer.problem_remaker)
 get_tspan(layer::SingleShootingLayer) = get_tspan(layer.problem_remaker)
 
-
+# This is somewhat instead of reduce(vcat, map(sols)) due to zero indexing of Zygote gradients 
 @generated function __collect_solutions(sols::NTuple{N, T}) where {N, T} 
     us = [gensym() for _ in 1:N]
     ts = [gensym() for _ in 1:N]
