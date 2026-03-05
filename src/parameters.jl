@@ -1,30 +1,40 @@
 """
 $(TYPEDEF)
 
-Defines a callable layer representing a piecewise constant control. The control is defined by the values `u` at the timepoints `t`.
+Defines a callable layer representing a piecewise constant control. The control is defined by a `DiffEqArray` containing values `u` at the timepoints `t`.
 
 # Fields
 $(FIELDS)
 """
-struct PiecewiseConstantControl{S,U,T,B,SHOOT} <: LuxCore.AbstractLuxLayer
+struct PiecewiseConstantControl{S,C,B,SHOOT} <: LuxCore.AbstractLuxLayer
     "The symbolic index of the control"
     idx::S
-    "The initial control values"
-    u::U
-    "The timepoints at which the control is defined"
-    t::T
+    "The control timeseries"
+    signal::C
     "The bounds for the control values"
     bounds::B
 end
 
-function PiecewiseConstantControl(sym, u, t, bounds=(to_val(u, -Inf), to_val(u, Inf)), shooting=false)
-    PiecewiseConstantControl{typeof(sym),typeof(u),typeof(t),typeof(bounds),shooting}(sym, u, t, bounds)
+function PiecewiseConstantControl(sym, signal::DiffEqArray, bounds=(to_val(signal.u, -Inf), to_val(signal.u, Inf)), shooting=false)
+    @assert length(signal.u) == length(signal.t) "The length of control values must match the length of timepoints."
+    @assert issorted(signal.t) "Timepoints must be sorted in ascending order."
+    @assert all(isfinite, signal.u) "Control values must be finite."
+    @assert all(Base.Fix1(Base.broadcast, isfinite), bounds) "Bounds must be finite."
+    PiecewiseConstantControl{typeof(sym),typeof(signal),typeof(bounds),shooting}(sym, signal, bounds)
 end
 
-is_shooted(::PiecewiseConstantControl{<:Any,<:Any,<:Any,<:Any,SHOOT}) where SHOOT = SHOOT
+PiecewiseConstantControl(sym, u, t, bounds=(to_val(u, -Inf), to_val(u, Inf)), shooting=false) = PiecewiseConstantControl(sym, DiffEqArray(u, t), bounds, shooting)
+
+is_shooted(::PiecewiseConstantControl{<:Any,<:Any,<:Any,SHOOT}) where SHOOT = SHOOT
 
 Base.nameof(control::PiecewiseConstantControl) = Symbol(control.idx)
 LuxCore.display_name(control::PiecewiseConstantControl) = nameof(control)
+
+function Base.getproperty(control::PiecewiseConstantControl, name::Symbol)
+    name === :u ? getfield(control, :signal).u :
+    name === :t ? getfield(control, :signal).t :
+    getfield(control, name)
+end
 
 function get_lower_bound(layer::PiecewiseConstantControl)
     b = first(layer.bounds)
@@ -36,11 +46,10 @@ function get_upper_bound(layer::PiecewiseConstantControl)
 end
 
 SciMLBase.remake(control::PiecewiseConstantControl; kwargs...) = begin
-    u = get(kwargs, :u, control.u)
-    t = get(kwargs, :t, control.t)
-    tspan = get(kwargs, :tspan, extrema(t))
+    signal = get(kwargs, :signal, DiffEqArray(get(kwargs, :u, control.u), get(kwargs, :t, control.t)))
+    tspan = get(kwargs, :tspan, extrema(signal.t))
     bounds = get(kwargs, :bounds, control.bounds)
-    _clamp_tspan(PiecewiseConstantControl(control.idx, u, t, bounds), tspan)
+    _clamp_tspan(PiecewiseConstantControl(control.idx, signal, bounds), tspan)
 end
 
 function _clamp_tspan(control::PiecewiseConstantControl, (t0, tinf)::Tuple{<:Real,<:Real})
@@ -62,8 +71,7 @@ function _clamp_tspan(control::PiecewiseConstantControl, (t0, tinf)::Tuple{<:Rea
 
     PiecewiseConstantControl(
         control.idx,
-        u[mask],
-        t[mask],
+        DiffEqArray(u[mask], t[mask]),
         deepcopy.(control.bounds),
         shoot
     )
@@ -73,12 +81,16 @@ _maybevec(x::AbstractVector) = x
 _maybevec(x) = vec(x)
 _maybevec(x::Number) = [x]
 
-LuxCore.parameterlength(control::PiecewiseConstantControl) = length(_maybevec(control.u[1])) * length(control.t)
-LuxCore.initialparameters(rng::Random.AbstractRNG, control::PiecewiseConstantControl) = (; u=clamp.(deepcopy(control.u), get_bounds(control)...))
+LuxCore.parameterlength(control::PiecewiseConstantControl) = length(control.signal) * product(size(first(control.u)))
+LuxCore.initialparameters(::Random.AbstractRNG, control::PiecewiseConstantControl) = (; 
+    u = clamp.(control.u, get_lower_bound(control), get_upper_bound(control))
+)
 
-LuxCore.initialstates(rng::Random.AbstractRNG, control::PiecewiseConstantControl) = (; t=control.t, current=firstindex(control.t),
+LuxCore.initialstates(::Random.AbstractRNG, control::PiecewiseConstantControl) = (; 
+    t = control.t,
+    current=firstindex(control.t),
     lower=firstindex(control.t), upper=lastindex(control.t))
-LuxCore.statelength(control::PiecewiseConstantControl) = length(control.t) + 3
+LuxCore.statelength(control::PiecewiseConstantControl) = 3 + length(control.t)
 
 function find_idx(tcurrent, t)
     idx = searchsortedlast(t, tcurrent)
@@ -105,7 +117,7 @@ A helper structure to configure the initial conditions and parameters of a DEPro
 # Fields
 $(FIELDS)
 """
-struct ProblemRemaker{P,U,BU,TP,BP,Q} <: LuxCore.AbstractLuxLayer
+struct ProblemRemaker{P,U,BU,TP,BP,Q,HAS_U0,HAS_P} <: LuxCore.AbstractLuxLayer
     "The underlying DE problem"
     problem::P
     "The tunable initial conditions"
@@ -139,9 +151,11 @@ function ProblemRemaker(problem;
         pb = getsym(problem, tunable_p)(problem)
         p_bounds = (pb, pb)
     end
+    has_u0 = !isempty(tunable_u0)
+    has_p = !isempty(tunable_p)
     ProblemRemaker{
         typeof(problem),typeof(tunable_u0),typeof(u0_bounds),typeof(tunable_p),
-        typeof(p_bounds),typeof(quadrature_indices)}(
+        typeof(p_bounds),typeof(quadrature_indices),has_u0,has_p}(
         problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadrature_indices
     )
 end
@@ -162,7 +176,9 @@ function SciMLBase.remake(remaker::ProblemRemaker; kwargs...)
         _kwargs = (; (k => v for (k, v) in pairs(kwargs) if !(k in drop))...)
     end
     problem = remake(problem; _kwargs...)
-    ProblemRemaker{typeof(problem),typeof(tunable_u0),typeof(u0_bounds),typeof(tunable_p),typeof(p_bounds),typeof(quadratures)}(problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadratures)
+    has_u0 = !isempty(tunable_u0)
+    has_p = !isempty(tunable_p)
+    ProblemRemaker{typeof(problem),typeof(tunable_u0),typeof(u0_bounds),typeof(tunable_p),typeof(p_bounds),typeof(quadratures),has_u0,has_p}(problem, tunable_u0, u0_bounds, tunable_p, p_bounds, quadratures)
 end
 
 get_problem(layer::ProblemRemaker) = layer.problem
@@ -171,32 +187,60 @@ get_quadrature_indices(layer::ProblemRemaker) = layer.quadrature_indices
 get_tunable_u0(layer::ProblemRemaker) = layer.tunable_u0
 get_tunable_p(layer::ProblemRemaker) = layer.tunable_p
 
-get_lower_bound(layer::ProblemRemaker) = (; u0=first(layer.u0_bounds), p=first(layer.p_bounds))
-get_upper_bound(layer::ProblemRemaker) = (; u0=last(layer.u0_bounds), p=last(layer.p_bounds))
+get_lower_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,true}) = (; u0=first(layer.u0_bounds), p=first(layer.p_bounds))
+get_lower_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,false}) = (; u0=first(layer.u0_bounds))
+get_lower_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,true}) = (; p=first(layer.p_bounds))
+get_lower_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,false}) = NamedTuple()
 
-LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ProblemRemaker) = (;
-    u0=clamp.(getsym(layer.problem, layer.tunable_u0)(layer.problem), layer.u0_bounds...),
-    p=clamp.(getsym(layer.problem, layer.tunable_p)(layer.problem), layer.p_bounds...)
-)
+get_upper_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,true}) = (; u0=last(layer.u0_bounds), p=last(layer.p_bounds))
+get_upper_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,false}) = (; u0=last(layer.u0_bounds))
+get_upper_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,true}) = (; p=last(layer.p_bounds))
+get_upper_bound(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,false}) = NamedTuple()
 
-LuxCore.parameterlength(layer::ProblemRemaker) = begin
-    u0 = getsym(layer.problem, layer.tunable_u0)(layer.problem)
-    p = getsym(layer.problem, layer.tunable_p)(layer.problem)
-    isempty(u0) ? 0 : length(u0) + (isempty(p) ? 0 : length(p))
+LuxCore.initialparameters(::Random.AbstractRNG, layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,true}) = begin
+    T = promote_type(eltype(layer.problem.u0), eltype(layer.problem.p))
+    (;
+        u0=convert.(T, clamp.(getsym(layer.problem, layer.tunable_u0)(layer.problem), layer.u0_bounds...)),
+        p=convert.(T, clamp.(getsym(layer.problem, layer.tunable_p)(layer.problem), layer.p_bounds...))
+    )
 end
 
-LuxCore.initialstates(rng::Random.AbstractRNG, layer::ProblemRemaker) = (;
-    setter = setp_oop(layer.problem, layer.tunable_p),
-)
-LuxCore.statelength(::ProblemRemaker) = 1
+LuxCore.initialparameters(::Random.AbstractRNG, layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,true,false}) = begin
+    T = promote_type(eltype(layer.problem.u0), eltype(layer.problem.p))
+    (; u0=convert.(T, clamp.(getsym(layer.problem, layer.tunable_u0)(layer.problem), layer.u0_bounds...)))
+end
+
+LuxCore.initialparameters(::Random.AbstractRNG, layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,true}) = begin
+    T = promote_type(eltype(layer.problem.u0), eltype(layer.problem.p))
+    (; p=convert.(T, clamp.(getsym(layer.problem, layer.tunable_p)(layer.problem), layer.p_bounds...)))
+end
+
+LuxCore.initialparameters(::Random.AbstractRNG, layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,false,false}) = NamedTuple()
+
+function LuxCore.parameterlength(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,U0,P}) where {U0,P}
+    length(get_tunable_u0(layer)) + length(get_tunable_p(layer))
+end
+
+LuxCore.initialstates(::Random.AbstractRNG, ::ProblemRemaker) = NamedTuple()
+LuxCore.statelength(::ProblemRemaker) = 0
+
+
+_get_u0(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,U}, problem, ps) where U =
+    if U
+        __remake_wrap(problem, problem.u0, layer.tunable_u0, ps.u0)
+    else
+        problem.u0
+    end
+
+_get_p(layer::ProblemRemaker{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,P}, problem, ps) where P =
+    if P
+        __remake_wrap(problem, problem.p, layer.tunable_p, ps.p)
+    else
+        problem.p
+    end
 
 
 function (layer::ProblemRemaker)(::Any, ps, st)
-    (; u0, p) = ps
     (; problem) = layer
-    #(; setter) = st
-    #p_ = setter(problem, p)
-    u0_ = __remake_wrap(problem, problem.u0, layer.tunable_u0, u0)
-    p_ = __remake_wrap(problem, problem.p, layer.tunable_p, p)
-    remake(problem, u0=u0_, p=p_), st
+    remake(problem, u0=_get_u0(layer, problem, ps), p=_get_p(layer, problem, ps)), st
 end

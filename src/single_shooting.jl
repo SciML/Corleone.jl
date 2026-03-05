@@ -134,9 +134,8 @@ get_bounds(layer::SingleShootingLayer) = ((;
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     (; controls, problem_remaker) = layer
     (; problem) = problem_remaker
-    control_states = map(Base.Fix1(LuxCore.initialstates, rng), controls)
-    initial_states = LuxCore.initialstates(rng, problem_remaker)
-    t = reduce(vcat, map(control_states) do cs
+
+    t = reduce(vcat, map(controls) do cs
         deepcopy(cs.t)
     end)
     append!(t, collect(problem.tspan))
@@ -156,8 +155,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
       )
 
     control_indices = ntuple(i -> controls[i].idx, length(controls))
-    (; controls=control_states, problem_remaker=initial_states, 
-    timestops=Tuple(t), control_indices=control_indices, sys = newsys)
+    (; 
+    controls= map(Base.Fix1(LuxCore.initialstates, rng), controls), 
+    problem_remaker=LuxCore.initialstates(rng, problem_remaker),
+    timestops=Tuple(t), control_indices=control_indices, sys = newsys
+    )
 end
 
 @generated function _eval_controls(controls::NamedTuple{fields}, t, ps, st) where {fields}
@@ -175,20 +177,15 @@ end
     return Expr(:block, expr...)
 end
 
-function __apply(layer::SingleShootingLayer, x, ps, st::NamedTuple{fields}) where {fields}
+function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fields}
     (; problem_remaker, algorithm, controls) = layer
     (; timestops) = st
     problem, problem_st = problem_remaker(x, ps.problem_remaker, st.problem_remaker)
     solutions, _ = eval_problem(problem, algorithm, controls, ps, st, timestops)
-    return solutions, merge(st, (; problem_remaker=problem_st))
-end
-    
-function (layer::SingleShootingLayer)(x, ps, st::NamedTuple{fields}) where {fields}
-    solutions, st =  __apply(layer, x, ps, st)
-    return Trajectory(layer, solutions...;
+    return Trajectory(layer, solutions;
         control_parameters = ps.controls, control_states = st.controls, 
         sys = st.sys,
-        ), st
+        ), merge(st, (; problem_remaker=problem_st))
 end
 
 @generated function eval_problem(prob, algorithm, controls, ps, st, timestops::NTuple{N,<:Real}) where N
@@ -242,26 +239,34 @@ get_problem(layer::SingleShootingLayer) = get_problem(layer.problem_remaker)
 get_tspan(layer::SingleShootingLayer) = get_tspan(layer.problem_remaker)
 
 
-function Trajectory(::SingleShootingLayer, sol...; 
+@generated function __collect_solutions(sols::NTuple{N, T}) where {N, T} 
+    us = [gensym() for _ in 1:N]
+    ts = [gensym() for _ in 1:N]
+    exprs = Expr[]
+    for i in 1:N
+        push!(exprs, :(($(us[i]), $(ts[i])) = (sols[$i].u, sols[$i].t)))
+    end
+    push!(exprs, :(return vcat($(us...)), vcat($(ts...))))
+    return Expr(:block, exprs...)
+end
+
+function Trajectory(::SingleShootingLayer, sol; 
     sys, 
     control_parameters = NamedTuple(),
     control_states::NamedTuple = NamedTuple(),
     kwargs...
     )
-    u = reduce(vcat, map(sol) do s
-        maybevec(s.u)
-    end)
-    p = first(sol).prob.p
-    t = reduce(vcat, map(sol) do s
-       s.t
-    end)
 
+    p = first(sol).prob.p 
     tseries = map(keys(control_parameters)) do k 
         DiffEqArray(
             maybevec(getproperty(control_parameters, k).u),
             getfield(control_states, k).t,
         )
     end
-    controls = ParameterTimeseriesCollection(tseries, deepcopy(p))
+    controls = ParameterTimeseriesCollection(tseries, p)
+    
+    u, t = __collect_solutions(sol)
+
     Trajectory{typeof(sys), typeof(u), typeof(p), typeof(t), typeof(controls), Nothing}(sys, u, p, t, controls, nothing)
 end

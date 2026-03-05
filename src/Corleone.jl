@@ -62,8 +62,7 @@ the one-hot basis vector for position `i`.  Both `oldbuffer` and `vals` are
 full participants in the AD graph.
 """
 function __remake_wrap(sys, oldbuffer::AbstractVector, idxs, vals)
-    isempty(idxs) && return oldbuffer
-
+    
     # Resolve symbolic indices → integer positions (non-differentiable)
     int_idxs = map(idx -> _resolve_index(sys, idx), idxs)
     n = length(oldbuffer)
