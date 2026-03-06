@@ -23,7 +23,7 @@ struct InitialCondition{P, B} <: LuxCore.AbstractLuxLayer
     "The indices of the initial condition that are tunable parameters in the optimization problem"
     tunable_ic::Vector{Int}
     "The bounds of the initial conditions. Expects either nothing for unbounded parameters or a function of the form (t0) -> (lower_bounds, upper_bounds)."
-    bounds:::B
+    bounds::B
     "Additional quadrature indices if present."
     quadrature_indices::Vector{Int}
 end
@@ -31,10 +31,10 @@ end
 get_lower_bound(layer::InitialCondition{<:Any,Nothing,}) = to_val(layer.problem.u0[layer.tunable_ic], -Inf)
 get_upper_bound(layer::InitialCondition{<:Any,Nothing,}) = to_val(layer.problem.u0[layer.tunable_ic], Inf)
 
-get_lower_bound(layer::InitialCondition{<:Any,Function,}) = first(layer.bounds(layer.problem.tspan[1]))
-get_upper_bound(layer::InitialCondition{<:Any,Function,}) = last(layer.bounds(layer.problem.tspan[1]))
+get_lower_bound(layer::InitialCondition{<:Any,<:Function,}) = first(layer.bounds(layer.problem.tspan[1]))
+get_upper_bound(layer::InitialCondition{<:Any,<:Function,}) = last(layer.bounds(layer.problem.tspan[1]))
 
-get_bounds(layer::ControlParameter) = (get_lower_bound(layer), get_upper_bound(layer))
+get_bounds(layer::InitialCondition) = (get_lower_bound(layer), get_upper_bound(layer))
 
 
 function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol=gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
@@ -82,6 +82,7 @@ function SciMLBase.remake(layer::InitialCondition;
 )
     m = which(SciMLBase.remake, (typeof(problem),))
     kw = Base.kwarg_decl(m)
+    _kwargs = NamedTuple()
     if !isempty(kw)
         _kwargs = (; (k => v for (k, v) in pairs(kwargs) if k in kw)...)
     end 
