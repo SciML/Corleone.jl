@@ -45,6 +45,9 @@ export Trajectory
 include("controls.jl")
 export ControlParameter, ControlParameters 
 
+include("initializers.jl")
+export InitialCondition
+
 #include("local_controls.jl")
 #export ControlParameter
 #

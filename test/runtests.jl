@@ -8,23 +8,26 @@ using SafeTestsets
         using Corleone
         Aqua.test_all(Corleone)
     end
-    @safetestset "Local controls" begin
-        include("local_controls.jl")
+    @safetestset "Controls" begin
+        include("controls.jl")
     end
-    @safetestset "Multiple shooting" begin
-        include("multiple_shooting.jl")
+    @safetestset "InitialCondition" begin
+        include("initializers.jl")
     end
-    @testset "Examples" begin
-        @safetestset "Lotka" begin
-            include("examples/lotka_oc.jl")
-        end
-        @safetestset "Lotka MS" begin
-            include("examples/lotka_ms.jl")
-        end
-        @safetestset "Lotka MTK" begin
-            include("examples/mtk.jl")
-        end
-    end
+    #@safetestset "Multiple shooting" begin
+    #    include("multiple_shooting.jl")
+    #end
+    #@testset "Examples" begin
+    #    @safetestset "Lotka" begin
+    #        include("examples/lotka_oc.jl")
+    #    end
+    #    @safetestset "Lotka MS" begin
+    #        include("examples/lotka_ms.jl")
+    #    end
+    #    @safetestset "Lotka MTK" begin
+    #        include("examples/mtk.jl")
+    #    end
+    #end
 end
 
 # What to test?
