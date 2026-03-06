@@ -72,18 +72,25 @@ end
 ControlParameter(x::ControlParameter) = x
 ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter constructor: $x"))
 
+
+_maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t) 
+
 function SciMLBase.remake(layer::ControlParameter;
+    name::Symbol=layer.name,
     controls::Function=layer.controls,
     bounds::Function=layer.bounds,
     t::AbstractVector=deepcopy(layer.t),
-    tspan=extrema(t),
+    tspan=_maybeextrema(t),
+    shooted = false,
     kwargs...
 )
 
     mask = zeros(Bool, length(t))
-    shooted = false
 
-    if tspan == extrema(t)
+    if isempty(t)
+        return ControlParameter(t; name, controls, bounds, shooted)
+    end
+    if tspan == _maybeextrema(t)
         mask .= true
     else
         t0, tinf = tspan
@@ -99,15 +106,8 @@ function SciMLBase.remake(layer::ControlParameter;
         end
     end
 
-    ControlParameter(
-        layer.name,
-        t[mask];
-        controls,
-        bounds,
-        shooted
-    )
+    ControlParameter( t[mask]; name, controls, bounds, shooted)
 end
-
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = begin
     lb, ub = Corleone.get_bounds(control)
