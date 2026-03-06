@@ -29,9 +29,12 @@ get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
     get_lower_bound(layer), get_upper_bound(layer),
 )
 to_val(::T, val) where {T <: Number} = T(val)
-to_val(x::AbstractArray{T}, val) where {T <: Number} = T(val) .+ zero(x)
+to_val(x::AbstractVector, val) = map(Base.Fix2(to_val, val), x)
+
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
+
+is_shooted(layer::AbstractLuxLayer) = false
 
 # Random
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
@@ -39,21 +42,24 @@ _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) =
 include("trajectory.jl")
 export Trajectory
 
-include("local_controls.jl")
-export ControlParameter
+include("controls.jl")
+export ControlParameter, ControlParameters 
 
-include("single_shooting.jl")
-export SingleShootingLayer
-include("multiple_shooting.jl")
-export MultipleShootingLayer
-export default_initialization
-include("node_initialization.jl")
-export random_initialization, forward_initialization, linear_initialization
-export custom_initialization, constant_initialization, hybrid_initialization
-
-abstract type AbstractCorleoneFunctionWrapper end
-
-include("dynprob.jl")
-export CorleoneDynamicOptProblem
+#include("local_controls.jl")
+#export ControlParameter
+#
+#include("single_shooting.jl")
+#export SingleShootingLayer
+#include("multiple_shooting.jl")
+#export MultipleShootingLayer
+#export default_initialization
+#include("node_initialization.jl")
+#export random_initialization, forward_initialization, linear_initialization
+#export custom_initialization, constant_initialization, hybrid_initialization
+#
+#abstract type AbstractCorleoneFunctionWrapper end
+#
+#include("dynprob.jl")
+#export CorleoneDynamicOptProblem
 
 end

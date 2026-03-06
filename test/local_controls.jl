@@ -8,41 +8,55 @@ rng = Random.default_rng()
 
 c = ControlParameter(0:0.01:1.0)
 lb, ub = Corleone.get_bounds(c)
+ps, st = LuxCore.setup(rng, c)
 
-@test c.controls === Corleone.default_u
-@test c.bounds === Corleone.default_bounds
+@test ps == zero(c.t)
+@test lb == collect(c.t) .- Inf 
+@test ub == collect(c.t) .+ Inf
 @test c.t == collect(0:0.01:1.0)
-@test_nowarn Corleone.check_consistency(rng, c)
-@test unique(lb) == [-Inf]
-@test unique(ub) == [Inf]
+@test length(ps) == length(c.t)
 
-c1 = ControlParameter(1.0:10.0, bounds = (0.0, 1.0))
-lb1, ub1 = Corleone.get_bounds(c1)
-@test unique(lb1) == [0.0]
-@test unique(ub1) == [1.0]
-@test_nowarn Corleone.check_consistency(rng, c1)
+c = ControlParameter(0:0.01:1.0, name = :test, controls = (rng, t) -> rand(rng, length(t)), bounds = (t) -> (-ones(length(t)), ones(length(t))))
+lb, ub = Corleone.get_bounds(c)
+ps, st = LuxCore.setup(rng, c)
 
-c2 = ControlParameter(1.0:10.0, bounds = (-ones(10), ones(10)))
-lb2, ub2 = Corleone.get_bounds(c2)
-@test unique(lb2) == [-1.0]
-@test unique(ub2) == [1.0]
-@test_nowarn Corleone.check_consistency(rng, c2)
+@test lb <= ps <= ub
+@test lb == zero(ps) .- 1.0
+@test ub == zero(ps) .+ 1.0
+@test c.t == collect(0:0.01:1.0)
+@test length(ps) == length(c.t)
 
-c3 = ControlParameter(1.0:10.0, bounds = (-ones(10), ones(10)), controls = collect(0.0:0.1:0.9))
-@test Corleone.get_controls(rng, c3) == collect(0.0:0.1:0.9)
-@test_nowarn Corleone.check_consistency(rng, c3)
+c = ControlParameter(0:0.1:1.0, name = :test2, controls = (rng, t) -> [randn(rng, 3) for i in eachindex(t)])
+lb, ub = Corleone.get_bounds(c)
+ps, st = LuxCore.setup(rng, c)
 
-c4 = ControlParameter(1.0:10.0, bounds = (-ones(11), ones(10)), controls = collect(0.0:0.1:0.9))
-@test_throws "Incompatible control bound definition" Corleone.check_consistency(rng, c4)
+@test lb <= ps <= ub
+@test eltype(lb) == eltype(ub) == eltype(ps)
+@test c.t == collect(0:0.1:1.0)
+@test length(ps) == length(c.t)
 
-c5 = ControlParameter(1.0:10.0, bounds = (-ones(10), ones(10)), controls = collect(0.0:0.1:1.0))
-@test_throws "Sizes are inconsistent" Corleone.check_consistency(rng, c5)
+c = ControlParameter([], name = :test3, controls = (rng, t) -> [randn(rng, 3)])
+lb, ub = Corleone.get_bounds(c)
+ps, st = LuxCore.setup(rng, c)
+@test c(0., ps, st) == c(10., ps, st)
+@test lb <= ps <= ub
+@test isempty(c.t)
+@test length(ps) == 1
 
-c5 = ControlParameter(1.0:10.0, bounds = (ones(10), -ones(10)), controls = collect(0.0:0.1:1.0))
-@test_throws "Bounds are inconsistent" Corleone.check_consistency(rng, c5)
 
 
-@testset "Correct assignment of symbols" begin
+controls = ControlParameters(
+    :u => 0.0:0.1:10.0,
+    ControlParameter(0.0:0.2:10.0, name = :v, controls = (rng, t) -> rand(rng, length(t)), bounds = t -> (zeros(length(t)), ones(length(t))));
+    transform = (cs) -> (u = (1, cs.u), v = cs.v)
+)
+ps, st = LuxCore.setup(rng, controls)
+controls(0.0, ps, st)
+
+@code_warntype controls(0.0, ps, st)
+
+
+#= @testset "Correct assignment of symbols" begin
     function egerstedt(du, u, p, t)
         x, y, _ = u
         u1, u2, u3 = p
@@ -77,3 +91,4 @@ c5 = ControlParameter(1.0:10.0, bounds = (ones(10), -ones(10)), controls = colle
     @test all(0.3 .<= sol[:con2] .<= 0.5)
     @test all(0.0 .<= sol[:con1] .<= 0.2)
 end
+ =#
