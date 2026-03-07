@@ -16,20 +16,25 @@ control = ControlParameter(0.0:0.1:10.0)
 control = ControlParameter(0.0:0.1:10.0; name = :u, controls = (rng, t) -> rand(rng, length(t)), bounds = t -> (zeros(length(t)), ones(length(t))))
 ```
 """
-struct ControlParameter{T,C,B,SHOOTED} <: LuxCore.AbstractLuxLayer
+struct ControlParameter{T,C,B,SHOOTED, S} <: LuxCore.AbstractLuxLayer
     "The name of the control"
-    name::Symbol
+    name::S 
     "The timepoints at which discretized variables are introduced. If empty, we assume a single value constant over time."
     t::T
     "The initial values for the controls in form of a function (rng, t) -> values. Defaults to [`default_controls`](@ref)."
     controls::C
     "The bounds for the control values in form of a function (t) -> (lower_bounds, upper_bounds). Defaults to `nothing`, which corresponds to unbounded controls derived from the controls."
-    bounds::B
+    bounds::B 
 
-    function ControlParameter(t::AbstractVector; name::Symbol=gensym(:u), controls::Function=default_controls, bounds::Union{Nothing,Function}=nothing, shooted::Bool=false)
-        return new{typeof(t),typeof(controls),typeof(bounds),shooted}(name, t, controls, bounds)
+    function ControlParameter(t::AbstractVector; 
+        name::N=gensym(:u), 
+        controls::Function=default_controls, bounds::Union{Nothing,Function}=nothing, shooted::Bool=false, 
+        kwargs...) where N
+        return new{typeof(t),typeof(controls),typeof(bounds),shooted, N}(name, t, controls, bounds)
     end
 end
+
+LuxCore.display_name(c::ControlParameter) = Symbol(c.name)
 
 """
 $(FUNCTIONNAME)
@@ -56,6 +61,8 @@ get_upper_bound(layer::ControlParameter{<:Any,<:Any,<:Function}) = last(layer.bo
 
 get_bounds(layer::ControlParameter) = (get_lower_bound(layer), get_upper_bound(layer))
 
+
+
 ControlParameter(x::Base.Pair{Symbol,<:AbstractVector}) = ControlParameter(last(x), name=first(x))
 ControlParameter(x::Base.Pair{Symbol,<:Base.AbstractRange}) = ControlParameter(collect(last(x)), name=first(x))
 
@@ -72,6 +79,7 @@ end
 ControlParameter(x::ControlParameter) = x
 ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter constructor: $x"))
 
+get_timegrid(layer::ControlParameter) = layer.t
 
 _maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t) 
 
@@ -127,7 +135,10 @@ LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
 
 find_idx(t::T, timepoints::AbstractVector) where T<:Number = searchsortedlast(timepoints, t)
 
-function (::ControlParameter)(tcurrent, controls, st::NamedTuple)
+function _eval_control(tcurrent, controls, st)
+end
+
+function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     (; t, current_index, first_index, last_index) = st
     if current_index == last_index && tcurrent >= t[last_index]
         return controls[current_index], st
@@ -137,6 +148,13 @@ function (::ControlParameter)(tcurrent, controls, st::NamedTuple)
     current_index = clamp(find_idx(tcurrent, t), first_index, last_index)
     return controls[current_index], merge(st, (; current_index))
 end
+
+function (layer::ControlParameter)(t::AbstractVector, controls, st)
+    ll = LuxCore.StatefulLuxLayer{true}(layer, controls, st)
+    map(Base.Fix2(ll, controls), t), ll.st
+end
+
+
 
 """
 $(TYPEDEF)
@@ -173,6 +191,11 @@ struct ControlParameters{C<:NamedTuple,T} <: LuxCore.AbstractLuxWrapperLayer{:co
     transform::T
 end
 
+get_timegrid(layer::ControlParameters) = begin
+    timegrids = map(Corleone.get_timegrid, values(layer.controls))
+    reduce(vcat, filter(!isempty, timegrids))
+end
+
 function ControlParameters(controls::NamedTuple; name::Symbol=gensym(:controls), transform=identity, kwargs...)
     return ControlParameters{typeof(controls),typeof(transform)}(name, controls, transform)
 end
@@ -186,8 +209,12 @@ end
 
 function (layer::ControlParameters)(tnow, ps, st)
     (; transform) = layer
-    cs, st = _eval_controls(layer.controls, tnow, ps, st)
+    cs, st = _apply(layer, tnow, ps, st)
     return transform(cs), st
+end
+
+function _apply(layer::ControlParameters, tnow, ps, st)
+    return _eval_controls(layer.controls, tnow, ps, st)
 end
 
 @generated function _eval_controls(controls::NamedTuple{fields}, t, ps, st) where {fields}
@@ -205,3 +232,4 @@ end
     ex = Expr(:block, expr...)
     return ex
 end
+

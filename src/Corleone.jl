@@ -39,6 +39,9 @@ is_shooted(layer::AbstractLuxLayer) = false
 # Random
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
+# TODO We need to set this using Preferences 
+const MAXBINSIZE = 100
+
 include("trajectory.jl")
 export Trajectory
 
@@ -47,6 +50,9 @@ export ControlParameter, ControlParameters
 
 include("initializers.jl")
 export InitialCondition
+
+include("single_shooting.jl")
+export SingleShootingLayer
 
 #include("local_controls.jl")
 #export ControlParameter

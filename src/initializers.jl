@@ -36,6 +36,13 @@ get_upper_bound(layer::InitialCondition{<:Any,<:Function,}) = last(layer.bounds(
 
 get_bounds(layer::InitialCondition) = (get_lower_bound(layer), get_upper_bound(layer))
 
+get_tspan(layer::InitialCondition) = layer.problem.tspan
+
+get_timegrid(layer::InitialCondition) = begin 
+    tspan = collect(layer.problem.tspan)
+    saveats = get(layer.problem.kwargs, :saveat, eltype(tspan)[])
+    vcat(tspan, saveats)
+end
 
 function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol=gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
     @assert isempty(setdiff(tunable_ic, eachindex(prob.u0))) "Tunable initial condition indices must be within the bounds of the initial condition vector."
