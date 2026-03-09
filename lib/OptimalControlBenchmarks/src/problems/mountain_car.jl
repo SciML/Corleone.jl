@@ -1,0 +1,65 @@
+module mountain_car
+
+using ModelingToolkit
+using ModelingToolkit: t_nounits as t, D_nounits as D
+using Symbolics
+using ..OptimalControlBenchmarks: OptimalControlBenchmark
+
+function make_problem()
+
+    num_states = 3
+    num_controls = 1
+    
+    @variables begin
+        x(..) = -0.5, [tunable = false]
+        v(..) = 0., [tunable = false]
+        obj(..) = 0., [tunable = false]
+        u(..) = 0.5, [bounds = (-1., 1.), input = true]
+    end
+    
+    @parameters begin
+        tₛ = 1., [bounds = (1.e-3, Inf), tunable = true]
+    end
+    
+    eqs = [
+        D(x(t)) ~ tₛ * v(t)
+        D(v(t)) ~ tₛ * (1.e-3 * u(t) - 2.5e-3 * cos(3 * x(t)))
+        D(obj(t)) ~ tₛ
+    ]
+    
+    # Define control discretization
+    tspan = (0.,100.)
+    dt = 2.
+    cgrid = collect(0.0:dt:last(tspan))
+    
+    cons = [
+        x(last(tspan)) ~ 0.5,
+        v(last(tspan)) ≳ 0.
+    ]
+    
+    costs = [obj(last(tspan))]
+
+    @named oc_problem = System(
+        eqs,
+        t;
+        costs = costs,
+        constraints = cons
+    )
+
+    return (
+        system = oc_problem,
+        control_grid = cgrid,
+        num_states = num_states,
+        num_controls = num_controls
+    )
+
+end
+
+
+benchmark = OptimalControlBenchmark(
+    :mountain_car,
+    "Double integrator with quadratic control cost",
+    make_problem
+)
+
+end

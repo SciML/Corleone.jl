@@ -1,4 +1,4 @@
-module egerstedt
+module electric_car
 
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
@@ -81,7 +81,7 @@ end
 
 
 benchmark = OptimalControlBenchmark(
-    :egerstedt,
+    :electric_car,
     "Double integrator with quadratic control cost",
     make_problem
 )
