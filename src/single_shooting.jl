@@ -69,18 +69,35 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
         timestops = timegrid, 
         initial_conditions = LuxCore.initialstates(rng, initial_conditions),
         controls = LuxCore.initialstates(rng, controls),
-        system = sys, 
-        control_getters = getsym(sys, keys(controls.controls)), 
-        state_getters = getsym(sys, variable_symbols(sys)),        
+        system = sys,     
     )
 end
 
-function (layer::SingleShootingLayer)(::Any, ps, st)
-    (; algorithm, initial_conditions, controls) = layer
-    # We evaluate the problem
-    problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
-    solutions = eval_problem(problem, algorithm, controls, ps.controls, st.controls, true, st.timestops...)
-    return Trajectory(layer, solutions, ps,  merge(st, (; initial_conditions = st_ic,)))
+@generated function (layer::SingleShootingLayer{A, U0, C})(::Any, ps::PS, st::ST) where {A, U0, C, PS, ST}
+    problem_type = fieldtype(U0, :problem)
+    system_type = fieldtype(ST, :system)
+    u_type = Vector{fieldtype(problem_type, :u0)}
+    p_type = fieldtype(problem_type, :p)
+    t_type = Vector{eltype(fieldtype(problem_type, :tspan))}
+
+    ps_controls_type = fieldtype(PS, :controls)
+    control_ps_types = ps_controls_type.parameters[2].parameters
+    signal_types = map(control_ps_types) do pt
+        values_type = pt <: AbstractArray ? Vector{eltype(pt)} : Vector{pt}
+        ControlSignal{t_type, values_type}
+    end
+    cseries_type = Tuple{signal_types...}
+    controlseries_type = ParameterTimeseriesCollection{cseries_type, p_type}
+    traj_type = Trajectory{system_type, u_type, p_type, t_type, controlseries_type, Nothing}
+
+    return quote
+        (; algorithm, initial_conditions, controls) = layer
+        problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
+        solutions = eval_problem(problem, algorithm, controls, ps.controls, st.controls, true, st.timestops...)
+        st_new = (; st..., initial_conditions = st_ic)
+        traj = Trajectory(layer, solutions, ps, st_new)
+        return traj::$traj_type
+    end
 end
 
 
@@ -146,14 +163,19 @@ function _eval_control_signal(control::ControlParameter, p, st, t)
     return values
 end
 
-@generated function _control_timeseries(controls::NamedTuple{names}, ps::NamedTuple{names}, st::NamedTuple{names}, t) where {names}
+@generated function _control_timeseries(
+    controls::NamedTuple{names, C},
+    ps::NamedTuple{names, P},
+    st::NamedTuple{names, S},
+    t::T,
+) where {names, C, P, S, T}
     exprs = map(names) do nm
         :(ControlSignal(t, _eval_control_signal(controls.$nm, ps.$nm, st.$nm, t)))
     end
     return Expr(:tuple, exprs...)
 end
 
-function Trajectory(layer::SingleShootingLayer, solutions, ps, st)
+function Trajectory(layer::SingleShootingLayer, solutions::NTuple{N, S}, ps::PS, st::ST) where {N, S, PS, ST}
     (; system, ) = st
     controls = layer.controls.controls
     u = _flatten_states(solutions)

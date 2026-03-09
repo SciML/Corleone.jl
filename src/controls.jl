@@ -34,7 +34,9 @@ struct ControlParameter{T,C,B,SHOOTED, S} <: LuxCore.AbstractLuxLayer
     end
 end
 
-LuxCore.display_name(c::ControlParameter) = Symbol(c.name)
+LuxCore.display_name(c::ControlParameter) = Symbol(c)
+
+Base.Symbol(c::ControlParameter) = Symbol(c.name)
 
 """
 $(FUNCTIONNAME)
@@ -119,9 +121,9 @@ end
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = begin
     lb, ub = Corleone.get_bounds(control)
-    #(;
-    controls = clamp.(control.controls(rng, control.t), lb, ub)
-    #)
+    controls = map(zip(control.controls(rng, control.t), lb, ub)) do (c, l, u)
+        clamp.(c, l, u)
+    end
 end
 
 LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
@@ -202,7 +204,7 @@ end
 
 function ControlParameters(controls...; kwargs...)
     controls = map(ControlParameter, controls)
-    names = map(c -> c.name, controls)
+    names = map(c -> Symbol(c), controls)
     controls = NamedTuple{names}(controls)
     return ControlParameters(controls; kwargs...)
 end
