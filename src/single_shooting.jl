@@ -1,3 +1,11 @@
+"""
+$(TYPEDEF)
+
+Single-shooting layer coupling initial conditions and controls for trajectory simulation.
+
+# Fields
+$(FIELDS)
+"""
 struct SingleShootingLayer{A, U0, C} <: LuxCore.AbstractLuxContainerLayer{(:initial_conditions, :controls)}
     "The name of the container"
     name::Symbol
@@ -9,15 +17,30 @@ struct SingleShootingLayer{A, U0, C} <: LuxCore.AbstractLuxContainerLayer{(:init
     controls::C
 end
 
+"""
+$(SIGNATURES)
+
+Construct a [`SingleShootingLayer`](@ref) from pre-built initial-condition and control layers.
+"""
 function SingleShootingLayer(initial_conditions::InitialCondition, controls::ControlParameters; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting))
     return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
+"""
+$(SIGNATURES)
+
+Construct a [`SingleShootingLayer`](@ref) from an initial-condition layer and control specifications.
+"""
 function SingleShootingLayer(initial_conditions::InitialCondition, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting))
     controls = ControlParameters(controls...)
     return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
+"""
+$(SIGNATURES)
+
+Construct a [`SingleShootingLayer`](@ref) directly from a `DEProblem` and control specifications.
+"""
 function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting), kwargs...)
     _, repack, _ = SciMLStructures.canonicalize(
         SciMLStructures.Tunable(), problem.p
@@ -27,8 +50,18 @@ function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorith
     return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
+"""
+$(SIGNATURES)
+
+Return unicode subscript string for positive integer `i`.
+"""
 _subscript(i::Integer) = (i |> digits |> reverse .|> dgt -> Char(0x2080 + dgt)) |> join
 
+"""
+$(SIGNATURES)
+
+Build a default symbolic system cache when the problem has no symbolic container.
+"""
 function default_system(problem::SciMLBase.DEProblem, controls)
     states = [Symbol(:x, _subscript(i)) for i in eachindex(problem.u0)]
     ps = collect(keys(controls.controls))
@@ -36,14 +69,28 @@ function default_system(problem::SciMLBase.DEProblem, controls)
     return SymbolCache(states, ps, t)
 end
 
+"""
+$(SIGNATURES)
+
+Return a symbolic system with control parameters registered as time series.
+"""
 function get_new_system(problem, controls)
-    sys = something(
-        symbolic_container(problem.f),
-        default_system(problem, controls)
-    )
-    return remake_system(sys, controls)
+    sys = symbolic_container(problem.f)
+    if isnothing(sys) || isnothing(variable_symbols(sys)) || isnothing(parameter_symbols(sys))
+        sys = default_system(problem, controls)
+    end
+    try
+        return remake_system(sys, controls)
+    catch
+        return remake_system(default_system(problem, controls), controls)
+    end
 end
 
+"""
+$(SIGNATURES)
+
+Rebuild `sys` with control names mapped to `ParameterTimeseriesIndex` entries.
+"""
 function remake_system(sys::SymbolCache, controls)
     return SymbolCache(
         variable_symbols(sys), parameter_symbols(sys), independent_variable_symbols(sys);
@@ -53,6 +100,11 @@ function remake_system(sys::SymbolCache, controls)
     )
 end
 
+"""
+$(SIGNATURES)
+
+Initialize runtime state for single-shooting evaluation, including binned time stops.
+"""
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     (; initial_conditions, controls) = layer
     timegrid = vcat(Corleone.get_timegrid(initial_conditions), Corleone.get_timegrid(controls))
@@ -62,9 +114,15 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     timegrid = collect(zip(timegrid[1:(end - 1)], timegrid[2:end]))
     # We bin the timegrid now to avoid recursion errors
     N = length(timegrid)
-    partions = vcat(collect(1:MAXBINSIZE:N), N)
-    unique!(partions)
-    timegrid = ntuple(i -> Tuple(timegrid[partions[i]:partions[i + 1]]), length(partions) - 1)
+    if N == 0
+        timegrid = [(t0, tinf)]
+        N = 1
+    end
+    partitions = collect(1:MAXBINSIZE:N)
+    if isempty(partitions) || last(partitions) != (N + 1)
+        push!(partitions, N + 1)
+    end
+    timegrid = ntuple(i -> Tuple(timegrid[partitions[i]:(partitions[i + 1] - 1)]), length(partitions) - 1)
     # Define the system for the symbolic indexing interface
     sys = get_new_system(initial_conditions.problem, controls)
     return (;
@@ -75,6 +133,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     )
 end
 
+"""
+$(SIGNATURES)
+
+Evaluate the layer and return a [`Trajectory`](@ref).
+"""
 function (layer::SingleShootingLayer)(::Any, ps, st)
     (; algorithm, initial_conditions, controls) = layer
     problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
@@ -83,6 +146,11 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     return Trajectory(layer, solutions, merge(st, (; controls = st_controls)))
 end
 
+"""
+$(SIGNATURES)
+
+Generated helper that solves one tuple block of trajectory intervals.
+"""
 @generated function _eval_problem(problem, algorithm, save_start, trajectory::Tuple{Vararg{NamedTuple, N}}) where {N}
     sols = [gensym() for _ in Base.OneTo(N)]
     exprs = Expr[]
@@ -104,6 +172,11 @@ end
     return ex
 end
 
+"""
+$(SIGNATURES)
+
+Recursively evaluate all trajectory bins for a single-shooting problem.
+"""
 function eval_problem(problem, algorithm, save_start, trajectory::Tuple)
     current_solution, problem = _eval_problem(problem, algorithm, save_start, Base.first(trajectory))
     length(trajectory) == 1 && return current_solution
@@ -117,6 +190,11 @@ function eval_problem(problem, algorithm, save_start, trajectory::Tuple)
 end
 
 
+"""
+$(SIGNATURES)
+
+Construct a [`Trajectory`](@ref) from solved single-shooting segments.
+"""
 function Trajectory(::SingleShootingLayer, solutions, st)
     (; system) = st
     u = reduce(vcat, map(sol -> sol.u, solutions))

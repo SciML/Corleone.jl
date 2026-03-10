@@ -36,8 +36,18 @@ struct ControlParameter{T, C, B, SHOOTED, S} <: LuxCore.AbstractLuxLayer
     end
 end
 
+"""
+$(SIGNATURES)
+
+Return display name used by Lux for this control parameter.
+"""
 LuxCore.display_name(c::ControlParameter) = Symbol(c)
 
+"""
+$(SIGNATURES)
+
+Return symbolic control name.
+"""
 Base.Symbol(c::ControlParameter) = Symbol(c.name)
 
 """
@@ -57,18 +67,61 @@ Checks if the control is shooted, i.e., if it has a value which will be constrai
 """
 is_shooted(::ControlParameter{<:Any, <:Any, <:Any, SHOOTED}) where {SHOOTED} = SHOOTED
 
+"""
+$(SIGNATURES)
+
+Return lower bounds for an unbounded [`ControlParameter`](@ref).
+"""
 get_lower_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), -Inf)
+
+"""
+$(SIGNATURES)
+
+Return upper bounds for an unbounded [`ControlParameter`](@ref).
+"""
 get_upper_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), Inf)
 
+"""
+$(SIGNATURES)
+
+Return lower bounds for a bounded [`ControlParameter`](@ref).
+"""
 get_lower_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = first(layer.bounds(layer.t))
+
+"""
+$(SIGNATURES)
+
+Return upper bounds for a bounded [`ControlParameter`](@ref).
+"""
 get_upper_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = last(layer.bounds(layer.t))
 
+"""
+$(SIGNATURES)
+
+Return lower and upper bounds of a [`ControlParameter`](@ref).
+"""
 get_bounds(layer::ControlParameter) = (get_lower_bound(layer), get_upper_bound(layer))
 
 
+"""
+$(SIGNATURES)
+
+Construct a [`ControlParameter`](@ref) from a `name => timepoints` pair.
+"""
 ControlParameter(x::Base.Pair{Symbol, <:AbstractVector}) = ControlParameter(last(x), name = first(x))
+
+"""
+$(SIGNATURES)
+
+Construct a [`ControlParameter`](@ref) from a `name => range` pair.
+"""
 ControlParameter(x::Base.Pair{Symbol, <:Base.AbstractRange}) = ControlParameter(collect(last(x)), name = first(x))
 
+"""
+$(SIGNATURES)
+
+Construct a [`ControlParameter`](@ref) from a `name => (t, controls, bounds, shooted)` named tuple.
+"""
 ControlParameter(x::Base.Pair{Symbol, <:NamedTuple}) = begin
     nt = last(x)
     ControlParameter(
@@ -80,13 +133,39 @@ ControlParameter(x::Base.Pair{Symbol, <:NamedTuple}) = begin
     )
 end
 
+"""
+$(SIGNATURES)
+
+Identity constructor for already-instantiated [`ControlParameter`](@ref).
+"""
 ControlParameter(x::ControlParameter) = x
+
+"""
+$(SIGNATURES)
+
+Throw an informative error for unsupported control constructor input.
+"""
 ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter constructor: $x"))
 
+"""
+$(SIGNATURES)
+
+Return the time grid on which `layer` is discretized.
+"""
 get_timegrid(layer::ControlParameter) = layer.t
 
+"""
+$(SIGNATURES)
+
+Return extrema of `t`, or `(0.0, 0.0)` for an empty vector.
+"""
 _maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t)
 
+"""
+$(SIGNATURES)
+
+Create a modified [`ControlParameter`](@ref), optionally restricting its support to `tspan`.
+"""
 function SciMLBase.remake(
         layer::ControlParameter;
         name::Symbol = layer.name,
@@ -122,6 +201,11 @@ function SciMLBase.remake(
     return ControlParameter(t[mask]; name, controls, bounds, shooted)
 end
 
+"""
+$(SIGNATURES)
+
+Initialize controls and clamp them to their bounds.
+"""
 LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = begin
     lb, ub = Corleone.get_bounds(control)
     controls = map(zip(control.controls(rng, control.t), lb, ub)) do (c, l, u)
@@ -129,6 +213,11 @@ LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = 
     end
 end
 
+"""
+$(SIGNATURES)
+
+Initialize runtime state for evaluating `control`.
+"""
 LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
     t = control.t,
     current_index = firstindex(control.t),
@@ -138,6 +227,11 @@ LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
     # Maybe build a tree structure
 )
 
+"""
+$(SIGNATURES)
+
+Find the active control segment index at time `t`.
+"""
 find_idx(t::T, timepoints::AbstractVector) where {T <: Number} = searchsortedlast(timepoints, t)
 
 
@@ -152,6 +246,11 @@ function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     return controls[current_index], merge(st, (; current_index))
 end
 
+"""
+$(SIGNATURES)
+
+Evaluate `layer` over all query times in `t`.
+"""
 function LuxCore.apply(layer::ControlParameter, t::AbstractVector, controls, st)
     ll = LuxCore.StatefulLuxLayer{true}(layer, controls, st)
     return map(Base.Fix2(ll, controls), t), ll.st
@@ -193,15 +292,30 @@ struct ControlParameters{C <: NamedTuple, T} <: LuxCore.AbstractLuxWrapperLayer{
     transform::T
 end
 
+"""
+$(SIGNATURES)
+
+Return the merged time grid of all controls in `layer`.
+"""
 get_timegrid(layer::ControlParameters) = begin
     timegrids = map(Corleone.get_timegrid, values(layer.controls))
     reduce(vcat, filter(!isempty, timegrids))
 end
 
+"""
+$(SIGNATURES)
+
+Construct [`ControlParameters`](@ref) from a named tuple of controls.
+"""
 function ControlParameters(controls::NamedTuple; name::Symbol = gensym(:controls), transform = identity, kwargs...)
     return ControlParameters{typeof(controls), typeof(transform)}(name, controls, transform)
 end
 
+"""
+$(SIGNATURES)
+
+Construct [`ControlParameters`](@ref) from varargs control specifications.
+"""
 function ControlParameters(controls...; kwargs...)
     controls = map(ControlParameter, controls)
     names = map(c -> Symbol(c), controls)
@@ -209,31 +323,61 @@ function ControlParameters(controls...; kwargs...)
     return ControlParameters(controls; kwargs...)
 end
 
+"""
+$(SIGNATURES)
+
+Evaluate controls for one integration interval `(t0, tinf)`.
+"""
 function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where {T <: Number}
     (; transform) = layer
     cs, st = _apply(layer, t0, ps, st)
     return (; p = transform(cs), tspan = (t0, tinf)), st
 end
 
+"""
+$(SIGNATURES)
+
+Evaluate controls over a tuple of interval bins.
+"""
 function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
     ll = LuxCore.StatefulLuxLayer{true}(layer, ps, st)
     return reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
 end
 
+"""
+$(SIGNATURES)
+
+Apply `reducer` elementwise to a fixed-size tuple of bins.
+"""
 function reduce_controls(reducer::R, bins::NTuple{N, Tuple{T, T}}) where {R, N, T <: Number}
     return map(reducer, bins)
 end
 
+"""
+$(SIGNATURES)
+
+Apply `reducer` recursively to a heterogeneously-typed tuple of bins.
+"""
 function reduce_controls(reducer, bins::Tuple)
     current = reduce_controls(reducer, Base.first(bins))
     length(bins) == 1 && return (current,)
     return (current, reduce_controls(reducer, Base.tail(bins))...)
 end
 
+"""
+$(SIGNATURES)
+
+Internal helper to evaluate all controls at `tnow`.
+"""
 function _apply(layer::ControlParameters, tnow, ps, st)
     return _eval_controls(layer.controls, tnow, ps, st)
 end
 
+"""
+$(SIGNATURES)
+
+Generated evaluator for all controls in a named tuple.
+"""
 @generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T, fields}
     returns = [gensym() for _ in fields]
     rt_states = [gensym() for _ in fields]

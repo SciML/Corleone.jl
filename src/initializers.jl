@@ -27,22 +27,64 @@ struct InitialCondition{P, B} <: LuxCore.AbstractLuxLayer
     quadrature_indices::Vector{Int}
 end
 
+"""
+$(SIGNATURES)
+
+Return lower bounds for tunable initial conditions.
+"""
 get_lower_bound(layer::InitialCondition{<:Any, Nothing}) = to_val(layer.problem.u0[layer.tunable_ic], -Inf)
+
+"""
+$(SIGNATURES)
+
+Return upper bounds for tunable initial conditions.
+"""
 get_upper_bound(layer::InitialCondition{<:Any, Nothing}) = to_val(layer.problem.u0[layer.tunable_ic], Inf)
 
+"""
+$(SIGNATURES)
+
+Return user-defined lower bounds at initial time.
+"""
 get_lower_bound(layer::InitialCondition{<:Any, <:Function}) = first(layer.bounds(layer.problem.tspan[1]))
+
+"""
+$(SIGNATURES)
+
+Return user-defined upper bounds at initial time.
+"""
 get_upper_bound(layer::InitialCondition{<:Any, <:Function}) = last(layer.bounds(layer.problem.tspan[1]))
 
+"""
+$(SIGNATURES)
+
+Return lower and upper bounds for tunable initial conditions.
+"""
 get_bounds(layer::InitialCondition) = (get_lower_bound(layer), get_upper_bound(layer))
 
+"""
+$(SIGNATURES)
+
+Return integration time span of the underlying problem.
+"""
 get_tspan(layer::InitialCondition) = layer.problem.tspan
 
+"""
+$(SIGNATURES)
+
+Return a merged initial-condition time grid from `tspan` and `saveat`.
+"""
 get_timegrid(layer::InitialCondition) = begin
     tspan = collect(layer.problem.tspan)
     saveats = get(layer.problem.kwargs, :saveat, eltype(tspan)[])
     vcat(tspan, saveats)
 end
 
+"""
+$(SIGNATURES)
+
+Construct an [`InitialCondition`](@ref) layer from a SciML differential equation problem.
+"""
 function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol = gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
     @assert isempty(setdiff(tunable_ic, eachindex(prob.u0))) "Tunable initial condition indices must be within the bounds of the initial condition vector."
     @assert isempty(setdiff(quadrature_indices, eachindex(prob.u0))) "Quadrature indices must be within the bounds of the initial condition vector."
@@ -51,6 +93,11 @@ function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol = gensym(:prob
     return InitialCondition{typeof(prob), typeof(bounds)}(name, prob, tunable_ic, bounds, quadrature_indices)
 end
 
+"""
+$(SIGNATURES)
+
+Initialize tunable initial-condition parameters from `problem.u0`.
+"""
 LuxCore.initialparameters(::Random.AbstractRNG, layer::InitialCondition) = begin
     (; problem) = layer
     (; u0) = problem
@@ -58,8 +105,18 @@ LuxCore.initialparameters(::Random.AbstractRNG, layer::InitialCondition) = begin
     deepcopy(u0[tunable_ic])
 end
 
+"""
+$(SIGNATURES)
+
+Return number of tunable initial-condition parameters.
+"""
 LuxCore.parameterlength(layer::InitialCondition) = length(layer.tunable_ic)
 
+"""
+$(SIGNATURES)
+
+Initialize runtime state needed to rebuild `u0` from tunable and fixed components.
+"""
 LuxCore.initialstates(::Random.AbstractRNG, layer::InitialCondition) = begin
     (; problem, tunable_ic, quadrature_indices) = layer
     (; u0) = problem
@@ -71,6 +128,11 @@ LuxCore.initialstates(::Random.AbstractRNG, layer::InitialCondition) = begin
     return (; u0 = deepcopy(u0), keeps, replaces, quadrature_indices)
 end
 
+"""
+$(SIGNATURES)
+
+Apply initial-condition parameters `ps` and return a remade SciML problem.
+"""
 function (layer::InitialCondition)(::Any, ps, st::NamedTuple)
     (; problem) = layer
     (; u0, keeps, replaces) = st
@@ -78,6 +140,11 @@ function (layer::InitialCondition)(::Any, ps, st::NamedTuple)
     return SciMLBase.remake(problem, u0 = u0_new), st
 end
 
+"""
+$(SIGNATURES)
+
+Create a modified [`InitialCondition`](@ref) by remaking its wrapped problem and metadata.
+"""
 function SciMLBase.remake(
         layer::InitialCondition;
         name::Symbol = layer.name,
