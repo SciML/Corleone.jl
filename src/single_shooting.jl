@@ -58,6 +58,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     t0, tinf = get_tspan(initial_conditions)
     timegrid = filter(t -> t >= t0 && t <= tinf, timegrid)
     unique!(sort!(timegrid))
+	timegrid = collect(zip(timegrid[1:end-1], timegrid[2:end]))
     # We bin the timegrid now to avoid recursion errors 
     N = length(timegrid)
     partions = vcat(collect(1:MAXBINSIZE:N), N)
@@ -78,17 +79,16 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
     inputs, st_controls = controls(st.timestops, ps.controls, st.controls)
     solutions = eval_problem(problem, algorithm, true, inputs)
-    traj = Trajectory(layer, solutions, st)
+	return Trajectory(layer, solutions, merge(st, (; controls = st_controls)))
 end
 
 @generated function _eval_problem(problem, algorithm, save_start, trajectory::Tuple{Vararg{NamedTuple, N}}) where N 
-    sols  = [gensym() for _ in Base.OneTo(N-1)]
+    sols  = [gensym() for _ in Base.OneTo(N)]
 	exprs = Expr[]
-	
-    for i in Base.OneTo(N-1)
+    for i in Base.OneTo(N)
 		push!(exprs, :(sol = solve(problem, algorithm, 
 									p=trajectory[$(i)].p, 
-									tspan = (trajectory[$i].t, trajectory[$(i+1)].t), save_everystep=false, save_start= $(i == 1) && save_start, save_end=true))) 
+									tspan = trajectory[$i].tspan, save_everystep=false, save_start= $(i == 1) && save_start, save_end=true))) 
 		push!(exprs, :(problem = remake(problem, u0=sol.u[end])))
 		push!(exprs, :($(sols[i]) = (; p = trajectory[$(i)].p, u = sol.u, t = sol.t)))
     end
@@ -114,8 +114,9 @@ function Trajectory(::SingleShootingLayer, solutions, st)
 	(; system) = st
     u = reduce(vcat, map(sol -> sol.u, solutions))
     t = reduce(vcat, map(sol -> sol.t, solutions))
-	p = reduce(vcat, map(sol -> sol.p, solutions))     
-	controlseries = ParameterTimeseriesCollection((ControlSignal(t, p),), deepcopy(first(p)))
+	p = reduce(vcat, map(sol -> sol.p, solutions))    
+	t_controls = reduce(vcat, map(sol -> first(sol.t), solutions))
+	controlseries = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
 	p = deepcopy(first(p))
 	Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
 end

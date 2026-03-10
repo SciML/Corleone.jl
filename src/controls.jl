@@ -207,10 +207,10 @@ function ControlParameters(controls...; kwargs...)
     return ControlParameters(controls; kwargs...)
 end
 
-function (layer::ControlParameters)(tnow::T, ps, st) where T<:Number
+function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where T<:Number
     (; transform) = layer
-    cs, st = _apply(layer, tnow, ps, st)
-	return (; p = transform(cs), t = tnow), st
+    cs, st = _apply(layer, t0, ps, st)
+	return (; p = transform(cs), tspan = (t0, tinf)), st
 end
 
 function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
@@ -218,7 +218,7 @@ function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
 	reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
 end
 
-function reduce_controls(reducer::R, bins::NTuple{N, <:Number}) where {R,N}
+function reduce_controls(reducer::R, bins::NTuple{N, Tuple{T, T}}) where {R,N,T <: Number}
 	map(reducer, bins) 
 end
 
