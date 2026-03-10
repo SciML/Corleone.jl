@@ -1,4 +1,3 @@
-
 """
 $(TYPEDEF)
 
@@ -14,12 +13,12 @@ using OrdinaryDiffEq
 prob = ODEProblem((u, p, t) -> -p[1] .* u, [1.0, 0.0], (0.0, 10.0), [0.5])
 layer = InitialCondition(prob, name = :linear_problem, tunable_ic = [1, ])
 ``` 
-"""    
+"""
 struct InitialCondition{P, B} <: LuxCore.AbstractLuxLayer
     "The name of the layer"
     name::Symbol
     "The <:DEProblem defining the dynamics"
-    problem::P 
+    problem::P
     "The indices of the initial condition that are tunable parameters in the optimization problem"
     tunable_ic::Vector{Int}
     "The bounds of the initial conditions. Expects either nothing for unbounded parameters or a function of the form (t0) -> (lower_bounds, upper_bounds)."
@@ -28,26 +27,26 @@ struct InitialCondition{P, B} <: LuxCore.AbstractLuxLayer
     quadrature_indices::Vector{Int}
 end
 
-get_lower_bound(layer::InitialCondition{<:Any,Nothing,}) = to_val(layer.problem.u0[layer.tunable_ic], -Inf)
-get_upper_bound(layer::InitialCondition{<:Any,Nothing,}) = to_val(layer.problem.u0[layer.tunable_ic], Inf)
+get_lower_bound(layer::InitialCondition{<:Any, Nothing}) = to_val(layer.problem.u0[layer.tunable_ic], -Inf)
+get_upper_bound(layer::InitialCondition{<:Any, Nothing}) = to_val(layer.problem.u0[layer.tunable_ic], Inf)
 
-get_lower_bound(layer::InitialCondition{<:Any,<:Function,}) = first(layer.bounds(layer.problem.tspan[1]))
-get_upper_bound(layer::InitialCondition{<:Any,<:Function,}) = last(layer.bounds(layer.problem.tspan[1]))
+get_lower_bound(layer::InitialCondition{<:Any, <:Function}) = first(layer.bounds(layer.problem.tspan[1]))
+get_upper_bound(layer::InitialCondition{<:Any, <:Function}) = last(layer.bounds(layer.problem.tspan[1]))
 
 get_bounds(layer::InitialCondition) = (get_lower_bound(layer), get_upper_bound(layer))
 
 get_tspan(layer::InitialCondition) = layer.problem.tspan
 
-get_timegrid(layer::InitialCondition) = begin 
+get_timegrid(layer::InitialCondition) = begin
     tspan = collect(layer.problem.tspan)
     saveats = get(layer.problem.kwargs, :saveat, eltype(tspan)[])
     vcat(tspan, saveats)
 end
 
-function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol=gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
+function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol = gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
     @assert isempty(setdiff(tunable_ic, eachindex(prob.u0))) "Tunable initial condition indices must be within the bounds of the initial condition vector."
     @assert isempty(setdiff(quadrature_indices, eachindex(prob.u0))) "Quadrature indices must be within the bounds of the initial condition vector."
-    @assert isempty(intersect(tunable_ic, quadrature_indices)) "Tunable initial condition indices and quadrature indices must be disjoint." 
+    @assert isempty(intersect(tunable_ic, quadrature_indices)) "Tunable initial condition indices and quadrature indices must be disjoint."
 
     return InitialCondition{typeof(prob), typeof(bounds)}(name, prob, tunable_ic, bounds, quadrature_indices)
 end
@@ -75,24 +74,25 @@ end
 function (layer::InitialCondition)(::Any, ps, st::NamedTuple)
     (; problem) = layer
     (; u0, keeps, replaces) = st
-    u0_new = keeps .* u0 .+ replaces * ps 
-    return SciMLBase.remake(problem, u0 = u0_new) , st
+    u0_new = keeps .* u0 .+ replaces * ps
+    return SciMLBase.remake(problem, u0 = u0_new), st
 end
 
-function SciMLBase.remake(layer::InitialCondition;
-    name::Symbol=layer.name,
-    problem::SciMLBase.DEProblem=layer.problem,
-    tunable_ic::Vector{Int}=layer.tunable_ic,
-    bounds = layer.bounds,
-    quadrature_indices::Vector{Int} = layer.quadrature_indices,
-    kwargs...,
-)
+function SciMLBase.remake(
+        layer::InitialCondition;
+        name::Symbol = layer.name,
+        problem::SciMLBase.DEProblem = layer.problem,
+        tunable_ic::Vector{Int} = layer.tunable_ic,
+        bounds = layer.bounds,
+        quadrature_indices::Vector{Int} = layer.quadrature_indices,
+        kwargs...,
+    )
     m = which(SciMLBase.remake, (typeof(problem),))
     kw = Base.kwarg_decl(m)
     _kwargs = NamedTuple()
     if !isempty(kw)
         _kwargs = (; (k => v for (k, v) in pairs(kwargs) if k in kw)...)
-    end 
+    end
     problem = remake(problem; _kwargs...)
     return InitialCondition(problem; name, tunable_ic, bounds, quadrature_indices)
 end

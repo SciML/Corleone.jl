@@ -16,7 +16,7 @@ control = ControlParameter(0.0:0.1:10.0)
 control = ControlParameter(0.0:0.1:10.0; name = :u, controls = (rng, t) -> rand(rng, length(t)), bounds = t -> (zeros(length(t)), ones(length(t))))
 ```
 """
-struct ControlParameter{T,C,B,SHOOTED,S} <: LuxCore.AbstractLuxLayer
+struct ControlParameter{T, C, B, SHOOTED, S} <: LuxCore.AbstractLuxLayer
     "The name of the control"
     name::S
     "The timepoints at which discretized variables are introduced. If empty, we assume a single value constant over time."
@@ -26,11 +26,13 @@ struct ControlParameter{T,C,B,SHOOTED,S} <: LuxCore.AbstractLuxLayer
     "The bounds for the control values in form of a function (t) -> (lower_bounds, upper_bounds). Defaults to `nothing`, which corresponds to unbounded controls derived from the controls."
     bounds::B
 
-    function ControlParameter(t::AbstractVector;
-        name::N=gensym(:u),
-        controls::Function=default_controls, bounds::Union{Nothing,Function}=nothing, shooted::Bool=false,
-        kwargs...) where N
-        return new{typeof(t),typeof(controls),typeof(bounds),shooted,N}(name, t, controls, bounds)
+    function ControlParameter(
+            t::AbstractVector;
+            name::N = gensym(:u),
+            controls::Function = default_controls, bounds::Union{Nothing, Function} = nothing, shooted::Bool = false,
+            kwargs...
+        ) where {N}
+        return new{typeof(t), typeof(controls), typeof(bounds), shooted, N}(name, t, controls, bounds)
     end
 end
 
@@ -53,28 +55,28 @@ $(FUNCTIONNAME)
 
 Checks if the control is shooted, i.e., if it has a value which will be constrained via an equality constraint in the optimization problem.
 """
-is_shooted(::ControlParameter{<:Any,<:Any,<:Any,SHOOTED}) where SHOOTED = SHOOTED
+is_shooted(::ControlParameter{<:Any, <:Any, <:Any, SHOOTED}) where {SHOOTED} = SHOOTED
 
-get_lower_bound(layer::ControlParameter{<:Any,<:Any,Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), -Inf)
-get_upper_bound(layer::ControlParameter{<:Any,<:Any,Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), Inf)
+get_lower_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), -Inf)
+get_upper_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), Inf)
 
-get_lower_bound(layer::ControlParameter{<:Any,<:Any,<:Function}) = first(layer.bounds(layer.t))
-get_upper_bound(layer::ControlParameter{<:Any,<:Any,<:Function}) = last(layer.bounds(layer.t))
+get_lower_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = first(layer.bounds(layer.t))
+get_upper_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = last(layer.bounds(layer.t))
 
 get_bounds(layer::ControlParameter) = (get_lower_bound(layer), get_upper_bound(layer))
 
 
+ControlParameter(x::Base.Pair{Symbol, <:AbstractVector}) = ControlParameter(last(x), name = first(x))
+ControlParameter(x::Base.Pair{Symbol, <:Base.AbstractRange}) = ControlParameter(collect(last(x)), name = first(x))
 
-ControlParameter(x::Base.Pair{Symbol,<:AbstractVector}) = ControlParameter(last(x), name=first(x))
-ControlParameter(x::Base.Pair{Symbol,<:Base.AbstractRange}) = ControlParameter(collect(last(x)), name=first(x))
-
-ControlParameter(x::Base.Pair{Symbol,<:NamedTuple}) = begin
+ControlParameter(x::Base.Pair{Symbol, <:NamedTuple}) = begin
     nt = last(x)
-    ControlParameter(getproperty(nt, :t),
-        name=first(x),
-        controls=get(nt, :controls, default_controls),
-        bounds=get(nt, :bounds, nothing),
-        shooted=get(nt, :shooted, false),
+    ControlParameter(
+        getproperty(nt, :t),
+        name = first(x),
+        controls = get(nt, :controls, default_controls),
+        bounds = get(nt, :bounds, nothing),
+        shooted = get(nt, :shooted, false),
     )
 end
 
@@ -85,15 +87,16 @@ get_timegrid(layer::ControlParameter) = layer.t
 
 _maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t)
 
-function SciMLBase.remake(layer::ControlParameter;
-    name::Symbol=layer.name,
-    controls::Function=layer.controls,
-    bounds::Function=layer.bounds,
-    t::AbstractVector=deepcopy(layer.t),
-    tspan=_maybeextrema(t),
-    shooted=false,
-    kwargs...
-)
+function SciMLBase.remake(
+        layer::ControlParameter;
+        name::Symbol = layer.name,
+        controls::Function = layer.controls,
+        bounds::Function = layer.bounds,
+        t::AbstractVector = deepcopy(layer.t),
+        tspan = _maybeextrema(t),
+        shooted = false,
+        kwargs...
+    )
 
     mask = zeros(Bool, length(t))
 
@@ -108,7 +111,7 @@ function SciMLBase.remake(layer::ControlParameter;
             if t[i] >= t0 && t[i] < tinf
                 mask[i] = true
             end
-            if i != lastindex(t) && t[i] < t0 && t[i+1] > t0
+            if i != lastindex(t) && t[i] < t0 && t[i + 1] > t0
                 mask[i] = true
                 t[i] = t0
                 shooted = true
@@ -116,7 +119,7 @@ function SciMLBase.remake(layer::ControlParameter;
         end
     end
 
-    ControlParameter(t[mask]; name, controls, bounds, shooted)
+    return ControlParameter(t[mask]; name, controls, bounds, shooted)
 end
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = begin
@@ -127,22 +130,22 @@ LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = 
 end
 
 LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
-    t=control.t,
-    current_index=firstindex(control.t),
-    first_index=firstindex(control.t),
-    last_index=lastindex(control.t),
+    t = control.t,
+    current_index = firstindex(control.t),
+    first_index = firstindex(control.t),
+    last_index = lastindex(control.t),
     # TODO Add a fixed size hash table lookup here to avoid the linear search in find_idx for large control grids
-    # Maybe build a tree structure 
+    # Maybe build a tree structure
 )
 
-find_idx(t::T, timepoints::AbstractVector) where T<:Number = searchsortedlast(timepoints, t)
+find_idx(t::T, timepoints::AbstractVector) where {T <: Number} = searchsortedlast(timepoints, t)
 
 
 function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     (; t, current_index, first_index, last_index) = st
     if current_index == last_index && tcurrent >= t[last_index]
         return controls[current_index], st
-    elseif current_index == first_index == last_index # Constant control case 
+    elseif current_index == first_index == last_index # Constant control case
         return controls[current_index], st
     end
     current_index = clamp(find_idx(tcurrent, t), first_index, last_index)
@@ -151,9 +154,8 @@ end
 
 function LuxCore.apply(layer::ControlParameter, t::AbstractVector, controls, st)
     ll = LuxCore.StatefulLuxLayer{true}(layer, controls, st)
-    map(Base.Fix2(ll, controls), t), ll.st
+    return map(Base.Fix2(ll, controls), t), ll.st
 end
-
 
 
 """
@@ -182,7 +184,7 @@ controls = ControlParameters(
 )
 ```
 """
-struct ControlParameters{C<:NamedTuple,T} <: LuxCore.AbstractLuxWrapperLayer{:controls}
+struct ControlParameters{C <: NamedTuple, T} <: LuxCore.AbstractLuxWrapperLayer{:controls}
     "The name of the container"
     name::Symbol
     "The control parameter collection"
@@ -196,8 +198,8 @@ get_timegrid(layer::ControlParameters) = begin
     reduce(vcat, filter(!isempty, timegrids))
 end
 
-function ControlParameters(controls::NamedTuple; name::Symbol=gensym(:controls), transform=identity, kwargs...)
-    return ControlParameters{typeof(controls),typeof(transform)}(name, controls, transform)
+function ControlParameters(controls::NamedTuple; name::Symbol = gensym(:controls), transform = identity, kwargs...)
+    return ControlParameters{typeof(controls), typeof(transform)}(name, controls, transform)
 end
 
 function ControlParameters(controls...; kwargs...)
@@ -207,48 +209,48 @@ function ControlParameters(controls...; kwargs...)
     return ControlParameters(controls; kwargs...)
 end
 
-function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where T<:Number
+function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where {T <: Number}
     (; transform) = layer
     cs, st = _apply(layer, t0, ps, st)
-	return (; p = transform(cs), tspan = (t0, tinf)), st
+    return (; p = transform(cs), tspan = (t0, tinf)), st
 end
 
 function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
     ll = LuxCore.StatefulLuxLayer{true}(layer, ps, st)
-	reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
+    return reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
 end
 
-function reduce_controls(reducer::R, bins::NTuple{N, Tuple{T, T}}) where {R,N,T <: Number}
-	map(reducer, bins) 
+function reduce_controls(reducer::R, bins::NTuple{N, Tuple{T, T}}) where {R, N, T <: Number}
+    return map(reducer, bins)
 end
 
-function reduce_controls(reducer, bins::Tuple) 
-	current = reduce_controls(reducer, Base.first(bins)) 
-	length(bins) == 1 && return (current,)
-	return (current, reduce_controls(reducer, Base.tail(bins))...)
+function reduce_controls(reducer, bins::Tuple)
+    current = reduce_controls(reducer, Base.first(bins))
+    length(bins) == 1 && return (current,)
+    return (current, reduce_controls(reducer, Base.tail(bins))...)
 end
 
 function _apply(layer::ControlParameters, tnow, ps, st)
     return _eval_controls(layer.controls, tnow, ps, st)
 end
 
-@generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T,fields}
+@generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T, fields}
     returns = [gensym() for _ in fields]
     rt_states = [gensym() for _ in fields]
     expr = Expr[]
     for (i, sym) in enumerate(fields)
         push!(expr, :(($(returns[i]), $(rt_states[i])) = controls.$(sym)(t, ps.$(sym), st.$(sym))))
     end
-    push!(expr,
+    push!(
+        expr,
         :(st = NamedTuple{$fields}((($(Tuple(rt_states)...),))))
     )
     if T <: AbstractVector
         push!(expr, :(result = map(Base.Fix1(ControlSignal, collect(t)), ($(returns...),))))
     else
-		push!(expr, :(result = NamedTuple{$fields}(($(returns...),))))
+        push!(expr, :(result = NamedTuple{$fields}(($(returns...),))))
     end
     push!(expr, :(return result, st))
     ex = Expr(:block, expr...)
     return ex
 end
-

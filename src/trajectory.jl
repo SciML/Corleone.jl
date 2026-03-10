@@ -22,8 +22,8 @@ struct Trajectory{S, U, P, T, C, SH}
 end
 
 struct ControlSignal{T, U}
-  t::Vector{T}
-  u::Vector{U}
+    t::Vector{T}
+    u::Vector{U}
 end
 
 # Must be a timeseries object, and implement `current_time` and `state_values`
@@ -55,5 +55,5 @@ function Base.getindex(A::Trajectory, sym)
 end
 
 function Base.getproperty(fs::Trajectory, s::Symbol)
-    s === :ps ? ParameterIndexingProxy(fs) : getfield(fs, s)
+    return s === :ps ? ParameterIndexingProxy(fs) : getfield(fs, s)
 end
