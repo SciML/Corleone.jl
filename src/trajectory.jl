@@ -22,8 +22,8 @@ struct Trajectory{S, U, P, T, C, SH}
 end
 
 struct ControlSignal{T, U}
-  t::T
-  u::U
+  t::Vector{T}
+  u::Vector{U}
 end
 
 # Must be a timeseries object, and implement `current_time` and `state_values`

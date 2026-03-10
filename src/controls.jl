@@ -16,21 +16,21 @@ control = ControlParameter(0.0:0.1:10.0)
 control = ControlParameter(0.0:0.1:10.0; name = :u, controls = (rng, t) -> rand(rng, length(t)), bounds = t -> (zeros(length(t)), ones(length(t))))
 ```
 """
-struct ControlParameter{T,C,B,SHOOTED, S} <: LuxCore.AbstractLuxLayer
+struct ControlParameter{T,C,B,SHOOTED,S} <: LuxCore.AbstractLuxLayer
     "The name of the control"
-    name::S 
+    name::S
     "The timepoints at which discretized variables are introduced. If empty, we assume a single value constant over time."
     t::T
     "The initial values for the controls in form of a function (rng, t) -> values. Defaults to [`default_controls`](@ref)."
     controls::C
     "The bounds for the control values in form of a function (t) -> (lower_bounds, upper_bounds). Defaults to `nothing`, which corresponds to unbounded controls derived from the controls."
-    bounds::B 
+    bounds::B
 
-    function ControlParameter(t::AbstractVector; 
-        name::N=gensym(:u), 
-        controls::Function=default_controls, bounds::Union{Nothing,Function}=nothing, shooted::Bool=false, 
+    function ControlParameter(t::AbstractVector;
+        name::N=gensym(:u),
+        controls::Function=default_controls, bounds::Union{Nothing,Function}=nothing, shooted::Bool=false,
         kwargs...) where N
-        return new{typeof(t),typeof(controls),typeof(bounds),shooted, N}(name, t, controls, bounds)
+        return new{typeof(t),typeof(controls),typeof(bounds),shooted,N}(name, t, controls, bounds)
     end
 end
 
@@ -83,7 +83,7 @@ ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter
 
 get_timegrid(layer::ControlParameter) = layer.t
 
-_maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t) 
+_maybeextrema(t) = isempty(t) ? (0.0, 0.0) : extrema(t)
 
 function SciMLBase.remake(layer::ControlParameter;
     name::Symbol=layer.name,
@@ -91,7 +91,7 @@ function SciMLBase.remake(layer::ControlParameter;
     bounds::Function=layer.bounds,
     t::AbstractVector=deepcopy(layer.t),
     tspan=_maybeextrema(t),
-    shooted = false,
+    shooted=false,
     kwargs...
 )
 
@@ -116,7 +116,7 @@ function SciMLBase.remake(layer::ControlParameter;
         end
     end
 
-    ControlParameter( t[mask]; name, controls, bounds, shooted)
+    ControlParameter(t[mask]; name, controls, bounds, shooted)
 end
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, control::ControlParameter) = begin
@@ -137,8 +137,6 @@ LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
 
 find_idx(t::T, timepoints::AbstractVector) where T<:Number = searchsortedlast(timepoints, t)
 
-function _eval_control(tcurrent, controls, st)
-end
 
 function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     (; t, current_index, first_index, last_index) = st
@@ -151,7 +149,7 @@ function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     return controls[current_index], merge(st, (; current_index))
 end
 
-function (layer::ControlParameter)(t::AbstractVector, controls, st)
+function LuxCore.apply(layer::ControlParameter, t::AbstractVector, controls, st)
     ll = LuxCore.StatefulLuxLayer{true}(layer, controls, st)
     map(Base.Fix2(ll, controls), t), ll.st
 end
@@ -209,17 +207,32 @@ function ControlParameters(controls...; kwargs...)
     return ControlParameters(controls; kwargs...)
 end
 
-function (layer::ControlParameters)(tnow, ps, st)
+function (layer::ControlParameters)(tnow::T, ps, st) where T<:Number
     (; transform) = layer
     cs, st = _apply(layer, tnow, ps, st)
-    return transform(cs), st
+	return (; p = transform(cs), t = tnow), st
+end
+
+function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
+    ll = LuxCore.StatefulLuxLayer{true}(layer, ps, st)
+	reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
+end
+
+function reduce_controls(reducer::R, bins::NTuple{N, <:Number}) where {R,N}
+	map(reducer, bins) 
+end
+
+function reduce_controls(reducer, bins::Tuple) 
+	current = reduce_controls(reducer, Base.first(bins)) 
+	length(bins) == 1 && return (current,)
+	return (current, reduce_controls(reducer, Base.tail(bins))...)
 end
 
 function _apply(layer::ControlParameters, tnow, ps, st)
     return _eval_controls(layer.controls, tnow, ps, st)
 end
 
-@generated function _eval_controls(controls::NamedTuple{fields}, t, ps, st) where {fields}
+@generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T,fields}
     returns = [gensym() for _ in fields]
     rt_states = [gensym() for _ in fields]
     expr = Expr[]
@@ -229,7 +242,11 @@ end
     push!(expr,
         :(st = NamedTuple{$fields}((($(Tuple(rt_states)...),))))
     )
-    push!(expr, :(result = NamedTuple{$fields}(($(returns...),))))
+    if T <: AbstractVector
+        push!(expr, :(result = map(Base.Fix1(ControlSignal, collect(t)), ($(returns...),))))
+    else
+		push!(expr, :(result = NamedTuple{$fields}(($(returns...),))))
+    end
     push!(expr, :(return result, st))
     ex = Expr(:block, expr...)
     return ex

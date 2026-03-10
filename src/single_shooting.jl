@@ -23,7 +23,7 @@ function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorith
         SciMLStructures.Tunable(), problem.p
     )
     initial_conditions = InitialCondition(problem; kwargs...)
-    controls = ControlParameters(controls..., transform = (nt) -> repack(collect(values(nt))))
+    controls = ControlParameters(controls..., transform = (nt) -> repack(reduce(vcat, map(collect, nt))))
     return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
@@ -73,115 +73,49 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     )
 end
 
-@generated function (layer::SingleShootingLayer{A, U0, C})(::Any, ps::PS, st::ST) where {A, U0, C, PS, ST}
-    problem_type = fieldtype(U0, :problem)
-    system_type = fieldtype(ST, :system)
-    u_type = Vector{fieldtype(problem_type, :u0)}
-    p_type = fieldtype(problem_type, :p)
-    t_type = Vector{eltype(fieldtype(problem_type, :tspan))}
-
-    ps_controls_type = fieldtype(PS, :controls)
-    control_ps_types = ps_controls_type.parameters[2].parameters
-    signal_types = map(control_ps_types) do pt
-        values_type = pt <: AbstractArray ? Vector{eltype(pt)} : Vector{pt}
-        ControlSignal{t_type, values_type}
-    end
-    cseries_type = Tuple{signal_types...}
-    controlseries_type = ParameterTimeseriesCollection{cseries_type, p_type}
-    traj_type = Trajectory{system_type, u_type, p_type, t_type, controlseries_type, Nothing}
-
-    return quote
-        (; algorithm, initial_conditions, controls) = layer
-        problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
-        solutions = eval_problem(problem, algorithm, controls, ps.controls, st.controls, true, st.timestops...)
-        st_new = (; st..., initial_conditions = st_ic)
-        traj = Trajectory(layer, solutions, ps, st_new)
-        return traj::$traj_type
-    end
+function (layer::SingleShootingLayer)(::Any, ps, st)
+    (; algorithm, initial_conditions, controls) = layer
+    problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
+    inputs, st_controls = controls(st.timestops, ps.controls, st.controls)
+    solutions = eval_problem(problem, algorithm, true, inputs)
+    traj = Trajectory(layer, solutions, st)
 end
 
-
-@generated function eval_problem(problem, algorithm, controls, ps, st, save_start, timestops::NTuple{N,<:Real}) where N 
+@generated function _eval_problem(problem, algorithm, save_start, trajectory::Tuple{Vararg{NamedTuple, N}}) where N 
     sols  = [gensym() for _ in Base.OneTo(N-1)]
-    sts = [gensym() for _ in Base.OneTo(N-1)]
-    psym = gensym()
-    exprs = Expr[] 
+	exprs = Expr[]
+	
     for i in Base.OneTo(N-1)
-         push!(exprs, :(($(psym), $(sts[i])) = controls(timestops[$i], ps, st))) 
-         push!(exprs, :($(sols[i]) = solve(problem, algorithm, p=$psym, tspan = (timestops[$i], timestops[$(i+1)]), save_everystep=false, save_start= $(i == 1) && save_start, save_end=true))) 
-         push!(exprs, :(problem = remake(problem, u0=last($(sols[i])))))
+		push!(exprs, :(sol = solve(problem, algorithm, 
+									p=trajectory[$(i)].p, 
+									tspan = (trajectory[$i].t, trajectory[$(i+1)].t), save_everystep=false, save_start= $(i == 1) && save_start, save_end=true))) 
+		push!(exprs, :(problem = remake(problem, u0=sol.u[end])))
+		push!(exprs, :($(sols[i]) = (; p = trajectory[$(i)].p, u = sol.u, t = sol.t)))
     end
-    
-    push!(exprs, Expr(:tuple, sols...))
+	push!(exprs, :(return ($(sols...),), problem)) 
     ex = Expr(:block, exprs...)
     return ex
 end
 
-function eval_problem(problem, algorithm, controls, ps, st, save_start, current, timestops...)
-    current = eval_problem(problem, algorithm, controls, ps, st, save_start, current)
-    (current..., eval_problem(remake(problem ,u0 = last(last(current))), algorithm, controls, ps, st, false, timestops...)...)
+function eval_problem(problem, algorithm, save_start, trajectory::Tuple) 
+    current_solution, problem = _eval_problem(problem, algorithm, save_start, Base.first(trajectory))
+	length(trajectory) == 1 && return current_solution
+    (
+        current_solution..., 
+        eval_problem(
+			problem,
+            algorithm, false, Base.tail(trajectory)
+        )...
+    )
 end
 
-function eval_problem(problem, algorithm, controls, ps, st, save_start, timestops)
-    current = eval_problem(problem, algorithm, controls, ps, st, save_start, timestops)
-end
 
-function _flatten_states(solutions::NTuple{N,S}) where {N,S}
-    U = eltype(first(solutions).u)
-    total = sum(sol -> length(sol.u), solutions)
-    out = Vector{U}(undef, total)
-    k = firstindex(out)
-    for sol in solutions
-        for ui in sol.u
-            out[k] = ui
-            k += 1
-        end
-    end
-    return out
-end
-
-function _flatten_times(solutions::NTuple{N,S}) where {N,S}
-    Tt = eltype(first(solutions).t)
-    total = sum(sol -> length(sol.t), solutions)
-    out = Vector{Tt}(undef, total)
-    k = firstindex(out)
-    for sol in solutions
-        for ti in sol.t
-            out[k] = ti
-            k += 1
-        end
-    end
-    return out
-end
-
-function _eval_control_signal(control::ControlParameter, p, st, t)
-    values = Vector{eltype(p)}(undef, length(t))
-    st_local = st
-    for i in eachindex(t)
-        values[i], st_local = control(t[i], p, st_local)
-    end
-    return values
-end
-
-@generated function _control_timeseries(
-    controls::NamedTuple{names, C},
-    ps::NamedTuple{names, P},
-    st::NamedTuple{names, S},
-    t::T,
-) where {names, C, P, S, T}
-    exprs = map(names) do nm
-        :(ControlSignal(t, _eval_control_signal(controls.$nm, ps.$nm, st.$nm, t)))
-    end
-    return Expr(:tuple, exprs...)
-end
-
-function Trajectory(layer::SingleShootingLayer, solutions::NTuple{N, S}, ps::PS, st::ST) where {N, S, PS, ST}
-    (; system, ) = st
-    controls = layer.controls.controls
-    u = _flatten_states(solutions)
-    t = _flatten_times(solutions)
-    cseries = _control_timeseries(controls, ps.controls, st.controls, t)
-    p = first(solutions).prob.p
-    controlseries = ParameterTimeseriesCollection(cseries, deepcopy(p))
-    Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing)
+function Trajectory(::SingleShootingLayer, solutions, st)
+	(; system) = st
+    u = reduce(vcat, map(sol -> sol.u, solutions))
+    t = reduce(vcat, map(sol -> sol.t, solutions))
+	p = reduce(vcat, map(sol -> sol.p, solutions))     
+	controlseries = ParameterTimeseriesCollection((ControlSignal(t, p),), deepcopy(first(p)))
+	p = deepcopy(first(p))
+	Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
 end

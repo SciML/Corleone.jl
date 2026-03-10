@@ -82,12 +82,18 @@ function _mtk_parameter_index_map(sys, controls)
 end
 
 function Corleone.remake_system(sys::ModelingToolkit.AbstractSystem, controls)
-    params = _mtk_parameter_index_map(sys, controls)
+	control_symbols = map(values(controls.controls)) do ci
+		csym = ci.name
+		csym => ParameterTimeseriesIndex(1,parameter_index(sys, csym)) 
+	end
+	ps = map(parameters(sys)) do xi 
+		xi => parameter_index(sys, xi)
+	end
     return SymbolCache(
-        variable_symbols(sys),
-        params,
+		unknowns(sys),
+		ps,
         independent_variable_symbols(sys);
-        timeseries_parameters = Dict(_control_timeseries_pairs(controls)),
+        timeseries_parameters = Dict(reduce(vcat, control_symbols)),
     )
 end
 

@@ -76,7 +76,7 @@ function (layer::InitialCondition)(::Any, ps, st::NamedTuple)
     (; problem) = layer
     (; u0, keeps, replaces) = st
     u0_new = keeps .* u0 .+ replaces * ps 
-    return remake(problem, u0 = u0_new), st
+    return SciMLBase.remake(problem, u0 = u0_new) , st
 end
 
 function SciMLBase.remake(layer::InitialCondition;
