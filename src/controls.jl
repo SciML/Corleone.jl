@@ -29,7 +29,7 @@ struct ControlParameter{T, C, B, SHOOTED, S} <: LuxCore.AbstractLuxLayer
     function ControlParameter(
             t::AbstractVector;
             name::N = gensym(:u),
-            controls::Function = default_controls, bounds::Union{Nothing, Function} = nothing, shooted::Bool = false,
+            controls::Function = default_controls, bounds::Function = default_bounds, shooted::Bool = false,
             kwargs...
         ) where {N}
         return new{typeof(t), typeof(controls), typeof(bounds), shooted, N}(name, t, controls, bounds)
@@ -59,6 +59,13 @@ The control values are initialized as zeros of the same length and element type 
 $(SIGNATURES)
 """
 default_controls(rng, t::AbstractVector) = isempty(t) ? zeros(Float64, 1) : zeros(eltype(t), size(t)...)
+
+"""
+"""
+function default_bounds(t::AbstractVector)
+	u0 = default_controls(Random.default_rng(), t)
+	(to_val(u0, -Inf), to_val(u0, Inf))
+end
 
 """
 $(FUNCTIONNAME)
@@ -256,6 +263,42 @@ function LuxCore.apply(layer::ControlParameter, t::AbstractVector, controls, st)
     return map(Base.Fix2(ll, controls), t), ll.st
 end
 
+"""
+$(TYPEDEF)
+
+A struct which simply wraps a control parameter to allow for non-tunable tunables.
+"""
+struct FixedControlParameter{C <: ControlParameter} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+	"The original control parameter"
+	layer::C 
+end 
+
+function Base.getproperty(a::FixedControlParameter, v::Symbol)
+           if v == :layer
+               return getfield(a, :layer) 
+           else
+               return getfield(a.layer, v)
+           end
+       end
+
+fix(c::ControlParameter) = FixedControlParameter{typeof(c)}(c)
+FixedControlParameter(args...; kwargs...) = fix(ControlParameter(args...; kwargs...))
+ControlParameter(c::FixedControlParameter) = c 
+
+LuxCore.initialparameters(::Random.AbstractRNG, ::FixedControlParameter) = (;) 
+LuxCore.initialstates(rng::Random.AbstractRNG, layer::FixedControlParameter) = (;
+	parameters = LuxCore.initialparameters(rng, layer.layer), 
+	states = LuxCore.initialstates(rng, layer.layer)
+)
+
+function (layer::FixedControlParameter)(t, ps, st) 
+	out, st_ = layer.layer(t, st.parameters, st.states) 
+	out, merge(st, (; states = st_))
+end
+
+SciMLBase.remake(layer::FixedControlParameter; kwargs...) = fix(remake(layer.layer; kwargs...))
+
+get_timegrid(layer::FixedControlParameter) = get_timegrid(layer.layer)
 
 """
 $(TYPEDEF)
