@@ -106,8 +106,6 @@ export SingleShootingLayer
 include("parallel_shooting.jl") 
 export ParallelShootingLayer
 
-include("multiple_shooting.jl")
-export MultipleShootingLayer
 #include("multiple_shooting.jl")
 #export MultipleShootingLayer
 #export default_initialization

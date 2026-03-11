@@ -95,7 +95,7 @@ function remake_system(sys::SymbolCache, controls)
     return SymbolCache(
         variable_symbols(sys), parameter_symbols(sys), independent_variable_symbols(sys);
         timeseries_parameters = Dict(
-            [c.name => ParameterTimeseriesIndex(i, 1) for (i, c) in enumerate(values(controls.controls))]
+            [c.name => ParameterTimeseriesIndex(1, i) for (i, c) in enumerate(values(controls.controls))]
         )
     )
 end
@@ -199,7 +199,7 @@ function Trajectory(::SingleShootingLayer, solutions, st)
     (; system) = st
     u = reduce(vcat, map(sol -> sol.u, solutions))
     t = reduce(vcat, map(sol -> sol.t, solutions))
-    p = reduce(vcat, map(sol -> sol.p, solutions))
+	p = collect(map(sol -> sol.p, solutions))
     t_controls = reduce(vcat, map(sol -> first(sol.t), solutions))
     controlseries = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
     p = deepcopy(first(p))

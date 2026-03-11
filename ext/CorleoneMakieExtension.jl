@@ -12,6 +12,9 @@ end
 maybevec(x::AbstractArray) = eachrow(reduce(hcat, x))
 maybevec(x) = x
 
+_getindex(x, i) = getindex(x, i)
+_getindex(x::Symbol, i) = x 
+
 function Makie.convert_arguments(
         PT::Type{<:Plot},
         sol::Trajectory;
@@ -36,17 +39,17 @@ function Makie.convert_arguments(
 	foreach(vars) do var 
 		if is_timeseries_parameter(sol, var) 
 			x_current = maybevec(getp(sol, var)(sol)) 
-			append!(xs, x_current) 
+			append!(xs, x_current)
 			for i in eachindex(x_current)
 				push!(ts, sol.controls.collection[1].t)
-				push!(labels, string(getindex(var, i)))
+				push!(labels, string(_getindex(var, i)))
 			end
 		else 
 			x_current = maybevec(getsym(sol, var)(sol)) 
 			append!(xs, x_current) 
 			for i in eachindex(x_current)
 				push!(ts, sol.t)
-				push!(labels, string(getindex(var, i)))
+				push!(labels, string(_getindex(var, i)))
 			end
 		end
 	end
