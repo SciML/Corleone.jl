@@ -292,6 +292,10 @@ LuxCore.initialstates(rng::Random.AbstractRNG, layer::FixedControlParameter) = (
 )
 
 function (layer::FixedControlParameter)(t, ps, st) 
+	_apply_control(layer, t, ps, st)
+end
+
+function _apply_control(layer::FixedControlParameter, t, ps, st) 
 	out, st_ = layer.layer(t, st.parameters, st.states) 
 	out, merge(st, (; states = st_))
 end
@@ -299,6 +303,9 @@ end
 SciMLBase.remake(layer::FixedControlParameter; kwargs...) = fix(remake(layer.layer; kwargs...))
 
 get_timegrid(layer::FixedControlParameter) = get_timegrid(layer.layer)
+
+ChainRulesCore.@non_differentiable _apply_control(layer::FixedControlParameter, t, ps, st)
+
 
 """
 $(TYPEDEF)
@@ -374,7 +381,7 @@ Evaluate controls for one integration interval `(t0, tinf)`.
 function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where {T <: Number}
     (; transform) = layer
     cs, st = _apply(layer, t0, ps, st)
-    return (; p = transform(cs), tspan = (t0, tinf)), st
+	return (; p = transform(cs), tspan = (t0, tinf)), st
 end
 
 """
@@ -383,8 +390,7 @@ $(SIGNATURES)
 Evaluate controls over a tuple of interval bins.
 """
 function (layer::ControlParameters)(timestops::Tuple{Vararg{Tuple}}, ps, st)
-    ll = LuxCore.StatefulLuxLayer{true}(layer, ps, st)
-    return reduce_controls(Base.Fix2(ll, ps), timestops), ll.st
+    return reduce_controls(layer, ps, st, timestops), st
 end
 
 """
@@ -392,8 +398,16 @@ $(SIGNATURES)
 
 Apply `reducer` elementwise to a fixed-size tuple of bins.
 """
-function reduce_controls(reducer::R, bins::NTuple{N, Tuple{T, T}}) where {R, N, T <: Number}
-    return map(reducer, bins)
+@generated function reduce_controls(layer, ps, st, bins::NTuple{N, Tuple{T, T}}) where {N, T <: Number}
+	exprs = Expr[]
+rets = [gensym() for i in Base.OneTo(N)]
+for i in Base.OneTo(N)
+		push!(exprs, 
+		:(($(rets[i]), st) = layer(bins[$i], ps, st))
+		)
+	end
+	push!(exprs, Expr(:tuple, rets...))
+	Expr(:block, exprs...)
 end
 
 """
@@ -401,11 +415,12 @@ $(SIGNATURES)
 
 Apply `reducer` recursively to a heterogeneously-typed tuple of bins.
 """
-function reduce_controls(reducer, bins::Tuple)
-    current = reduce_controls(reducer, Base.first(bins))
-    length(bins) == 1 && return (current,)
-    return (current, reduce_controls(reducer, Base.tail(bins))...)
+function reduce_controls(layer, ps, st, bins::Tuple)
+    current = reduce_controls(layer, ps, st, Base.first(bins))
+    return (current, reduce_controls(layer, ps, st, Base.tail(bins))...)
 end
+
+reduce_controls(layer, ps, st, bins::Tuple{T}) where T = (reduce_controls(layer, ps, st, only(bins)),)
 
 """
 $(SIGNATURES)

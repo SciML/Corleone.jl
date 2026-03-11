@@ -42,11 +42,12 @@ $(SIGNATURES)
 Construct a [`SingleShootingLayer`](@ref) directly from a `DEProblem` and control specifications.
 """
 function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting), kwargs...)
-    _, repack, _ = SciMLStructures.canonicalize(
-        SciMLStructures.Tunable(), problem.p
-    )
+
+	repack = let p0 = problem.p 
+		(x) -> SciMLStructures.replace(SciMLStructures.Tunable(), p0, vcat(values(x)...))
+	end
     initial_conditions = InitialCondition(problem; kwargs...)
-    controls = ControlParameters(controls..., transform = (nt) -> repack(reduce(vcat, map(collect, nt))))
+    controls = ControlParameters(controls..., transform = repack)
     return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
@@ -197,11 +198,16 @@ Construct a [`Trajectory`](@ref) from solved single-shooting segments.
 """
 function Trajectory(::SingleShootingLayer, solutions, st)
     (; system) = st
-    u = reduce(vcat, map(sol -> sol.u, solutions))
-    t = reduce(vcat, map(sol -> sol.t, solutions))
+	u = _collect(solutions, :u)#reduce(vcat, map(sol -> sol.u, solutions), init = eltype(first(solutions).u)[])
+	t = _collect(solutions, :t) #reduce(vcat, map(sol -> sol.t, solutions), init = eltype(first(solutions).t)[])
 	p = collect(map(sol -> sol.p, solutions))
-    t_controls = reduce(vcat, map(sol -> first(sol.t), solutions))
+    t_controls = _collect(solutions, :t, first)#reduce(vcat, map(sol -> first(sol.t), solutions), init = eltype(first(solutions).t)[])
     controlseries = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
     p = deepcopy(first(p))
     return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
+end
+
+function _collect(solutions, sym::Symbol, f::Function = identity) 
+	xs = map(f ∘ Base.Fix2(getproperty, sym), solutions)
+	vcat(xs...)
 end
