@@ -8,9 +8,9 @@ using SafeTestsets
         using Corleone
         Aqua.test_all(Corleone)
     end
-    #@safetestset "Controls" begin
-    #    include("controls.jl")
-    #end
+    @safetestset "Controls" begin
+        include("controls.jl")
+    end
     #@safetestset "InitialCondition" begin
     #    include("initializers.jl")
     #end

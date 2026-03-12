@@ -50,14 +50,16 @@ $(SIGNATURES)
 
 Convert `val` to the numeric type `T`.
 """
-to_val(::T, val) where {T <: Number} = T(val)
-
+_to_val(::T, val) where {T <: Number} = T(val)
+_to_val(x, val) = map(x) do xi 
+	_to_val(xi, val)
+end
 """
 $(SIGNATURES)
 
 Map scalar conversion from `to_val` to all entries in `x`.
 """
-to_val(x::AbstractVector, val) = map(Base.Fix2(to_val, val), x)
+to_val(x, val) = fmap(Base.Fix2(_to_val, val), x)
 
 """
 $(SIGNATURES)

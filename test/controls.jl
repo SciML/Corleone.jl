@@ -44,8 +44,8 @@ rng = MersenneTwister(42)
 
     c = ControlParameter([0.0]; name=:constant, controls=(rng, t) -> [2.5])
     ps, st = LuxCore.setup(rng, c)
-    v0, st0 = c(-100.0, ps, st)
-    v1, st1 = c(100.0, ps, st0)
+    v0, st0 = @inferred c(-100.0, ps, st)
+    v1, st1 = @inferred c(100.0, ps, st0)
     @test v0 == v1 == 2.5
     @test st1.current_index == 1
 end
@@ -79,7 +79,7 @@ end
     c = ControlParameter([0.0, 0.5, 1.0]; controls=(rng, t) -> [10.0, 20.0, 30.0])
     ps, st = LuxCore.setup(rng, c)
 
-    v, st = c(-1.0, ps, st)
+    v, st = @inferred c(-1.0, ps, st)
     @test v == 10.0
     @test st.current_index == 1
 
@@ -149,15 +149,15 @@ end
     )
 
     ps, st = LuxCore.setup(rng, controls)
-    out0, st = controls(0.25, ps, st)
-    out1, _ = controls(1.0, ps, st)
+    out0, st = @inferred controls((0.25, 10.0), ps, st)
+    out1, _ = @inferred controls((1.0, 10.0), ps, st)
 
     @test haskey(ps, :u)
     @test haskey(ps, :v)
-    @test out0.sum == out0.raw.u + out0.raw.v
-    @test out1.sum == out1.raw.u + out1.raw.v
-    @test out0.raw.u == ps.u[1]
-    @test out1.raw.u == ps.u[end]
-    @test out0.raw.v == ps.v[1]
-    @test out1.raw.v == ps.v[end]
+    @test out0.p.sum == out0.p.raw.u + out0.p.raw.v
+    @test out1.p.sum == out1.p.raw.u + out1.p.raw.v
+    @test out0.p.raw.u == ps.u[1]
+    @test out1.p.raw.u == ps.u[end]
+    @test out0.p.raw.v == ps.v[1]
+    @test out1.p.raw.v == ps.v[end]
 end
