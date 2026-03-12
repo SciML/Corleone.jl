@@ -23,17 +23,17 @@ using SafeTestsets
     @safetestset "Multiple shooting" begin
         include("multiple_shooting.jl")
     end
-    #@testset "Examples" begin
-    #    @safetestset "Lotka" begin
-    #        include("examples/lotka_oc.jl")
-    #    end
+    @testset "Examples" begin
+        @safetestset "Lotka" begin
+            include("examples/lotka_oc.jl")
+        end
     #    @safetestset "Lotka MS" begin
     #        include("examples/lotka_ms.jl")
     #    end
     #    @safetestset "Lotka MTK" begin
     #        include("examples/mtk.jl")
     #    end
-    #end
+    end
 end
 
 # What to test?

@@ -50,7 +50,7 @@ controls = (
 
     shooting_vars = Corleone.get_shooting_variables(layer_from_prob)
     @test shooting_vars.state == Int[]
-    @test shooting_vars.control == [1, 2]
+    @test shooting_vars.control == [:a, :b]
 end
 
 @testset "State Setup, Binning, and Evaluation" begin
