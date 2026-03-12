@@ -122,7 +122,7 @@ get_tunable_u0(layer::SingleShootingLayer, full::Bool=false) = get_tunable_u0(la
 function get_shooting_variables(layer::SingleShootingLayer)
     problem = get_problem(layer)
     tunable_ic = get_tunable_u0(layer)
-    cnames = [parameter_index(problem, c.name) for c in layer.controls.controls if is_shooted(c)]
+    cnames = [c.name for c in layer.controls.controls if is_shooted(c)]
     return (; state=tunable_ic, control=cnames)
 end
 

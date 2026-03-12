@@ -17,9 +17,12 @@ using SafeTestsets
 	@safetestset "Single shooting" begin 
 		include("single_shooting.jl")
 	end
-    #@safetestset "Multiple shooting" begin
-    #    include("multiple_shooting.jl")
-    #end
+	@safetestset "Parallel shooting" begin 
+		include("parallel_shooting.jl")
+	end
+    @safetestset "Multiple shooting" begin
+        include("multiple_shooting.jl")
+    end
     #@testset "Examples" begin
     #    @safetestset "Lotka" begin
     #        include("examples/lotka_oc.jl")

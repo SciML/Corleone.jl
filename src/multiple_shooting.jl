@@ -29,8 +29,8 @@ get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(la
 
 
 function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
-    layer = remake(layer.layer; kwargs...)
-    MultipleShootingLayer{typeof(layer),typeof(layer.shooting_variables)}(layer, layer.shooting_variables)
+    newlayer = remake(layer.layer; kwargs...)
+    MultipleShootingLayer{typeof(newlayer),typeof(layer.shooting_variables)}(newlayer, layer.shooting_variables)
 end
 
 function (layer::MultipleShootingLayer)(u0, ps, st)
