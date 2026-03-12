@@ -11,9 +11,9 @@ using SafeTestsets
     @safetestset "Controls" begin
         include("controls.jl")
     end
-    #@safetestset "InitialCondition" begin
-    #    include("initializers.jl")
-    #end
+    @safetestset "InitialCondition" begin
+        include("initializers.jl")
+    end
     #@safetestset "Multiple shooting" begin
     #    include("multiple_shooting.jl")
     #end
