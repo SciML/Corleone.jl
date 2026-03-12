@@ -5,10 +5,11 @@ using ModelingToolkit: t_nounits as t, D_nounits as D
 using Symbolics
 using ..OptimalControlBenchmarks: OptimalControlBenchmark
 
-function make_problem()
+function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     num_states = 4
     num_controls = 1
+    tspan = (0.,4.)
 
     @variables begin
         x(..) = 0.0, [tunable = false]
@@ -33,14 +34,13 @@ function make_problem()
         D(dx(t)) ~ (w(t) + m * g * sin(θ(t)) * cos(θ(t)) + m * dtheta(t)^2 * sin(θ(t))) / (M + m * (1 - cos(θ(t)))^2)
         D(dtheta(t)) ~ -g * sin(θ(t)) - ((w(t) + m * g * sin(θ(t)) * cos(θ(t)) + m * dtheta(t) * sin(θ(t))) / (M + m * (1 - cos(θ(t))^2))) * cos(θ(t))
     ]
-    
-    # Define control discretization
-    tspan = (0.,4.)
-    dt = (last(tspan) - first(tspan)) / 40
-    cgrid = collect(0.0:dt:last(tspan))[1:end-1]
-    
-    grid_cons_le = [x(tᵢ) ≲ 2. for tᵢ in vcat(cgrid, last(tspan))]
-    grid_cons_ge = [x(tᵢ) ≳ -2. for tᵢ in vcat(cgrid, last(tspan))]
+
+    # scale the constraint grid
+    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
+    constraint_grid = (constraint_grid .+ first(tspan))
+        
+    grid_cons_le = [x(tᵢ) ≲ 2. for tᵢ in constraint_grid]
+    grid_cons_ge = [x(tᵢ) ≳ -2. for tᵢ in constraint_grid]
 
     cons = [
         grid_cons_le...,
@@ -62,7 +62,7 @@ function make_problem()
 
     return (
         system = oc_problem,
-        control_grid = cgrid,
+        tspan = tspan,
         num_states = num_states,
         num_controls = num_controls
     )

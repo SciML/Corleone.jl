@@ -5,10 +5,11 @@ using ModelingToolkit: t_nounits as t, D_nounits as D
 using Symbolics
 using ..OptimalControlBenchmarks: OptimalControlBenchmark
 
-function make_problem()
+function make_problem(constraint_grid=nothing)
 
     num_states = 4
     num_controls = 1
+    tspan = (0.,10.)
 
     @variables begin
         x_0(..) = 0.4655, [tunable = false]
@@ -42,11 +43,6 @@ function make_problem()
         D(obj(t)) ~ T
     ]
 
-    # Define control discretization
-    tspan = (0.,10.)
-    dt = 0.1
-    cgrid = collect(0.0:dt:last(tspan))
-
     cons = [
         x_0(last(tspan)) ~ 0.,
         x_1(last(tspan)) ~ 0.,
@@ -64,7 +60,7 @@ function make_problem()
 
     return (
         system = oc_problem,
-        control_grid = cgrid,
+        tspan = tspan,
         num_states = num_states,
         num_controls = num_controls
     )

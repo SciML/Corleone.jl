@@ -5,10 +5,11 @@ using ModelingToolkit: t_nounits as t, D_nounits as D
 using Symbolics
 using ..OptimalControlBenchmarks: OptimalControlBenchmark
 
-function make_problem()
+function make_problem(constraint_grid=nothing)
 
     num_states = 3
     num_controls = 1
+    tspan = (0.,40.)
     
     @variables begin
         x₀(..) = 0.5, [tunable = false]
@@ -27,11 +28,6 @@ function make_problem()
         D(x₀(t)) ~ x₀(t) * (1 - (x₀(t) + α * x₁(t)) / K) - c₁ * x₀(t) * u(t)
         D(x₁(t)) ~ x₁(t) * (1 - (x₀(t) + x₁(t)) / K) - c₂ * x₁(t) * u(t)
     ]
-    
-    # Define control discretization
-    tspan = (0.,40.)
-    dt = 0.8
-    cgrid = collect(0.0:dt:last(tspan))
         
     costs = [
         Symbolics.Integral(t in (0.0, last(tspan)))(
@@ -47,7 +43,7 @@ function make_problem()
 
     return (
         system = oc_problem,
-        control_grid = cgrid,
+        tspan = tspan,
         num_states = num_states,
         num_controls = num_controls
     )

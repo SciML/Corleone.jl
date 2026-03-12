@@ -1,14 +1,15 @@
-module goddarts_rocket
+module lotka_volterra
 
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using Symbolics
 using ..OptimalControlBenchmarks: OptimalControlBenchmark
 
-function make_problem()
+function make_problem(constraint_grid=nothing)
 
     num_states = 3
     num_controls = 1
+    tspan = (0.,12.)
 
     @variables begin
         x₀(..) = 0.5, [tunable = false]
@@ -26,11 +27,6 @@ function make_problem()
         D(x₁(t)) ~ -x₁(t) + x₀(t) * x₁(t) - c₁ * x₁(t) * u(t)
     ]
 
-    # Define control discretization
-    tspan = (0.,12.)
-    dt = 0.24
-    cgrid = collect(0.0:dt:last(tspan))
-
     costs = [
         Symbolics.Integral(t in (0.0, last(tspan)))(
             (x₀(t) - 1.)^2 + (x₁(t) - 1.)^2
@@ -45,7 +41,7 @@ function make_problem()
 
     return (
         system = oc_problem,
-        control_grid = cgrid,
+        tspan = tspan,
         num_states = num_states,
         num_controls = num_controls
     )
@@ -54,7 +50,7 @@ end
 
 
 benchmark = OptimalControlBenchmark(
-    :goddarts_rocket,
+    :lotka_volterra,
     "Double integrator with quadratic control cost",
     make_problem
 )

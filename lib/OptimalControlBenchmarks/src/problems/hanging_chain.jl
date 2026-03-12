@@ -5,10 +5,11 @@ using ModelingToolkit: t_nounits as t, D_nounits as D
 using Symbolics
 using ..OptimalControlBenchmarks: OptimalControlBenchmark
 
-function make_problem()
+function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     num_states = 3
     num_controls = 1
+    tspan = (0.,1.)
 
     @variables begin
         x₁(..) = 1., [tunable = false]
@@ -29,18 +30,16 @@ function make_problem()
         D(x₃(t)) ~ sqrt(1 + u(t)^2)
     ]
 
-    # Define control discretization
-    tspan = (0.,1.)
-    dt = 0.02
-    cgrid = collect(0.0:dt:last(tspan))[1:end-1]
+    # scale the constraint grid
+    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
+    constraint_grid = (constraint_grid .+ first(tspan))
 
-    # grid_cons_u = [A * v(tᵢ)^2 * exp(-k * (r(tᵢ) - r_0)) ≲ 0.6 for tᵢ in cgrid]
-    grid_cons_u1 = [x₁(tᵢ) ≳ 0. for tᵢ in cgrid]
-    grid_cons_u2 = [x₂(tᵢ) ≳ 0. for tᵢ in cgrid]
-    grid_cons_u3 = [x₃(tᵢ) ≳ 0. for tᵢ in cgrid]
-    grid_cons_l1 = [x₁(tᵢ) ≲ 10. for tᵢ in cgrid]
-    grid_cons_l2 = [x₂(tᵢ) ≲ 10. for tᵢ in cgrid]
-    grid_cons_l3 = [x₃(tᵢ) ≲ 10. for tᵢ in cgrid]
+    grid_cons_u1 = [x₁(tᵢ) ≳ 0. for tᵢ in constraint_grid[1:end - 1]]
+    grid_cons_u2 = [x₂(tᵢ) ≳ 0. for tᵢ in constraint_grid]
+    grid_cons_u3 = [x₃(tᵢ) ≳ 0. for tᵢ in constraint_grid[1:end - 1]]
+    grid_cons_l1 = [x₁(tᵢ) ≲ 10. for tᵢ in constraint_grid[1:end - 1]]
+    grid_cons_l2 = [x₂(tᵢ) ≲ 10. for tᵢ in constraint_grid]
+    grid_cons_l3 = [x₃(tᵢ) ≲ 10. for tᵢ in constraint_grid[1:end - 1]]
 
     cons = [
         x₁(last(tspan)) - 3. ~ 0.,
@@ -60,7 +59,7 @@ function make_problem()
 
     return (
         system = oc_problem,
-        control_grid = cgrid,
+        tspan = tspan,
         num_states = num_states,
         num_controls = num_controls
     )
