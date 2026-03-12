@@ -1,15 +1,10 @@
-module mountain_car
-
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=nothing)
+function mountain_car(grids)
 
     num_states = 3
     num_controls = 1
     tspan = (0.,100.)
+
+    scaled_grids = scale_grids!(tspan, grids)
     
     @variables begin
         x(..) = -0.5, [tunable = false]
@@ -44,18 +39,8 @@ function make_problem(constraint_grid=nothing)
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :mountain_car,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end

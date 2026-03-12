@@ -7,7 +7,7 @@ using ModelingToolkit
 benchmarks = load_benchmarks()
 
 # choose the optimizer
-#optimizer = UnoSolver.Optimizer()
+# optimizer = UnoSolver.Optimizer()
 optimizer = Ipopt.Optimizer()
 
 # settings for discretization, given as grids in [0.,1.]
@@ -16,6 +16,12 @@ constraint_grid = collect(0.:0.05:1.)
 control_grid = collect(0.:0.05:1.)[1:end-1]
 shooting_grid = collect(0.:0.05:1.)
 
-df = run_all(benchmarks, optimizer, constraint_grid, control_grid, shooting_grid)
+grids = OptimalControlBenchmarks.BenchmarkGrids(
+	constraint_grid,
+	control_grid,
+	shooting_grid
+)
+
+df = run_all(benchmarks, optimizer, grids)
 
 println(df)

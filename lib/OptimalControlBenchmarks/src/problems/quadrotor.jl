@@ -1,15 +1,10 @@
-module quadrotor
-
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=collect(0.:0.1:1.))
+function quadrotor(grids)
 
     num_states = 7
     num_controls = 4
     tspan = (0.,7.5)
+
+    scaled_grids = scale_grids!(tspan, grids)
     
     @variables begin
         x₁(..) = 0., [tunable = false]
@@ -28,7 +23,7 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
         g = 9.81, [tunable = false]
         M = 1.3, [tunable = false]
         L = 0.305, [tunable = false]
-        I = 0.0605, [tunable = false]
+        I = 0.0605, [tunable = false]	
     end
     
     eqs = [
@@ -40,10 +35,7 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
         D(x₆(t)) ~ -w₂(t) * L * u(t) / I + w₃(t) * L * u(t) / I
     ]
     
-    # scale the constraint grid
-    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
-    constraint_grid = (constraint_grid .+ first(tspan))
-    
+    constraint_grid = scaled_grids.constraint_grid   
     grid_cons_w = [w₁(tᵢ) + w₂(tᵢ) + w₃(tᵢ) ~ 1. for tᵢ in constraint_grid]
     grid_cons_x₃ = [x₃(tᵢ) ≳ 0. for tᵢ in constraint_grid]
     
@@ -67,18 +59,8 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :quadrotor,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end

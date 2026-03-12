@@ -1,5 +1,3 @@
-using CairoMakie
-
 function plot_oc_problem(sol, num_states, num_controls)
     f = Figure()
     ax = CairoMakie.Axis(f[1, 1])

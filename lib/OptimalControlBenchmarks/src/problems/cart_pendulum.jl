@@ -1,15 +1,10 @@
-module cart_pendulum
+function cart_pendulum(grids)
 
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=collect(0.:0.1:1.))
-
-    num_states = 4
+    num_states = 5
     num_controls = 1
     tspan = (0.,4.)
+
+    scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
         x(..) = 0.0, [tunable = false]
@@ -32,12 +27,10 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
         D(x(t)) ~ dx(t)
         D(θ(t)) ~ dtheta(t)
         D(dx(t)) ~ (w(t) + m * g * sin(θ(t)) * cos(θ(t)) + m * dtheta(t)^2 * sin(θ(t))) / (M + m * (1 - cos(θ(t)))^2)
-        D(dtheta(t)) ~ -g * sin(θ(t)) - ((w(t) + m * g * sin(θ(t)) * cos(θ(t)) + m * dtheta(t) * sin(θ(t))) / (M + m * (1 - cos(θ(t))^2))) * cos(θ(t))
+        D(dtheta(t)) ~ -g * sin(θ(t)) - ((w(t) + m * g * sin(θ(t)) * cos(θ(t)) + m * dtheta(t)^2 * sin(θ(t))) / (M + m * (1 - cos(θ(t))^2))) * cos(θ(t))
     ]
 
-    # scale the constraint grid
-    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
-    constraint_grid = (constraint_grid .+ first(tspan))
+    constraint_grid = scaled_grids.constraint_grid
         
     grid_cons_le = [x(tᵢ) ≲ 2. for tᵢ in constraint_grid]
     grid_cons_ge = [x(tᵢ) ≳ -2. for tᵢ in constraint_grid]
@@ -49,7 +42,7 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     costs = [
         Symbolics.Integral(t in (0.0, 1.0))(
-            α * x(t)^2 + β * (θ(t) - pi)^2 + γ * w(t)^2
+		1.e-3 * (α * x(t)^2 + β * (θ(t) - pi)^2 + γ * w(t)^2)
         ),
     ]
 
@@ -62,18 +55,8 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :cart_pendulum,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end

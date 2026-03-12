@@ -1,11 +1,4 @@
-module double_oscillator
-
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=nothing)
+function double_oscillator(grids)
 
     num_states = 5
     num_controls = 1
@@ -49,18 +42,8 @@ function make_problem(constraint_grid=nothing)
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :double_oscillator,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end

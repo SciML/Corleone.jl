@@ -1,25 +1,23 @@
 using BenchmarkTools
 using OptimalControlBenchmarks
 
-function run_all(benchmarks, optimizer, constraint_grid, control_grid, shooting_grid)
+function run_all(benchmarks, optimizer, grids)
 
     results = []
 
     for prob in benchmarks
 
-        println("Running ", prob.name)
+        # println("Running ", prob.name)
         sol = solve_with_corleone(
             prob,
             optimizer,
-            constraint_grid,
-            control_grid,
-            shooting_grid
+	    grids
         )
         println(sol)
         t = 0  # @belapsed solve_with_corleone($prob)
 
         push!(results, (
-            name = prob.name,
+            name = "",  # prob.name,
             time = t
         ))
 

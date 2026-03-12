@@ -1,15 +1,10 @@
-module ocean
-
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=collect(0.:0.1:1.))
+function ocean(grids)
 
     num_states = 3
     num_controls = 2
     tspan = (0.,400.)
+
+    scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
         S(..) = 2.e3, [tunable = false]
@@ -48,8 +43,7 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
     ]
 
     # Define control discretization
-    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
-    constraint_grid = (constraint_grid .+ first(tspan))
+    constraint_grid = scaled_grids.constraint_grid
 
     grid_cons_Su = [S(tᵢ) ≲ 1.e5 for tᵢ in constraint_grid]
     grid_cons_Ru = [R(tᵢ) ≲ 1.e5 for tᵢ in constraint_grid]
@@ -76,18 +70,8 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :ocean,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end

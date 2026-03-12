@@ -1,30 +1,15 @@
-using OptimalControlBenchmarks
-using ModelingToolkit
-using ModelingToolkit: inputs
-using Corleone
-using OrdinaryDiffEqTsit5
-using Optimization
-using OptimizationMOI
-using ForwardDiff
-using ComponentArrays
-using LuxCore, Random
+function solve_with_corleone(benchmark, optimizer, grids)
 
-function solve_with_corleone(benchmark, optimizer, constraint_grid, control_grid, shooting_grid)
-
-    data = benchmark.make_problem(constraint_grid)
+    data = benchmark(grids)
 
     oc_problem = data.system
-    tspan = data.tspan
-
-    # scale the control grid
-    control_grid = control_grid * (last(tspan) - first(tspan))
-    control_grid = (control_grid .+ first(tspan))
-    # scale the shooting grid
-    shooting_grid = shooting_grid * (last(tspan) - first(tspan))
-    shooting_grid = (shooting_grid .+ first(tspan))
+    scaled_grids = data.grids
+    num_states, num_controls = data.dims
 
     # Extract control variable
     controls = inputs(oc_problem)
+    control_grid = scaled_grids.control_grid
+    shooting_grid = scaled_grids.shooting_grid
 
     control_map = [
         c => control_grid for c in controls
@@ -47,7 +32,7 @@ function solve_with_corleone(benchmark, optimizer, constraint_grid, control_grid
     sol = solve(
         optprob,
         optimizer,
-        max_iter = 1000,
+        max_iter = 100,
         tol = 5e-6,
         hessian_approximation = "limited-memory"
     )
@@ -56,7 +41,7 @@ function solve_with_corleone(benchmark, optimizer, constraint_grid, control_grid
     u_opt = ComponentVector(sol.u, optprob.f.f.ax)
     opt_traj, _ = dynopt.layer(nothing, u_opt, LuxCore.initialstates(Random.default_rng(), dynopt.layer))
 
-    f = plot_oc_problem(opt_traj, data.num_states, data.num_controls)
+    f = plot_oc_problem(opt_traj, num_states, num_controls)
     display(f)
     return sol
 

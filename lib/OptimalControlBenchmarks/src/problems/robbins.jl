@@ -1,15 +1,10 @@
-module robbins
-
-using ModelingToolkit
-using ModelingToolkit: t_nounits as t, D_nounits as D
-using Symbolics
-using ..OptimalControlBenchmarks: OptimalControlBenchmark
-
-function make_problem(constraint_grid=collect(0.:0.1:1.))
+function robbins(grids)
 
     num_states = 4
     num_controls = 1
     tspan = (0.,10.)
+
+    scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
         x₁(..) = 1., [tunable = false]
@@ -31,8 +26,7 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
     ]
 
     # scale the constraint grid
-    constraint_grid = constraint_grid * (last(tspan) - first(tspan))
-    constraint_grid = (constraint_grid .+ first(tspan))[1:end - 1]
+    constraint_grid = scaled_grids.constraint_grid[1:end - 1]
 
     grid_cons_x₁ = [x₃(tᵢ) ≳ 0. for tᵢ in constraint_grid]
 
@@ -58,18 +52,8 @@ function make_problem(constraint_grid=collect(0.:0.1:1.))
 
     return (
         system = oc_problem,
-        tspan = tspan,
-        num_states = num_states,
-        num_controls = num_controls
+	grids = scaled_grids,
+	dims = (num_states, num_controls)
     )
-
-end
-
-
-benchmark = OptimalControlBenchmark(
-    :robbins,
-    "Double integrator with quadratic control cost",
-    make_problem
-)
 
 end
