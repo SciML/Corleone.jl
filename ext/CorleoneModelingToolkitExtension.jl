@@ -18,6 +18,7 @@ using ModelingToolkit.Symbolics.RuntimeGeneratedFunctions
 
 using ModelingToolkit: IndexCache, DiscreteIndex, BufferTemplate, ParameterTimeseriesIndex
 
+@info "Loading MTK Extension..."
 
 RuntimeGeneratedFunctions.init(@__MODULE__)
 

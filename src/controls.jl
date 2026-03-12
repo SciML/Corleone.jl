@@ -77,30 +77,16 @@ is_shooted(::ControlParameter{<:Any, <:Any, <:Any, SHOOTED}) where {SHOOTED} = S
 """
 $(SIGNATURES)
 
-Return lower bounds for an unbounded [`ControlParameter`](@ref).
+Return lower bounds for a [`ControlParameter`](@ref).
 """
-get_lower_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), -Inf)
+get_lower_bound(layer::ControlParameter) = first(layer.bounds(layer.t))
 
 """
 $(SIGNATURES)
 
-Return upper bounds for an unbounded [`ControlParameter`](@ref).
+Return upper bounds for a [`ControlParameter`](@ref).
 """
-get_upper_bound(layer::ControlParameter{<:Any, <:Any, Nothing}) = to_val(layer.controls(Random.default_rng(), layer.t), Inf)
-
-"""
-$(SIGNATURES)
-
-Return lower bounds for a bounded [`ControlParameter`](@ref).
-"""
-get_lower_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = first(layer.bounds(layer.t))
-
-"""
-$(SIGNATURES)
-
-Return upper bounds for a bounded [`ControlParameter`](@ref).
-"""
-get_upper_bound(layer::ControlParameter{<:Any, <:Any, <:Function}) = last(layer.bounds(layer.t))
+get_upper_bound(layer::ControlParameter) = last(layer.bounds(layer.t))
 
 """
 $(SIGNATURES)
@@ -411,7 +397,7 @@ $(SIGNATURES)
 
 Apply `reducer` elementwise to a fixed-size tuple of bins.
 """
-@generated function reduce_controls(layer, ps, st, bins::NTuple{N, Tuple{T, T}}) where {N, T <: Number}
+@generated function reduce_control_bin(layer, ps, st, bins::NTuple{N}) where N
 	exprs = Expr[]
 rets = [gensym() for i in Base.OneTo(N)]
 for i in Base.OneTo(N)
@@ -429,11 +415,11 @@ $(SIGNATURES)
 Apply `reducer` recursively to a heterogeneously-typed tuple of bins.
 """
 function reduce_controls(layer, ps, st, bins::Tuple)
-    current = reduce_controls(layer, ps, st, Base.first(bins))
+    current = reduce_control_bin(layer, ps, st, Base.first(bins))
     return (current, reduce_controls(layer, ps, st, Base.tail(bins))...)
 end
 
-reduce_controls(layer, ps, st, bins::Tuple{T}) where T = (reduce_controls(layer, ps, st, only(bins)),)
+reduce_controls(layer, ps, st, bins::Tuple{T}) where T = (reduce_control_bin(layer, ps, st, only(bins)),)
 
 """
 $(SIGNATURES)

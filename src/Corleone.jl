@@ -95,7 +95,8 @@ include("trajectory.jl")
 export Trajectory
 
 include("controls.jl")
-export ControlParameter, ControlParameters
+export ControlParameter, FixedControlParameter 
+export ControlParameters
 
 include("initializers.jl")
 export InitialCondition

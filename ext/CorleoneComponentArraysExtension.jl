@@ -2,6 +2,7 @@ module CorleoneComponentArraysExtension
 using Corleone
 using ComponentArrays
 
+#==
 struct CAFunctionWrapper{A, F} <: Corleone.AbstractCorleoneFunctionWrapper
     "The axes of the componentarray"
     ax::A
@@ -21,5 +22,6 @@ function Corleone.wrap_functions(::Val{:ComponentArrays}, u0::NamedTuple, f...)
         isnothing(fi) ? fi : CAFunctionWrapper{typeof(ax), typeof(fi)}(ax, fi)
     end
 end
+==#
 
 end

@@ -25,8 +25,8 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
-CorleoneMakieExtension = "Makie"
 CorleoneComponentArraysExtension = ["ComponentArrays"]
+CorleoneMakieExtension = "Makie"
 CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
