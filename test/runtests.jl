@@ -15,7 +15,7 @@ using SafeTestsets
         include("initializers.jl")
     end
 	@safetestset "Single shooting" begin 
-		include("single_shoooting.jl")
+		include("single_shooting.jl")
 	end
     #@safetestset "Multiple shooting" begin
     #    include("multiple_shooting.jl")
