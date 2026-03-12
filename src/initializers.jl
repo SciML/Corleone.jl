@@ -80,6 +80,14 @@ get_timegrid(layer::InitialCondition) = begin
     vcat(tspan, saveats)
 end
 
+get_problem(layer::InitialCondition) = layer.problem
+
+get_quadrature_indices(layer::InitialCondition) = layer.quadrature_indices
+
+get_tunable_u0(layer::InitialCondition, full::Bool = false) = full ? [i for i in eachindex(layer.problem.u0) if i ∉ layer.quadrature_indices] : layer.tunable_ic
+
+get_shooting_variables(layer::InitialCondition) = layer.tunable_ic
+
 """
 $(SIGNATURES)
 

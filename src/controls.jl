@@ -150,6 +150,15 @@ ControlParameter(x::ControlParameter) = x
 """
 $(SIGNATURES)
 
+Constructor for 
+"""
+function ControlParameter(::Type{T} = Float64; kwargs...) where T <: Number
+	ControlParameter(T[]; kwargs...) 
+end
+
+"""
+$(SIGNATURES)
+
 Throw an informative error for unsupported control constructor input.
 """
 ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter constructor: $x"))
@@ -175,20 +184,21 @@ Create a modified [`ControlParameter`](@ref), optionally restricting its support
 """
 function SciMLBase.remake(
         layer::ControlParameter;
-        name::Symbol = layer.name,
+        name = layer.name,
         controls::Function = layer.controls,
         bounds::Function = layer.bounds,
         t::AbstractVector = deepcopy(layer.t),
-        tspan = _maybeextrema(t),
-        shooted = false,
+		tspan::Tuple{T, T} = _maybeextrema(t),
+        shooted::Bool = false,
         kwargs...
-    )
+    ) where T <: Real 
 
     mask = zeros(Bool, length(t))
 
     if isempty(t)
-        return ControlParameter(t; name, controls, bounds, shooted)
+		return ControlParameter(T[]; name, controls, bounds, shooted)
     end
+
     if tspan == _maybeextrema(t)
         mask .= true
     else
@@ -204,6 +214,8 @@ function SciMLBase.remake(
             end
         end
     end
+
+	@info t[mask]
 
     return ControlParameter(t[mask]; name, controls, bounds, shooted)
 end
@@ -300,12 +312,13 @@ function _apply_control(layer::FixedControlParameter, t, ps, st)
 	out, merge(st, (; states = st_))
 end
 
-SciMLBase.remake(layer::FixedControlParameter; kwargs...) = fix(remake(layer.layer; kwargs...))
+SciMLBase.remake(layer::FixedControlParameter; kwargs...) = fix(SciMLBase.remake(layer.layer; kwargs...))
 
 get_timegrid(layer::FixedControlParameter) = get_timegrid(layer.layer)
 
 ChainRulesCore.@non_differentiable _apply_control(layer::FixedControlParameter, t, ps, st)
 
+is_shooted(::FixedControlParameter) = true
 
 """
 $(TYPEDEF)
@@ -455,4 +468,15 @@ Generated evaluator for all controls in a named tuple.
     push!(expr, :(return result, st))
     ex = Expr(:block, expr...)
     return ex
+end
+
+get_shooting_variables(layer::ControlParameters) = [c.name for c in values(layer.controls) if is_shooted(c)]
+
+function SciMLBase.remake(layer::ControlParameters; kwargs...)
+	name = get(kwargs, :name, layer.name)  
+	controls = get(kwargs, :controls, map(layer.controls) do control 
+		remake(control; kwargs...) 
+	end) 
+	transform = get(kwargs, :transform, layer.transform) 
+	ControlParameters{typeof(controls), typeof(transform)}(name, controls, transform)
 end
