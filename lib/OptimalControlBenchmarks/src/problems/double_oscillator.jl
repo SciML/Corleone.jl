@@ -4,6 +4,8 @@ function double_oscillator(grids)
     num_controls = 1
     tspan = (0.,2 * pi)
 
+    scaled_grids = scale_grids!(tspan, grids)
+
     @variables begin
         x₀(..) = 0.0, [tunable = false]
         x₁(..) = 0.0, [tunable = false]
