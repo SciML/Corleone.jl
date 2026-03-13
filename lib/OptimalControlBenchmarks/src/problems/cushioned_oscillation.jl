@@ -43,7 +43,8 @@ function cushioned_oscillation(grids)
     return (
         system = oc_problem,
 	grids = scaled_grids,
-	dims = (num_states, num_controls)
+	dims = (num_states, num_controls),
+	name = "Cushioned Oscillation"
     )
 
 end

@@ -1,5 +1,5 @@
 name = "OptimalControlBenchmarks"
-uuid = "6590a4b1-d036-41fe-a5b4-03a980244102"
+uuid = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 authors = ["Robert Lampel", "Julius Martensen", "Christoph Plate", "Reinhold Wittmann"]
 version = "0.0.3"
 

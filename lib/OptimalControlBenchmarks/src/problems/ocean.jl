@@ -71,7 +71,8 @@ function ocean(grids)
     return (
         system = oc_problem,
 	grids = scaled_grids,
-	dims = (num_states, num_controls)
+	dims = (num_states, num_controls),
+	name = "Ocean"
     )
 
 end

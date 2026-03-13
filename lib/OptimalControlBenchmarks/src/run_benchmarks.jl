@@ -6,8 +6,8 @@ function run_all(benchmarks, optimizer, grids)
     results = []
 
     for prob in benchmarks
-
-        # println("Running ", prob.name)
+	name = nameof(prob)
+	println("Running ", name)
         sol = solve_with_corleone(
             prob,
             optimizer,
@@ -17,7 +17,7 @@ function run_all(benchmarks, optimizer, grids)
         t = 0  # @belapsed solve_with_corleone($prob)
 
         push!(results, (
-            name = "",  # prob.name,
+            name = name,
             time = t
         ))
 

@@ -71,7 +71,8 @@ function ducted_fan(grids)
     return (
         system = oc_problem,
 	grids = scaled_grids,
-	dims = (num_states, num_controls)
+	dims = (num_states, num_controls),
+	name = "Ducted Fan"
     )
 
 end

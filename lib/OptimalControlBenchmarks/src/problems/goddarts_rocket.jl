@@ -59,7 +59,8 @@ function goddarts_rocket(grids)
     return (
         system = oc_problem,
 	grids = scaled_grids,
-	dims = (num_states, num_controls)
+	dims = (num_states, num_controls),
+	name = "Goddart's rocket problem"
     )
 
 end

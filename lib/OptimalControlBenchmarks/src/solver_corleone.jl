@@ -1,4 +1,4 @@
-function solve_with_corleone(benchmark, optimizer, grids)
+function solve_with_corleone(benchmark, optimizer, grids, plot_res=true)
 
     data = benchmark(grids)
 
@@ -37,12 +37,18 @@ function solve_with_corleone(benchmark, optimizer, grids)
         hessian_approximation = "limited-memory"
     )
 
-    # plotting
-    u_opt = ComponentVector(sol.u, optprob.f.f.ax)
-    opt_traj, _ = dynopt.layer(nothing, u_opt, LuxCore.initialstates(Random.default_rng(), dynopt.layer))
+    if plot_res
+	# plotting
+	u_opt = ComponentVector(sol.u, optprob.f.f.ax)
+	opt_traj, _ = dynopt.layer(
+		nothing, u_opt,
+		LuxCore.initialstates(Random.default_rng(), dynopt.layer)
+	)
 
-    f = plot_oc_problem(opt_traj, num_states, num_controls)
-    display(f)
+	f = plot_oc_problem(opt_traj, num_states, num_controls)
+	display(f)
+    end
+
     return sol
 
 end
