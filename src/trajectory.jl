@@ -156,3 +156,20 @@ Expose parameter indexing proxy as `traj.ps`.
 function Base.getproperty(fs::Trajectory, s::Symbol)
     return s === :ps ? ParameterIndexingProxy(fs) : getfield(fs, s)
 end
+
+function shooting_constraints!(res, traj)
+    (; shooting) = traj
+	isnothing(shooting) && return res
+	offset = 0 
+	for xi in fleaves(shooting), xij in xi 
+		offset += 1 
+		res[offset] = xij
+	end
+	return res
+end
+
+function shooting_constraints(traj)
+	(; shooting) = traj
+	isnothing(shooting) && return eltype(traj.u[1])[]
+	vcat(fleaves(shooting)...)
+end

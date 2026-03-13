@@ -90,6 +90,8 @@ Sample random values uniformly between elementwise bounds `lb` and `ub`.
 """
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
+get_number_of_shooting_constraints(::AbstractLuxLayer) = 0 
+
 # TODO We need to set this using Preferences
 const MAXBINSIZE = 100
 

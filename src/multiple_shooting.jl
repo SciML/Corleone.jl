@@ -38,6 +38,15 @@ function (layer::MultipleShootingLayer)(u0, ps, st)
     return Trajectory(layer, results), st
 end
 
+function get_number_of_shooting_constraints(layer::MultipleShootingLayer)
+	# We ignore the first shooting variables here
+	sum(fleaves(Base.tail(layer.shooting_variables))) do xi 
+		xi = collect(xi)
+		length(xi)
+	end
+end
+
+
 function matchings(layer::MultipleShootingLayer, us, cs)
     (; shooting_variables) = layer
     problem = get_problem(layer)
@@ -70,7 +79,7 @@ function Trajectory(layer::MultipleShootingLayer, solutions::NamedTuple{fields};
     p = vcat(last.(cseries)...)
     # New Series 
     controls = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
-	p = first(p)
+    p = first(p)
     # Update the quadratures 
     quadratures = get_quadrature_indices(layer)
     q_prev = last(us[1])
@@ -86,6 +95,6 @@ function Trajectory(layer::MultipleShootingLayer, solutions::NamedTuple{fields};
     t_new = reduce(
         vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:(end-1)], eachindex(ts))
     )
-	sys = first(solutions).sys
+    sys = first(solutions).sys
     Trajectory{typeof(sys),typeof(unew),typeof(p),typeof(t_new),typeof(controls),typeof(shooting_violations)}(sys, unew, p, t_new, controls, shooting_violations)
 end
