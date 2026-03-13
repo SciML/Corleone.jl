@@ -2,14 +2,14 @@ function lotka_volterra(grids)
 
     num_states = 3
     num_controls = 1
-    tspan = (0.,12.)
+    tspan = (0.0, 12.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
         x₀(..) = 0.5, [tunable = false]
         x₁(..) = 0.7, [tunable = false]
-        u(..) = 0.5, [bounds = (0., 1.), input = true]
+        u(..) = 0.5, [bounds = (0.0, 1.0), input = true]
     end
 
     @constants begin
@@ -24,7 +24,7 @@ function lotka_volterra(grids)
 
     costs = [
         Symbolics.Integral(t in (0.0, last(tspan)))(
-            (x₀(t) - 1.)^2 + (x₁(t) - 1.)^2
+            (x₀(t) - 1.0)^2 + (x₁(t) - 1.0)^2
         ),
     ]
 
@@ -36,9 +36,9 @@ function lotka_volterra(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Lotka Volterra fishing problem"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Lotka Volterra fishing problem",
     )
 
 end

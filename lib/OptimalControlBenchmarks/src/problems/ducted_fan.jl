@@ -2,10 +2,10 @@ function ducted_fan(grids)
 
     num_states = 7
     num_controls = 2
-    tspan = (0.,10.)
+    tspan = (0.0, 10.0)
 
     scaled_grids = scale_grids!(tspan, grids)
-    
+
     @variables begin
         x₁(..) = 0.0, [tunable = false]
         v₁(..) = 0.0, [tunable = false]
@@ -18,17 +18,17 @@ function ducted_fan(grids)
     end
 
     @parameters begin
-        tₛ = 0.5, [bounds = (1.e-3, Inf), tunable = true]
+        tₛ = 0.5, [bounds = (1.0e-3, Inf), tunable = true]
     end
 
     @constants begin
-        m = 2.2, [tunable = false]    
-        J = 0.05, [tunable = false]    
-        r = 0.2, [tunable = false]    
-        mg = 4., [tunable = false]    
-        μ = 1., [tunable = false]    
+        m = 2.2, [tunable = false]
+        J = 0.05, [tunable = false]
+        r = 0.2, [tunable = false]
+        mg = 4.0, [tunable = false]
+        μ = 1.0, [tunable = false]
     end
-    
+
     eqs = [
         D(x₁(t)) ~ tₛ * (v₁(t))
         D(v₁(t)) ~ tₛ * (1 / m * (u₁(t) * cos(α(t)) - u₂(t) * sin(α(t))))
@@ -37,24 +37,24 @@ function ducted_fan(grids)
         D(α(t)) ~ tₛ * (vα(t))
         D(vα(t)) ~ tₛ * (r / J * u₁(t))
     ]
-    
+
     # scale the constraint grid
-    constraint_grid = scaled_grids.constraint_grid[1:end - 1]
-    
-    grid_cons_u = [α(tᵢ) ≲ 30. for tᵢ in constraint_grid]
-    grid_cons_l = [α(tᵢ) ≳ -30. for tᵢ in constraint_grid]
-    
+    constraint_grid = scaled_grids.constraint_grid[1:(end - 1)]
+
+    grid_cons_u = [α(tᵢ) ≲ 30.0 for tᵢ in constraint_grid]
+    grid_cons_l = [α(tᵢ) ≳ -30.0 for tᵢ in constraint_grid]
+
     cons = [
-        x₁(last(tspan)) ~ 1.,
-        v₁(last(tspan)) ~ 0.,
-        x₂(last(tspan)) ~ 0.,
-        v₂(last(tspan)) ~ 0.,
-        α(last(tspan)) ~ 0.,
-        vα(last(tspan)) ~ 0.,
+        x₁(last(tspan)) ~ 1.0,
+        v₁(last(tspan)) ~ 0.0,
+        x₂(last(tspan)) ~ 0.0,
+        v₂(last(tspan)) ~ 0.0,
+        α(last(tspan)) ~ 0.0,
+        vα(last(tspan)) ~ 0.0,
         grid_cons_u...,
-        grid_cons_l...
+        grid_cons_l...,
     ]
-    
+
     costs = [
         Symbolics.Integral(t in (0.0, last(tspan)))(
             (2 * u₁(t)^2 + u₂(t)^2) + μ * tₛ
@@ -70,9 +70,9 @@ function ducted_fan(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Ducted Fan"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Ducted Fan",
     )
 
 end

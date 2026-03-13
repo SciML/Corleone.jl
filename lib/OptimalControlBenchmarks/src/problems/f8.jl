@@ -2,7 +2,7 @@ function f8(grids)
 
     num_states = 4
     num_controls = 1
-    tspan = (0.,10.)
+    tspan = (0.0, 10.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
@@ -11,11 +11,11 @@ function f8(grids)
         x_1(..) = 0.0, [tunable = false]
         x_2(..) = 0.0, [tunable = false]
         obj(..) = 0.0, [tunable = false]
-        u(..) = 0.5, [bounds = (0., 1.0), input = true]
+        u(..) = 0.5, [bounds = (0.0, 1.0), input = true]
     end
 
     @parameters begin
-        T = 0.5, [bounds =(1.e-3, Inf), tunable = true]
+        T = 0.5, [bounds = (1.0e-3, Inf), tunable = true]
     end
 
     @constants begin
@@ -27,7 +27,7 @@ function f8(grids)
     du_1 += 0.215 * ξ - 0.28 * x_0(t)^2 * ξ + 0.47 * x_0(t) * ξ^2 - 0.63 * ξ^3
     du_1 += - (0.215 * ξ - 0.28 * x_0(t)^2 * ξ - 0.63 * ξ^3) * 2 * u(t)
     du_3 = -4.208 * x_0(t) - 0.396 * x_2(t) - 0.47 * x_0(t)^2 - 3.564 * x_0(t)^3
-    du_3 += 20.967 * ξ - 6.265 * x_0(t)^2 * ξ + 46. * x_0(t) * ξ^2 - 61.4 * ξ^3
+    du_3 += 20.967 * ξ - 6.265 * x_0(t)^2 * ξ + 46.0 * x_0(t) * ξ^2 - 61.4 * ξ^3
     du_3 += -(20.967 * ξ - 6.265 * x_0(t)^2 * ξ - 61.4 * ξ^3) * 2 * u(t)
 
 
@@ -39,9 +39,9 @@ function f8(grids)
     ]
 
     cons = [
-        x_0(last(tspan)) ~ 0.,
-        x_1(last(tspan)) ~ 0.,
-        x_2(last(tspan)) ~ 0.,
+        x_0(last(tspan)) ~ 0.0,
+        x_1(last(tspan)) ~ 0.0,
+        x_2(last(tspan)) ~ 0.0,
     ]
 
     costs = [obj(last(tspan))]
@@ -55,9 +55,9 @@ function f8(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "F-8 aircraft"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "F-8 aircraft",
     )
 
 end

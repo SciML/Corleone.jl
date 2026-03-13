@@ -2,15 +2,15 @@ function lotka_shared(grids)
 
     num_states = 4
     num_controls = 1
-    tspan = (0.,40.)
+    tspan = (0.0, 40.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
         x₀(..) = 1.5, [tunable = false]
-        x₁(..) = 1., [tunable = false]
+        x₁(..) = 1.0, [tunable = false]
         x₂(..) = 0.5, [tunable = false]
-        u(..) = 0.5, [bounds = (0., 1.), input = true]
+        u(..) = 0.5, [bounds = (0.0, 1.0), input = true]
     end
 
     @constants begin
@@ -27,7 +27,7 @@ function lotka_shared(grids)
 
     costs = [
         Symbolics.Integral(t in (0.0, last(tspan)))(
-            (x₀(t) - 1.5)^2 + (x₁(t) - 1.)^2 + (x₂(t) - 1.)^2
+            (x₀(t) - 1.5)^2 + (x₁(t) - 1.0)^2 + (x₂(t) - 1.0)^2
         ),
     ]
 
@@ -39,9 +39,9 @@ function lotka_shared(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Lotka Volterra Shared"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Lotka Volterra Shared",
     )
 
 end

@@ -2,7 +2,7 @@ function bryson_denham(grids)
 
     num_states = 2
     num_controls = 1
-    tspan = (0.,1.)
+    tspan = (0.0, 1.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
@@ -17,18 +17,18 @@ function bryson_denham(grids)
         D(v(t)) ~ w(t)
     ]
 
-    constraint_grid = scaled_grids.constraint_grid[1:end - 1]
+    constraint_grid = scaled_grids.constraint_grid[1:(end - 1)]
 
-    grid_cons = [x(tᵢ) ≲ 1/9 for tᵢ in constraint_grid]
+    grid_cons = [x(tᵢ) ≲ 1 / 9 for tᵢ in constraint_grid]
 
     cons = [
-        x(last(tspan)) ~ 0.,
-        v(last(tspan)) ~ -1.,
-        grid_cons...
+        x(last(tspan)) ~ 0.0,
+        v(last(tspan)) ~ -1.0,
+        grid_cons...,
     ]
 
     costs = [
-        Symbolics.Integral(t in (0.0, 1.0))(w(t)^2)
+        Symbolics.Integral(t in (0.0, 1.0))(w(t)^2),
     ]
 
     @named oc_problem = System(
@@ -40,9 +40,9 @@ function bryson_denham(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Bryson Denham"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Bryson Denham",
     )
 
 end

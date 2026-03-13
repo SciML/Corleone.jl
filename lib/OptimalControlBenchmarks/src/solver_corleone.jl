@@ -1,4 +1,4 @@
-function solve_with_corleone(benchmark, optimizer, grids, plot_res=true)
+function solve_with_corleone(benchmark, optimizer, grids, plot_res = true)
 
     data = benchmark(grids)
 
@@ -14,7 +14,7 @@ function solve_with_corleone(benchmark, optimizer, grids, plot_res=true)
     control_map = [
         c => control_grid for c in controls
     ]
-    
+
     dynopt = CorleoneDynamicOptProblem(
         oc_problem,
         [],
@@ -33,20 +33,20 @@ function solve_with_corleone(benchmark, optimizer, grids, plot_res=true)
         optprob,
         optimizer,
         max_iter = 100,
-        tol = 5e-6,
+        tol = 5.0e-6,
         hessian_approximation = "limited-memory"
     )
 
     if plot_res
-	# plotting
-	u_opt = ComponentVector(sol.u, optprob.f.f.ax)
-	opt_traj, _ = dynopt.layer(
-		nothing, u_opt,
-		LuxCore.initialstates(Random.default_rng(), dynopt.layer)
-	)
+        # plotting
+        u_opt = ComponentVector(sol.u, optprob.f.f.ax)
+        opt_traj, _ = dynopt.layer(
+            nothing, u_opt,
+            LuxCore.initialstates(Random.default_rng(), dynopt.layer)
+        )
 
-	f = plot_oc_problem(opt_traj, num_states, num_controls)
-	display(f)
+        f = plot_oc_problem(opt_traj, num_states, num_controls)
+        display(f)
     end
 
     return sol

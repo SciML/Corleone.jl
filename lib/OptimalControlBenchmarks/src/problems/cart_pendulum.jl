@@ -2,7 +2,7 @@ function cart_pendulum(grids)
 
     num_states = 5
     num_controls = 1
-    tspan = (0.,4.)
+    tspan = (0.0, 4.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
@@ -11,14 +11,14 @@ function cart_pendulum(grids)
         θ(..) = 0.0, [tunable = false]
         dx(..) = 0.0, [tunable = false]
         dtheta(..) = 0.0, [tunable = false]
-        w(..) = 0.0, [bounds=(-30,30), input = true]
+        w(..) = 0.0, [bounds = (-30, 30), input = true]
     end
-    
+
     @parameters begin
-        α = 10., [tunable = false]
-        β = 50., [tunable = false]
+        α = 10.0, [tunable = false]
+        β = 50.0, [tunable = false]
         γ = 0.5, [tunable = false]
-        M = 1., [tunable = false]
+        M = 1.0, [tunable = false]
         m = 0.1, [tunable = false]
         g = 9.81, [tunable = false]
     end
@@ -31,18 +31,18 @@ function cart_pendulum(grids)
     ]
 
     constraint_grid = scaled_grids.constraint_grid
-        
-    grid_cons_le = [x(tᵢ) ≲ 2. for tᵢ in constraint_grid]
-    grid_cons_ge = [x(tᵢ) ≳ -2. for tᵢ in constraint_grid]
+
+    grid_cons_le = [x(tᵢ) ≲ 2.0 for tᵢ in constraint_grid]
+    grid_cons_ge = [x(tᵢ) ≳ -2.0 for tᵢ in constraint_grid]
 
     cons = [
         grid_cons_le...,
-        grid_cons_ge...
+        grid_cons_ge...,
     ]
 
     costs = [
         Symbolics.Integral(t in (0.0, 1.0))(
-		1.e-3 * (α * x(t)^2 + β * (θ(t) - pi)^2 + γ * w(t)^2)
+            1.0e-3 * (α * x(t)^2 + β * (θ(t) - pi)^2 + γ * w(t)^2)
         ),
     ]
 
@@ -55,9 +55,9 @@ function cart_pendulum(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Cart Pendulum"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Cart Pendulum",
     )
 
 end

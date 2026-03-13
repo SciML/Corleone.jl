@@ -2,7 +2,7 @@ function double_oscillator(grids)
 
     num_states = 5
     num_controls = 1
-    tspan = (0.,2 * pi)
+    tspan = (0.0, 2 * pi)
 
     scaled_grids = scale_grids!(tspan, grids)
 
@@ -15,10 +15,10 @@ function double_oscillator(grids)
     end
 
     @constants begin
-        m₁ = 200., [tunable = false]
-        m₂ = 2., [tunable = false]
-        k₁ = 100., [tunable = false]
-        k₂ = 3., [tunable = false]
+        m₁ = 200.0, [tunable = false]
+        m₂ = 2.0, [tunable = false]
+        k₁ = 100.0, [tunable = false]
+        k₂ = 3.0, [tunable = false]
         c = 0.5, [tunable = false]
         T = 2 * pi, [tunable = false]
     end
@@ -44,9 +44,9 @@ function double_oscillator(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Double Oscillator"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Double Oscillator",
     )
 
 end

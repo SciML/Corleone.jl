@@ -2,7 +2,7 @@ function egerstedt(grids)
 
     num_states = 3
     num_controls = 3
-    tspan = (0.,1.)
+    tspan = (0.0, 1.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
@@ -23,11 +23,11 @@ function egerstedt(grids)
     constraint_grid = scaled_grids.constraint_grid
 
     grid_cons_x = [y(tᵢ) ≳ 0.4 for tᵢ in constraint_grid]
-    grid_cons_u = [u_1(tᵢ) + u_2(tᵢ) + u_3(tᵢ) ~ 1. for tᵢ in constraint_grid]
+    grid_cons_u = [u_1(tᵢ) + u_2(tᵢ) + u_3(tᵢ) ~ 1.0 for tᵢ in constraint_grid]
 
     cons = [
         grid_cons_x...,
-        grid_cons_u...
+        grid_cons_u...,
     ]
 
     costs = [
@@ -45,9 +45,9 @@ function egerstedt(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Egerstedt standard problem"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Egerstedt standard problem",
     )
 
 end

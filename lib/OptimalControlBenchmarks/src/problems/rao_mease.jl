@@ -2,21 +2,21 @@ function rao_mease(grids)
 
     num_states = 2
     num_controls = 1
-    tspan = (0.,10)
+    tspan = (0.0, 10)
 
     scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
-        x(..) = 1., [tunable = false]
-        u(..) = 0., [input = true]
+        x(..) = 1.0, [tunable = false]
+        u(..) = 0.0, [input = true]
     end
 
     eqs = [
-        D(x(t)) ~ -x(t)^3 + u(t)
+        D(x(t)) ~ -x(t)^3 + u(t),
     ]
 
     cons = [
-        x(last(tspan)) ~ 1.5
+        x(last(tspan)) ~ 1.5,
     ]
 
     costs = [
@@ -34,9 +34,9 @@ function rao_mease(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Rao Mease"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Rao Mease",
     )
 
 end

@@ -2,31 +2,31 @@ function ocean(grids)
 
     num_states = 3
     num_controls = 2
-    tspan = (0.,400.)
+    tspan = (0.0, 400.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
     @variables begin
-        S(..) = 2.e3, [tunable = false]
-        R(..) = 1.e4, [tunable = false]
-        u₁(..) = 7., [bounds = (0., 40.), input = true]
-        u₂(..) = 7., [bounds = (0., 40.), input = true]
+        S(..) = 2.0e3, [tunable = false]
+        R(..) = 1.0e4, [tunable = false]
+        u₁(..) = 7.0, [bounds = (0.0, 40.0), input = true]
+        u₂(..) = 7.0, [bounds = (0.0, 40.0), input = true]
     end
 
     @constants begin
-        ρ = 3.e-2, [tunable = false]
-        γ = 1.e-3, [tunable = false]
+        ρ = 3.0e-2, [tunable = false]
+        γ = 1.0e-3, [tunable = false]
         ω = 0.1, [tunable = false]
-        b = 50., [tunable = false]
+        b = 50.0, [tunable = false]
         μ = 0.5, [tunable = false]
-        a₁ = 2., [tunable = false]
-        a₂ = 2., [tunable = false]
-        ν = 1., [tunable = false]
-        c₁ = 50., [tunable = false]
-        c₂ = 4.e-3, [tunable = false]
-        Sₚ = 6.e2, [tunable = false]
-        S₀ = 2.e3, [tunable = false]
-        R₀ = 1.e4, [tunable = false]
+        a₁ = 2.0, [tunable = false]
+        a₂ = 2.0, [tunable = false]
+        ν = 1.0, [tunable = false]
+        c₁ = 50.0, [tunable = false]
+        c₂ = 4.0e-3, [tunable = false]
+        Sₚ = 6.0e2, [tunable = false]
+        S₀ = 2.0e3, [tunable = false]
+        R₀ = 1.0e4, [tunable = false]
         Dₗ₀ = 2.3e4, [tunable = false]
     end
 
@@ -45,14 +45,14 @@ function ocean(grids)
     # Define control discretization
     constraint_grid = scaled_grids.constraint_grid
 
-    grid_cons_Su = [S(tᵢ) ≲ 1.e5 for tᵢ in constraint_grid]
-    grid_cons_Ru = [R(tᵢ) ≲ 1.e5 for tᵢ in constraint_grid]
-    grid_cons_Sl = [S(tᵢ) ≳ 0. for tᵢ in constraint_grid]
-    grid_cons_Rl = [R(tᵢ) ≳ 0. for tᵢ in constraint_grid]
+    grid_cons_Su = [S(tᵢ) ≲ 1.0e5 for tᵢ in constraint_grid]
+    grid_cons_Ru = [R(tᵢ) ≲ 1.0e5 for tᵢ in constraint_grid]
+    grid_cons_Sl = [S(tᵢ) ≳ 0.0 for tᵢ in constraint_grid]
+    grid_cons_Rl = [R(tᵢ) ≳ 0.0 for tᵢ in constraint_grid]
 
     cons = [
         grid_cons_Su..., grid_cons_Ru...,
-        grid_cons_Sl..., grid_cons_Rl...
+        grid_cons_Sl..., grid_cons_Rl...,
     ]
 
     costs = [
@@ -70,9 +70,9 @@ function ocean(grids)
 
     return (
         system = oc_problem,
-	grids = scaled_grids,
-	dims = (num_states, num_controls),
-	name = "Ocean"
+        grids = scaled_grids,
+        dims = (num_states, num_controls),
+        name = "Ocean",
     )
 
 end
