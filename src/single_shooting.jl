@@ -126,6 +126,16 @@ function get_shooting_variables(layer::SingleShootingLayer)
     return (; state=tunable_ic, control=cnames)
 end
 
+function get_control_timestops(layer::SingleShootingLayer, st=LuxCore.initialstates(Random.default_rng(), layer))
+    reduce(vcat, map(st.timestops) do bin
+        reduce(vcat, map(bin) do tspans
+           first(tspans)
+        end)
+    end)
+end
+
+
+
 """
 $(SIGNATURES)
 

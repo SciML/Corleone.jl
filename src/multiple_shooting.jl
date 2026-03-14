@@ -46,7 +46,6 @@ function get_number_of_shooting_constraints(layer::MultipleShootingLayer)
 	end
 end
 
-
 function matchings(layer::MultipleShootingLayer, us, cs)
     (; shooting_variables) = layer
     problem = get_problem(layer)

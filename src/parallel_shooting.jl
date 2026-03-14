@@ -57,3 +57,10 @@ function SciMLBase.remake(layer::ParallelShootingLayer; kwargs...)
     ensemble_algorithm = get(kwargs, :ensemble_algorithm, layer.ensemble_algorithm)
     ParallelShootingLayer(layer.name, layers, ensemble_algorithm)
 end
+
+function get_timestops(layer::ParallelShootingLayer, st::NamedTuple{fields}=LuxCore.initialstates(Random.default_rng(), layer)) where fields
+	(; layers) = layer 
+	map(fields) do f 
+		f, get_timestops(getproperty(layers, f), getproperty(st, f))
+	end |> NamedTuple
+end
