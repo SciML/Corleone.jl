@@ -77,7 +77,8 @@ Return a merged initial-condition time grid from `tspan` and `saveat`.
 get_timegrid(layer::InitialCondition) = begin
     tspan = collect(layer.problem.tspan)
     saveats = get(layer.problem.kwargs, :saveat, eltype(tspan)[])
-    vcat(tspan, saveats)
+    saveats = isa(saveats, Number) ? collect(tspan[1]:saveats:tspan[2]) : saveats
+    unique!(sort!(vcat(tspan, saveats)))
 end
 
 get_problem(layer::InitialCondition) = layer.problem

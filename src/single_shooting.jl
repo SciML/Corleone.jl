@@ -126,15 +126,14 @@ function get_shooting_variables(layer::SingleShootingLayer)
     return (; state=tunable_ic, control=cnames)
 end
 
-function get_control_timestops(layer::SingleShootingLayer, st=LuxCore.initialstates(Random.default_rng(), layer))
-    reduce(vcat, map(st.timestops) do bin
-        reduce(vcat, map(bin) do tspans
-           first(tspans)
-        end)
-    end)
+function get_timegrid(layer::SingleShootingLayer)
+    (; initial_conditions, controls) = layer
+    timegrid = vcat(Corleone.get_timegrid(initial_conditions), Corleone.get_timegrid(controls))
+    t0, tinf = get_tspan(initial_conditions)
+    timegrid = filter(t -> t >= t0 && t <= tinf, timegrid)
+    unique!(sort!(timegrid))
+    timegrid
 end
-
-
 
 """
 $(SIGNATURES)
@@ -143,10 +142,8 @@ Initialize runtime state for single-shooting evaluation, including binned time s
 """
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLayer)
     (; initial_conditions, controls) = layer
-    timegrid = vcat(Corleone.get_timegrid(initial_conditions), Corleone.get_timegrid(controls))
     t0, tinf = get_tspan(initial_conditions)
-    timegrid = filter(t -> t >= t0 && t <= tinf, timegrid)
-    unique!(sort!(timegrid))
+    timegrid = get_timegrid(layer)
     timegrid = collect(zip(timegrid[1:(end-1)], timegrid[2:end]))
     # We bin the timegrid now to avoid recursion errors
     N = length(timegrid)
