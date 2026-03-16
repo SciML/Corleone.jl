@@ -18,6 +18,9 @@ using ChainRulesCore
 using LuxCore
 using Functors
 
+using RuntimeGeneratedFunctions
+RuntimeGeneratedFunctions.init(@__MODULE__)
+
 # For evaluation
 """
 $(SIGNATURES)
@@ -117,6 +120,8 @@ export MultipleShootingLayer
 include("observed.jl")
 export ObservedLayer, ObservedExpressionLayer 
 export find_time_indices
+
+
 
 #export default_initialization
 #include("node_initialization.jl")

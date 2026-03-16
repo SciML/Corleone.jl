@@ -102,7 +102,7 @@ end
 
 function _compile_lowered_expression(signal_names::NTuple{N,Symbol}, lowered) where {N}
     args = Expr(:tuple, signal_names...)
-    return Core.eval(@__MODULE__, :($args -> $lowered))
+    return @RuntimeGeneratedFunction(:($args -> $lowered))
 end
 
 function ObservedExpressionLayer(expression::Expr)
