@@ -23,6 +23,9 @@ using SafeTestsets
     @safetestset "Multiple shooting" begin
         include("multiple_shooting.jl")
     end
+	@safetestset "ObservedLayer" begin 
+		include("observed.jl") 
+	end 
     @testset "Examples" begin
         @safetestset "Lotka" begin
             include("examples/lotka_oc.jl")

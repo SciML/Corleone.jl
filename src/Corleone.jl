@@ -130,7 +130,11 @@ include("multiple_shooting.jl")
 export MultipleShootingLayer
 
 include("observed.jl")
-export ObservedLayer #, ObservedExpressionLayer
+export ObservedLayer
+
+include("dynprob.jl")
+export CorleoneDynamicOptProblem
+#, ObservedExpressionLayer
 #export find_time_indices
 
 
