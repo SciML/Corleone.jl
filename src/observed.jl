@@ -1,4 +1,4 @@
-struct ObservedLayer{N,L,O} <: LuxCore.AbstractLuxWrapper{(:layer,)}
+struct ObservedLayer{N,L,O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The name of the layer, used for display and logging purposes."
     name::N
     "The wrapped shooting layer used to produce trajectories."
@@ -58,7 +58,7 @@ function find_indices(points, grid)
     end...)
 end
 
-function ObservedLayer(layer, expressions...; name=gensym(:observed))
+function ObservedLayer(layer::LuxCore.AbstractLuxLayer, expressions::Expr...; name=gensym(:observed))
     problem = Corleone.get_problem(layer) 
     symbols = vcat(variable_symbols(problem), parameter_symbols(problem))
     tspan = get_tspan(layer)
@@ -93,8 +93,7 @@ function ObservedLayer(layer, expressions...; name=gensym(:observed))
     # Define the function header 
     expr = :((traj) -> ($(exprs...)))
     observed = @RuntimeGeneratedFunction(expr)
-
-    return ObservedLayer{typeof(name),typeof(layer),typeof(observed_nt)}(name, layer, observed)
+    return ObservedLayer{typeof(name),typeof(layer),typeof(observed)}(name, layer, observed)
 end
 
 function (obs::ObservedLayer)(x, ps, st)
