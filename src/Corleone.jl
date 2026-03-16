@@ -41,16 +41,14 @@ get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.pa
 
 get_timegrid(::Any) = []
 
-get_timegrid(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_timegrid(getfield(layer, LAYER))  
-get_timegrid(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where LAYERS = begin 
-	vals = map(LAYERS) do LAYER 
-		get_timegrid(getfield(layer, LAYER))
-	end
-	NamedTuple{LAYERS}(vals)
-end 
+get_timegrid(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where {LAYER} = get_timegrid(getfield(layer, LAYER))
+get_timegrid(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where {LAYERS} = begin
+    vals = map(LAYERS) do LAYER
+        get_timegrid(getfield(layer, LAYER))
+    end
+    NamedTuple{LAYERS}(vals)
+end
 get_timegrid(nt::NamedTuple) = map(get_timegrid, nt)
-
-
 
 
 """
@@ -68,8 +66,8 @@ $(SIGNATURES)
 Convert `val` to the numeric type `T`.
 """
 _to_val(::T, val) where {T <: Number} = T(val)
-_to_val(x, val) = map(x) do xi 
-	_to_val(xi, val)
+_to_val(x, val) = map(x) do xi
+    _to_val(xi, val)
 end
 """
 $(SIGNATURES)
@@ -107,7 +105,7 @@ Sample random values uniformly between elementwise bounds `lb` and `ub`.
 """
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
-get_number_of_shooting_constraints(::AbstractLuxLayer) = 0 
+get_number_of_shooting_constraints(::AbstractLuxLayer) = 0
 
 # TODO We need to set this using Preferences
 const MAXBINSIZE = 100
@@ -116,7 +114,7 @@ include("trajectory.jl")
 export Trajectory
 
 include("controls.jl")
-export ControlParameter, FixedControlParameter 
+export ControlParameter, FixedControlParameter
 export ControlParameters
 
 include("initializers.jl")
@@ -125,16 +123,15 @@ export InitialCondition
 include("single_shooting.jl")
 export SingleShootingLayer
 
-include("parallel_shooting.jl") 
+include("parallel_shooting.jl")
 export ParallelShootingLayer
 
 include("multiple_shooting.jl")
 export MultipleShootingLayer
 
 include("observed.jl")
-export ObservedLayer#, ObservedExpressionLayer 
+export ObservedLayer #, ObservedExpressionLayer
 #export find_time_indices
-
 
 
 #export default_initialization

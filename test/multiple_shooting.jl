@@ -61,7 +61,7 @@ end
         @test keys(traj.shooting) == (:matching_1, :matching_2)
 
         # Build expected matching values directly from the underlying parallel solutions.
-		parts = @inferred first(mlayer.layer(nothing, ps, st))
+        parts = @inferred first(mlayer.layer(nothing, ps, st))
         expected_state_1 = first(parts.layer_2.u)[1] - last(parts.layer_1.u)[1]
         expected_state_2 = first(parts.layer_3.u)[1] - last(parts.layer_2.u)[1]
 

@@ -18,9 +18,9 @@ rng = MersenneTwister(42)
 
     c = ControlParameter(
         collect(0.0:0.01:1.0);
-        name=:test,
-        controls=(rng, t) -> fill(10.0, length(t)),
-        bounds=t -> (fill(-1.0, length(t)), fill(1.0, length(t))),
+        name = :test,
+        controls = (rng, t) -> fill(10.0, length(t)),
+        bounds = t -> (fill(-1.0, length(t)), fill(1.0, length(t))),
     )
     lb, ub = Corleone.get_bounds(c)
     ps, _ = LuxCore.setup(rng, c)
@@ -32,8 +32,8 @@ rng = MersenneTwister(42)
 
     c = ControlParameter(
         collect(0.0:0.1:1.0);
-        name=:test2,
-        controls=(rng, t) -> [randn(rng, 3) for _ in eachindex(t)],
+        name = :test2,
+        controls = (rng, t) -> [randn(rng, 3) for _ in eachindex(t)],
     )
     lb, ub = Corleone.get_bounds(c)
     ps, _ = LuxCore.setup(rng, c)
@@ -42,7 +42,7 @@ rng = MersenneTwister(42)
     @test eltype(lb) == eltype(ub) == eltype(ps)
     @test length(ps) == length(c.t)
 
-    c = ControlParameter([0.0]; name=:constant, controls=(rng, t) -> [2.5])
+    c = ControlParameter([0.0]; name = :constant, controls = (rng, t) -> [2.5])
     ps, st = LuxCore.setup(rng, c)
     v0, st0 = @inferred c(-100.0, ps, st)
     v1, st1 = @inferred c(100.0, ps, st0)
@@ -62,10 +62,10 @@ end
 
     c_nt = ControlParameter(
         :w => (
-            t=[0.0, 1.0],
-            controls=(rng, t) -> [2.0, 3.0],
-            bounds=t -> (fill(-3.0, length(t)), fill(3.0, length(t))),
-            shooted=true,
+            t = [0.0, 1.0],
+            controls = (rng, t) -> [2.0, 3.0],
+            bounds = t -> (fill(-3.0, length(t)), fill(3.0, length(t))),
+            shooted = true,
         ),
     )
     @test c_nt.name == :w
@@ -76,7 +76,7 @@ end
 end
 
 @testset "ControlParameter evaluation and remake" begin
-    c = ControlParameter([0.0, 0.5, 1.0]; controls=(rng, t) -> [10.0, 20.0, 30.0])
+    c = ControlParameter([0.0, 0.5, 1.0]; controls = (rng, t) -> [10.0, 20.0, 30.0])
     ps, st = LuxCore.setup(rng, c)
 
     v, st = @inferred c(-1.0, ps, st)
@@ -97,9 +97,9 @@ end
 
     c_for_remake = ControlParameter(
         [0.0, 0.5, 1.0];
-        name=:u_rem,
-        controls=(rng, t) -> Float64.(10 .* collect(eachindex(t))),
-        bounds=t -> (fill(-100.0, length(t)), fill(100.0, length(t))),
+        name = :u_rem,
+        controls = (rng, t) -> Float64.(10 .* collect(eachindex(t))),
+        bounds = t -> (fill(-100.0, length(t)), fill(100.0, length(t))),
     )
 
     c_same = SciMLBase.remake(c_for_remake)
@@ -108,7 +108,7 @@ end
     @test c_same.t == c_for_remake.t
     @test !Corleone.is_shooted(c_same)
 
-    c_window = SciMLBase.remake(c_for_remake; tspan=(0.25, 0.75))
+    c_window = SciMLBase.remake(c_for_remake; tspan = (0.25, 0.75))
     @test c_window.name == :u_rem
     @test c_window.t == [0.25, 0.5]
     @test Corleone.is_shooted(c_window)
@@ -120,15 +120,15 @@ end
     @test vw1 == ps_window[end]
 
     # Full-span window keeps all control knots.
-    c_endpoint = SciMLBase.remake(c_for_remake; tspan=(0.0, 1.0))
+    c_endpoint = SciMLBase.remake(c_for_remake; tspan = (0.0, 1.0))
     @test c_endpoint.t == [0.0, 0.5, 1.0]
     @test !Corleone.is_shooted(c_endpoint)
 
     c_empty = ControlParameter(
         Float64[];
-        name=:empty,
-        controls=(rng, t) -> [3.0],
-        bounds=t -> (fill(-Inf, length(t)), fill(Inf, length(t))),
+        name = :empty,
+        controls = (rng, t) -> [3.0],
+        bounds = t -> (fill(-Inf, length(t)), fill(Inf, length(t))),
     )
     c_empty_remake = SciMLBase.remake(c_empty)
     @test c_empty_remake.t == Float64[]
@@ -141,11 +141,11 @@ end
     controls = ControlParameters(
         :u => 0.0:0.5:1.0,
         :v => (
-            t=[0.0, 1.0],
-            controls=(rng, t) -> [7.0, 9.0],
-            bounds=t -> (fill(0.0, length(t)), fill(10.0, length(t))),
+            t = [0.0, 1.0],
+            controls = (rng, t) -> [7.0, 9.0],
+            bounds = t -> (fill(0.0, length(t)), fill(10.0, length(t))),
         );
-        transform=cs -> (sum=cs.u + cs.v, raw=cs),
+        transform = cs -> (sum = cs.u + cs.v, raw = cs),
     )
 
     ps, st = LuxCore.setup(rng, controls)

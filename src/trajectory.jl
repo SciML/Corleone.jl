@@ -159,17 +159,17 @@ end
 
 function shooting_constraints!(res, traj)
     (; shooting) = traj
-	isnothing(shooting) && return res
-	offset = 0 
-	for xi in fleaves(shooting), xij in xi 
-		offset += 1 
-		res[offset] = xij
-	end
-	return res
+    isnothing(shooting) && return res
+    offset = 0
+    for xi in fleaves(shooting), xij in xi
+        offset += 1
+        res[offset] = xij
+    end
+    return res
 end
 
 function shooting_constraints(traj)
-	(; shooting) = traj
-	isnothing(shooting) && return eltype(traj.u[1])[]
-	vcat(fleaves(shooting)...)
+    (; shooting) = traj
+    isnothing(shooting) && return eltype(traj.u[1])[]
+    return vcat(fleaves(shooting)...)
 end

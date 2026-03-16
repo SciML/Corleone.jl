@@ -24,12 +24,12 @@ tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
 prob = ODEProblem(
-    ODEFunction(lotka_dynamics!, sys=SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
+    ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
     u0,
     tspan,
     p0;
-    abstol=1.0e-8,
-    reltol=1.0e-6,
+    abstol = 1.0e-8,
+    reltol = 1.0e-6,
 )
 
 cgrid = collect(0.0:0.1:11.9)
@@ -37,15 +37,15 @@ N = length(cgrid)
 controls = (
     ControlParameter(
         cgrid;
-        name=:u,
-        bounds=t -> (zero(t), zero(t) .+ 1),
-        controls=(rng, t) -> zeros(eltype(t), length(t)),
+        name = :u,
+        bounds = t -> (zero(t), zero(t) .+ 1),
+        controls = (rng, t) -> zeros(eltype(t), length(t)),
     ),
-    FixedControlParameter(; name=:α, controls=(rng, t) -> [1.0]),
-    FixedControlParameter(; name=:β, controls=(rng, t) -> [1.0]),
+    FixedControlParameter(; name = :α, controls = (rng, t) -> [1.0]),
+    FixedControlParameter(; name = :β, controls = (rng, t) -> [1.0]),
 )
 
-layer = SingleShootingLayer(prob, controls...; algorithm=Tsit5(), quadrature_indices=[3])
+layer = SingleShootingLayer(prob, controls...; algorithm = Tsit5(), quadrature_indices = [3])
 
 ps, st = LuxCore.setup(rng, layer)
 
@@ -71,16 +71,16 @@ end
 
 for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
     prob = ODEProblem(
-        ODEFunction(lotka_dynamics!, sys=SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
+        ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
         u0,
         tspan,
         p0;
-        abstol=1.0e-8,
-        reltol=1.0e-6,
-        sensealg=AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD(),
+        abstol = 1.0e-8,
+        reltol = 1.0e-6,
+        sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD(),
     )
 
-    layer = SingleShootingLayer(prob, controls...; algorithm=Tsit5(), quadrature_indices=[3])
+    layer = SingleShootingLayer(prob, controls...; algorithm = Tsit5(), quadrature_indices = [3])
 
     ps, st = LuxCore.setup(rng, layer)
 
@@ -94,20 +94,21 @@ for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
     end
     #@test size(p, 1) == LuxCore.parameterlength(layer)
     #optprob = OptimizationProblem(layer, AD, Val(:ComponentArrays), loss = :c)
-    optfun = OptimizationFunction(loss, AD,)
-    optprob = OptimizationProblem(optfun, collect(p), st;
-        lb=zero(p), ub=zero(p) .+ 1
+    optfun = OptimizationFunction(loss, AD)
+    optprob = OptimizationProblem(
+        optfun, collect(p), st;
+        lb = zero(p), ub = zero(p) .+ 1
     )
 
-    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1.0e-4)
+    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
 
     sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter=1000, tol=5.0e-6,
-        hessian_approximation="limited-memory"
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
     )
 
     @test SciMLBase.successful_retcode(sol)
-    @test isapprox(sol.objective, 1.344336, atol=1.0e-4)
+    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 
     p_opt = sol.u .+ zero(p)
 

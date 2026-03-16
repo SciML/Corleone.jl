@@ -16,7 +16,7 @@ end
 prob = ODEProblem(f!, [1.0, 2.0, 3.0], (0.0, 5.0), [0.25])
 
 @testset "InitialCondition constructor and bounds" begin
-    layer = InitialCondition(prob; name=:ic, tunable_ic=[1, 3], quadrature_indices=[2])
+    layer = InitialCondition(prob; name = :ic, tunable_ic = [1, 3], quadrature_indices = [2])
     @test layer.name == :ic
     @test layer.tunable_ic == [1, 3]
     @test layer.quadrature_indices == [2]
@@ -26,18 +26,18 @@ prob = ODEProblem(f!, [1.0, 2.0, 3.0], (0.0, 5.0), [0.25])
     @test ub == fill(Inf, 2)
     bounds_layer = InitialCondition(
         prob;
-        tunable_ic=[1, 3],
-        bounds=t0 -> ([t0 - 10.0, -3.0], [t0 + 10.0, 3.0]),
+        tunable_ic = [1, 3],
+        bounds = t0 -> ([t0 - 10.0, -3.0], [t0 + 10.0, 3.0]),
     )
     @test Corleone.get_lower_bound(bounds_layer) == [-10.0, -3.0]
     @test Corleone.get_upper_bound(bounds_layer) == [10.0, 3.0]
-    @test_throws AssertionError InitialCondition(prob; tunable_ic=[4])
-    @test_throws AssertionError InitialCondition(prob; quadrature_indices=[4])
-    @test_throws AssertionError InitialCondition(prob; tunable_ic=[1, 2], quadrature_indices=[2])
+    @test_throws AssertionError InitialCondition(prob; tunable_ic = [4])
+    @test_throws AssertionError InitialCondition(prob; quadrature_indices = [4])
+    @test_throws AssertionError InitialCondition(prob; tunable_ic = [1, 2], quadrature_indices = [2])
 end
 
 @testset "InitialCondition setup and call" begin
-    layer = InitialCondition(prob; tunable_ic=[1, 3], quadrature_indices=[2])
+    layer = InitialCondition(prob; tunable_ic = [1, 3], quadrature_indices = [2])
     ps = @inferred LuxCore.initialparameters(rng, layer)
     @test ps == [1.0, 3.0]
     ps[1] = 99.0
@@ -61,18 +61,18 @@ end
 @testset "InitialCondition remake" begin
     layer = InitialCondition(
         prob;
-        name=:base,
-        tunable_ic=[1, 3],
-        quadrature_indices=[2],
-        bounds=t0 -> (fill(t0 - 1.0, 2), fill(t0 + 1.0, 2)),
+        name = :base,
+        tunable_ic = [1, 3],
+        quadrature_indices = [2],
+        bounds = t0 -> (fill(t0 - 1.0, 2), fill(t0 + 1.0, 2)),
     )
     remade = @inferred InitialCondition SciMLBase.remake(
         layer;
-        name=:remade,
-        tunable_ic=[3],
-        quadrature_indices=[1, 2],
-        u0=[7.0, 8.0, 9.0],
-        tspan=(1.0, 2.0),
+        name = :remade,
+        tunable_ic = [3],
+        quadrature_indices = [1, 2],
+        u0 = [7.0, 8.0, 9.0],
+        tspan = (1.0, 2.0),
     )
     @test remade isa InitialCondition
     @test remade.name == :remade
@@ -82,7 +82,7 @@ end
     @test remade.problem.tspan == (1.0, 2.0)
     @test remade.bounds === layer.bounds
     # Unsupported kwargs should be ignored by the DEProblem remake forwarding.
-    remade_ignored = SciMLBase.remake(layer; unsupported_kwarg=:ignore_me)
+    remade_ignored = SciMLBase.remake(layer; unsupported_kwarg = :ignore_me)
     @test remade_ignored.problem.u0 == layer.problem.u0
     @test remade_ignored.problem.tspan == layer.problem.tspan
 end

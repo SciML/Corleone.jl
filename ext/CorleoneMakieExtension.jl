@@ -13,51 +13,51 @@ maybevec(x::AbstractArray) = eachrow(reduce(hcat, x))
 maybevec(x) = x
 
 _getindex(x, i) = getindex(x, i)
-_getindex(x::Symbol, i) = x 
+_getindex(x::Symbol, i) = x
 
 function Makie.convert_arguments(
         PT::Type{<:Plot},
         sol::Trajectory;
-	idxs::AbstractVector{<:Int} = Int64[], 
-		vars::AbstractVector = [], 
-		kwargs...
+        idxs::AbstractVector{<:Int} = Int64[],
+        vars::AbstractVector = [],
+        kwargs...
     )
-	if !isempty(idxs)  
-		append!(
-			vars,
-			variable_symbols(sol)[idxs]
-		)
+    if !isempty(idxs)
+        append!(
+            vars,
+            variable_symbols(sol)[idxs]
+        )
     end
-	if isempty(vars)
-		for v in variable_symbols(sol) 
-			push!(vars, variable_index(sol, v)) 
-		end
-	end
-	ts = [] 
-	xs = [] 
-	labels = String[] 
-	foreach(vars) do var 
-		if is_timeseries_parameter(sol, var) 
-			x_current = maybevec(getp(sol, var)(sol)) 
-			append!(xs, x_current)
-			for i in eachindex(x_current)
-				push!(ts, sol.controls.collection[1].t)
-				push!(labels, string(_getindex(var, i)))
-			end
-		else 
-			x_current = maybevec(getsym(sol, var)(sol)) 
-			append!(xs, x_current) 
-			for i in eachindex(x_current)
-				push!(ts, sol.t)
-				push!(labels, string(_getindex(var, i)))
-			end
-		end
-	end
+    if isempty(vars)
+        for v in variable_symbols(sol)
+            push!(vars, variable_index(sol, v))
+        end
+    end
+    ts = []
+    xs = []
+    labels = String[]
+    foreach(vars) do var
+        if is_timeseries_parameter(sol, var)
+            x_current = maybevec(getp(sol, var)(sol))
+            append!(xs, x_current)
+            for i in eachindex(x_current)
+                push!(ts, sol.controls.collection[1].t)
+                push!(labels, string(_getindex(var, i)))
+            end
+        else
+            x_current = maybevec(getsym(sol, var)(sol))
+            append!(xs, x_current)
+            for i in eachindex(x_current)
+                push!(ts, sol.t)
+                push!(labels, string(_getindex(var, i)))
+            end
+        end
+    end
 
     plot_type_sym = Makie.plotsym(PT)
-	
+
     return map(
-		(x, y, label, i) -> PlotSpec(plot_type_sym, Point2f.(x, y); label, color = Cycled(i), kwargs...),
+        (x, y, label, i) -> PlotSpec(plot_type_sym, Point2f.(x, y); label, color = Cycled(i), kwargs...),
         ts,
         xs,
         labels,

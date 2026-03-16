@@ -34,7 +34,7 @@ function make_layer(uctrl; name)
         ),
     )
 
-    SingleShootingLayer(prob, controls...; algorithm = Tsit5(), name = name, quadrature_indices = [2])
+    return SingleShootingLayer(prob, controls...; algorithm = Tsit5(), name = name, quadrature_indices = [2])
 end
 
 @testset "ParallelShootingLayer" begin

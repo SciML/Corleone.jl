@@ -14,12 +14,12 @@ using SafeTestsets
     @safetestset "InitialCondition" begin
         include("initializers.jl")
     end
-	@safetestset "Single shooting" begin 
-		include("single_shooting.jl")
-	end
-	@safetestset "Parallel shooting" begin 
-		include("parallel_shooting.jl")
-	end
+    @safetestset "Single shooting" begin
+        include("single_shooting.jl")
+    end
+    @safetestset "Parallel shooting" begin
+        include("parallel_shooting.jl")
+    end
     @safetestset "Multiple shooting" begin
         include("multiple_shooting.jl")
     end
@@ -27,12 +27,12 @@ using SafeTestsets
         @safetestset "Lotka" begin
             include("examples/lotka_oc.jl")
         end
-    #    @safetestset "Lotka MS" begin
-    #        include("examples/lotka_ms.jl")
-    #    end
-    #    @safetestset "Lotka MTK" begin
-    #        include("examples/mtk.jl")
-    #    end
+        #    @safetestset "Lotka MS" begin
+        #        include("examples/lotka_ms.jl")
+        #    end
+        #    @safetestset "Lotka MTK" begin
+        #        include("examples/mtk.jl")
+        #    end
     end
 end
 

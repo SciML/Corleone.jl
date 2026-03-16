@@ -6,7 +6,7 @@ Single-shooting layer coupling initial conditions and controls for trajectory si
 # Fields
 $(FIELDS)
 """
-struct SingleShootingLayer{A,U0,C} <: LuxCore.AbstractLuxContainerLayer{(:initial_conditions, :controls)}
+struct SingleShootingLayer{A, U0, C} <: LuxCore.AbstractLuxContainerLayer{(:initial_conditions, :controls)}
     "The name of the container"
     name::Symbol
     "The algorithm to solve the underlying DEProblem"
@@ -22,9 +22,10 @@ function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     controls = get(kwargs, :controls, remake(layer.controls; kwargs...))
     algorithm = get(kwargs, :algorihtm, layer.algorithm)
     name = get(kwargs, :name, layer.name)
-    SingleShootingLayer{
+    return SingleShootingLayer{
         typeof(algorithm),
-        typeof(initial_conditions),typeof(controls)}(
+        typeof(initial_conditions), typeof(controls),
+    }(
         name, algorithm, initial_conditions, controls
     )
 end
@@ -34,8 +35,8 @@ $(SIGNATURES)
 
 Construct a [`SingleShootingLayer`](@ref) from pre-built initial-condition and control layers.
 """
-function SingleShootingLayer(initial_conditions::InitialCondition, controls::ControlParameters; algorithm::SciMLBase.AbstractDEAlgorithm, name=gensym(:single_shooting))
-    return SingleShootingLayer{typeof(algorithm),typeof(initial_conditions),typeof(controls)}(name, algorithm, initial_conditions, controls)
+function SingleShootingLayer(initial_conditions::InitialCondition, controls::ControlParameters; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting))
+    return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
 """
@@ -43,9 +44,9 @@ $(SIGNATURES)
 
 Construct a [`SingleShootingLayer`](@ref) from an initial-condition layer and control specifications.
 """
-function SingleShootingLayer(initial_conditions::InitialCondition, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name=gensym(:single_shooting))
+function SingleShootingLayer(initial_conditions::InitialCondition, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting))
     controls = ControlParameters(controls...)
-    return SingleShootingLayer{typeof(algorithm),typeof(initial_conditions),typeof(controls)}(name, algorithm, initial_conditions, controls)
+    return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
 """
@@ -53,14 +54,14 @@ $(SIGNATURES)
 
 Construct a [`SingleShootingLayer`](@ref) directly from a `DEProblem` and control specifications.
 """
-function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name=gensym(:single_shooting), kwargs...)
+function SingleShootingLayer(problem::SciMLBase.DEProblem, controls...; algorithm::SciMLBase.AbstractDEAlgorithm, name = gensym(:single_shooting), kwargs...)
 
     repack = let p0 = problem.p
         (x) -> SciMLStructures.replace(SciMLStructures.Tunable(), p0, vcat(values(x)...))
     end
     initial_conditions = InitialCondition(problem; kwargs...)
-    controls = ControlParameters(controls..., transform=repack)
-    return SingleShootingLayer{typeof(algorithm),typeof(initial_conditions),typeof(controls)}(name, algorithm, initial_conditions, controls)
+    controls = ControlParameters(controls..., transform = repack)
+    return SingleShootingLayer{typeof(algorithm), typeof(initial_conditions), typeof(controls)}(name, algorithm, initial_conditions, controls)
 end
 
 
@@ -108,7 +109,7 @@ Rebuild `sys` with control names mapped to `ParameterTimeseriesIndex` entries.
 function remake_system(sys::SymbolCache, controls)
     return SymbolCache(
         variable_symbols(sys), parameter_symbols(sys), independent_variable_symbols(sys);
-        timeseries_parameters=Dict(
+        timeseries_parameters = Dict(
             [c.name => ParameterTimeseriesIndex(1, i) for (i, c) in enumerate(values(controls.controls))]
         )
     )
@@ -117,13 +118,13 @@ end
 get_problem(layer::SingleShootingLayer) = get_problem(layer.initial_conditions)
 get_tspan(layer::SingleShootingLayer) = get_tspan(layer.initial_conditions)
 get_quadrature_indices(layer::SingleShootingLayer) = get_quadrature_indices(layer.initial_conditions)
-get_tunable_u0(layer::SingleShootingLayer, full::Bool=false) = get_tunable_u0(layer.initial_conditions, full)
+get_tunable_u0(layer::SingleShootingLayer, full::Bool = false) = get_tunable_u0(layer.initial_conditions, full)
 
 function get_shooting_variables(layer::SingleShootingLayer)
     problem = get_problem(layer)
     tunable_ic = get_tunable_u0(layer)
     cnames = [c.name for c in layer.controls.controls if is_shooted(c)]
-    return (; state=tunable_ic, control=cnames)
+    return (; state = tunable_ic, control = cnames)
 end
 
 function get_timegrid(layer::SingleShootingLayer)
@@ -132,7 +133,7 @@ function get_timegrid(layer::SingleShootingLayer)
     t0, tinf = get_tspan(initial_conditions)
     timegrid = filter(t -> t >= t0 && t <= tinf, timegrid)
     unique!(sort!(timegrid))
-    timegrid
+    return timegrid
 end
 
 """
@@ -144,7 +145,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     (; initial_conditions, controls) = layer
     t0, tinf = get_tspan(initial_conditions)
     timegrid = get_timegrid(layer)
-    timegrid = collect(zip(timegrid[1:(end-1)], timegrid[2:end]))
+    timegrid = collect(zip(timegrid[1:(end - 1)], timegrid[2:end]))
     # We bin the timegrid now to avoid recursion errors
     N = length(timegrid)
     if N == 0
@@ -155,14 +156,14 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::SingleShootingLay
     if isempty(partitions) || last(partitions) != (N + 1)
         push!(partitions, N + 1)
     end
-    timegrid = ntuple(i -> Tuple(timegrid[partitions[i]:(partitions[i+1]-1)]), length(partitions) - 1)
+    timegrid = ntuple(i -> Tuple(timegrid[partitions[i]:(partitions[i + 1] - 1)]), length(partitions) - 1)
     # Define the system for the symbolic indexing interface
     sys = get_new_system(initial_conditions.problem, controls)
     return (;
-        timestops=timegrid,
-        initial_conditions=LuxCore.initialstates(rng, initial_conditions),
-        controls=LuxCore.initialstates(rng, controls),
-        system=sys,
+        timestops = timegrid,
+        initial_conditions = LuxCore.initialstates(rng, initial_conditions),
+        controls = LuxCore.initialstates(rng, controls),
+        system = sys,
     )
 end
 
@@ -176,7 +177,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
     inputs, st_controls = controls(st.timestops, ps.controls, st.controls)
     solutions = eval_problem(problem, algorithm, true, inputs)
-    return Trajectory(layer, solutions, merge(st, (; controls=st_controls)))
+    return Trajectory(layer, solutions, merge(st, (; controls = st_controls)))
 end
 
 """
@@ -184,7 +185,7 @@ $(SIGNATURES)
 
 Generated helper that solves one tuple block of trajectory intervals.
 """
-@generated function _eval_problem(problem, algorithm, save_start, trajectory::Tuple{Vararg{NamedTuple,N}}) where {N}
+@generated function _eval_problem(problem, algorithm, save_start, trajectory::Tuple{Vararg{NamedTuple, N}}) where {N}
     sols = [gensym() for _ in Base.OneTo(N)]
     exprs = Expr[]
     for i in Base.OneTo(N)
@@ -192,13 +193,13 @@ Generated helper that solves one tuple block of trajectory intervals.
             exprs, :(
                 sol = solve(
                     problem, algorithm,
-                    p=trajectory[$(i)].p,
-                    tspan=trajectory[$i].tspan, save_everystep=false, save_start=$(i == 1) && save_start, save_end=true
+                    p = trajectory[$(i)].p,
+                    tspan = trajectory[$i].tspan, save_everystep = false, save_start = $(i == 1) && save_start, save_end = true
                 )
             )
         )
-        push!(exprs, :(problem = remake(problem, u0=sol.u[end])))
-        push!(exprs, :($(sols[i]) = (; p=trajectory[$(i)].p, u=sol.u, t=sol.t, tspan=trajectory[$i].tspan)))
+        push!(exprs, :(problem = remake(problem, u0 = sol.u[end])))
+        push!(exprs, :($(sols[i]) = (; p = trajectory[$(i)].p, u = sol.u, t = sol.t, tspan = trajectory[$i].tspan)))
     end
     push!(exprs, :(return ($(sols...),), problem))
     ex = Expr(:block, exprs...)
@@ -230,16 +231,16 @@ Construct a [`Trajectory`](@ref) from solved single-shooting segments.
 """
 function Trajectory(::SingleShootingLayer, solutions, st)
     (; system) = st
-    u = _collect(solutions, :u)#reduce(vcat, map(sol -> sol.u, solutions), init = eltype(first(solutions).u)[])
+    u = _collect(solutions, :u) #reduce(vcat, map(sol -> sol.u, solutions), init = eltype(first(solutions).u)[])
     t = _collect(solutions, :t) #reduce(vcat, map(sol -> sol.t, solutions), init = eltype(first(solutions).t)[])
     t_controls = _collect(solutions, :tspan, first)
     p = collect(map(sol -> sol.p, solutions))
     controlseries = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
     p = deepcopy(first(p))
-    return Trajectory{typeof(system),typeof(u),typeof(p),typeof(t),typeof(controlseries),Nothing}(system, u, p, t, controlseries, nothing), st
+    return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
 end
 
-function _collect(solutions, sym::Symbol, f::Function=identity)
+function _collect(solutions, sym::Symbol, f::Function = identity)
     xs = map(f ∘ Base.Fix2(getproperty, sym), solutions)
-    vcat(xs...)
+    return vcat(xs...)
 end

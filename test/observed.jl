@@ -16,7 +16,7 @@ end
 
 @testset "Observed helper utilities" begin
     @test Corleone._extract_timepoints(2.5) == [2.5]
-    @test Corleone._extract_timepoints(:( [1.0, 3.5] )) == [1.0, 3.5]
+    @test Corleone._extract_timepoints(:([1.0, 3.5])) == [1.0, 3.5]
     @test_throws AssertionError Corleone._extract_timepoints(:(x(1.0)))
 
     collector = Dict(:x => Float64[], :u => Float64[], :y => Float64[])
@@ -32,7 +32,7 @@ end
 
     idx = Dict(1.0 => 2, 2.0 => 5, 4.0 => 8)
     @test Corleone._extract_timeindex(2.0, idx) == 5
-    @test Corleone._extract_timeindex(:( [1.0, 4.0] ), idx) == [2, 8]
+    @test Corleone._extract_timeindex(:([1.0, 4.0]), idx) == [2, 8]
     @test_throws AssertionError Corleone._extract_timeindex(:(x(1.0)), idx)
 
     replacer = Dict(:x => Dict(1.0 => 2, 3.0 => 7), :u => Dict(2.0 => 5))

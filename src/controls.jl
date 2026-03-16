@@ -16,7 +16,7 @@ control = ControlParameter(0.0:0.1:10.0)
 control = ControlParameter(0.0:0.1:10.0; name = :u, controls = (rng, t) -> rand(rng, length(t)), bounds = t -> (zeros(length(t)), ones(length(t))))
 ```
 """
-struct ControlParameter{T,C,B,SHOOTED,S} <: LuxCore.AbstractLuxLayer
+struct ControlParameter{T, C, B, SHOOTED, S} <: LuxCore.AbstractLuxLayer
     "The name of the control"
     name::S
     "The timepoints at which discretized variables are introduced. If empty, we assume a single value constant over time."
@@ -27,12 +27,12 @@ struct ControlParameter{T,C,B,SHOOTED,S} <: LuxCore.AbstractLuxLayer
     bounds::B
 
     function ControlParameter(
-        t::AbstractVector;
-        name::N=gensym(:u),
-        controls::Function=default_controls, bounds::Function=default_bounds, shooted::Bool=false,
-        kwargs...
-    ) where {N}
-        return new{typeof(t),typeof(controls),typeof(bounds),shooted,N}(name, t, controls, bounds)
+            t::AbstractVector;
+            name::N = gensym(:u),
+            controls::Function = default_controls, bounds::Function = default_bounds, shooted::Bool = false,
+            kwargs...
+        ) where {N}
+        return new{typeof(t), typeof(controls), typeof(bounds), shooted, N}(name, t, controls, bounds)
     end
 end
 
@@ -66,7 +66,7 @@ $(FUNCTIONNAME)
 A placeholder for unbounded parameters.
 """
 function default_bounds(t::AbstractVector)
-    @error "Called `default_bounds`. This should never happen!"
+    return @error "Called `default_bounds`. This should never happen!"
 end
 
 """
@@ -74,7 +74,7 @@ $(FUNCTIONNAME)
 
 Checks if the control is shooted, i.e., if it has a value which will be constrained via an equality constraint in the optimization problem.
 """
-is_shooted(::ControlParameter{<:Any,<:Any,<:Any,SHOOTED}) where {SHOOTED} = SHOOTED
+is_shooted(::ControlParameter{<:Any, <:Any, <:Any, SHOOTED}) where {SHOOTED} = SHOOTED
 
 """
 $(SIGNATURES)
@@ -82,7 +82,7 @@ $(SIGNATURES)
 Return lower bounds for a [`ControlParameter`](@ref).
 """
 get_lower_bound(layer::ControlParameter) = first(layer.bounds(layer.t))
-get_lower_bound(layer::ControlParameter{<:Any,<:Any,<:typeof(default_bounds)}) = to_val(
+get_lower_bound(layer::ControlParameter{<:Any, <:Any, <:typeof(default_bounds)}) = to_val(
     layer.controls(Random.default_rng(), layer.t), -Inf
 )
 
@@ -92,7 +92,7 @@ $(SIGNATURES)
 Return upper bounds for a [`ControlParameter`](@ref).
 """
 get_upper_bound(layer::ControlParameter) = last(layer.bounds(layer.t))
-get_upper_bound(layer::ControlParameter{<:Any,<:Any,<:typeof(default_bounds)}) = to_val(
+get_upper_bound(layer::ControlParameter{<:Any, <:Any, <:typeof(default_bounds)}) = to_val(
     layer.controls(Random.default_rng(), layer.t), Inf
 )
 
@@ -109,28 +109,28 @@ $(SIGNATURES)
 
 Construct a [`ControlParameter`](@ref) from a `name => timepoints` pair.
 """
-ControlParameter(x::Base.Pair{Symbol,<:AbstractVector}) = ControlParameter(last(x), name=first(x))
+ControlParameter(x::Base.Pair{Symbol, <:AbstractVector}) = ControlParameter(last(x), name = first(x))
 
 """
 $(SIGNATURES)
 
 Construct a [`ControlParameter`](@ref) from a `name => range` pair.
 """
-ControlParameter(x::Base.Pair{Symbol,<:Base.AbstractRange}) = ControlParameter(collect(last(x)), name=first(x))
+ControlParameter(x::Base.Pair{Symbol, <:Base.AbstractRange}) = ControlParameter(collect(last(x)), name = first(x))
 
 """
 $(SIGNATURES)
 
 Construct a [`ControlParameter`](@ref) from a `name => (t, controls, bounds, shooted)` named tuple.
 """
-ControlParameter(x::Base.Pair{Symbol,<:NamedTuple}) = begin
+ControlParameter(x::Base.Pair{Symbol, <:NamedTuple}) = begin
     nt = last(x)
     ControlParameter(
         getproperty(nt, :t),
-        name=first(x),
-        controls=get(nt, :controls, default_controls),
-        bounds=get(nt, :bounds, nothing),
-        shooted=get(nt, :shooted, false),
+        name = first(x),
+        controls = get(nt, :controls, default_controls),
+        bounds = get(nt, :bounds, nothing),
+        shooted = get(nt, :shooted, false),
     )
 end
 
@@ -146,8 +146,8 @@ $(SIGNATURES)
 
 Constructor for 
 """
-function ControlParameter(::Type{T}=Float64; kwargs...) where {T<:Number}
-    ControlParameter(T[]; kwargs...)
+function ControlParameter(::Type{T} = Float64; kwargs...) where {T <: Number}
+    return ControlParameter(T[]; kwargs...)
 end
 
 """
@@ -177,15 +177,15 @@ $(SIGNATURES)
 Create a modified [`ControlParameter`](@ref), optionally restricting its support to `tspan`.
 """
 function SciMLBase.remake(
-    layer::ControlParameter;
-    name=layer.name,
-    controls::Function=layer.controls,
-    bounds::Function=layer.bounds,
-    t::AbstractVector=deepcopy(layer.t),
-    tspan::Tuple{T,T}=_maybeextrema(t),
-    shooted::Bool=false,
-    kwargs...
-) where {T<:Real}
+        layer::ControlParameter;
+        name = layer.name,
+        controls::Function = layer.controls,
+        bounds::Function = layer.bounds,
+        t::AbstractVector = deepcopy(layer.t),
+        tspan::Tuple{T, T} = _maybeextrema(t),
+        shooted::Bool = false,
+        kwargs...
+    ) where {T <: Real}
 
     mask = zeros(Bool, length(t))
 
@@ -201,7 +201,7 @@ function SciMLBase.remake(
             if t[i] >= t0 && t[i] < tinf
                 mask[i] = true
             end
-            if i != lastindex(t) && t[i] < t0 && t[i+1] > t0
+            if i != lastindex(t) && t[i] < t0 && t[i + 1] > t0
                 mask[i] = true
                 t[i] = t0
                 shooted = true
@@ -230,10 +230,10 @@ $(SIGNATURES)
 Initialize runtime state for evaluating `control`.
 """
 LuxCore.initialstates(::Random.AbstractRNG, control::ControlParameter) = (;
-    t=control.t,
-    current_index=firstindex(control.t),
-    first_index=firstindex(control.t),
-    last_index=lastindex(control.t),
+    t = control.t,
+    current_index = firstindex(control.t),
+    first_index = firstindex(control.t),
+    last_index = lastindex(control.t),
     # TODO Add a fixed size hash table lookup here to avoid the linear search in find_idx for large control grids
     # Maybe build a tree structure
 )
@@ -243,7 +243,7 @@ $(SIGNATURES)
 
 Find the active control segment index at time `t`.
 """
-find_idx(t::T, timepoints::AbstractVector) where {T<:Number} = searchsortedlast(timepoints, t)
+find_idx(t::T, timepoints::AbstractVector) where {T <: Number} = searchsortedlast(timepoints, t)
 
 
 function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
@@ -272,7 +272,7 @@ $(TYPEDEF)
 
 A struct which simply wraps a control parameter to allow for non-tunable tunables.
 """
-struct FixedControlParameter{C<:ControlParameter} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct FixedControlParameter{C <: ControlParameter} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The original control parameter"
     layer::C
 end
@@ -291,17 +291,17 @@ ControlParameter(c::FixedControlParameter) = c
 
 LuxCore.initialparameters(::Random.AbstractRNG, ::FixedControlParameter) = (;)
 LuxCore.initialstates(rng::Random.AbstractRNG, layer::FixedControlParameter) = (;
-    parameters=LuxCore.initialparameters(rng, layer.layer),
-    states=LuxCore.initialstates(rng, layer.layer)
+    parameters = LuxCore.initialparameters(rng, layer.layer),
+    states = LuxCore.initialstates(rng, layer.layer),
 )
 
 function (layer::FixedControlParameter)(t, ps, st)
-    _apply_control(layer, t, ps, st)
+    return _apply_control(layer, t, ps, st)
 end
 
 function _apply_control(layer::FixedControlParameter, t, ps, st)
     out, st_ = layer.layer(t, st.parameters, st.states)
-    out, merge(st, (; states=st_))
+    return out, merge(st, (; states = st_))
 end
 
 SciMLBase.remake(layer::FixedControlParameter; kwargs...) = fix(SciMLBase.remake(layer.layer; kwargs...))
@@ -338,7 +338,7 @@ controls = ControlParameters(
 )
 ```
 """
-struct ControlParameters{C<:NamedTuple,T} <: LuxCore.AbstractLuxWrapperLayer{:controls}
+struct ControlParameters{C <: NamedTuple, T} <: LuxCore.AbstractLuxWrapperLayer{:controls}
     "The name of the container"
     name::Symbol
     "The control parameter collection"
@@ -362,8 +362,8 @@ $(SIGNATURES)
 
 Construct [`ControlParameters`](@ref) from a named tuple of controls.
 """
-function ControlParameters(controls::NamedTuple; name::Symbol=gensym(:controls), transform=identity, kwargs...)
-    return ControlParameters{typeof(controls),typeof(transform)}(name, controls, transform)
+function ControlParameters(controls::NamedTuple; name::Symbol = gensym(:controls), transform = identity, kwargs...)
+    return ControlParameters{typeof(controls), typeof(transform)}(name, controls, transform)
 end
 
 """
@@ -383,10 +383,10 @@ $(SIGNATURES)
 
 Evaluate controls for one integration interval `(t0, tinf)`.
 """
-function (layer::ControlParameters)((t0, tinf)::Tuple{T,T}, ps, st) where {T<:Number}
+function (layer::ControlParameters)((t0, tinf)::Tuple{T, T}, ps, st) where {T <: Number}
     (; transform) = layer
     cs, st = _apply(layer, t0, ps, st)
-    return (; p=transform(cs), tspan=(t0, tinf)), st
+    return (; p = transform(cs), tspan = (t0, tinf)), st
 end
 
 """
@@ -408,12 +408,13 @@ Apply `reducer` elementwise to a fixed-size tuple of bins.
     exprs = Expr[]
     rets = [gensym() for i in Base.OneTo(N)]
     for i in Base.OneTo(N)
-        push!(exprs,
+        push!(
+            exprs,
             :(($(rets[i]), st) = layer(bins[$i], ps, st))
         )
     end
     push!(exprs, Expr(:tuple, rets...))
-    Expr(:block, exprs...)
+    return Expr(:block, exprs...)
 end
 
 """
@@ -442,7 +443,7 @@ $(SIGNATURES)
 
 Generated evaluator for all controls in a named tuple.
 """
-@generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T,fields}
+@generated function _eval_controls(controls::NamedTuple{fields}, t::T, ps, st) where {T, fields}
     returns = [gensym() for _ in fields]
     rt_states = [gensym() for _ in fields]
     expr = Expr[]
@@ -467,9 +468,11 @@ get_shooting_variables(layer::ControlParameters) = [c.name for c in values(layer
 
 function SciMLBase.remake(layer::ControlParameters; kwargs...)
     name = get(kwargs, :name, layer.name)
-    controls = get(kwargs, :controls, map(layer.controls) do control
-        remake(control; kwargs...)
-    end)
+    controls = get(
+        kwargs, :controls, map(layer.controls) do control
+            remake(control; kwargs...)
+        end
+    )
     transform = get(kwargs, :transform, layer.transform)
-    ControlParameters{typeof(controls),typeof(transform)}(name, controls, transform)
+    return ControlParameters{typeof(controls), typeof(transform)}(name, controls, transform)
 end

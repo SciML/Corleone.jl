@@ -1,12 +1,15 @@
 function get_timestops(layer::SingleShootingLayer)
     st = LuxCore.initialstates(Random.default_rng(), layer)
-    reduce(vcat, map(st.timestops) do bin
-        reduce(vcat, map(bin) do tspans
-            collect(tspans)
-        end)
-    end)
+    return reduce(
+        vcat, map(st.timestops) do bin
+            reduce(
+                vcat, map(bin) do tspans
+                    collect(tspans)
+                end
+            )
+        end
+    )
 end
-
 
 
 #=
