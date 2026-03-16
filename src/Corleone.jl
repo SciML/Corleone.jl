@@ -114,6 +114,10 @@ export ParallelShootingLayer
 include("multiple_shooting.jl")
 export MultipleShootingLayer
 
+include("observed.jl")
+export ObservedLayer, ObservedExpressionLayer 
+export find_time_indices
+
 #export default_initialization
 #include("node_initialization.jl")
 #export random_initialization, forward_initialization, linear_initialization
