@@ -118,8 +118,8 @@ include("multiple_shooting.jl")
 export MultipleShootingLayer
 
 include("observed.jl")
-export ObservedLayer, ObservedExpressionLayer 
-export find_time_indices
+export ObservedLayer#, ObservedExpressionLayer 
+#export find_time_indices
 
 
 
