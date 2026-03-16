@@ -163,13 +163,7 @@ function SciMLBase.remake(
         quadrature_indices::Vector{Int} = layer.quadrature_indices,
         kwargs...,
     )
-    m = which(SciMLBase.remake, (typeof(problem),))
-    kw = Base.kwarg_decl(m)
-    _kwargs = NamedTuple()
-    if !isempty(kw)
-        _kwargs = (; (k => v for (k, v) in pairs(kwargs) if k in kw)...)
-    end
-    problem = remake(problem; _kwargs...)
+    problem = remake(problem; kwargs...)
     return InitialCondition(problem; name, tunable_ic, bounds, quadrature_indices)
 end
 

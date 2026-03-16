@@ -39,6 +39,20 @@ Return the cumulative parameter block structure for `layer`.
 """
 get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
 
+get_timegrid(::Any) = []
+
+get_timegrid(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_timegrid(getfield(layer, LAYER))  
+get_timegrid(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where LAYERS = begin 
+	vals = map(LAYERS) do LAYER 
+		get_timegrid(getfield(layer, LAYER))
+	end
+	NamedTuple{LAYERS}(vals)
+end 
+get_timegrid(nt::NamedTuple) = map(get_timegrid, nt)
+
+
+
+
 """
 $(SIGNATURES)
 

@@ -13,7 +13,7 @@ _extract_timepoints(x::Expr) = begin
     reduce(vcat, x.args)
 end
 
-_collect_timepoints!(::Dict{Symbol, <:AbstractVector}, ::Symbol) = nothing
+_collect_timepoints!(::Dict{Symbol, <:AbstractVector}, ::Any) = nothing
 
 function _collect_timepoints!(collector::Dict{Symbol, <:AbstractVector}, ex::Expr)
     if ex.head == :call
@@ -34,7 +34,7 @@ _extract_timeindex(x::Expr, indices) = begin
     reduce(vcat, map(Base.Fix2(_extract_timeindex, indices), x.args))
 end
 
-replace_timepoints(x::Symbol, replacer) = x
+replace_timepoints(x::Any, replacer) = x
 
 function replace_timepoints(x::Expr, replacer::Dict{Symbol, <:Dict})
     if x.head == :call
