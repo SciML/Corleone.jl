@@ -154,10 +154,6 @@ function ControlParameter(::Type{T} = Float64; kwargs...) where {T <: Number}
     return ControlParameter(T[]; kwargs...)
 end
 
-$(SIGNATURES)
-
-Throw an informative error for unsupported control constructor input.
-"""
 ControlParameter(x) = throw(ArgumentError("Invalid argument for ControlParameter constructor: $x"))
 
 """
