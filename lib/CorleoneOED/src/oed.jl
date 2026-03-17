@@ -64,7 +64,6 @@ function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points..
     return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
 end
 
-
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
@@ -140,6 +139,34 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = 
     )
 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
+end
+
+function get_idxs_fisher(oed::OEDLayer, symcache::SymbolicIndexingInterface.SymbolCache)
+    ps, st = LuxCore.setup(Random.default_rng(), oed)
+    fim = first(fisher_information(oed, nothing, ps, st))
+    F_states = Symbol.(Symbolics.variables(:F, 1:size(fim,1), 1:size(fim, 2))[triu(ones(Bool, size(fim)))])
+
+    idxs = map(F_states) do F
+        for (k,v) in symcache.variables
+            if isequal(k,F)
+                return v
+            end
+        end
+    end
+
+    return idxs
+end
+
+function update_fim!(oed::OEDLayer{DISCRETE, SAMPLED, FIXED}, experiments) where {DISCRETE, SAMPLED, FIXED}
+    ps, st = LuxCore.setup(Random.default_rng(), oed)
+    FIM = sum(map(experiments) do experiment
+        fisher_information(oed, nothing, experiment, st)[1]
+    end)
+    u0 = oed.layer.problem.u0
+    idxs_fim = get_idxs_fisher(oed, st.symcache)
+    u0[idxs_fim] .= FIM[triu(ones(Bool, size(FIM)))]
+    remake(oed.layer.problem, u0 = u0)
+    return nothing
 end
 
 n_observed(layer::OEDLayer) = length(layer.sampling_indices)
