@@ -129,7 +129,7 @@ ControlParameter(x::Base.Pair{Symbol, <:NamedTuple}) = begin
         getproperty(nt, :t),
         name = first(x),
         controls = get(nt, :controls, default_controls),
-        bounds = get(nt, :bounds, nothing),
+        bounds = get(nt, :bounds, default_bounds),
         shooted = get(nt, :shooted, false),
     )
 end
@@ -248,6 +248,7 @@ find_idx(t::T, timepoints::AbstractVector) where {T <: Number} = searchsortedlas
 
 function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     (; t, current_index, first_index, last_index) = st
+	isempty(t) && return only(controls), st
     if current_index == last_index && tcurrent >= t[last_index]
         return controls[current_index], st
     elseif current_index == first_index == last_index # Constant control case

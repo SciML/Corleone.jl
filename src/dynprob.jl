@@ -69,7 +69,7 @@ function replace_timepoints(x::Expr, replacer::Dict{Symbol, <:Dict})
             return Expr(x.head, map(arg -> replace_timepoints(arg, replacer), x.args)...)
         end
     end
-    return
+    return x
 end
 
 function find_indices(points, grid)
