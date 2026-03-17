@@ -158,9 +158,8 @@ function get_idxs_fisher(oed::OEDLayer, symcache::SymbolicIndexingInterface.Symb
 end
 
 function update_fim(oed::OEDLayer{DISCRETE, SAMPLED, FIXED}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
-    _ps, _st = LuxCore.setup(Random.default_rng(), oed)
     FIM = sum(map(experiments) do experiment
-        fisher_information(oed, nothing, experiment, _st)[1]
+        fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
     end)
 
     return merge(st, (; F_init = FIM))
