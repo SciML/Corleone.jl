@@ -235,7 +235,7 @@ function Trajectory(::SingleShootingLayer, solutions, st)
     t = _collect(solutions, :t) #reduce(vcat, map(sol -> sol.t, solutions), init = eltype(first(solutions).t)[])
     t_controls = _collect(solutions, :tspan, first)
     p = collect(map(sol -> sol.p, solutions))
-    controlseries = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
+    controlseries = ParameterTimeseriesCollection((ControlSignal(vcat(t_controls, last(t)), vcat(p, p[end:end])),), deepcopy(first(p)))
     p = deepcopy(first(p))
     return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
 end

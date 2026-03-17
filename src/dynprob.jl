@@ -41,11 +41,10 @@ function _collect_timepoints!(collector::Dict{Symbol, <:AbstractVector}, ex::Exp
     if ex.head == :call
         if ex.args[1] ∈ keys(collector)
             append!(collector[ex.args[1]], _extract_timepoints(ex.args[2]))
-        else
-            for arg in ex.args
-                _collect_timepoints!(collector, arg)
-            end
         end
+    end
+    for arg in ex.args
+        _collect_timepoints!(collector, arg)
     end
     return
 end
@@ -65,11 +64,9 @@ function replace_timepoints(x::Expr, replacer::Dict{Symbol, <:Dict})
                 :call, :getindex, x.args[1],
                 _extract_timeindex(x.args[2], replacer[x.args[1]])
             )
-        else
-            return Expr(x.head, map(arg -> replace_timepoints(arg, replacer), x.args)...)
         end
     end
-    return x
+    return Expr(x.head, map(arg -> replace_timepoints(arg, replacer), x.args)...)
 end
 
 function find_indices(points, grid)
