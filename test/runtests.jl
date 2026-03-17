@@ -29,9 +29,3 @@ using SafeTestsets
         end
     end
 end
-
-# What to test?
-# local_controls.jl:
-#   - construction of index_grid, get_subvector_indices -> Julius
-# general:
-#   - more convergence? Lotka OED
