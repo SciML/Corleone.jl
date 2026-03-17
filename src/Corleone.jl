@@ -60,6 +60,9 @@ get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
     get_lower_bound(layer), get_upper_bound(layer),
 )
 
+get_bounds(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}; kwargs...) where LAYER = get_bounds(getfield(layer,LAYER); kwargs...)
+get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}; kwargs...) where LAYER = get_number_of_shooting_constraints(getfield(layer,LAYER); kwargs...)
+
 """
 $(SIGNATURES)
 
@@ -82,6 +85,8 @@ $(SIGNATURES)
 Return an elementwise lower bound vector for `layer`.
 """
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
+get_lower_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_lower_bound(getfield(layer, LAYER))
+get_lower_bound(nt::Union{NamedTuple, Tuple}) = map(get_lower_bound, nt) 
 
 """
 $(SIGNATURES)
@@ -89,7 +94,8 @@ $(SIGNATURES)
 Return an elementwise upper bound vector for `layer`.
 """
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
-
+get_upper_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_upper_bound(getfield(layer, LAYER))
+get_upper_bound(nt::Union{NamedTuple, Tuple}) = map(get_upper_bound, nt) 
 """
 $(SIGNATURES)
 
@@ -129,23 +135,13 @@ export ParallelShootingLayer
 include("multiple_shooting.jl")
 export MultipleShootingLayer
 
-include("observed.jl")
-export ObservedLayer
-
 include("dynprob.jl")
-export CorleoneDynamicOptProblem
-#, ObservedExpressionLayer
-#export find_time_indices
+export DynamicOptimizationLayer
 
 
 #export default_initialization
 #include("node_initialization.jl")
 #export random_initialization, forward_initialization, linear_initialization
 #export custom_initialization, constant_initialization, hybrid_initialization
-#
-#abstract type AbstractCorleoneFunctionWrapper end
-#
-#include("dynprob.jl")
-#export CorleoneDynamicOptProblem
 
 end

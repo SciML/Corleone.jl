@@ -30,6 +30,7 @@ prob = ODEProblem(
     p0;
     abstol = 1.0e-8,
     reltol = 1.0e-6,
+	sensealg = SciMLBase.NoAD()
 )
 
 cgrid = collect(0.0:0.1:11.9)
@@ -46,9 +47,7 @@ controls = (
 )
 
 layer = SingleShootingLayer(prob, controls...; algorithm = Tsit5(), quadrature_indices = [3])
-
 ps, st = LuxCore.setup(rng, layer)
-
 sol, _ = layer(nothing, ps, st)
 
 @test sol.t == getsym(sol, :t)(sol)
@@ -70,37 +69,13 @@ end
 
 
 for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
-    prob = ODEProblem(
-        ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
-        u0,
-        tspan,
-        p0;
-        abstol = 1.0e-8,
-        reltol = 1.0e-6,
-        sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD(),
-    )
-
-    layer = SingleShootingLayer(prob, controls...; algorithm = Tsit5(), quadrature_indices = [3])
-
-    ps, st = LuxCore.setup(rng, layer)
-
-    p = ComponentArray(ps)
-
-    loss = let layer = layer, ax = getaxes(p)
-        (p, st) -> begin
-            traj, _ = layer(nothing, ComponentArray(p, ax), st)
-            traj[:c][end]
-        end
-    end
-    #@test size(p, 1) == LuxCore.parameterlength(layer)
-    #optprob = OptimizationProblem(layer, AD, Val(:ComponentArrays), loss = :c)
-    optfun = OptimizationFunction(loss, AD)
-    optprob = OptimizationProblem(
-        optfun, collect(p), st;
-        lb = zero(p), ub = zero(p) .+ 1
-    )
+    layer = remake(layer,sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD()) 
+	optlayer = DynamicOptimizationLayer(layer, :(c(12.0)))  
+	optprob = OptimizationProblem(optlayer, AD, vectorizer = Val(:ComponentArrays))
 
     @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
+	@test all(optprob.ub .== 1.0)
+	@test all(optprob.lb .== 0.0)
 
     sol = solve(
         optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
