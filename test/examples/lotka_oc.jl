@@ -48,10 +48,10 @@ controls = (
 
 
 @testset "Single Shooting" begin
- layer = SingleShootingLayer(
-    prob, controls...;
-    algorithm = Tsit5(), quadrature_indices = [3]
-)
+    layer = SingleShootingLayer(
+        prob, controls...;
+        algorithm = Tsit5(), quadrature_indices = [3]
+    )
     ps, st = LuxCore.setup(rng, layer)
     sol, _ = layer(nothing, ps, st)
     @test sol.t == getsym(sol, :t)(sol)
@@ -95,11 +95,11 @@ end
 
 @testset "Multiple Shooting" begin
 
- layer = SingleShootingLayer(
-    prob, controls...;
-    bounds_ic = (t0) -> (zeros(3), fill(Inf, 3)),
-    algorithm = Tsit5(), quadrature_indices = [3]
-)
+    layer = SingleShootingLayer(
+        prob, controls...;
+        bounds_ic = (t0) -> (zeros(3), fill(Inf, 3)),
+        algorithm = Tsit5(), quadrature_indices = [3]
+    )
     ms_layer = MultipleShootingLayer(
         layer, 0.0, 3.0, 6.0, 9.0
     )

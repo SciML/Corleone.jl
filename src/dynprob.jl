@@ -115,7 +115,7 @@ function normalize_constraint(expr::Expr, ::Type{T}) where {T}
     elseif op == :(==)
         Expr(:call, :(-), a, b), zero(T), zero(T)
     else
-        throw(error("The operator $(op) is not suppported to define constraints. Only ==, <=, and >= are supported."))
+        throw(error("The operator $(op) is not supported to define constraints. Only ==, <=, and >= are supported."))
     end
 end
 

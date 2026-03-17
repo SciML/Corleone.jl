@@ -248,7 +248,7 @@ find_idx(t::T, timepoints::AbstractVector) where {T <: Number} = searchsortedlas
 
 function (::ControlParameter)(tcurrent::Number, controls, st::NamedTuple)
     (; t, current_index, first_index, last_index) = st
-	isempty(t) && return only(controls), st
+    isempty(t) && return only(controls), st
     if current_index == last_index && tcurrent >= t[last_index]
         return controls[current_index], st
     elseif current_index == first_index == last_index # Constant control case
@@ -347,7 +347,7 @@ struct ControlParameters{C <: NamedTuple, T} <: LuxCore.AbstractLuxWrapperLayer{
     name::Symbol
     "The control parameter collection"
     controls::C
-    "The ouput transformation"
+    "The output transformation"
     transform::T
 end
 

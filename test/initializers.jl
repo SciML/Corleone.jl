@@ -27,7 +27,7 @@ prob = ODEProblem(f!, [1.0, 2.0, 3.0], (0.0, 5.0), [0.25])
     bounds_layer = InitialCondition(
         prob;
         tunable_ic = [1, 3],
-        bounds_ic = t0 -> ([ t0 - 10.0,1.0, -3.0], [ t0 + 10.0,1.0, 3.0]),
+        bounds_ic = t0 -> ([t0 - 10.0, 1.0, -3.0], [t0 + 10.0, 1.0, 3.0]),
     )
     @test Corleone.get_lower_bound(bounds_layer) == [-10.0, -3.0]
     @test Corleone.get_upper_bound(bounds_layer) == [10.0, 3.0]
