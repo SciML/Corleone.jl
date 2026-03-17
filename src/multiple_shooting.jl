@@ -29,7 +29,12 @@ end
 
 get_problem(layer::MultipleShootingLayer) = get_problem(layer.layer.layers[1])
 get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(layer.layer.layers[1])
-
+get_tspan(layer::MultipleShootingLayer) = begin
+    t0, _ = get_problem(layer.layer.layers[1]).tspan
+    _, tinf = get_problem(layer.layer.layers[end]).tspan
+    (t0, tinf)
+end
+get_timegrid(layer::MultipleShootingLayer) = reduce(vcat, values(get_timegrid(layer.layer)))
 
 function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
     newlayer = remake(layer.layer; kwargs...)
@@ -43,10 +48,7 @@ end
 
 function get_number_of_shooting_constraints(layer::MultipleShootingLayer)
     # We ignore the first shooting variables here
-    return sum(fleaves(Base.tail(layer.shooting_variables))) do xi
-        xi = collect(xi)
-        length(xi)
-    end
+    return size(reduce(vcat, fleaves(Base.tail(layer.shooting_variables))), 1)
 end
 
 function matchings(layer::MultipleShootingLayer, us, cs)
@@ -86,12 +88,13 @@ function Trajectory(
     # Update the quadratures
     quadratures = get_quadrature_indices(layer)
     q_prev = last(us[1])
-    keeper = [i ∉ quadratures for i in eachindex(q_prev)]
+    keeper = [i in quadratures for i in eachindex(q_prev)]
     us_ = map(us[2:end]) do ui
         new_uij = map(uij -> uij .+ keeper .* q_prev, ui)
         q_prev = keeper .* last(new_uij)
         new_uij
     end
+    us = [us[1], us_...]
     unew = reduce(
         vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:(end - 1)], eachindex(us))
     )

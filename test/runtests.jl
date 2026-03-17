@@ -30,9 +30,6 @@ using SafeTestsets
         @safetestset "Lotka" begin
             include("examples/lotka_oc.jl")
         end
-        #    @safetestset "Lotka MS" begin
-        #        include("examples/lotka_ms.jl")
-        #    end
         #    @safetestset "Lotka MTK" begin
         #        include("examples/mtk.jl")
         #    end

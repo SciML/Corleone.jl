@@ -56,11 +56,7 @@ $(SIGNATURES)
 
 Return lower and upper bounds of `layer` parameters.
 """
-get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
-    get_lower_bound(layer), get_upper_bound(layer),
-)
-
-get_bounds(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}; kwargs...) where LAYER = get_bounds(getfield(layer,LAYER); kwargs...)
+get_bounds(x) = (get_lower_bound(x), get_upper_bound(x))
 
 """
 $(SIGNATURES)
@@ -83,12 +79,14 @@ $(SIGNATURES)
 
 Compute the number of shooting constraints of a `AbstractLuxLayer`.
 """
-get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxLayer) = 0 
+get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxLayer) = 0
 get_number_of_shooting_constraints(nt::NamedTuple) = sum(get_number_of_shooting_constraints, values(nt))
-get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_number_of_shooting_constraints(getfield(layer,LAYER))
-get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where LAYERS = sum(map(LAYERS) do LAYER 
-	get_number_of_shooting_constraints(getfield(layer, LAYER))
-end)
+get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where {LAYER} = get_number_of_shooting_constraints(getfield(layer, LAYER))
+get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where {LAYERS} = sum(
+    map(LAYERS) do LAYER
+        get_number_of_shooting_constraints(getfield(layer, LAYER))
+    end
+)
 
 """
 $(SIGNATURES)
@@ -96,11 +94,13 @@ $(SIGNATURES)
 Return an elementwise lower bound vector for `layer`.
 """
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
-get_lower_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_lower_bound(getfield(layer, LAYER))
-get_lower_bound(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where LAYERS = NamedTuple{LAYERS}(map(LAYERS) do LAYER 
-	getfield(layer, LAYER) |> get_lower_bound
-end)
-get_lower_bound(nt::Union{NamedTuple, Tuple}) = map(get_lower_bound, nt) 
+get_lower_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where {LAYER} = get_lower_bound(getfield(layer, LAYER))
+get_lower_bound(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where {LAYERS} = NamedTuple{LAYERS}(
+    map(LAYERS) do LAYER
+        getfield(layer, LAYER) |> get_lower_bound
+    end
+)
+get_lower_bound(nt::Union{NamedTuple, Tuple}) = map(get_lower_bound, nt)
 
 """
 $(SIGNATURES)
@@ -108,11 +108,13 @@ $(SIGNATURES)
 Return an elementwise upper bound vector for `layer`.
 """
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
-get_upper_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where LAYER = get_upper_bound(getfield(layer, LAYER))
-get_upper_bound(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where LAYERS = NamedTuple{LAYERS}(map(LAYERS) do LAYER 
-	getfield(layer, LAYER) |> get_upper_bound
-end)
-get_upper_bound(nt::Union{NamedTuple, Tuple}) = map(get_upper_bound, nt) 
+get_upper_bound(layer::LuxCore.AbstractLuxWrapperLayer{LAYER}) where {LAYER} = get_upper_bound(getfield(layer, LAYER))
+get_upper_bound(layer::LuxCore.AbstractLuxContainerLayer{LAYERS}) where {LAYERS} = NamedTuple{LAYERS}(
+    map(LAYERS) do LAYER
+        getfield(layer, LAYER) |> get_upper_bound
+    end
+)
+get_upper_bound(nt::Union{NamedTuple, Tuple}) = map(get_upper_bound, nt)
 
 """
 $(SIGNATURES)

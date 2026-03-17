@@ -22,7 +22,7 @@ struct InitialCondition{P, B} <: LuxCore.AbstractLuxLayer
     "The indices of the initial condition that are tunable parameters in the optimization problem"
     tunable_ic::Vector{Int}
     "The bounds of the initial conditions. Expects either nothing for unbounded parameters or a function of the form (t0) -> (lower_bounds, upper_bounds)."
-    bounds::B
+    bounds_ic::B
     "Additional quadrature indices if present."
     quadrature_indices::Vector{Int}
 end
@@ -46,21 +46,14 @@ $(SIGNATURES)
 
 Return user-defined lower bounds at initial time.
 """
-get_lower_bound(layer::InitialCondition{<:Any, <:Function}) = first(layer.bounds(layer.problem.tspan[1]))
+get_lower_bound(layer::InitialCondition{<:Any, <:Function}) = first(layer.bounds_ic(layer.problem.tspan[1]))[layer.tunable_ic]
 
 """
 $(SIGNATURES)
 
 Return user-defined upper bounds at initial time.
 """
-get_upper_bound(layer::InitialCondition{<:Any, <:Function}) = last(layer.bounds(layer.problem.tspan[1]))
-
-"""
-$(SIGNATURES)
-
-Return lower and upper bounds for tunable initial conditions.
-"""
-get_bounds(layer::InitialCondition) = (get_lower_bound(layer), get_upper_bound(layer))
+get_upper_bound(layer::InitialCondition{<:Any, <:Function}) = last(layer.bounds_ic(layer.problem.tspan[1]))[layer.tunable_ic]
 
 """
 $(SIGNATURES)
@@ -94,12 +87,11 @@ $(SIGNATURES)
 
 Construct an [`InitialCondition`](@ref) layer from a SciML differential equation problem.
 """
-function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol = gensym(:problem), tunable_ic = Int[], bounds::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
+function InitialCondition(prob::SciMLBase.DEProblem; name::Symbol = gensym(:problem), tunable_ic = Int[], bounds_ic::Union{Nothing, Function} = nothing, quadrature_indices = Int[])
     @assert isempty(setdiff(tunable_ic, eachindex(prob.u0))) "Tunable initial condition indices must be within the bounds of the initial condition vector."
     @assert isempty(setdiff(quadrature_indices, eachindex(prob.u0))) "Quadrature indices must be within the bounds of the initial condition vector."
     @assert isempty(intersect(tunable_ic, quadrature_indices)) "Tunable initial condition indices and quadrature indices must be disjoint."
-
-    return InitialCondition{typeof(prob), typeof(bounds)}(name, prob, tunable_ic, bounds, quadrature_indices)
+    return InitialCondition{typeof(prob), typeof(bounds_ic)}(name, prob, tunable_ic, bounds_ic, quadrature_indices)
 end
 
 """
@@ -159,12 +151,12 @@ function SciMLBase.remake(
         name::Symbol = layer.name,
         problem::SciMLBase.DEProblem = layer.problem,
         tunable_ic::Vector{Int} = layer.tunable_ic,
-        bounds = layer.bounds,
+        bounds_ic = layer.bounds_ic,
         quadrature_indices::Vector{Int} = layer.quadrature_indices,
         kwargs...,
     )
     problem = remake(problem; kwargs...)
-    return InitialCondition(problem; name, tunable_ic, bounds, quadrature_indices)
+    return InitialCondition(problem; name, tunable_ic, bounds_ic, quadrature_indices)
 end
 
 #= 
