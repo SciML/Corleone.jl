@@ -24,12 +24,9 @@ using SafeTestsets
         include("multiple_shooting.jl")
     end
     @testset "Examples" begin
-        @safetestset "Lotka" begin
+        @safetestset "Lotka Optimal Control" begin
             include("examples/lotka_oc.jl")
         end
-        #    @safetestset "Lotka MTK" begin
-        #        include("examples/mtk.jl")
-        #    end
     end
 end
 

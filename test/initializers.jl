@@ -27,7 +27,7 @@ prob = ODEProblem(f!, [1.0, 2.0, 3.0], (0.0, 5.0), [0.25])
     bounds_layer = InitialCondition(
         prob;
         tunable_ic = [1, 3],
-        bounds = t0 -> ([t0 - 10.0, -3.0], [t0 + 10.0, 3.0]),
+        bounds_ic = t0 -> ([ t0 - 10.0,1.0, -3.0], [ t0 + 10.0,1.0, 3.0]),
     )
     @test Corleone.get_lower_bound(bounds_layer) == [-10.0, -3.0]
     @test Corleone.get_upper_bound(bounds_layer) == [10.0, 3.0]
@@ -64,7 +64,7 @@ end
         name = :base,
         tunable_ic = [1, 3],
         quadrature_indices = [2],
-        bounds = t0 -> (fill(t0 - 1.0, 2), fill(t0 + 1.0, 2)),
+        bounds_ic = t0 -> (fill(t0 - 1.0, 2), fill(t0 + 1.0, 2)),
     )
     remade = @inferred InitialCondition SciMLBase.remake(
         layer;
@@ -80,7 +80,7 @@ end
     @test remade.quadrature_indices == [1, 2]
     @test remade.problem.u0 == [7.0, 8.0, 9.0]
     @test remade.problem.tspan == (1.0, 2.0)
-    @test remade.bounds === layer.bounds
+    @test remade.bounds_ic === layer.bounds_ic
     # Unsupported kwargs should be ignored by the DEProblem remake forwarding.
     remade_ignored = SciMLBase.remake(layer; unsupported_kwarg = :ignore_me)
     @test remade_ignored.problem.u0 == layer.problem.u0

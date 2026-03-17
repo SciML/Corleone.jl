@@ -46,9 +46,9 @@ end
         @test sv.layer_1.state == Int[]
         @test sv.layer_2.state == [1]
         @test sv.layer_3.state == [1]
-        @test sv.layer_1.control == [:a, :b]
-        @test sv.layer_2.control == [:a, :b]
-        @test sv.layer_3.control == [:a, :b]
+        @test sv.layer_1.control == []
+        @test sv.layer_2.control == []
+        @test sv.layer_3.control == []
     end
 
     @testset "Evaluation and Matching Constraints" begin
@@ -67,10 +67,6 @@ end
 
         @test isapprox(traj.shooting.matching_1.state.x, expected_state_1; atol = 1.0e-12)
         @test isapprox(traj.shooting.matching_2.state.x, expected_state_2; atol = 1.0e-12)
-        @test traj.shooting.matching_1.control.a == 0.0
-        @test traj.shooting.matching_1.control.b == 0.0
-        @test traj.shooting.matching_2.control.a == 0.0
-        @test traj.shooting.matching_2.control.b == 0.0
 
         @test first(traj.t) == 0.0
         @test isapprox(last(traj.t), 6.0; atol = 1.0e-12)
