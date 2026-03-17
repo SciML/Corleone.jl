@@ -1,3 +1,17 @@
+"""
+$(TYPEDEF)
+
+A layer that solves multiple shooting sub-problems in parallel.
+
+# Fields
+$(FIELDS)
+
+# Description
+
+The `ParallelShootingLayer` wraps a collection of independent shooting layers and solves them concurrently
+using the specified ensemble algorithm. This is useful for solving multi-shooting problems where different
+time intervals can be solved independently.
+"""
 struct ParallelShootingLayer{L <: NamedTuple, A <: SciMLBase.EnsembleAlgorithm} <: LuxCore.AbstractLuxWrapperLayer{:layers}
     name::Symbol
     "The layers to be solved in parallel. Each layer should be a SingleShootingLayer."

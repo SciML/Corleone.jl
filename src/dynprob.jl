@@ -1,3 +1,17 @@
+"""
+$(TYPEDEF)
+
+A layer that wraps a shooting layer to solve dynamic optimization problems with an objective function and constraints.
+
+# Fields
+$(FIELDS)
+
+# Description
+
+The `DynamicOptimizationLayer` combines a shooting layer (single or multiple) with an objective function and optional constraints
+to formulate a complete dynamic optimization problem. The objective and constraints are specified as symbolic expressions that
+are evaluated on the computed trajectory.
+"""
 struct DynamicOptimizationLayer{N, L, G, O, C, CB} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "The name of the layer, used for display and logging purposes."
     name::N

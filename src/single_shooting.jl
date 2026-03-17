@@ -20,7 +20,7 @@ end
 function SciMLBase.remake(layer::SingleShootingLayer; kwargs...)
     initial_conditions = get(kwargs, :initial_conditions, remake(layer.initial_conditions; kwargs...))
     controls = get(kwargs, :controls, remake(layer.controls; kwargs...))
-    algorithm = get(kwargs, :algorihtm, layer.algorithm)
+    algorithm = get(kwargs, :algorithm, layer.algorithm)
     name = get(kwargs, :name, layer.name)
     return SingleShootingLayer{
         typeof(algorithm),
