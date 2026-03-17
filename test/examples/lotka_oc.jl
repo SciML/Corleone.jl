@@ -20,11 +20,12 @@ function lotka_dynamics!(du, u, p, t)
     return
 end
 
+psyms = [Symbol(:p, i) for i in 1:5]
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
-p0 = [0.0, 1.0, 1.0]
+p0 = vcat([0.0, 1.0, 1.0], randn(5))
 prob = ODEProblem(
-    ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β], :t)),
+    ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β, psyms...], :t)),
     u0,
     tspan,
     p0;
@@ -44,7 +45,16 @@ controls = (
     ),
     FixedControlParameter(; name = :α, controls = (rng, t) -> [1.0]),
     FixedControlParameter(; name = :β, controls = (rng, t) -> [1.0]),
+	[ControlParameter(; name = psyms[i], controls = (rng, t) -> [1.0], bounds = t -> ([0.], [1.])) for i in eachindex(psyms)]...,
 )
+
+
+layer = SingleShootingLayer(
+    prob, controls...;
+    algorithm = Tsit5(), quadrature_indices = [3]
+);
+ps, st = LuxCore.setup(rng, layer)
+sol, _ = layer(nothing, ps, st);
 
 
 @testset "Single Shooting" begin
@@ -57,7 +67,7 @@ controls = (
     @test sol.t == getsym(sol, :t)(sol)
     @test all(sol.p[2] .== getsym(sol, :α)(sol))
     @test all(sol.p[3] .== getsym(sol, :β)(sol))
-    @test ps.controls.u == sol.ps[:u]
+	@test ps.controls.u == sol.ps[:u][1:end-1]
 
     x = reduce(hcat, sol.u)
 
@@ -68,7 +78,14 @@ controls = (
 
     @test_nowarn @inferred first(layer(nothing, ps, st))
     @test allunique(sol.t)
-    @test LuxCore.parameterlength(layer) == N + 2
+    @test LuxCore.parameterlength(layer) == N + 7
+
+reg = Expr(
+    :call, :sum, Expr(
+        :tuple,
+		[    :(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
+    )
+)
 
 
     for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())

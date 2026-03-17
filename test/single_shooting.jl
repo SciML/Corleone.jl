@@ -90,10 +90,10 @@ end
     bvals = getsym(traj, :b)(traj)
 
     @test length(xvals) == length(traj.t)
-    @test length(uvals) == length(traj.t) - 1
+    @test length(uvals) == length(traj.t) 
     @test all(==(-1.0), avals)
     @test all(==(1.0), bvals)
-    @test traj.ps[:u] == ps.controls[3]
+	@test traj.ps[:u][1:end-1] == ps.controls[3]
 
     plain_prob = ODEProblem((u, p, t) -> [-0.5 * u[1] + p[1]], [1.0], (0.0, 1.0), [0.0])
     plain_control = ControlParameter([0.0, 0.5]; name = :u, controls = (rng, t) -> zeros(length(t)))

@@ -80,10 +80,14 @@ function Trajectory(
         signal.t, signal.u
     end
     shooting_violations = matchings(layer, us, last.(cseries))
-    t_controls = vcat(first.(cseries)...)
-    p = vcat(last.(cseries)...)
+    t_controls = reduce(
+		vcat, map(i-> i == lastindex(us) ? first(cseries[i]) : first(cseries[i])[1:end-1], eachindex(us))
+	)
+    p = reduce(
+		vcat, map(i-> i == lastindex(us) ? last(cseries[i]) : last(cseries[i])[1:end-1], eachindex(us))
+	)
     # New Series
-    controls = ParameterTimeseriesCollection((ControlSignal(t_controls, p),), deepcopy(first(p)))
+	controls = ParameterTimeseriesCollection((ControlSignal(t_controls, p,),), deepcopy(first(p)))
     p = first(p)
     # Update the quadratures
     quadratures = get_quadrature_indices(layer)
