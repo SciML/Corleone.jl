@@ -295,6 +295,9 @@ LuxCore.initialstates(rng::Random.AbstractRNG, layer::FixedControlParameter) = (
     states = LuxCore.initialstates(rng, layer.layer),
 )
 
+get_lower_bound(layer::FixedControlParameter) = (;) 
+get_upper_bound(layer::FixedControlParameter) = (;)
+
 function (layer::FixedControlParameter)(t, ps, st)
     return _apply_control(layer, t, ps, st)
 end
