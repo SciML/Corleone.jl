@@ -122,11 +122,11 @@ end
 function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Expr, constraints::Expr...; name = gensym(:observed))
     problem = Corleone.get_problem(layer)
     T = eltype(problem.u0)
-    lb = fill(zero(T), length(constraints) + get_number_of_shooting_constraints(layer))
-    ub = fill(zero(T), length(constraints) + get_number_of_shooting_constraints(layer))
-
+    n_shoot = get_number_of_shooting_constraints(layer)
+    lb = fill(zero(T), length(constraints) + n_shoot)
+    ub = fill(zero(T), length(constraints) + n_shoot)
     constraints = map(enumerate(constraints)) do (i, con)
-        con, lb[i], ub[i] = normalize_constraint(con, T)
+        con, lb[i + n_shoot], ub[i + n_shoot] = normalize_constraint(con, T)
         con
     end
     expressions = vcat(objective, constraints...)
