@@ -125,7 +125,7 @@ $(SIGNATURES)
 
 Return `true` if `traj` contains shooting continuity data.
 """
-is_shooting_solution(traj::Trajectory) = !isempty(traj.shooting)
+is_shooting_solution(traj::Trajectory) = !isnothing(traj.shooting) && !isempty(traj.shooting)
 
 """
 $(SIGNATURES)
