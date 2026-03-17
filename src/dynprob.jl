@@ -46,9 +46,7 @@ replace_timepoints(x::Any, replacer) = x
 
 function replace_timepoints(x::Expr, replacer::Dict{Symbol, <:Dict})
     if x.head == :call
-        @info x
         if x.args[1] ∈ keys(replacer)
-            @info 1
             return Expr(
                 :call, :getindex, x.args[1],
                 _extract_timeindex(x.args[2], replacer[x.args[1]])

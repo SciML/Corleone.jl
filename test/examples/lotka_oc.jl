@@ -63,30 +63,26 @@ for (i, sym) in enumerate((:x, :y, :c))
 end
 
 @test_nowarn @inferred first(layer(nothing, ps, st))
-
 @test allunique(sol.t)
 @test LuxCore.parameterlength(layer) == N + 2
-
 
 for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
     layer = remake(layer,sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD()) 
 	optlayer = DynamicOptimizationLayer(layer, :(c(12.0)))  
+	ps, st = LuxCore.setup(rng, optlayer)
+	@inferred first(optlayer(nothing, ps, st))
 	optprob = OptimizationProblem(optlayer, AD, vectorizer = Val(:ComponentArrays))
-
+	p = ComponentArray(ps)
     @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
 	@test all(optprob.ub .== 1.0)
 	@test all(optprob.lb .== 0.0)
-
     sol = solve(
         optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
         hessian_approximation = "limited-memory"
     )
-
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
-
     p_opt = sol.u .+ zero(p)
-
     @test isempty(p_opt.initial_conditions)
     @test length(p_opt.controls.u) == N
 end
