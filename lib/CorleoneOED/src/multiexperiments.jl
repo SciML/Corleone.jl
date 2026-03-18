@@ -141,6 +141,16 @@ Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 
+function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
+    FIM = sum(map(experiments) do experiment
+        fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+    end)
+
+    st1 = getproperty(st, Symbol("experiment_1"))
+    st1 = merge(st1, (; F_init = FIM))
+
+    return merge(st, (; experiment_1 = st1))
+end
 
 function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
     return reduce(
