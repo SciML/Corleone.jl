@@ -157,14 +157,26 @@ function get_idxs_fisher(oed::OEDLayer, symcache::SymbolicIndexingInterface.Symb
     return idxs
 end
 
-function update_fim(oed::OEDLayer{DISCRETE, SAMPLED, FIXED}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
     FIM = sum(
         map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1] - experiments.st.F_init
         end
     )
 
     return merge(st, (; F_init = FIM))
+end
+
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+    FIM = sum(
+        map(experiments) do experiment
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1] - experiments.st[1].F_init
+        end
+    )
+
+    st1 = merge(st[1], (; F_init = FIM))
+
+    return merge(st, (; interval_1 = st1))
 end
 
 n_observed(layer::OEDLayer) = length(layer.sampling_indices)
@@ -261,7 +273,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
             end
         end
 
-        sti1 = merge(sti.interval1, (; F_init = F_init))
+        sti1 = merge(sti.interval_1, (; F_init = F_init))
         sti = merge(sti, (; interval_1 = sti1))
 
         merge(
@@ -338,9 +350,14 @@ fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
 end
 
 # Continuous ALWAYS last FIM
-fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     st.F_init + last(__fisher_information(oed, traj)), st
+end
+
+fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
+    traj, st = oed(x, ps, st)
+    st[1].F_init + last(__fisher_information(oed, traj)), st
 end
 
 # DISCRETE and SAMPLING -> weighted sum
@@ -367,16 +384,23 @@ fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x,
         end
     )
 
-    return st.interval_1.F_init + F, st
+    return st[1].F_init + F, st
 
 end
 
 # DISCRETE -> SUM
-fisher_information(oed::OEDLayer{true, false}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{true, false, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple) = begin
     (; sampling_indices, layer) = oed
     (; observation_grid) = st
     traj, st = oed(x, ps, st)
     st.F_init + sum(__fisher_information(oed, traj)), st
+end
+
+fisher_information(oed::OEDLayer{true, false, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
+    (; sampling_indices, layer) = oed
+    (; observation_grid) = st
+    traj, st = oed(x, ps, st)
+    st[1].F_init + sum(__fisher_information(oed, traj)), st
 end
 
 # FIXED + CONTINUOUS
