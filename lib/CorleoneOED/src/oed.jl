@@ -205,7 +205,11 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         end : measurement_indices
 
     T = eltype(problem.u0)
-    F_init = zeros(T, size(oed.observed.fisher.getters))
+    size_F = size(oed.observed.fisher.getters)
+    if length(size_F) > 2
+        size_F = size_F[1:2]
+    end
+    F_init = zeros(T, size_F)
 
     return merge(
         st, (;
