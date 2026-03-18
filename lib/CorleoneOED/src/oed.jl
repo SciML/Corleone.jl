@@ -217,7 +217,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         st, (;
             observation_grid = WeightedObservation(weighting_grid),
             active_controls = measurement_indices,
-            F_init = F_init
+            F_init = F_init,
         )
     )
 end
