@@ -144,11 +144,11 @@ end
 function get_idxs_fisher(oed::OEDLayer, symcache::SymbolicIndexingInterface.SymbolCache)
     ps, st = LuxCore.setup(Random.default_rng(), oed)
     fim = first(fisher_information(oed, nothing, ps, st))
-    F_states = Symbol.(Symbolics.variables(:F, 1:size(fim,1), 1:size(fim, 2))[triu(ones(Bool, size(fim)))])
+    F_states = Symbol.(Symbolics.variables(:F, 1:size(fim, 1), 1:size(fim, 2))[triu(ones(Bool, size(fim)))])
 
     idxs = map(F_states) do F
-        for (k,v) in symcache.variables
-            if isequal(k,F)
+        for (k, v) in symcache.variables
+            if isequal(k, F)
                 return v
             end
         end
@@ -158,9 +158,11 @@ function get_idxs_fisher(oed::OEDLayer, symcache::SymbolicIndexingInterface.Symb
 end
 
 function update_fim(oed::OEDLayer{DISCRETE, SAMPLED, FIXED}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
-    FIM = sum(map(experiments) do experiment
-        fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
-    end)
+    FIM = sum(
+        map(experiments) do experiment
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+        end
+    )
 
     return merge(st, (; F_init = FIM))
 end
@@ -259,20 +261,22 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
             end
         end
 
+        sti1 = merge(sti.interval1, (; F_init = F_init))
+        sti = merge(sti, (; interval_1 = sti1))
+
         merge(
             sti, (;
                 observation_grid = WeightedObservation(weighting_grid),
                 active_controls = measurement_indices,
-                F_init = F_init
             )
         )
     end
 end
 
-get_problem(oed::OEDLayer{<:Any,<:Any,<:Any,<:SingleShootingLayer}) = oed.layer.problem
-get_problem(oed::OEDLayer{<:Any,<:Any,<:Any,<:MultipleShootingLayer}) = oed.layer.layer.problem
+get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = oed.layer.problem
+get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = oed.layer.layer.problem
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer)
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer})
     (; layer, sampling_indices) = oed
     st = LuxCore.initialstates(rng, layer)
     problem = get_problem(oed)
@@ -280,6 +284,18 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer)
     F_init = zeros(T, size(oed.observed.fisher.getters))
 
     return merge(st, (; F_init = F_init))
+end
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer})
+    (; layer, sampling_indices) = oed
+    st = LuxCore.initialstates(rng, layer)
+    problem = get_problem(oed)
+    T = eltype(problem.u0)
+    F_init = zeros(T, size(oed.observed.fisher.getters))
+
+    st1 = st.interval_1
+    st1 = merge(st1, (; F_init = F_init))
+    return merge(st, (; interval_1 = st1))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
@@ -345,13 +361,13 @@ fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x,
     traj, st = oed(x, ps, st)
     Gs = __fisher_information(oed, traj, ps, st)
     F = sum(
-            map(eachindex(Gs)) do i
-                psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
-                sti.observation_grid(psi.controls, Gs[i])
+        map(eachindex(Gs)) do i
+            psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
+            sti.observation_grid(psi.controls, Gs[i])
         end
-        )
+    )
 
-    return st.F_init + F, st
+    return st.interval_1.F_init + F, st
 
 end
 
