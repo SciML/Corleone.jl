@@ -149,7 +149,16 @@ function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}, experimen
     )
 
     st1 = getproperty(st, Symbol("experiment_1"))
-    st1 = merge(st1, (; F_init = FIM))
+    if SPLIT
+        if isa(oed.layers[1], MultipleShootingLayer)
+            int1 = merge(st1.interval_1, (; F_init = FIM))
+            st1 = merge(st1, (; interval_1 = int1))
+        end
+    else
+        if isa(oed.layers, MultipleShootingLayer)
+            st1 = merge(st1, (; F_init = FIM))
+        end
+    end
 
     return merge(st, (; experiment_1 = st1))
 end
@@ -210,17 +219,20 @@ function __fisher_information(multi::MultiExperimentLayer{<:Any, true, true}, tr
     return F
 end
 
-function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
-    return sum(
-            map(fields) do field
-                fisher_information(multi.layers, x, getproperty(ps, field), getproperty(st, field))[1]
+function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}; add_initial = true) where {fields}
+    F = sum(
+        map(fields) do field
+            fisher_information(multi.layers, x, getproperty(ps, field), getproperty(st, field), add_initial = false)[1]
         end
-        ), st
+    )
+    F_init = isa(multi.layers.layer, MultipleShootingLayer) ? st[1][1].F_init : st[1].F_init
+    add_initial && return F + F_init, st
+    return F, st
 end
 
-function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
+function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}; add_initial = true) where {fields}
     fim = map(enumerate(fields)) do (i, field)
-        fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))[1]
+        fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field); add_initial = false)[1]
     end
     np = length(multi.params.all)
     F = zeros(eltype(fim[1]), (np, np))
@@ -228,7 +240,8 @@ function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, 
         idxs = [multi.params.permutation[j] for j in multi.params.original[i]]
         F[idxs, idxs] .+= fimi
     end
-
+    F_init = isa(multi.layers[1].layer, MultipleShootingLayer) ? st[1][1].F_init : st[1].F_init
+    add_initial && return F + F_init, st
     return F, st
 end
 
