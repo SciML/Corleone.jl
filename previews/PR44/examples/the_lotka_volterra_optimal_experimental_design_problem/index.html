@@ -146,7 +146,7 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 30
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.6308559029860869e-04    2.6308559029860869e-04
+Objective...............:   2.6308559029861010e-04    2.6308559029861010e-04
 Dual infeasibility......:   2.5475094586435807e-07    2.5475094586435807e-07
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
@@ -161,7 +161,7 @@ Number of inequality constraint evaluations          = 31
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 31
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 51.419
+Total seconds in IPOPT                               = 76.895
 
 EXIT: Optimal Solution Found.
 </code></pre><p>After solving, we now only need to investigate the solution.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
@@ -185,10 +185,10 @@ u0: 9-element Vector{Float64}:
  0.0
  0.0
  0.0</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `/srv/crackauc/github-runners/amdci8-51/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.9
   [b0b7db55] ComponentArrays v0.15.33
-  [2751e0db] Corleone v0.0.3 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.3 `/srv/crackauc/github-runners/amdci8-51/_work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v0.0.2
   [e30172f5] Documenter v1.17.0
   [daee34ce] DocumenterCitations v1.4.1
@@ -213,13 +213,15 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 9V74 80-Core Processor
+  CPU: 128 × AMD EPYC 7502 32-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-18.1.7 (ORCJIT, znver4)
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver2)
   GC: Built with stock GC
-Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+Threads: 1 default, 1 interactive, 1 GC (on 128 virtual cores)
+Environment:
+  JULIA_DEPOT_PATH = /srv/crackauc/github-runners/amdci8-51/.julia
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `/srv/crackauc/github-runners/amdci8-51/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.21.0
   [a4c015fc] ANSIColoredPrinters v0.0.1
   [621f4979] AbstractFFTs v1.5.0
@@ -276,7 +278,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [88cd18e8] ConsoleProgressMonitor v0.1.2
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
-  [2751e0db] Corleone v0.0.3 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.3 `/srv/crackauc/github-runners/amdci8-51/_work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v0.0.2
   [adafc99b] CpuId v0.3.1
   [9a962f9c] DataAPI v1.16.0
