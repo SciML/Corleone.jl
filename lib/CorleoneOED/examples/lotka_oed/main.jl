@@ -156,13 +156,45 @@ fim
 optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
 uopt = solve(
     optprob, Ipopt.Optimizer(),
-    tol = 1.0e-6,
+    tol = 1.0e-8,
     hessian_approximation = "limited-memory",
     max_iter = 300
 );
 
 # After solving, we now only need to investigate the solution.
 optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
+plot_oed(optsol)
+
+# ## Updating the FIM with previously run experiments
+
+# Assuming that OED is used iteratively in a measurement campaign during which parameter estimation
+# and OED are alternatingly used, one is interested in updating the FIM in the current
+# iteration of OED with the previously run experiments, but for the current parameter values.
+# CorleoneOED provides this functionality via the state `st` of the `OEDLayer` in which
+# the initial value of the Fisher information matrix is stored. Per default, the FIM is
+# initialized with zeros.
+
+st.F_init
+
+# However, with the solution from above it can be updated easily
+
+previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
+
+st_new = CorleoneOED.update_fim(oed, [previous_experiment], st_new)
+st_new.F_init
+
+# Now, the optimization problem can be remaked and solved with the updated state.
+
+optprob = remake(optprob, p = st_new)
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-8,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
+);
+
+# However, in this example, the solution is the same, as also the parameter values are unchanged.
+optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st_new)
 plot_oed(optsol)
 
 
