@@ -141,7 +141,7 @@ Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 
-function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
+function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
     FIM = sum(
         map(experiments) do experiment
             fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
@@ -149,16 +149,22 @@ function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}, experimen
     )
 
     st1 = getproperty(st, Symbol("experiment_1"))
-    if SPLIT
-        if isa(oed.layers[1], MultipleShootingLayer)
-            int1 = merge(st1.interval_1, (; F_init = FIM))
-            st1 = merge(st1, (; interval_1 = int1))
+    st1 = merge(st1, (; F_init = FIM))
+
+    return merge(st, (; experiment_1 = st1))
+end
+
+
+function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
+    FIM = sum(
+        map(experiments) do experiment
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
         end
-    else
-        if isa(oed.layers, MultipleShootingLayer)
-            st1 = merge(st1, (; F_init = FIM))
-        end
-    end
+    )
+
+    st1 = getproperty(st, Symbol("experiment_1"))
+    int1 = merge(st1.interval_1, (; F_init = FIM))
+    st1 = merge(st1, (; interval_1 = int1))
 
     return merge(st, (; experiment_1 = st1))
 end
