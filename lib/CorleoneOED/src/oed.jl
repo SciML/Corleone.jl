@@ -144,21 +144,21 @@ end
 function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
     FIM = sum(
         map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1] - experiments.st.F_init
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
         end
     )
 
-    return merge(st, (; F_init = FIM))
+    return merge(st, (; F_init = FIM + st.F_init))
 end
 
 function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
     FIM = sum(
         map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1] - experiments.st[1].F_init
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
         end
     )
 
-    st1 = merge(st[1], (; F_init = FIM))
+    st1 = merge(st[1], (; F_init = FIM + st[1].F_init))
 
     return merge(st, (; interval_1 = st1))
 end

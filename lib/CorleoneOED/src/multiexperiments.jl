@@ -149,7 +149,7 @@ function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleSh
     )
 
     st1 = getproperty(st, Symbol("experiment_1"))
-    st1 = merge(st1, (; F_init = FIM))
+    st1 = merge(st1, (; F_init = FIM + st[1].F_init))
 
     return merge(st, (; experiment_1 = st1))
 end
@@ -163,7 +163,7 @@ function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:Multiple
     )
 
     st1 = getproperty(st, Symbol("experiment_1"))
-    int1 = merge(st1.interval_1, (; F_init = FIM))
+    int1 = merge(st1.interval_1, (; F_init = FIM + st[1][1].F_init))
     st1 = merge(st1, (; interval_1 = int1))
 
     return merge(st, (; experiment_1 = st1))
