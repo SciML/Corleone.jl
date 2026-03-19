@@ -178,14 +178,14 @@ st.F_init
 
 # However, with the solution from above it can be updated easily
 
-previous_experiment = (ps=uopt.u + zero(ComponentArray(ps)), st=st)
+previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
 
 st_new = CorleoneOED.update_fim(oed, [previous_experiment], st_new)
 st_new.F_init
 
 # Now, the optimization problem can be remaked and solved with the updated state.
 
-optprob = remake(optprob, p=st_new)
+optprob = remake(optprob, p = st_new)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol = 1.0e-8,

@@ -123,10 +123,10 @@ plot_experiments(optsol)
 # the obtained solution. This way, the `MultiExperimentLayer` can be easily used in an iterative
 # measurement campaign in which it is necessary to also consider previous experiments.
 
-previous_experiment = (ps=uopt.u + zero(ComponentArray(ps)), st=st)
+previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
 
 st_new = CorleoneOED.update_fim(multi_exp, [previous_experiment], st)
-optprob = remake(optprob, p=st_new)
+optprob = remake(optprob, p = st_new)
 
 uopt = solve(
     optprob, Ipopt.Optimizer(),
