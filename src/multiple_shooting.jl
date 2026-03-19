@@ -51,18 +51,20 @@ function get_number_of_shooting_constraints(layer::MultipleShootingLayer)
     return size(reduce(vcat, fleaves(Base.tail(layer.shooting_variables))), 1)
 end
 
-function matchings(layer::MultipleShootingLayer, us, cs)
+function matchings(layer::MultipleShootingLayer, us, sub_trajs)
     (; shooting_variables) = layer
-    problem = get_problem(layer)
-    vars = variable_symbols(problem)
+    vars = variable_symbols(get_problem(layer))
     return map(Base.OneTo(length(shooting_variables) - 1)) do i
         specs = shooting_variables[i + 1]
         state_matching = map(specs.state) do id
             Symbol(vars[id]), first(us[i + 1])[id] .- last(us[i])[id]
         end |> NamedTuple
         control_matching = map(specs.control) do csym
-            getter = getp(problem, csym)
-            Symbol(csym), getter(first(cs[i + 1])) .- getter(last(cs[i]))
+            traj_prev = sub_trajs[i]
+            traj_next = sub_trajs[i + 1]
+            v_prev = getproperty(_apply(traj_prev.controls.model, last(traj_prev.t),  traj_prev.controls.ps, traj_prev.controls.st)[1], csym)
+            v_next = getproperty(_apply(traj_next.controls.model, first(traj_next.t), traj_next.controls.ps, traj_next.controls.st)[1], csym)
+            Symbol(csym), v_next .- v_prev
         end |> NamedTuple
         Symbol(:matching_, i), (; state = state_matching, control = control_matching)
     end |> NamedTuple
@@ -73,22 +75,13 @@ function Trajectory(
         kwargs...
     ) where {fields}
 
-    us = map(Base.Fix2(getproperty, :u), values(solutions))
-    ts = map(Base.Fix2(getproperty, :t), values(solutions))
-    cseries = map(values(solutions)) do sol
-        signal = only(sol.controls.collection)
-        signal.t, signal.u
-    end
-    shooting_violations = matchings(layer, us, last.(cseries))
-    t_controls = reduce(
-		vcat, map(i-> i == lastindex(us) ? first(cseries[i]) : first(cseries[i])[1:end-1], eachindex(us))
-	)
-    p = reduce(
-		vcat, map(i-> i == lastindex(us) ? last(cseries[i]) : last(cseries[i])[1:end-1], eachindex(us))
-	)
-    # New Series
-	controls = ParameterTimeseriesCollection((ControlSignal(t_controls, p,),), deepcopy(first(p)))
-    p = first(p)
+    sub_trajs = values(solutions)
+    us = map(Base.Fix2(getproperty, :u), sub_trajs)
+    ts = map(Base.Fix2(getproperty, :t), sub_trajs)
+    shooting_violations = matchings(layer, us, sub_trajs)
+    # Use the first sub-trajectory's StatefulLuxLayer for the combined controls
+    controls = first(sub_trajs).controls
+    p = deepcopy(first(sub_trajs).p)
     # Update the quadratures
     quadratures = get_quadrature_indices(layer)
     q_prev = last(us[1])

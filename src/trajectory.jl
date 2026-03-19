@@ -95,16 +95,58 @@ SymbolicIndexingInterface.current_time(fp::Trajectory) = fp.t
 """
 $(SIGNATURES)
 
-Return control parameter time-series collection of `fs`.
+Return the names of the control parameters stored in `fp`.
 """
-SymbolicIndexingInterface.get_parameter_timeseries_collection(fs::Trajectory) = fs.controls
+_control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(c.name for c in values(fp.controls.model.controls))
 
 """
 $(SIGNATURES)
 
-Declare trajectory parameters as time-series values.
+Override parameter check: control parameter symbols are exposed as observed, not
+as plain parameters, so `getsym`/`getp` route through `parameter_observed`.
 """
-SymbolicIndexingInterface.is_parameter_timeseries(::Type{<:Trajectory}) = SymbolicIndexingInterface.Timeseries()
+function SymbolicIndexingInterface.is_parameter(fp::Trajectory, sym)
+    is_parameter(fp.sys, sym) && !(Symbol(sym) in _control_names(fp))
+end
+
+"""
+$(SIGNATURES)
+
+Return `true` when `sym` is a control parameter of `fp`.
+"""
+function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
+    Symbol(sym) in _control_names(fp)
+end
+
+"""
+$(SIGNATURES)
+
+Return a time-dependent observed function for control parameter `sym`.
+Used by `getsym` on timeseries objects to broadcast over all timepoints.
+"""
+function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
+    name = Symbol(sym)
+    (u, p, t) -> getproperty(fp.controls(t), name)
+end
+
+"""
+$(SIGNATURES)
+
+Return a time-dependent parameter-observed function for control parameter `sym`.
+The returned function has the signature `(p, t) -> value` and is used by `getp`.
+`parameter_index` is used to resolve `sym` to the symbol name stored in `sys`.
+"""
+function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
+    idx = parameter_index(fp.sys, sym)
+    name = parameter_symbols(fp.sys)[idx]
+    (p, t) -> begin
+        if t isa AbstractVector
+            map(ti -> getproperty(fp.controls(ti), name), t)
+        else
+            getproperty(fp.controls(t), name)
+        end
+    end
+end
 
 """
 $(SIGNATURES)

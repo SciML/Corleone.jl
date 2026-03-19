@@ -93,7 +93,8 @@ end
     @test length(uvals) == length(traj.t) 
     @test all(==(-1.0), avals)
     @test all(==(1.0), bvals)
-	@test traj.ps[:u][1:end-1] == ps.controls[3]
+    # traj.ps[:u] returns the full control timeseries over traj.t
+    @test traj.ps[:u] == uvals
 
     plain_prob = ODEProblem((u, p, t) -> [-0.5 * u[1] + p[1]], [1.0], (0.0, 1.0), [0.0])
     plain_control = ControlParameter([0.0, 0.5]; name = :u, controls = (rng, t) -> zeros(length(t)))

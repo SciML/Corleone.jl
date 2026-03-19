@@ -288,6 +288,7 @@ end
 fix(c::ControlParameter) = FixedControlParameter{typeof(c)}(c)
 FixedControlParameter(args...; kwargs...) = fix(ControlParameter(args...; kwargs...))
 ControlParameter(c::FixedControlParameter) = c
+Base.Symbol(c::FixedControlParameter) = c.name
 
 LuxCore.initialparameters(::Random.AbstractRNG, ::FixedControlParameter) = (;)
 LuxCore.initialstates(rng::Random.AbstractRNG, layer::FixedControlParameter) = (;
@@ -379,6 +380,15 @@ function ControlParameters(controls...; kwargs...)
     names = map(c -> Symbol(c), controls)
     controls = NamedTuple{names}(controls)
     return ControlParameters(controls; kwargs...)
+end
+
+"""
+$(SIGNATURES)
+
+Evaluate controls at a scalar or vector time `t`, returning a named tuple of control values.
+"""
+function (layer::ControlParameters)(t, ps, st)
+    return _eval_controls(layer.controls, t, ps, st)
 end
 
 """

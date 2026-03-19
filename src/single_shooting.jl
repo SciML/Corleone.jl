@@ -91,7 +91,8 @@ Return a symbolic system with control parameters registered as time series.
 """
 function get_new_system(problem, controls)
     sys = symbolic_container(problem.f)
-    if isnothing(sys) || isnothing(variable_symbols(sys)) || isnothing(parameter_symbols(sys))
+    _isnull(x) = isnothing(x) || isempty(x)
+    if isnothing(sys) || _isnull(variable_symbols(sys)) || _isnull(parameter_symbols(sys))
         sys = default_system(problem, controls)
     end
     try
@@ -104,14 +105,13 @@ end
 """
 $(SIGNATURES)
 
-Rebuild `sys` with control names mapped to `ParameterTimeseriesIndex` entries.
+Rebuild `sys` with the same variables and parameters (controls are now exposed
+via `parameter_observed` on the `Trajectory`, so no `timeseries_parameters` are
+needed here).
 """
 function remake_system(sys::SymbolCache, controls)
     return SymbolCache(
-        variable_symbols(sys), parameter_symbols(sys), independent_variable_symbols(sys);
-        timeseries_parameters = Dict(
-            [c.name => ParameterTimeseriesIndex(1, i) for (i, c) in enumerate(values(controls.controls))]
-        )
+        variable_symbols(sys), parameter_symbols(sys), independent_variable_symbols(sys)
     )
 end
 
@@ -177,7 +177,7 @@ function (layer::SingleShootingLayer)(::Any, ps, st)
     problem, st_ic = initial_conditions(nothing, ps.initial_conditions, st.initial_conditions)
     inputs, st_controls = controls(st.timestops, ps.controls, st.controls)
     solutions = eval_problem(problem, algorithm, true, inputs)
-    return Trajectory(layer, solutions, merge(st, (; controls = st_controls)))
+    return Trajectory(layer, solutions, ps, merge(st, (; controls = st_controls)))
 end
 
 """
@@ -229,15 +229,13 @@ $(SIGNATURES)
 
 Construct a [`Trajectory`](@ref) from solved single-shooting segments.
 """
-function Trajectory(::SingleShootingLayer, solutions, st)
+function Trajectory(layer::SingleShootingLayer, solutions, ps, st)
     (; system) = st
-    u = _collect(solutions, :u) #reduce(vcat, map(sol -> sol.u, solutions), init = eltype(first(solutions).u)[])
-    t = _collect(solutions, :t) #reduce(vcat, map(sol -> sol.t, solutions), init = eltype(first(solutions).t)[])
-    t_controls = _collect(solutions, :tspan, first)
-    p = collect(map(sol -> sol.p, solutions))
-    controlseries = ParameterTimeseriesCollection((ControlSignal(vcat(t_controls, last(t)), vcat(p, p[end:end])),), deepcopy(first(p)))
-    p = deepcopy(first(p))
-    return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controlseries), Nothing}(system, u, p, t, controlseries, nothing), st
+    u = _collect(solutions, :u)
+    t = _collect(solutions, :t)
+    p = deepcopy(first(map(sol -> sol.p, solutions)))
+    controls = LuxCore.StatefulLuxLayer{false}(layer.controls, ps.controls, st.controls)
+    return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controls), Nothing}(system, u, p, t, controls, nothing), st
 end
 
 function _collect(solutions, sym::Symbol, f::Function = identity)
