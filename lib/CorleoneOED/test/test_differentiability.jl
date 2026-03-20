@@ -8,7 +8,7 @@ using Test
 using ForwardDiff
 using LinearAlgebra
 
-@testset "Differentiability Tests" begin
+@testset "Full Differentiability Tests" begin
     # Define a simple ODE system
     function f(du, u, p, t)
         du[1] = -p[1] * u[1]
@@ -37,7 +37,7 @@ using LinearAlgebra
     
     CorleoneOED.add_observed!(symbolic_system, discrete_observed, continuous_observed)
     new_layer = SingleShootingLayer(symbolic_system, layer)
-    oed_layer = OEDLayerV2(symbolic_system, new_layer)
+    oed_layer = OEDLayer(symbolic_system, new_layer)
     
     ps, st = LuxCore.setup(Random.default_rng(), oed_layer)
     
@@ -49,35 +49,35 @@ using LinearAlgebra
     
     println("✓ Forward pass is non-mutating")
     
-    # Test that we can differentiate through the Fisher computation
     # Create a simple loss function based on Fisher information
     function loss_fn(weights)
-        # Update weights in parameters
         ps_modified = (
             layer = ps.layer,
             discrete_controls = (w1 = weights,)
         )
-        
         (fisher, _), _ = oed_layer(nothing, ps_modified, st)
-        
-        # Simple loss: negative log determinant (D-optimality)
-        # Add small regularization for numerical stability
         return -log(det(fisher + 1e-6 * I))
     end
     
-    # Test gradient computation
     w_test = ones(3)
     
-    try
+    # Test ForwardDiff gradient
+    @testset "ForwardDiff Gradient" begin
         grad = ForwardDiff.gradient(loss_fn, w_test)
         @test grad isa Vector
         @test length(grad) == 3
         @test all(isfinite, grad)
-        println("✓ Fisher computation is differentiable")
-        println("  Test gradient: ", grad)
-    catch e
-        @warn "Gradient computation failed" exception=e
-        @test_skip false
+        println("  ForwardDiff gradient: ", grad)
+    end
+    
+    # Test different weights produce different gradients
+    @testset "Gradient Variability" begin
+        w1 = ones(3)
+        w2 = 2.0 * ones(3)
+        grad1 = ForwardDiff.gradient(loss_fn, w1)
+        grad2 = ForwardDiff.gradient(loss_fn, w2)
+        @test !isapprox(grad1, grad2, atol=1e-6)
+        println("  Gradients differ for different weights ✓")
     end
     
     # Test that cached getters are reused (not recomputed)
@@ -86,10 +86,17 @@ using LinearAlgebra
     println("✓ Getters are cached in layer structure")
     
     # Test that sum is used (no mutation)
-    # We can verify this by checking the implementation doesn't throw errors
-    # when used with AD tools
     @test_nowarn oed_layer(nothing, ps, st)
     println("✓ Implementation uses sum() for differentiability")
+    
+    # Test Hessian computation (second derivative)
+    @testset "Hessian Computation" begin
+        hess = ForwardDiff.hessian(loss_fn, w_test)
+        @test hess isa Matrix
+        @test size(hess) == (3, 3)
+        @test all(isfinite, hess)
+        println("  Hessian computed successfully ✓")
+    end
     
     println("\n✓ All differentiability tests passed!")
 end

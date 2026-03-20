@@ -16,8 +16,8 @@ using SafeTestsets
 @safetestset "Example Corrected" begin
     include("test_example_corrected.jl")
 end
-@safetestset "Augmentation V2 New API" begin
-    include("test_augmentation_v2_new_api.jl")
+@safetestset "Augmentation API" begin
+    include("test_augmentation.jl")
 end
 @safetestset "Differentiability" begin
     include("test_differentiability.jl")

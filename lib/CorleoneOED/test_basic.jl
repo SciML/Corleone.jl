@@ -56,7 +56,7 @@ try
     println("  ✓ Created augmented layer")
     
     # Create OED layer
-    oed_layer = OEDLayerV2(symbolic_system, new_layer)
+    oed_layer = OEDLayer(symbolic_system, new_layer)
     println("  ✓ Created OED layer")
     
     # Setup and solve

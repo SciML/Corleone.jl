@@ -58,9 +58,9 @@ using Test
     @test haskey(ps.controls, :p)  # Original control
     @test haskey(ps.controls, :w2)  # Continuous measurement control (in ODE)
     
-    # Wrap in OEDLayerV2
-    oed_layer = OEDLayerV2(symbolic_system, new_layer)
-    @test oed_layer isa OEDLayerV2
+    # Wrap in OEDLayer
+    oed_layer = OEDLayer(symbolic_system, new_layer)
+    @test oed_layer isa OEDLayer
     
     # Check that OED layer also has both controls
     ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed_layer)

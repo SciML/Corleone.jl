@@ -67,7 +67,7 @@ add_observed!(sys,
 
 # Create augmented layer
 aug_layer = SingleShootingLayer(sys, base_layer)
-oed_layer = OEDLayerV2(sys, aug_layer)
+oed_layer = OEDLayer(sys, aug_layer)
 
 # Solve and extract Fisher
 traj, st = oed_layer(initial_condition, ps, st)

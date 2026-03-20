@@ -83,7 +83,7 @@ using LuxCore
         add_observed!(sys, cont_meas)
         
         new_layer = SingleShootingLayer(sys, layer)
-        oed_layer = OEDLayerV2(sys, new_layer)
+        oed_layer = OEDLayer(sys, new_layer)
         
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, oed_layer)
@@ -110,7 +110,7 @@ using LuxCore
         add_observed!(sys, cont_meas)
         
         new_layer = SingleShootingLayer(sys, layer)
-        oed_layer = OEDLayerV2(sys, new_layer)
+        oed_layer = OEDLayer(sys, new_layer)
         
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, oed_layer)

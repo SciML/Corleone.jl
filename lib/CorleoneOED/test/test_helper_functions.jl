@@ -32,7 +32,7 @@ using SymbolicIndexingInterface
             ContinuousMeasurement(w, (u, p, t) -> u[1])
         )
         
-        @test oed_layer isa OEDLayerV2
+        @test oed_layer isa OEDLayer
         @test oed_layer.layer isa SingleShootingLayer
         @test oed_layer.symbolic_system isa SymbolicSystem
         
@@ -63,7 +63,7 @@ using SymbolicIndexingInterface
         
         # Create layer and test
         aug_layer = SingleShootingLayer(sys, base_layer)
-        oed_layer = OEDLayerV2(sys, aug_layer)
+        oed_layer = OEDLayer(sys, aug_layer)
         
         rng = Random.default_rng()
         ps, st = LuxCore.setup(rng, oed_layer)

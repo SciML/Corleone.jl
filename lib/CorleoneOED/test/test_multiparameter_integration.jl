@@ -40,7 +40,7 @@ using SymbolicIndexingInterface
             ContinuousMeasurement(w, (u, p, t) -> u[1])  # Measure central compartment
         )
         
-        @test oed_layer isa OEDLayerV2
+        @test oed_layer isa OEDLayer
         
         # Solve
         rng = Random.default_rng()
@@ -165,7 +165,7 @@ using SymbolicIndexingInterface
         w_disc = ControlParameter(0.0:1.25:5.0, name=:w_disc)
         add_observed!(sys2, DiscreteMeasurement(w_disc, (u, p, t) -> u[1]))
         aug_layer2 = SingleShootingLayer(sys2, base_layer)
-        oed_disc = OEDLayerV2(sys2, aug_layer2)
+        oed_disc = OEDLayer(sys2, aug_layer2)
         
         ps2, st2 = LuxCore.setup(rng, oed_disc)
         (F_disc_total, traj2), st2 = oed_disc(nothing, ps2, st2)
@@ -181,7 +181,7 @@ using SymbolicIndexingInterface
             ContinuousMeasurement(w_cont3, (u, p, t) -> u[1])
         )
         aug_layer3 = SingleShootingLayer(sys3, base_layer)
-        oed_comb = OEDLayerV2(sys3, aug_layer3)
+        oed_comb = OEDLayer(sys3, aug_layer3)
         
         ps3, st3 = LuxCore.setup(rng, oed_comb)
         (F_comb_total, traj3), st3 = oed_comb(nothing, ps3, st3)

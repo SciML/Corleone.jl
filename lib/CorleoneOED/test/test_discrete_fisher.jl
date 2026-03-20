@@ -34,7 +34,7 @@ using SymbolicIndexingInterface
         add_observed!(sys, disc_meas)
         
         aug_layer = SingleShootingLayer(sys, base_layer)
-        oed_layer = OEDLayerV2(sys, aug_layer)
+        oed_layer = OEDLayer(sys, aug_layer)
         
         # Solve
         rng = Random.default_rng()
@@ -64,7 +64,7 @@ using SymbolicIndexingInterface
         add_observed!(sys, disc_meas, cont_meas)
         
         aug_layer = SingleShootingLayer(sys, base_layer)
-        oed_layer = OEDLayerV2(sys, aug_layer)
+        oed_layer = OEDLayer(sys, aug_layer)
         
         # Solve
         rng = Random.default_rng()
@@ -99,7 +99,7 @@ using SymbolicIndexingInterface
         add_observed!(sys, cont_meas)
         
         aug_layer = SingleShootingLayer(sys, base_layer)
-        oed_layer = OEDLayerV2(sys, aug_layer)
+        oed_layer = OEDLayer(sys, aug_layer)
         
         rng = Random.default_rng()
         ps, st = LuxCore.setup(rng, oed_layer)

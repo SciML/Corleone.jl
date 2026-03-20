@@ -40,7 +40,7 @@ CorleoneOED.add_observed!(symbolic_system, discrete_observed, continuous_observe
 new_layer = SingleShootingLayer(symbolic_system, layer)
 
 # The new layer has all the necessary differential equations 
-# This is wrapped into the OEDLayerV2 which return the trajectory but computes also the discrete measurements and returns the Fisher as the sum 
-oed_layer = OEDLayerV2(symbolic_system, new_layer)
-# The OEDLayerV2 contains the new_layer, the discrete_observed controls and so on. 
+# This is wrapped into the OEDLayer which return the trajectory but computes also the discrete measurements and returns the Fisher as the sum 
+oed_layer = OEDLayer(symbolic_system, new_layer)
+# The OEDLayer contains the new_layer, the discrete_observed controls and so on. 
 

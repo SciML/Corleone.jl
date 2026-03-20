@@ -120,8 +120,8 @@ Expected behavior:
     println("   ✓ Augmented layer created")
     
     # Create OED layer
-    oed_layer = OEDLayerV2(symbolic_system, new_layer)
-    @test oed_layer isa OEDLayerV2
+    oed_layer = OEDLayer(symbolic_system, new_layer)
+    @test oed_layer isa OEDLayer
     
     ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed_layer)
     @test haskey(ps_oed.layer.controls, :k1)

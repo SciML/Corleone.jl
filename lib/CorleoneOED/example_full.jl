@@ -42,7 +42,7 @@ new_prob = Corleone.get_problem(new_layer)
 println("  New problem has $(length(new_prob.u0)) states (original: $(length(prob.u0)))")
 
 println("\nStep 5: Creating OED layer...")
-oed_layer = OEDLayerV2(symbolic_system, new_layer)
+oed_layer = OEDLayer(symbolic_system, new_layer)
 
 println("\nStep 6: Solving the augmented system...")
 rng = Random.default_rng()

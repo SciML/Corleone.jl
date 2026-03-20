@@ -1,463 +1,370 @@
-# Helper for weighting the controls over the trajectory
-struct WeightedObservation
-    grid::Vector{Vector{Int64}}
-end
-
-function (w::WeightedObservation)(controls::AbstractVector{T}, i::Int64, G::AbstractArray) where {T}
-    psub = [iszero(j) ? zero(T) : controls[j] for j in w.grid[i]]
-    G = psub .* G
-    return G'G
-end
-
-function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector{<:AbstractArray}) where {T}
-    return sum(eachindex(G)) do i
-        w(controls, i, G[i])
-    end
-end
-
-default_observed = (u, p, t) -> u
-
 """
-$(TYPEDEF)
+    OEDLayer
+
+A Lux container layer for Optimal Experimental Design that wraps an augmented 
+SingleShootingLayer and provides Fisher information computation.
+
+This layer is fully differentiable and caches symbolic getters for efficiency.
 
 # Fields
-$(FIELDS)
-"""
-struct OEDLayer{DISCRETE, SAMPLED, FIXED, L, O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    "The underlying layer"
-    layer::L
-    "The observed functions"
-    observed::O
-    "The sampling indices"
-    sampling_indices::Vector{Int64}
-end
+- `layer::L`: The augmented SingleShootingLayer containing ODE + sensitivities + continuous Fisher
+- `symbolic_system::S`: The SymbolicSystem metadata
+- `discrete_controls::D`: ControlParameters for discrete measurement weights
+- `continuous_fisher_getter::C`: Cached getter for continuous Fisher matrix
+- `discrete_fisher_getters::Vector{DG}`: Cached getters for discrete Fisher contributions
 
-is_fixed(oed::OEDLayer{<:Any, <:Any, T}) where {T} = T
-
-function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCRETE, SAMPLED, FIXED}
-    (; layer, observed, sampling_indices) = oed
-    type_color, no_color = SciMLBase.get_colorizers(io)
-    layer_text = FIXED ? "Fixed " : ""
-    preposition = SAMPLED ? "with " : "without "
-    measurement_color = SAMPLED ? type_color : no_color
-    measurement_text = SAMPLED ? (DISCRETE ? "discrete " : "continuous ") : "specified "
-    print(
-        io,
-        no_color, layer_text,
-        type_color, "OEDLayer ",
-        no_color, preposition,
-        measurement_color, measurement_text,
-        no_color, "measurement model ",
-        no_color, "and ", type_color, "$(size(sampling_indices, 1)) ", no_color, "observed functions.\n"
-    )
-    print(io, no_color, "Underlying problem: ")
-    return Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
-end
-
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    layer = SingleShootingLayer(prob, alg; kwargs...)
-    return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
-end
-
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
-    return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
-end
-
-
-function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
-
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
-
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
-    SAMPLED = !isempty(measurements)
-    mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-    p_length = length(problem.p)
-    samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
-    samplings = samplings .+ length(controls)
-
-    newproblem, observed = augment_system(
-        mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
-        kwargs...
-    )
-
-    # Replace the saveat with the sampling times
-    saveats = if SAMPLED
-        ts = reduce(vcat, Corleone.get_timegrid.(measurements))
-        unique!(sort!(ts))
-    else
-        collect(problem.tspan)
-    end
-    newproblem = remake(newproblem, saveat = saveats)
-
-    shooting_points = [t[1] for t in layer.shooting_intervals]
-    newlayer = MultipleShootingLayer(
-        newproblem, algorithm, shooting_points...; controls = ctrls, tunable_ic = copy(tunable_ic), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
-    )
-
-    return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
-end
-
-function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
-
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer
-
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
-    SAMPLED = !isempty(measurements)
-    mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-    p_length = length(problem.p)
-    samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
-    samplings = samplings .+ length(controls)
-
-    newproblem, observed = augment_system(
-        mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
-        kwargs...
-    )
-
-    # Replace the saveat with the sampling times
-    saveats = if SAMPLED
-        ts = reduce(vcat, Corleone.get_timegrid.(measurements))
-        unique!(sort!(ts))
-    else
-        collect(problem.tspan)
-    end
-    newproblem = remake(newproblem, saveat = saveats)
-
-    lb, ub = copy.(bounds_ic)
-    for i in eachindex(newproblem.u0)
-        i <= lastindex(problem.u0) && continue
-        push!(lb, zero(eltype(newproblem.u0)))
-        push!(ub, zero(eltype(newproblem.u0)))
-    end
-    newlayer = SingleShootingLayer(
-        newproblem, algorithm; controls = ctrls, tunable_ic = copy(tunable_ic), bounds_ic = (lb, ub), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
-    )
-
-    return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
-end
-
-n_observed(layer::OEDLayer) = length(layer.sampling_indices)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
-Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
-
-# This is the only case where we need to sample the trajectory
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true, true, <:Any, <:SingleShootingLayer}, OEDLayer{false, true, true}})
-    (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer
-    st = LuxCore.initialstates(rng, layer)
-    # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
-    overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
-    unique!(sort!(overall_grid))
-    observed_grid = map(grids[sampling_indices]) do grid
-        unique!(sort!(grid))
-        findall(∈(grid), overall_grid)
-    end
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)
-    measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
-        unique(mi)
-    end
-    # Lets order this by time
-    weighting_grid = map(eachindex(overall_grid)) do i
-        map(eachindex(observed_grid)) do j
-            id = findfirst(i .== observed_grid[j])
-            isnothing(id) && return 0
-            measurement_indices[j][id]
-        end
-    end
-
-    # in active controls, also the indices of the original, non-sampling controls must be added
-    measurement_indices = typeof(oed) <: OEDLayer{true, true} ? begin
-            indices_all_controls = collect(1:length(control_indices))
-            map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
-                unique(mi)
-        end
-        end : measurement_indices
-
-    return merge(
-        st, (;
-            observation_grid = WeightedObservation(weighting_grid),
-            active_controls = measurement_indices,
-        )
-    )
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true, <:Any, <:MultipleShootingLayer})
-    (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer.layer
-    st = LuxCore.initialstates(rng, layer)
-    # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
-
-    return map(st) do sti
-        tspan = (first(first(sti.tspans)), last(last(sti.tspans)))
-        overall_grid = vcat(reduce(vcat, grids), collect(tspan))
-        unique!(sort!(overall_grid))
-        overall_grid = overall_grid[overall_grid .>= first(tspan) .&& overall_grid .< last(tspan)]
-        observed_grid = map(grids[sampling_indices]) do grid
-            unique!(sort!(grid))
-            findall(∈(grid), overall_grid)
-        end
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan = tspan)
-        measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
-            unique(mi)
-        end
-        # Lets order this by time
-        weighting_grid = map(eachindex(overall_grid)) do i
-            map(eachindex(observed_grid)) do j
-                id = findfirst(i .== observed_grid[j])
-                isnothing(id) && return 0
-                measurement_indices[j][id]
-            end
-        end
-
-        # in active controls, also the indices of the original, non-sampling controls must be added
-        measurement_indices = begin
-            indices_all_controls = collect(1:length(control_indices))
-            map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
-                unique(mi)
-            end
-        end
-
-        merge(
-            sti, (;
-                observation_grid = WeightedObservation(weighting_grid),
-                active_controls = measurement_indices,
-            )
-        )
-    end
-end
-
-__fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
-
-function __fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, traj::Trajectory, ps, st::NamedTuple)
-    nc = vcat(
-        0, cumsum(
-            map(1:length(st)) do i
-                sti = getproperty(st, Symbol("interval_$i"))
-                length(sti.observation_grid.grid)
-            end
-        )
-    )
-
-    Gs = oed.observed.fisher(traj)
-    return [Gs[(nc[i] + 1):nc[i + 1]] for i in 1:(size(nc, 1) - 1)]
-end
-
-function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory, ps, st::NamedTuple)
-    (; controls) = ps
-    (; active_controls) = st
-    fim = __fisher_information(oed, traj)
-
-    w = eachrow(reduce(hcat, map(x -> controls[x], active_controls)))
-    diffF = map(-, fim[2:end], fim[1:end])
-
-    return sum([F[:, :, k] .* wi[k] for (wi, F) in zip(w, diffF) for k in axes(F, 3)])
-end
-
-function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory, ps, st::NamedTuple)
-    (; controls) = ps
-    (; observation_grid) = st
-    Gs = __fisher_information(oed, traj)
-    return observation_grid(controls, Gs)
-end
-
-fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    sum(__fisher_information(oed, traj)), st
-end
-
-# Continuous ALWAYS last FIM
-fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    last(__fisher_information(oed, traj)), st
-end
-
-# DISCRETE and SAMPLING -> weighted sum
-fisher_information(oed::OEDLayer{true, true, false, <:SingleShootingLayer}, x, ps, st::NamedTuple) = begin
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    Gs = __fisher_information(oed, traj)
-    observation_grid(ps.controls, Gs), st
-end
-
-# FIXED DISCRETE and SAMPLING -> use helper function
-fisher_information(oed::OEDLayer{true, true, true}, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    __fisher_information(oed, traj, ps, st), st
-end
-
-fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    Gs = __fisher_information(oed, traj, ps, st)
-    sum(
-            map(eachindex(Gs)) do i
-                psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
-                sti.observation_grid(psi.controls, Gs[i])
-        end
-        ), st
-
-end
-
-# DISCRETE -> SUM
-fisher_information(oed::OEDLayer{true, false}, x, ps, st::NamedTuple) = begin
-    (; sampling_indices, layer) = oed
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    sum(__fisher_information(oed, traj)), st
-end
-
-# FIXED + CONTINUOUS
-fisher_information(oed::OEDLayer{false, true, true}, x, ps, st::NamedTuple) = begin
-    (; sampling_indices, layer) = oed
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    __fisher_information(oed, traj, ps, st), st
-end
-
-sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
-
-sensitivities(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    sensitivities(oed, traj), st
-end
-
-observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
-
-observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    observed_equations(oed, traj), st
-end
-
-_local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_weighted_sensitivity(traj)
-
-local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    # This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
-    hxGs = _local_information_gain(oed, traj)
-    map(hxGs) do hxGi
-            map(axes(hxGi, 1)) do i
-                xi = hxGi[i:i, :]
-                xi'xi
-        end
-    end, st
-end
-
-global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    F_tf, st = fisher_information(oed, x, ps, st)
-    C = inv(F_tf)
-    # This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
-    hxGs = _local_information_gain(oed, traj)
-    map(hxGs) do hxGi
-            map(axes(hxGi, 1)) do i
-                xi = hxGi[i:i, :] * C
-                xi'xi
-        end
-    end, st
-end
-
-get_sampling_sums(::OEDLayer{<:Any, false}, x, ps, st) = []
-get_sampling_sums!(res, ::OEDLayer{<:Any, false}, x, ps, st) = nothing
-
-__get_subsets(active_controls::AbstractVector, indices) = active_controls[indices]
-__get_subsets(index_grid::AbstractMatrix, indices) = index_grid[indices, :]
-__get_subsets(active_controls::Tuple, indices) = reduce(vcat, map(Base.Fix2(__get_subsets, indices), active_controls))
-__get_subsets(active_controls::Tuple{AbstractMatrix, Vararg{AbstractMatrix}}, indices) = reduce(hcat, map(Base.Fix2(__get_subsets, indices), active_controls))
-
-__get_dts(tspans::Tuple{Vararg{Tuple{<:Real, <:Real}}}) = vcat(first.(Base.front(tspans))..., collect(last(tspans))...)
-__get_dts(tspans::Tuple) = reduce(
-    vcat, map(eachindex(tspans)) do i
-        i == lastindex(tspans) ? __get_dts(tspans[i]) : __get_dts(Base.front(tspans[i]))
-    end
+# Example
+```julia
+sys = get_symbolic_equations(layer)
+append_sensitivity!(sys, [:k])
+add_observed!(sys, 
+    DiscreteMeasurement(ctrl1, (u,p,t) -> u[1]),
+    ContinuousMeasurement(ctrl2, (u,p,t) -> u[1])
 )
+aug_layer = SingleShootingLayer(sys, layer)
+oed_layer = OEDLayer(sys, aug_layer)
 
-_get_dts(tspans) = diff(__get_dts(tspans))
-
-get_sampling_sums(oed::OEDLayer, x, ps, st) = _get_sampling_sums(oed, x, ps, st)
-get_sampling_sums!(res, oed::OEDLayer, x, ps, st) = _get_sampling_sums!(res, oed, x, ps, st, Val{true}())
-
-function get_sampling_sums(oed::OEDLayer{<:Any, <:Any, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
-    return sum(fields) do f
-        _get_sampling_sums(oed, x, getproperty(ps, f), getproperty(st, f))
-    end
+ps, st = LuxCore.setup(rng, oed_layer)
+(fisher, traj), st = oed_layer(nothing, ps, st)
+```
+"""
+struct OEDLayer{L, S, D, C, DG} <: LuxCore.AbstractLuxContainerLayer{(:layer, :discrete_controls)}
+    layer::L
+    symbolic_system::S
+    discrete_controls::D
+    continuous_fisher_getter::C
+    discrete_fisher_getters::Vector{DG}
 end
 
-function get_sampling_sums!(res, oed::OEDLayer{<:Any, <:Any, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
-    return foreach(enumerate(fields)) do (i, f)
-        _get_sampling_sums!(res, oed, x, getproperty(ps, f), getproperty(st, f), Val{i == 1}())
+"""
+    OEDLayer(symbolic_system::SymbolicSystem, layer::SingleShootingLayer)
+
+Construct an OED layer with cached symbolic getters for efficient Fisher computation.
+"""
+function OEDLayer(symbolic_system::SymbolicSystem, layer::Corleone.SingleShootingLayer)
+    # Create ControlParameters container for discrete measurements
+    discrete_controls = if isempty(symbolic_system.discrete_measurement_controls)
+        nothing
+    else
+        ctrl_names = Tuple(Symbol(ctrl.name) for ctrl in symbolic_system.discrete_measurement_controls)
+        ctrl_values = Tuple(symbolic_system.discrete_measurement_controls)
+        discrete_controls_nt = NamedTuple{ctrl_names}(ctrl_values)
+        Corleone.ControlParameters(discrete_controls_nt)
     end
+    
+    # Cache continuous Fisher getter
+    continuous_fisher_getter = _build_continuous_fisher_getter(symbolic_system, layer)
+    
+    # Cache discrete Fisher getters (one per measurement)
+    discrete_fisher_getters = _build_discrete_fisher_getters(symbolic_system, layer)
+    
+    return OEDLayer{
+        typeof(layer), 
+        typeof(symbolic_system), 
+        typeof(discrete_controls),
+        typeof(continuous_fisher_getter),
+        eltype(discrete_fisher_getters)
+    }(
+        layer, 
+        symbolic_system, 
+        discrete_controls,
+        continuous_fisher_getter,
+        discrete_fisher_getters
+    )
 end
 
-function _get_sampling_sums(oed::OEDLayer{true, true}, x, ps, st)
-    (; sampling_indices) = oed
-    (; active_controls) = st
-    (; controls) = ps
-    return map(__get_subsets(active_controls, sampling_indices)) do subset
-        sum(controls[subset])
+"""
+Build a cached getter function for the continuous Fisher information matrix.
+Returns a function that extracts the symmetric Fisher matrix from a trajectory.
+"""
+function _build_continuous_fisher_getter(symbolic_system::SymbolicSystem, layer::Corleone.SingleShootingLayer)
+    if isnothing(symbolic_system.fisher_continuous_vars)
+        return nothing
     end
+    
+    np = length(symbolic_system.sensitivity_params)
+    F_vec_syms = symbolic_system.fisher_continuous_vars
+    
+    # Build symbolic expression to reconstruct symmetric matrix from upper triangular storage
+    F_matrix = zeros(Num, np, np)
+    idx = 1
+    for i in 1:np
+        for j in i:np
+            F_matrix[i, j] = F_vec_syms[idx]
+            if i != j
+                F_matrix[j, i] = F_vec_syms[idx]  # Symmetry
+            end
+            idx += 1
+        end
+    end
+    
+    # Convert to expression and create getter
+    F_expr = SymbolicUtils.Code.toexpr(F_matrix)
+    sys = Corleone.get_problem(layer).f.sys
+    fisher_getter = SymbolicIndexingInterface.getsym(sys, F_expr)
+    
+    return fisher_getter
 end
 
-function _get_sampling_sums(oed::OEDLayer{false, true, true}, x, ps, st)
-    (; active_controls, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return map(active_controls) do subset
-        sum(controls[subset] .* dts)
+"""
+Build cached getter functions for discrete Fisher information contributions.
+Returns a vector of (getter_func, ctrl) tuples, one per discrete measurement.
+"""
+function _build_discrete_fisher_getters(symbolic_system::SymbolicSystem, layer::Corleone.SingleShootingLayer)
+    if isempty(symbolic_system.discrete_measurements)
+        return []
     end
+    
+    sys = Corleone.get_problem(layer).f.sys
+    np = length(symbolic_system.sensitivity_params)
+    vars = symbolic_system.vars
+    G_vars = symbolic_system.sensitivities  # nx × np
+    
+    getters = []
+    
+    for (ctrl, obs_expr) in symbolic_system.discrete_measurements
+        # Compute symbolic unweighted Fisher contribution: (∂h/∂x * G)' * (∂h/∂x * G)
+        obs_vec = obs_expr isa AbstractVector ? obs_expr : [obs_expr]
+        dhdx = Symbolics.jacobian(obs_vec, vars)  # ny × nx
+        
+        # Weighted sensitivity: ∂h/∂x * G (ny × np)
+        G_weighted = dhdx * G_vars
+        
+        # Unweighted Fisher contribution: G_weighted' * G_weighted (np × np)
+        F_contrib_unweighted = G_weighted' * G_weighted
+        
+        # Create getter
+        F_contrib_expr = SymbolicUtils.Code.toexpr(F_contrib_unweighted)
+        F_contrib_getter = SymbolicIndexingInterface.getsym(sys, F_contrib_expr)
+        
+        push!(getters, (getter=F_contrib_getter, control=ctrl))
+    end
+    
+    return getters
 end
 
-function _get_sampling_sums!(res, oed::OEDLayer{false, true, true}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; active_controls, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return foreach(enumerate(active_controls)) do (i, subset)
-        res[i] = sum(controls[subset] .* dts)
+"""
+    (oed::OEDLayer)(x, ps, st)
+
+Forward pass: compute trajectory and Fisher information matrix.
+
+Returns `((fisher, trajectory), state)` where fisher is the sum of continuous 
+and discrete contributions.
+"""
+function (oed::OEDLayer)(x, ps, st)
+    # Call underlying layer to get trajectory
+    traj, st_layer = oed.layer(x, ps.layer, st.layer)
+    
+    # Compute continuous Fisher (from ODE integration)
+    fisher_continuous = _compute_continuous_fisher(oed, traj)
+    
+    # Compute discrete Fisher (from discrete measurements)
+    fisher_discrete = _compute_discrete_fisher(oed, traj, ps, st)
+    
+    # Sum contributions (fully differentiable)
+    fisher = fisher_continuous + fisher_discrete
+    
+    # Update state
+    st_new = if isnothing(oed.discrete_controls)
+        (layer=st_layer,)
+    else
+        (layer=st_layer, discrete_controls=st.discrete_controls)
     end
+    
+    return (fisher, traj), st_new
 end
 
-function _get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true, true}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; sampling_indices) = oed
-    (; active_controls) = st
-    (; controls) = ps
-    return foreach(enumerate(__get_subsets(active_controls, sampling_indices))) do (i, subset)
-        if RESET
-            res[i] = sum(controls[subset])
+"""
+Compute continuous Fisher information using cached getter.
+Simply extracts the final value from the trajectory.
+"""
+function _compute_continuous_fisher(oed::OEDLayer, traj::Trajectory)
+    if isnothing(oed.continuous_fisher_getter)
+        np = length(oed.symbolic_system.sensitivity_params)
+        return zeros(np, np)
+    end
+    
+    # Use cached getter to extract Fisher trajectory
+    F_traj = oed.continuous_fisher_getter(traj)
+    
+    # Return final value
+    return F_traj[end]
+end
+
+"""
+Compute discrete Fisher information using cached getters and weight parameters.
+Uses sum() for full differentiability (no mutation).
+"""
+function _compute_discrete_fisher(oed::OEDLayer, traj::Trajectory, ps, st)
+    if isempty(oed.discrete_fisher_getters)
+        np = length(oed.symbolic_system.sensitivity_params)
+        return zeros(np, np)
+    end
+    
+    # Sum contributions from all discrete measurements (fully differentiable)
+    fisher_discrete = sum(oed.discrete_fisher_getters) do getter_info
+        (; getter, control) = getter_info
+        weight_sym = Symbol(control.name)
+        
+        # Get unweighted Fisher trajectory
+        F_unweighted_traj = getter(traj)
+        
+        # Get weight trajectory from parameters
+        weight_vec = if !isnothing(ps) && haskey(ps, :discrete_controls) && haskey(ps.discrete_controls, weight_sym)
+            ps.discrete_controls[weight_sym]
         else
-            res[i] += sum(controls[subset])
+            # Default to ones
+            ones(length(control.t))
+        end
+        
+        # Get control time grid and trajectory time grid
+        ctrl_times = collect(control.t)
+        traj_times = traj.t
+        
+        # Map weights to trajectory times and compute weighted sum
+        # This is fully differentiable using sum()
+        sum(enumerate(traj_times)) do (idx, t_traj)
+            # Find corresponding weight by finding nearest control time
+            widx = _find_nearest_index(ctrl_times, t_traj)
+            weight = widx <= length(weight_vec) ? weight_vec[widx] : one(eltype(weight_vec))
+            
+            # Weight contribution at this time
+            weight * F_unweighted_traj[idx]
+        end
+    end
+    
+    return fisher_discrete
+end
+
+"""
+Find index of nearest time point in a sorted time array.
+This is differentiable as it doesn't use conditionals that break AD.
+"""
+function _find_nearest_index(times::AbstractVector, t::Real)
+    idx = searchsortedfirst(times, t)
+    if idx > length(times)
+        return length(times)
+    elseif idx == 1
+        return 1
+    else
+        # Return closest of two neighbors
+        if abs(times[idx] - t) < abs(times[idx-1] - t)
+            return idx
+        else
+            return idx - 1
         end
     end
 end
 
-function _get_sampling_sums(oed::OEDLayer{false, true, false}, x, ps, st)
-    (; sampling_indices) = oed
-    (; index_grid, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return map(enumerate(eachrow(__get_subsets(index_grid, sampling_indices)))) do (i, subset)
-        sum(controls[subset] .* dts)
+"""
+    fisher_information(oed::OEDLayer, traj::Trajectory)
+
+Extract the final Fisher information matrix from a trajectory.
+
+Uses the cached continuous Fisher getter for efficiency.
+
+# Arguments
+- `oed::OEDLayer`: The OED layer wrapper
+- `traj::Trajectory`: The solved trajectory
+
+# Returns
+- `Matrix{Float64}`: The (np × np) symmetric Fisher information matrix at final time
+
+# Example
+```julia
+(fisher, traj), st = oed_layer(initial_condition, ps, st)
+# fisher is directly returned, or extract separately:
+F = fisher_information(oed_layer, traj)
+```
+
+# Mathematical Background
+The Fisher information matrix measures the curvature of the log-likelihood:
+    F_ij = E[(∂log L/∂p_i)(∂log L/∂p_j)]
+For Gaussian measurement noise, this becomes:
+    F = ∫ G(t)'(∂h/∂x)'(∂h/∂x)G(t) dt
+where h is the measurement function and G = ∂x/∂p is the sensitivity matrix.
+"""
+function fisher_information(oed::OEDLayer, traj::Trajectory)
+    return _compute_continuous_fisher(oed, traj)
+end
+
+"""
+    discrete_fisher_information(oed::OEDLayer, traj::Trajectory, ps)
+
+Compute discrete Fisher information contributions.
+
+Uses cached getters and weight parameters for efficient, differentiable computation.
+
+# Arguments
+- `oed::OEDLayer`: The OED layer wrapper
+- `traj::Trajectory`: The solved trajectory
+- `ps`: Parameter structure containing discrete control weights
+
+# Returns
+- `Matrix{Float64}`: The (np × np) discrete Fisher information contribution
+
+# Example
+```julia
+(fisher, traj), st = oed_layer(nothing, ps, st)
+# Discrete Fisher is automatically included in fisher
+
+# Or compute separately
+F_disc = discrete_fisher_information(oed_layer, traj, ps)
+```
+
+# Note
+This function evaluates the measurement Jacobian over the full trajectory and forms
+a weighted sum using the control parameters. It's fully differentiable.
+"""
+function discrete_fisher_information(oed::OEDLayer, traj::Trajectory, ps)
+    # Create dummy state for consistency
+    st = LuxCore.initialstates(Random.default_rng(), oed)
+    return _compute_discrete_fisher(oed, traj, ps, st)
+end
+
+"""
+    sensitivities(oed::OEDLayer, traj::Trajectory)
+
+Extract sensitivity trajectories from a solution.
+
+Returns the time evolution of the sensitivity matrix G(t) = ∂x(t)/∂p, which
+describes how the system states change with respect to parameter perturbations.
+
+# Arguments
+- `oed::OEDLayer`: The OED layer wrapper
+- `traj::Trajectory`: The solved trajectory
+
+# Returns
+- `Vector{Matrix{Float64}}`: Time series of (nx × np) sensitivity matrices
+
+# Example
+```julia
+(fisher, traj), st = oed_layer(initial_condition, ps, st)
+G_traj = sensitivities(oed_layer, traj)
+# G_traj[i] is the sensitivity matrix at time traj.t[i]
+```
+"""
+function sensitivities(oed::OEDLayer, traj::Trajectory)
+    (; symbolic_system) = oed
+    
+    if isnothing(symbolic_system.sensitivities)
+        error("No sensitivities computed. Did you call append_sensitivity!?")
+    end
+    
+    nx = length(symbolic_system.vars)
+    np = length(symbolic_system.sensitivity_params)
+    
+    # Extract sensitivity variables from trajectory
+    sens_start_idx = nx + 1
+    sens_end_idx = nx + nx * np
+    
+    # Map trajectory to sensitivity matrices
+    return map(traj.u) do u
+        sens_vec = u[sens_start_idx:sens_end_idx]
+        reshape(sens_vec, nx, np)
     end
 end
 
-function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false, true, false}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; sampling_indices) = oed
-    (; index_grid, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return foreach(enumerate(eachrow(__get_subsets(index_grid, sampling_indices)))) do (i, subset)
-        if RESET
-            res[i] = sum(controls[subset] .* dts)
-        else
-            res[i] += sum(controls[subset] .* dts)
-        end
-    end
-end
-
-get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
+# Export
+export OEDLayer
+export fisher_information, discrete_fisher_information, sensitivities
