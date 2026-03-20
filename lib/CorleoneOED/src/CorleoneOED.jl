@@ -12,6 +12,9 @@ using SciMLBase
 using DocStringExtensions
 using LinearAlgebra
 
+# New modular API for OED
+include("augmentation_v2.jl")
+
 # TODO Clean and more tests (also for LV)
 include("augmentation.jl")
 
