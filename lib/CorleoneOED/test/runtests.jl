@@ -19,6 +19,9 @@ end
 @safetestset "Augmentation V2 New API" begin
     include("test_augmentation_v2_new_api.jl")
 end
+@safetestset "Differentiability" begin
+    include("test_differentiability.jl")
+end
 @safetestset "2D System" begin
     include("test_2d_system.jl")
 end

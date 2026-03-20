@@ -1,28 +1,35 @@
 using Test
 using CorleoneOED
 using Corleone
-using DifferentialEquations
+using OrdinaryDiffEqTsit5
 using Random
+using LuxCore
+using SymbolicIndexingInterface
 
 @testset "Helper Functions" begin
     # Set up a simple ODE
     function odefn!(du, u, p, t)
-        du[1] = -p.k * u[1]
+        du[1] = -p[1] * u[1]
     end
     
     u0 = [1.0]
     tspan = (0.0, 1.0)
-    k = ControlParameter(0.5, (0.1, 2.0), :k)
-    prob = ODEProblem(odefn!, u0, tspan, (k=k.value,))
     
+    prob = ODEProblem{true}(
+        ODEFunction(odefn!, sys=SymbolCache([:x], [:k], :t)),
+        u0, tspan, [0.5]
+    )
+    
+    k = ControlParameter(0.0:0.5:1.0, name=:k)
     base_layer = SingleShootingLayer(prob, k; algorithm=Tsit5())
     
     @testset "create_oed_layer" begin
         # Test create_oed_layer
+        w = ControlParameter(0.0:0.5:1.0, name=:w)
         oed_layer = create_oed_layer(
             base_layer,
             [:k],
-            ContinuousMeasurement(k) => (vars, ps, t) -> vars[1]
+            ContinuousMeasurement(w, (u, p, t) -> u[1])
         )
         
         @test oed_layer isa OEDLayerV2
@@ -32,23 +39,24 @@ using Random
         # Test that it can be solved
         rng = Random.default_rng()
         ps, st = LuxCore.setup(rng, oed_layer)
-        initial_condition = InitialCondition([1.0])
-        traj, st = oed_layer(initial_condition, ps, st)
+        (F, traj), st = oed_layer(nothing, ps, st)
         
         @test traj isa Trajectory
         @test length(traj.u) > 1
         
         # Test Fisher information extraction
-        F = fisher_information(oed_layer, traj)
-        @test F isa Matrix
-        @test size(F) == (1, 1)
-        @test F[1,1] >= 0  # Fisher info should be non-negative
+        F_cont = fisher_information(oed_layer, traj)
+        @test F_cont isa Matrix
+        @test size(F_cont) == (1, 1)
+        @test F_cont[1,1] >= 0  # Fisher info should be non-negative
     end
     
     @testset "augment_fisher" begin
         sys = get_symbolic_equations(base_layer)
         append_sensitivity!(sys, [:k])
-        augment_fisher(sys, ContinuousMeasurement(k) => (vars, ps, t) -> vars[1])
+        
+        w = ControlParameter(0.0:0.5:1.0, name=:w)
+        augment_fisher(sys, ContinuousMeasurement(w, (u, p, t) -> u[1]))
         
         @test !isnothing(sys.fisher_continuous_vars)
         @test !isnothing(sys.fisher_continuous_eqs)
@@ -59,12 +67,11 @@ using Random
         
         rng = Random.default_rng()
         ps, st = LuxCore.setup(rng, oed_layer)
-        initial_condition = InitialCondition([1.0])
-        traj, st = oed_layer(initial_condition, ps, st)
+        (F, traj), st = oed_layer(nothing, ps, st)
         
-        F = fisher_information(oed_layer, traj)
-        @test F isa Matrix
-        @test size(F) == (1, 1)
+        F_cont = fisher_information(oed_layer, traj)
+        @test F_cont isa Matrix
+        @test size(F_cont) == (1, 1)
     end
     
     @testset "augment_sensitivities" begin

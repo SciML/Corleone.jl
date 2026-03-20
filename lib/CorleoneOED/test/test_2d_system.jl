@@ -105,11 +105,11 @@ Expected behavior:
     new_layer = SingleShootingLayer(symbolic_system, layer)
     @test new_layer isa Corleone.SingleShootingLayer
     
-    # Check controls
+    # Check controls (nested structure)
     ps_new, st_new = LuxCore.setup(Random.default_rng(), new_layer)
-    @test haskey(ps_new, :k1)  # Original
-    @test haskey(ps_new, :k2)  # Original
-    @test haskey(ps_new, :w2)  # Continuous measurement weight
+    @test haskey(ps_new.controls, :k1)  # Original
+    @test haskey(ps_new.controls, :k2)  # Original
+    @test haskey(ps_new.controls, :w2)  # Continuous measurement weight
     
     println("\n4. Augmented System:")
     println("   - Original states: 2")
@@ -124,10 +124,10 @@ Expected behavior:
     @test oed_layer isa OEDLayerV2
     
     ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed_layer)
-    @test haskey(ps_oed, :k1)
-    @test haskey(ps_oed, :k2)
-    @test haskey(ps_oed, :w1)  # Discrete measurement weight
-    @test haskey(ps_oed, :w2)  # Continuous measurement weight
+    @test haskey(ps_oed.layer.controls, :k1)
+    @test haskey(ps_oed.layer.controls, :k2)
+    @test haskey(ps_oed.discrete_controls, :w1)  # Discrete measurement weight
+    @test haskey(ps_oed.layer.controls, :w2)  # Continuous measurement weight
     
     println("\n5. OED Layer:")
     println("   - Controls: k1, k2, w1, w2")
@@ -155,7 +155,7 @@ Expected behavior:
     
     # Extract components separately
     F_cont = fisher_information(oed_layer, trajectory)
-    F_disc = discrete_fisher_information(oed_layer, trajectory, trajectory.t, ps_oed)
+    F_disc = discrete_fisher_information(oed_layer, trajectory, ps_oed)
     
     @test isapprox(fisher, F_cont + F_disc, atol=1e-10)
     
