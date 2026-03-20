@@ -88,12 +88,14 @@ using LuxCore
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, oed_layer)
         st = LuxCore.initialstates(rng, oed_layer)
-        traj, st_new = oed_layer(nothing, ps, st)
+        (fisher, traj), st_new = oed_layer(nothing, ps, st)
         
         @test length(traj.t) > 0
         @test length(traj.u) == length(traj.t)
+        @test fisher isa Matrix
+        @test size(fisher) == (1, 1)
         
-        # Extract Fisher
+        # Can also extract Fisher separately
         F = fisher_information(oed_layer, traj)
         @test size(F) == (1, 1)
         @test F[1, 1] > 0  # Should be positive
@@ -113,7 +115,7 @@ using LuxCore
         rng = Random.default_rng()
         ps = LuxCore.initialparameters(rng, oed_layer)
         st = LuxCore.initialstates(rng, oed_layer)
-        traj, st_new = oed_layer(nothing, ps, st)
+        (fisher, traj), st_new = oed_layer(nothing, ps, st)
         
         sens = sensitivities(oed_layer, traj)
         @test length(sens) == length(traj.t)

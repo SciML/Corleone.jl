@@ -14,6 +14,7 @@ using LinearAlgebra
 
 # New modular API for OED
 include("augmentation_v2.jl")
+include("oed_layer.jl")  # OEDLayerV2 with cached getters
 
 # TODO Clean and more tests (also for LV)
 include("augmentation.jl")

@@ -64,6 +64,8 @@ mutable struct SymbolicSystem
     # Measurement-related
     discrete_measurements::Vector{Tuple{ControlParameter, Any}}  # (control, expression)
     continuous_measurements::Vector{Tuple{ControlParameter, Any}}
+    discrete_measurement_controls::Vector{ControlParameter}  # Controls for discrete measurements (not in ODE)
+    continuous_measurement_controls::Vector{ControlParameter}  # Controls for continuous measurements (in ODE)
     fisher_discrete_vars::Union{Nothing, Vector{Num}}  # Variables for discrete Fisher
     fisher_continuous_vars::Union{Nothing, Vector{Num}}  # Variables for continuous Fisher (flattened)
     fisher_discrete_eqs::Union{Nothing, Vector{Num}}
@@ -188,6 +190,7 @@ function get_symbolic_equations(layer::Corleone.SingleShootingLayer)
         sys, vars, parameters, independent_vars, eqs,
         Symbol[], nothing, nothing,  # sensitivity fields
         Tuple{ControlParameter, Any}[], Tuple{ControlParameter, Any}[],  # measurements
+        ControlParameter[], ControlParameter[],  # discrete and continuous measurement controls
         nothing, nothing, nothing, nothing,  # Fisher fields
         layer, copy(prob.u0), copy(p0)  # original info
     )
@@ -308,21 +311,37 @@ function add_observed!(symbolic_system::SymbolicSystem, measurements...)
     # Separate discrete and continuous measurements
     for meas in measurements
         if meas isa DiscreteMeasurement
-            # Evaluate expression symbolically
+            # Evaluate expression symbolically with (u, p, t) signature
             expr = if meas.expression isa Function
                 meas.expression(vars, parameters, independent_vars)
             else
                 meas.expression
             end
-            push!(symbolic_system.discrete_measurements, (meas.control, expr))
+            
+            # Create a modified control with default value of 1.0 for weights
+            ctrl = _ensure_weight_defaults(meas.control)
+            push!(symbolic_system.discrete_measurements, (ctrl, expr))
+            
+            # Track the control parameter for discrete measurements
+            if !(ctrl in symbolic_system.discrete_measurement_controls)
+                push!(symbolic_system.discrete_measurement_controls, ctrl)
+            end
         elseif meas isa ContinuousMeasurement
-            # Evaluate expression symbolically
+            # Evaluate expression symbolically with (u, p, t) signature
             expr = if meas.expression isa Function
                 meas.expression(vars, parameters, independent_vars)
             else
                 meas.expression
             end
-            push!(symbolic_system.continuous_measurements, (meas.control, expr))
+            
+            # Create a modified control with default value of 1.0 for weights
+            ctrl = _ensure_weight_defaults(meas.control)
+            push!(symbolic_system.continuous_measurements, (ctrl, expr))
+            
+            # Track the control parameter for continuous measurements
+            if !(ctrl in symbolic_system.continuous_measurement_controls)
+                push!(symbolic_system.continuous_measurement_controls, ctrl)
+            end
         else
             error("Unknown measurement type: $(typeof(meas))")
         end
@@ -334,6 +353,21 @@ function add_observed!(symbolic_system::SymbolicSystem, measurements...)
     end
     
     return symbolic_system
+end
+
+# Helper function to ensure weight parameters default to 1.0 instead of 0.0
+function _ensure_weight_defaults(ctrl::ControlParameter)
+    # If the control uses default_controls (which returns zeros), replace with ones
+    if ctrl.controls === Corleone.default_controls
+        return ControlParameter(
+            ctrl.t;
+            name = ctrl.name,
+            controls = (rng, t) -> ones(eltype(t), length(t)),
+            bounds = ctrl.bounds
+        )
+    else
+        return ctrl
+    end
 end
 
 function _add_continuous_fisher!(symbolic_system::SymbolicSystem)
@@ -349,9 +383,37 @@ function _add_continuous_fisher!(symbolic_system::SymbolicSystem)
     F = Symbolics.setdefaultval.(F, F0)
     F_vec = vec(F[selector])  # Store as vector
     
+    # Create or collect weight parameters for continuous measurements
+    weight_params = Num[]
+    for (ctrl, obs_expr) in symbolic_system.continuous_measurements
+        weight_sym = Symbol(ctrl.name)
+        
+        # Check if parameter already exists
+        param_idx = findfirst(p -> Symbol(p) == weight_sym, parameters)
+        if isnothing(param_idx)
+            # Create new parameter for the weight
+            weight_var = Symbolics.variable(weight_sym)
+            # Get default value: first value from control's time points
+            default_val = if isempty(ctrl.t)
+                1.0  # Default weight if no time points
+            else
+                # Call controls with a vector containing the first time point
+                first(ctrl.controls(Random.default_rng(), [ctrl.t[1]]))
+            end
+            weight_var = Symbolics.setdefaultval(weight_var, default_val)
+            push!(parameters, weight_var)
+            push!(symbolic_system.original_p, default_val)
+        else
+            weight_var = parameters[param_idx]
+        end
+        push!(weight_params, weight_var)
+    end
+    
     # Build Fisher dynamics for each continuous measurement
     fisher_eqs = Num[]
-    for (ctrl, obs_expr) in symbolic_system.continuous_measurements
+    for (i, (ctrl, obs_expr)) in enumerate(symbolic_system.continuous_measurements)
+        weight_var = weight_params[i]
+        
         # Compute Jacobian of observable w.r.t. states
         # Handle scalar and vector observables
         obs_vec = obs_expr isa AbstractVector ? obs_expr : [obs_expr]
@@ -360,8 +422,8 @@ function _add_continuous_fisher!(symbolic_system::SymbolicSystem)
         # Weighted sensitivity: G_weighted = dh/dx * G
         G_weighted = dhdx * sensitivities
         
-        # Fisher rate: dF/dt = G_weighted' * G_weighted
-        fisher_rate = G_weighted' * G_weighted
+        # Fisher rate: dF/dt = weight * G_weighted' * G_weighted
+        fisher_rate = weight_var * (G_weighted' * G_weighted)
         append!(fisher_eqs, vec(fisher_rate[selector]))
     end
     
@@ -460,273 +522,27 @@ function Corleone.SingleShootingLayer(
     prob = Corleone.get_problem(original_layer)
     new_prob = remake(prob, f = fnew, u0 = u0_new, p = p0_new)
     
-    # Create new layer with same controls
+    # Create new layer with original controls plus CONTINUOUS measurement controls only
+    # (discrete measurement controls are handled by OEDLayerV2)
+    all_controls = vcat(
+        collect(values(original_layer.controls.controls)),
+        symbolic_system.continuous_measurement_controls
+    )
     return Corleone.SingleShootingLayer(
         new_prob, 
-        values(original_layer.controls.controls)...;
+        all_controls...;
         algorithm = original_layer.algorithm,
         name = Symbol(string(original_layer.name) * "_augmented")
     )
 end
 
-"""
-    OEDLayerV2(symbolic_system::SymbolicSystem, layer::SingleShootingLayer)
-
-Wrap an augmented layer to expose Fisher information and other OED quantities.
-
-This is a lightweight wrapper around a SingleShootingLayer that provides methods
-for extracting Fisher information matrices and sensitivity trajectories. The
-wrapped layer behaves like a normal layer for training/optimization purposes.
-
-# Fields
-- `layer::L`: The augmented SingleShootingLayer
-- `symbolic_system::S`: The SymbolicSystem used to create the augmentation
-
-# Methods
-Use `fisher_information(oed, traj)` to extract the Fisher information matrix
-and `sensitivities(oed, traj)` to extract sensitivity trajectories.
-
-# Example
-```julia
-# Create OED layer
-sys = get_symbolic_equations(base_layer)
-append_sensitivity!(sys, [:k])
-add_observed!(sys, ContinuousMeasurement(control) => (vars, ps, t) -> vars[1])
-aug_layer = SingleShootingLayer(sys, base_layer)
-oed_layer = OEDLayerV2(sys, aug_layer)
-
-# Use it like a normal layer
-ps, st = LuxCore.setup(rng, oed_layer)
-traj, st = oed_layer(initial_condition, ps, st)
-
-# Extract OED quantities
-F = fisher_information(oed_layer, traj)
-G_traj = sensitivities(oed_layer, traj)
-```
-"""
-struct OEDLayerV2{L, S} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    layer::L
-    symbolic_system::S
-end
-
-function OEDLayerV2(symbolic_system::SymbolicSystem, layer::Corleone.SingleShootingLayer)
-    return OEDLayerV2{typeof(layer), typeof(symbolic_system)}(layer, symbolic_system)
-end
-
-# Forward most methods to the underlying layer
-LuxCore.initialparameters(rng::Random.AbstractRNG, oed::OEDLayerV2) = LuxCore.initialparameters(rng, oed.layer)
-LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayerV2) = LuxCore.initialstates(rng, oed.layer)
-
-function (oed::OEDLayerV2)(x, ps, st)
-    return oed.layer(x, ps, st)
-end
-
-"""
-    fisher_information(oed::OEDLayerV2, traj::Trajectory)
-
-Extract the final Fisher information matrix from a trajectory.
-
-The Fisher information matrix F quantifies how much information the measurements
-contain about the parameters. Higher values indicate more information. For continuous
-measurements, F is accumulated by integrating dF/dt = G_weighted' * G_weighted.
-
-# Arguments
-- `oed::OEDLayerV2`: The OED layer wrapper
-- `traj::Trajectory`: The solved trajectory
-
-# Returns
-- `Matrix{Float64}`: The (np × np) symmetric Fisher information matrix at final time
-
-# Example
-```julia
-traj, st = oed_layer(initial_condition, ps, st)
-F = fisher_information(oed_layer, traj)
-# F is a symmetric positive semi-definite matrix
-```
-
-# Mathematical Background
-The Fisher information matrix measures the curvature of the log-likelihood:
-    F_ij = E[(∂log L/∂p_i)(∂log L/∂p_j)]
-For Gaussian measurement noise, this becomes:
-    F = ∫ G(t)'(∂h/∂x)'(∂h/∂x)G(t) dt
-where h is the measurement function and G = ∂x/∂p is the sensitivity matrix.
-"""
-function fisher_information(oed::OEDLayerV2, traj::Trajectory)
-    (; symbolic_system) = oed
-    
-    if isnothing(symbolic_system.fisher_continuous_vars)
-        error("No Fisher information computed. Did you add continuous measurements?")
-    end
-    
-    # Extract Fisher variables from final state
-    n_base_vars = length(symbolic_system.vars)
-    n_sens_vars = isnothing(symbolic_system.sensitivities) ? 0 : length(symbolic_system.sensitivities)
-    fisher_start_idx = n_base_vars + n_sens_vars + 1
-    
-    final_state = traj.u[end]
-    fisher_vec = final_state[fisher_start_idx:end]
-    
-    # Reconstruct symmetric matrix
-    np = length(symbolic_system.sensitivity_params)
-    F = zeros(np, np)
-    selector = triu(trues(np, np))
-    F[selector] = fisher_vec
-    F = F + triu(F, 1)'  # Make symmetric
-    
-    return F
-end
-
-"""
-    sensitivities(oed::OEDLayerV2, traj::Trajectory)
-
-Extract sensitivity trajectories from a solution.
-
-Returns the time evolution of the sensitivity matrix G(t) = ∂x(t)/∂p, which
-describes how the system states change with respect to parameter perturbations.
-
-# Arguments
-- `oed::OEDLayerV2`: The OED layer wrapper
-- `traj::Trajectory`: The solved trajectory
-
-# Returns
-- `Vector{Matrix{Float64}}`: Time series of (nx × np) sensitivity matrices
-
-# Example
-```julia
-traj, st = oed_layer(initial_condition, ps, st)
-G_traj = sensitivities(oed_layer, traj)
-
-# G_traj[i] is the sensitivity matrix at time traj.t[i]
-# G_traj[i][j, k] = ∂x_j/∂p_k at time traj.t[i]
-```
-
-# Interpretation
-- Each G[j,k] element represents the instantaneous sensitivity of state j to parameter k
-- Large absolute values indicate high sensitivity
-- Sign indicates direction of influence (positive/negative)
-"""
-function sensitivities(oed::OEDLayerV2, traj::Trajectory)
-    (; symbolic_system) = oed
-    
-    if isnothing(symbolic_system.sensitivities)
-        error("No sensitivities computed. Did you call append_sensitivity!?")
-    end
-    
-    n_base_vars = length(symbolic_system.vars)
-    nx = n_base_vars
-    np = length(symbolic_system.sensitivity_params)
-    
-    # Extract sensitivity block from each state
-    sens_traj = map(traj.u) do state
-        sens_vec = state[(n_base_vars + 1):(n_base_vars + nx * np)]
-        reshape(sens_vec, nx, np)
-    end
-    
-    return sens_traj
-end
-
-"""
-    discrete_fisher_information(oed::OEDLayerV2, traj::Trajectory, measurement_times::Vector{Float64})
-
-Compute discrete Fisher information contributions from point measurements.
-
-For discrete measurements at specified times, this computes:
-    F_discrete = Σ_i G(t_i)' (∂h/∂x)' (∂h/∂x) G(t_i)
-where the sum is over measurement times t_i.
-
-# Arguments
-- `oed::OEDLayerV2`: The OED layer wrapper
-- `traj::Trajectory`: The solved trajectory
-- `measurement_times::Vector{Float64}`: Times at which discrete measurements are taken
-
-# Returns
-- `Matrix{Float64}`: The (np × np) discrete Fisher information contribution
-
-# Example
-```julia
-# Add discrete measurements
-disc_meas = DiscreteMeasurement(disc_cp) => (vars, ps, t) -> vars[1]
-
-traj, st = oed_layer(initial_condition, ps, st)
-times = [0.0, 0.5, 1.0]
-F_disc = discrete_fisher_information(oed_layer, traj, times)
-
-# Combine with continuous Fisher
-F_cont = fisher_information(oed_layer, traj)
-F_total = F_cont + F_disc
-```
-
-# Note
-This function evaluates the measurement Jacobian and sensitivities at the specified
-times by interpolating the trajectory. Currently only works with symbolic expressions
-for the measurement function.
-"""
-function discrete_fisher_information(
-    oed::OEDLayerV2, 
-    traj::Trajectory, 
-    measurement_times::Vector{Float64}
-)
-    (; symbolic_system) = oed
-    
-    if isempty(symbolic_system.discrete_measurements)
-        return zeros(length(symbolic_system.sensitivity_params), 
-                    length(symbolic_system.sensitivity_params))
-    end
-    
-    np = length(symbolic_system.sensitivity_params)
-    F_discrete = zeros(np, np)
-    
-    # Get sensitivity trajectories
-    G_traj = sensitivities(oed, traj)
-    
-    # Build evaluator for measurement Jacobian
-    (; vars, parameters) = symbolic_system
-    
-    for (ctrl, obs_expr) in symbolic_system.discrete_measurements
-        # Compute Jacobian symbolically
-        obs_vec = obs_expr isa AbstractVector ? obs_expr : [obs_expr]
-        dhdx = Symbolics.jacobian(obs_vec, vars)
-        
-        # Build evaluation function
-        dhdx_func = Symbolics.build_function(dhdx, vars, parameters, symbolic_system.independent_vars; expression=Val{false})[1]
-        
-        # Accumulate Fisher at each measurement time
-        for t_meas in measurement_times
-            # Interpolate state and sensitivity at measurement time
-            idx = searchsortedfirst(traj.t, t_meas)
-            if idx > length(traj.t)
-                idx = length(traj.t)
-            elseif idx > 1 && abs(traj.t[idx] - t_meas) > abs(traj.t[idx-1] - t_meas)
-                idx = idx - 1
-            end
-            
-            # Get state and parameters at this time
-            x_meas = traj.u[idx][1:length(vars)]
-            p_vals = symbolic_system.original_p
-            
-            # Evaluate measurement Jacobian
-            dhdx_val = dhdx_func(x_meas, p_vals, t_meas)
-            
-            # Get sensitivity at this time
-            G_meas = G_traj[idx]
-            
-            # Accumulate: F += (dh/dx * G)' * (dh/dx * G)
-            G_weighted = dhdx_val * G_meas
-            F_discrete += G_weighted' * G_weighted
-        end
-    end
-    
-    return F_discrete
-end
-
-# Export new functions and types
+# Export core types and functions
 export SymbolicSystem, DiscreteMeasurement, ContinuousMeasurement
 export get_symbolic_equations, append_sensitivity!, add_observed!
-export OEDLayerV2
-export discrete_fisher_information
-# Note: fisher_information and sensitivities are already exported by oed.jl
 
-# Also export convenience functions
+# OEDLayerV2 and fisher functions are exported from oed_layer.jl
+
+# Export convenience functions
 export augment_sensitivities, augment_fisher, create_oed_layer
 
 """

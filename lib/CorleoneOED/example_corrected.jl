@@ -42,11 +42,13 @@ CorleoneOED.add_observed!(symbolic_system, discrete_observed, continuous_observe
 # Here the symbolic system should have the following entries for the continuous fisher 
 # dF_cont/ dt = w2 * G_1,1 ^ 2 * x ^ 2 
 
+
 # And for the discrete 
 # F_discrete = w1 * G_1,1 ^ 2 * p[1]^2  
 
 # Last a new DEProblem and layer is defined with all old controls and new controls and measurements 
 new_layer = SingleShootingLayer(symbolic_system, layer)
+# The new_layer must contain 2 controls :p and :w2
 # Check if ps contains also :w2 as a new control for the fisher information, given that it is 
 # used for a continuous measurement
 ps, st = LuxCore.setup(Random.default_rng(), new_layer) 
@@ -54,11 +56,17 @@ traj, _ = new_layer(nothing, ps, st)
 
 # The new layer has all the necessary differential equations 
 # This is wrapped into the OEDLayerV2 which return the trajectory but computes also the discrete measurements and returns the Fisher as the sum 
+# This layer should only be named OEDLayer and contain the fields 
+# layer:: The singel shooting layer ( with the augmentations ) 
+# controls:: The control parameter which represent the discrete observations 
+# discrete_fisher:: The definition of the discrete fisher useable as a getsym(problem, F_discrete) 
+# Hence it is a LuxCore.AbstractLuxContainerLayer
 oed_layer = OEDLayerV2(symbolic_system, new_layer)
 # Check if ps contains also :w2 as a new control for the continuous fisher information
 # And :w1 as a discrete control for the discrete fisher information
 ps, st = LuxCore.setup(Random.default_rng(), oed_layer) 
 # This layer returns the fisher = discrete_fisher + continuous_fisher and the trajectory
-(fisher, trajectory) _ = oed_layer(nothing, ps,st)
+(fisher, trajectory), _ = oed_layer(nothing, ps, st)
 
 println("Example completed successfully!")
+println("Fisher information: ", fisher)
