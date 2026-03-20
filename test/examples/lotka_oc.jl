@@ -20,75 +20,125 @@ function lotka_dynamics!(du, u, p, t)
     return
 end
 
+psyms = [Symbol(:p, i) for i in 1:5]
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
-p0 = [0.0, 1.0, 1.0]
-prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6)
+p0 = vcat([0.0, 1.0, 1.0], randn(5))
+prob = ODEProblem(
+    ODEFunction(lotka_dynamics!, sys = SymbolCache([:x, :y, :c], [:u, :α, :β, psyms...], :t)),
+    u0,
+    tspan,
+    p0;
+    abstol = 1.0e-8,
+    reltol = 1.0e-6,
+    sensealg = SciMLBase.NoAD()
+)
 
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)
-control = ControlParameter(
-    cgrid, name = :fishing, bounds = (0.0, 1.0), controls = zeros(N)
+controls = (
+    ControlParameter(
+        cgrid;
+        name = :u,
+        bounds = t -> (zero(t), zero(t) .+ 1),
+        controls = (rng, t) -> zeros(eltype(t), length(t)),
+    ),
+    FixedControlParameter(; name = :α, controls = (rng, t) -> [1.0]),
+    FixedControlParameter(; name = :β, controls = (rng, t) -> [1.0]),
+	[ControlParameter(; name = psyms[i], controls = (rng, t) -> [1.0], bounds = t -> ([0.], [1.])) for i in eachindex(psyms)]...,
 )
 
-layer = SingleShootingLayer(prob, Tsit5(); controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 
+layer = SingleShootingLayer(
+    prob, controls...;
+    algorithm = Tsit5(), quadrature_indices = [3]
+);
 ps, st = LuxCore.setup(rng, layer)
+sol, _ = layer(nothing, ps, st);
 
-sol, _ = layer(nothing, ps, st)
 
-@test sol.t == getsym(sol, :t)(sol)
-@test sol.p[1] == getsym(sol, :p₁)(sol)
-@test sol.p[2] == getsym(sol, :p₂)(sol)
+@testset "Single Shooting" begin
+    layer = SingleShootingLayer(
+        prob, controls...;
+        algorithm = Tsit5(), quadrature_indices = [3]
+    )
+    ps, st = LuxCore.setup(rng, layer)
+    sol, _ = layer(nothing, ps, st)
+    @test sol.t == getsym(sol, :t)(sol)
+    @test all(sol.p[2] .== getsym(sol, :α)(sol))
+    @test all(sol.p[3] .== getsym(sol, :β)(sol))
+	@test ps.controls.u == sol.ps[:u][1:end-1]
 
-x = reduce(hcat, sol.u)
+    x = reduce(hcat, sol.u)
 
-for (i, sym) in enumerate((:x₁, :x₂, :x₃, :fishing))
-    getter = getsym(sol, sym)
-    @test getter(sol) == x[i, :]
+    for (i, sym) in enumerate((:x, :y, :c))
+        getter = getsym(sol, sym)
+        @test getter(sol) == x[i, :]
+    end
+
+    @test_nowarn @inferred first(layer(nothing, ps, st))
+    @test allunique(sol.t)
+    @test LuxCore.parameterlength(layer) == N + 7
+
+reg = Expr(
+    :call, :sum, Expr(
+        :tuple,
+		[    :(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
+    )
+)
+
+
+    for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
+        layer = remake(layer, sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD())
+        optlayer = DynamicOptimizationLayer(layer, :(c(12.0)))
+        ps, st = LuxCore.setup(rng, optlayer)
+        @inferred first(optlayer(nothing, ps, st))
+        optprob = OptimizationProblem(optlayer, AD, vectorizer = Val(:ComponentArrays))
+        p = ComponentArray(ps)
+        @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
+        @test all(optprob.ub .== 1.0)
+        @test all(optprob.lb .== 0.0)
+        sol = solve(
+            optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+            hessian_approximation = "limited-memory"
+        )
+        @test SciMLBase.successful_retcode(sol)
+        @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+        p_opt = sol.u .+ zero(p)
+        @test isempty(p_opt.initial_conditions)
+        @test length(p_opt.controls.u) == N
+    end
 end
 
-@test_nowarn @inferred layer(nothing, ps, st)
+@testset "Multiple Shooting" begin
 
-@test allunique(sol.t)
-@test LuxCore.parameterlength(layer) == N + 2
-
-
-for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
-    prob = ODEProblem(lotka_dynamics!, u0, tspan, p0; abstol = 1.0e-8, reltol = 1.0e-6, sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD())
-
-    cgrid = collect(0.0:0.1:11.9)
-    N = length(cgrid)
-    control = ControlParameter(
-        cgrid, name = :fishing, bounds = (0.0, 1.0), controls = zeros(N)
+    layer = SingleShootingLayer(
+        prob, controls...;
+        bounds_ic = (t0) -> (zeros(3), fill(Inf, 3)),
+        algorithm = Tsit5(), quadrature_indices = [3]
     )
-
-    layer = SingleShootingLayer(prob, Tsit5(); controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
-
-    ps, st = LuxCore.setup(rng, layer)
-
-    p = ComponentArray(ps)
-    lb, ub = Corleone.get_bounds(layer)
-
-    @test lb.p == ub.p == p0[2:end]
-    @test lb.controls == zeros(N)
-    @test ub.controls == ones(N)
-    @test size(p, 1) == LuxCore.parameterlength(layer)
-
-    optprob = OptimizationProblem(layer, AD, Val(:ComponentArrays), loss = :x₃)
-
-    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
-
-    sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-        hessian_approximation = "limited-memory"
+    ms_layer = MultipleShootingLayer(
+        layer, 0.0, 3.0, 6.0, 9.0
     )
-
-    @test SciMLBase.successful_retcode(sol)
-    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
-
-    p_opt = sol.u .+ zero(p)
-
-    @test isempty(p_opt.u0)
-    @test p_opt.p == p0[2:end]
+    ps, st = LuxCore.setup(rng, ms_layer)
+    traj, _ = ms_layer(nothing, ps, st)
+    @test Corleone.get_number_of_shooting_constraints(ms_layer) == 6
+    for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())
+        ms_layer = remake(ms_layer, sensealg = AD == AutoZygote() ? ForwardDiffSensitivity() : SciMLBase.NoAD())
+        optlayer = DynamicOptimizationLayer(ms_layer, :(c(12.0)))
+        @test length(optlayer.lcons) == length(optlayer.ucons) == 6
+        @test optlayer.lcons == optlayer.ucons
+        objectiveval = @inferred first(optlayer(nothing, ps, st))
+        @test isapprox(objectiveval, 4.9669040432037574, atol = 1.0e-4)
+        res = zeros(6)
+        @inferred first(optlayer(res, ps, st))
+        @test isapprox(res, [-1.3757549609694821, -0.2235735751355118, -1.375754960969481, -0.22357357513551102, -1.3757549609694824, -0.2235735751355129], atol = 1.0e-4)
+        optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+        sol = solve(
+            optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+            hessian_approximation = "limited-memory"
+        )
+        @test SciMLBase.successful_retcode(sol)
+        @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+    end
 end
