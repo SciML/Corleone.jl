@@ -59,6 +59,36 @@ function _collect_timepoints!(collector::Dict{Symbol, <:AbstractVector}, ex::Exp
     return
 end
 
+"""
+    _collect_bare_symbols!(bare_syms, ex, known_symbols)
+
+Collect bare symbol references (not function calls) from an expression tree.
+These are symbols like `:β` that appear directly in the expression without
+being called with a timepoint (e.g. `β` instead of `β(0.0)`).
+"""
+_collect_bare_symbols!(::Set{Symbol}, ::Any, ::Set{Symbol}) = nothing
+
+function _collect_bare_symbols!(bare_syms::Set{Symbol}, ex::Expr, known_symbols::Set{Symbol})
+    if ex.head == :call
+        # Skip the function name (first arg) — it's handled by timepoint collection
+        for arg in ex.args[2:end]
+            _collect_bare_symbols!(bare_syms, arg, known_symbols)
+        end
+    else
+        for arg in ex.args
+            _collect_bare_symbols!(bare_syms, arg, known_symbols)
+        end
+    end
+    return
+end
+
+function _collect_bare_symbols!(bare_syms::Set{Symbol}, sym::Symbol, known_symbols::Set{Symbol})
+    if sym ∈ known_symbols
+        push!(bare_syms, sym)
+    end
+    return
+end
+
 _extract_timeindex(x::Number, indices) = indices[x]
 _extract_timeindex(x::Expr, indices) = begin
     @assert x.head == :vect "Timepoints must be provided as a scalar or vector, e.g. `x(1.0)` or `x([1.0, 2.0])"
@@ -154,11 +184,28 @@ function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Ex
     new_exprs = map(expressions) do ex
         replace_timepoints(ex, replacer)
     end
+    # Collect bare symbol references (e.g. β in `β == 1.0`) that need header bindings
+    known_symbols = Set(symbols)
+    bare_syms = Set{Symbol}()
+    foreach(expressions) do ex
+        _collect_bare_symbols!(bare_syms, ex, known_symbols)
+    end
     header = map(collect(keys(replacer))) do k
         if is_parameter(problem, k)
             return :($(k) = trajectory.ps[$(QuoteNode(k))])
         else
             return :($(k) = trajectory[$(QuoteNode(k))])
+        end
+    end
+    # Add header bindings for bare symbols not already covered by timepoint replacer
+    for k in bare_syms
+        k ∈ keys(replacer) && continue
+        if is_parameter(problem, k)
+            # Bare parameter access (e.g. `β` in `β == 1.0`): extract first value
+            # since trajectory.ps[:sym] returns a vector over all timepoints
+            push!(header, :($(k) = first(trajectory.ps[$(QuoteNode(k))])))
+        else
+            push!(header, :($(k) = trajectory[$(QuoteNode(k))]))
         end
     end
     getter = nothing

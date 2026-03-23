@@ -134,11 +134,9 @@ $(SIGNATURES)
 
 Return a time-dependent parameter-observed function for control parameter `sym`.
 The returned function has the signature `(p, t) -> value` and is used by `getp`.
-`parameter_index` is used to resolve `sym` to the symbol name stored in `sys`.
 """
 function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
-    idx = parameter_index(fp.sys, sym)
-    name = parameter_symbols(fp.sys)[idx]
+    name = Symbol(sym)
     (p, t) -> begin
         if t isa AbstractVector
             map(ti -> getproperty(fp.controls(ti), name), t)

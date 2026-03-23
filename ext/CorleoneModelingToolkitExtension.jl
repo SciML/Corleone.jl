@@ -19,7 +19,7 @@ const toexpr = SU.Code.toexpr
 using SciMLBase
 using SciMLStructures
 
-import Corleone: SingleShootingLayer, DynamicOptimizationLayer, remake_system, _to_plain_symbol
+import Corleone: SingleShootingLayer, DynamicOptimizationLayer, MultipleShootingLayer, remake_system, _to_plain_symbol
 
 # ──────────────────────────────────────────────────────
 #  Safe name extraction (handles array symbolics)
@@ -337,6 +337,45 @@ function _replace_integrals(expr, integral_map, iv)
 end
 
 # ──────────────────────────────────────────────────────
+#  IC bounds derivation for multiple shooting
+# ──────────────────────────────────────────────────────
+
+"""
+    _make_bounds_ic(sys, n_states; quadrature_indices)
+
+Derive a `bounds_ic` function `(t0) -> (lb, ub)` from MTK system unknowns.
+Uses `getbounds` where available, defaults to `(0.0, Inf)` for all states
+(matching the pattern in lotka_oc.jl). Quadrature states get `(0.0, Inf)`.
+"""
+function _make_bounds_ic(sys, n_states; quadrature_indices=Int[])
+    unknowns_list = ModelingToolkit.unknowns(sys)
+    lb = zeros(n_states)
+    ub = fill(Inf, n_states)
+
+    for (i, u) in enumerate(unknowns_list)
+        if i > n_states
+            break
+        end
+        u_unwrapped = unwrap(u)
+        if ModelingToolkit.hasbounds(u_unwrapped)
+            lb_val, ub_val = ModelingToolkit.getbounds(u_unwrapped)
+            lb[i] = Float64(lb_val)
+            ub[i] = Float64(ub_val)
+        end
+    end
+
+    # Quadrature states: allow non-negative accumulation
+    for qi in quadrature_indices
+        if qi <= n_states
+            lb[qi] = 0.0
+            ub[qi] = Inf
+        end
+    end
+
+    return (t0) -> (copy(lb), copy(ub))
+end
+
+# ──────────────────────────────────────────────────────
 #  SingleShootingLayer from ModelingToolkit.System
 # ──────────────────────────────────────────────────────
 
@@ -372,6 +411,7 @@ function DynamicOptimizationLayer(
     constraints...;
     controls::AbstractVector{<:Pair} = Pair[],
     algorithm::SciMLBase.AbstractDEAlgorithm,
+    shooting::AbstractVector{<:Real} = Real[],
     kwargs...
 )
     iv = ModelingToolkit.get_iv(sys)
@@ -482,10 +522,19 @@ function DynamicOptimizationLayer(
     all_ctrl = (input_controls..., tunable_controls..., non_tunable_controls...)
 
     # Build SingleShootingLayer
-    layer = SingleShootingLayer(prob, all_ctrl...;
-        algorithm=algorithm,
-        quadrature_indices=quadrature_indices,
-    )
+    ssl_kwargs = if isempty(shooting)
+        (; algorithm=algorithm, quadrature_indices=quadrature_indices)
+    else
+        n_states = length(prob.u0)
+        bounds_ic = _make_bounds_ic(completed_sys, n_states; quadrature_indices=quadrature_indices)
+        (; algorithm=algorithm, quadrature_indices=quadrature_indices, bounds_ic=bounds_ic)
+    end
+    layer = SingleShootingLayer(prob, all_ctrl...; ssl_kwargs...)
+
+    # Optionally wrap in MultipleShootingLayer
+    if !isempty(shooting)
+        layer = MultipleShootingLayer(layer, shooting...)
+    end
 
     # Step 4: Convert to Expr and call existing constructor
     cost_exprs = [_sym_to_expr(c) for c in new_cost]
@@ -504,6 +553,7 @@ function DynamicOptimizationLayer(
     sys::ModelingToolkit.System,
     controls::Pair...;
     algorithm::SciMLBase.AbstractDEAlgorithm,
+    shooting::AbstractVector{<:Real} = Real[],
     kwargs...
 )
     cost = ModelingToolkit.get_costs(sys)
@@ -513,6 +563,7 @@ function DynamicOptimizationLayer(
         sys, cost, cons...;
         controls=collect(Pair, controls),
         algorithm=algorithm,
+        shooting=shooting,
         kwargs...
     )
 end
