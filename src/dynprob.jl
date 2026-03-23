@@ -35,6 +35,16 @@ _extract_timepoints(x::Expr) = begin
     reduce(vcat, x.args)
 end
 
+"""
+    _to_plain_symbol(s)
+
+Convert a symbolic variable/parameter to a plain `Symbol` name.
+For plain `Symbol`s this is identity. For MTK symbolic types (e.g. `x(t)`),
+this extracts the base name (`:x`). Override in extensions for custom behavior.
+"""
+_to_plain_symbol(s::Symbol) = s
+_to_plain_symbol(s) = Symbol(s)
+
 _collect_timepoints!(::Dict{Symbol, <:AbstractVector}, ::Any) = nothing
 
 function _collect_timepoints!(collector::Dict{Symbol, <:AbstractVector}, ex::Expr)
@@ -127,7 +137,7 @@ function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Ex
         con
     end
     expressions = vcat(objective, constraints...)
-    symbols = vcat(variable_symbols(problem), parameter_symbols(problem))
+    symbols = _to_plain_symbol.(vcat(variable_symbols(problem), parameter_symbols(problem)))
     tspan = get_tspan(layer)
     collector = Dict([vi => eltype(tspan)[] for vi in symbols])
     foreach(expressions) do ex
