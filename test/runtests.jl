@@ -30,6 +30,9 @@ using SafeTestsets
         @safetestset "MTK Example" begin
             include("examples/mtk.jl")
         end
+        @safetestset "MTK Optimal Control" begin
+            include("examples/mtk_oc.jl")
+        end
     end
     @safetestset "MTK Symbolic Indexing" begin
         include("mtk_symbolic_index.jl")
