@@ -45,11 +45,13 @@ rng = Random.default_rng()
     traj, st2 = layer(nothing, ps, st)
     
     @testset "Control names are Symbols (MTK symbols converted)" begin
-        # Both p and u(t) are controls, Symbol(u) returns Symbol("u(t)")
+        # Both p and u(t) are controls
+        # _maybesymbolifyme extracts base symbol :u from u(t)
         control_names = Corleone._control_names(traj)
         @test all(name -> name isa Symbol, control_names)
-        # Check that u(t) is in control names (MTK formats time-dependent vars)
-        @test any(name -> name == Symbol("u(t)"), control_names)
+        # Check that :u (base symbol extracted from u(t)) is in control names
+        @test :u in control_names
+        @test :p in control_names
     end
     
     @testset "is_observed with MTK symbols" begin

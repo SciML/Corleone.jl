@@ -22,6 +22,16 @@ struct Trajectory{S, U, P, T, C, SH}
 end
 
 """
+$(SIGNATURES)
+
+Extract plain symbol name from symbolic variable.
+For MTK time-dependent variables like `u(t)`, extracts the base name `:u`.
+For plain Symbols, returns the symbol unchanged.
+Extended by CorleoneModelingToolkitExtension for MTK symbolic types.
+"""
+_maybesymbolifyme(x) = x
+
+"""
 $(TYPEDEF)
 
 Time-aligned control signal values.
@@ -97,26 +107,29 @@ $(SIGNATURES)
 
 Return the names of the control parameters stored in `fp` as Symbols.
 Normalizes MTK symbolic types (Num, BasicSymbolic) to Symbol for consistent comparison.
+For time-dependent symbols like `u(t)`, extracts the base name `:u`.
 """
-_control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(Symbol(c.name) for c in values(fp.controls.model.controls))
+_control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(_maybesymbolifyme(c.name) for c in values(fp.controls.model.controls))
 
 """
 $(SIGNATURES)
 
 Override parameter check: control parameter symbols are exposed as observed, not
 as plain parameters, so `getsym`/`getp` route through `parameter_observed`.
+Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_parameter(fp::Trajectory, sym)
-    is_parameter(fp.sys, sym) && !(Symbol(sym) in _control_names(fp))
+    is_parameter(fp.sys, sym) && !(_maybesymbolifyme(sym) in _control_names(fp))
 end
 
 """
 $(SIGNATURES)
 
 Return `true` when `sym` is a control parameter of `fp`.
+Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
-    Symbol(sym) in _control_names(fp)
+    _maybesymbolifyme(sym) in _control_names(fp)
 end
 
 """
@@ -124,9 +137,10 @@ $(SIGNATURES)
 
 Return a time-dependent observed function for control parameter `sym`.
 Used by `getsym` on timeseries objects to broadcast over all timepoints.
+Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
-    name = Symbol(sym)
+    name = _maybesymbolifyme(sym)
     (u, p, t) -> getproperty(fp.controls(t), name)
 end
 
@@ -137,10 +151,12 @@ Return a time-dependent parameter-observed function for control parameter `sym`.
 The returned function has the signature `(p, t) -> value` and is used by `getp`.
 For control parameters, the value is retrieved from the controls NamedTuple using
 the symbol name (converted to Symbol for MTK compatibility).
+Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
     # Convert MTK symbolic to Symbol for NamedTuple property access
-    name = Symbol(sym)
+    # _maybesymbolifyme extracts :u from u(t) or passes through plain :u
+    name = _maybesymbolifyme(sym)
     (p, t) -> begin
         if t isa AbstractVector
             map(ti -> getproperty(fp.controls(ti), name), t)

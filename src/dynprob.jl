@@ -116,7 +116,7 @@ function normalize_constraint(expr::Expr, ::Type{T}) where {T}
     end
 end
 
-_maybesymbolifyme(x) = x
+# _maybesymbolifyme is defined in trajectory.jl and extended in CorleoneModelingToolkitExtension
 
 function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Expr, constraints::Expr...; name = gensym(:observed))
     problem = Corleone.get_problem(layer)

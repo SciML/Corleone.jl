@@ -46,9 +46,10 @@ LuxCore.display_name(c::ControlParameter) = Symbol(c)
 """
 $(SIGNATURES)
 
-Return symbolic control name.
+Return symbolic control name as a plain Symbol.
+For MTK symbolic types like `u(t)`, extracts the base name `:u`.
 """
-Base.Symbol(c::ControlParameter) = Symbol(c.name)
+Base.Symbol(c::ControlParameter) = _maybesymbolifyme(c.name)
 
 """
 $(FUNCTIONNAME)

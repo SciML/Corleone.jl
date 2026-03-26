@@ -89,6 +89,7 @@ function collect_timepoints!(tpoints, ex)
 end
 
 Corleone._maybesymbolifyme(x::SymbolicUtils.BasicSymbolic) = iscall(x) ? Symbol(operation(x)) : Symbol(x)
+Corleone._maybesymbolifyme(x::Num) = Corleone._maybesymbolifyme(Symbolics.unwrap(x))
 
 function collect_integrals!(subs, ex, t)
     if iscall(ex)
