@@ -27,5 +27,11 @@ using SafeTestsets
         @safetestset "Lotka Optimal Control" begin
             include("examples/lotka_oc.jl")
         end
+        @safetestset "MTK Example" begin
+            include("examples/mtk.jl")
+        end
+    end
+    @safetestset "MTK Symbolic Indexing" begin
+        include("mtk_symbolic_index.jl")
     end
 end
