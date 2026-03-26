@@ -119,7 +119,7 @@ as plain parameters, so `getsym`/`getp` route through `parameter_observed`.
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_parameter(fp::Trajectory, sym)
-    is_parameter(fp.sys, sym) && !(_maybesymbolifyme(sym) in _control_names(fp))
+    return is_parameter(fp.sys, sym) && !(_maybesymbolifyme(sym) in _control_names(fp))
 end
 
 """
@@ -129,7 +129,7 @@ Return `true` when `sym` is a control parameter of `fp`.
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
-    _maybesymbolifyme(sym) in _control_names(fp)
+    return _maybesymbolifyme(sym) in _control_names(fp)
 end
 
 """
@@ -141,7 +141,7 @@ Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
     name = _maybesymbolifyme(sym)
-    (u, p, t) -> getproperty(fp.controls(t), name)
+    return (u, p, t) -> getproperty(fp.controls(t), name)
 end
 
 """
@@ -157,7 +157,7 @@ function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
     # Convert MTK symbolic to Symbol for NamedTuple property access
     # _maybesymbolifyme extracts :u from u(t) or passes through plain :u
     name = _maybesymbolifyme(sym)
-    (p, t) -> begin
+    return (p, t) -> begin
         if t isa AbstractVector
             map(ti -> getproperty(fp.controls(ti), name), t)
         else

@@ -62,7 +62,7 @@ function matchings(layer::MultipleShootingLayer, us, sub_trajs)
         control_matching = map(specs.control) do csym
             traj_prev = sub_trajs[i]
             traj_next = sub_trajs[i + 1]
-            v_prev = getproperty(_apply(traj_prev.controls.model, last(traj_prev.t),  traj_prev.controls.ps, traj_prev.controls.st)[1], csym)
+            v_prev = getproperty(_apply(traj_prev.controls.model, last(traj_prev.t), traj_prev.controls.ps, traj_prev.controls.st)[1], csym)
             v_next = getproperty(_apply(traj_next.controls.model, first(traj_next.t), traj_next.controls.ps, traj_next.controls.st)[1], csym)
             Symbol(csym), v_next .- v_prev
         end |> NamedTuple

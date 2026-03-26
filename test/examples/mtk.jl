@@ -14,14 +14,14 @@ using LuxCore;
 rng = Random.default_rng()
 
 @variables begin
-    x(t)=1.0, [tunable = false, bounds = (0.0, 1.0)]
-    u(t)=1.0, [input = true, bounds = (0.0, 1.0)]
+    x(t) = 1.0, [tunable = false, bounds = (0.0, 1.0)]
+    u(t) = 1.0, [input = true, bounds = (0.0, 1.0)]
 end
 @parameters begin
-    p = 1.0, [bounds = (-1., 1.)]
+    p = 1.0, [bounds = (-1.0, 1.0)]
 end
-eqs = [D(x) ~ p * x  - u]
-@named simple = ODESystem(eqs, t,)
+eqs = [D(x) ~ p * x - u]
+@named simple = ODESystem(eqs, t)
 layer = SingleShootingLayer(simple, [], u => 0.0:0.1:1.0, algorithm = Tsit5(), tspan = (0.0, 1.0));
 ps, st = LuxCore.setup(rng, layer);
 
@@ -38,4 +38,4 @@ traj.sys
 
 using CairoMakie
 
-plot(traj, )
+plot(traj)
