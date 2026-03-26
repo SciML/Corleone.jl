@@ -95,9 +95,10 @@ SymbolicIndexingInterface.current_time(fp::Trajectory) = fp.t
 """
 $(SIGNATURES)
 
-Return the names of the control parameters stored in `fp`.
+Return the names of the control parameters stored in `fp` as Symbols.
+Normalizes MTK symbolic types (Num, BasicSymbolic) to Symbol for consistent comparison.
 """
-_control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(c.name for c in values(fp.controls.model.controls))
+_control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(Symbol(c.name) for c in values(fp.controls.model.controls))
 
 """
 $(SIGNATURES)
@@ -134,11 +135,12 @@ $(SIGNATURES)
 
 Return a time-dependent parameter-observed function for control parameter `sym`.
 The returned function has the signature `(p, t) -> value` and is used by `getp`.
-`parameter_index` is used to resolve `sym` to the symbol name stored in `sys`.
+For control parameters, the value is retrieved from the controls NamedTuple using
+the symbol name (converted to Symbol for MTK compatibility).
 """
 function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
-    idx = parameter_index(fp.sys, sym)
-    name = parameter_symbols(fp.sys)[idx]
+    # Convert MTK symbolic to Symbol for NamedTuple property access
+    name = Symbol(sym)
     (p, t) -> begin
         if t isa AbstractVector
             map(ti -> getproperty(fp.controls(ti), name), t)
