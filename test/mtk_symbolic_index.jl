@@ -1,12 +1,6 @@
 # Test for MTK symbolic indexing fix
 # This test validates that traj.ps[mtk_symbol] works correctly with MTK symbolic variables
 
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
-
-using TestEnv
-TestEnv.activate()
-
 using Test
 using Corleone
 using ModelingToolkit

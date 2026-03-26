@@ -1,18 +1,12 @@
 # Test for MTK integration - similar structure to lotka_oc.jl but MTK-specific
 # Note: MTK only supports ForwardDiff for automatic differentiation
 
-using Pkg
-Pkg.activate(joinpath(@__DIR__, "..", ".."))
-
-using TestEnv
-TestEnv.activate()
-
+using Test
 using Corleone
 using Corleone: get_lower_bound, get_upper_bound
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEqTsit5
-using Test
 using Random
 using LuxCore
 using SymbolicIndexingInterface
