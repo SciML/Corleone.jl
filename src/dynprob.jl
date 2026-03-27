@@ -116,6 +116,8 @@ function normalize_constraint(expr::Expr, ::Type{T}) where {T}
     end
 end
 
+# _maybesymbolifyme is defined in trajectory.jl and extended in CorleoneModelingToolkitExtension
+
 function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Expr, constraints::Expr...; name = gensym(:observed))
     problem = Corleone.get_problem(layer)
     T = eltype(problem.u0)
@@ -127,7 +129,7 @@ function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Ex
         con
     end
     expressions = vcat(objective, constraints...)
-    symbols = vcat(variable_symbols(problem), parameter_symbols(problem))
+    symbols = _maybesymbolifyme.(vcat(variable_symbols(problem), parameter_symbols(problem)))
     tspan = get_tspan(layer)
     collector = Dict([vi => eltype(tspan)[] for vi in symbols])
     foreach(expressions) do ex

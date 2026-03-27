@@ -45,7 +45,7 @@ controls = (
     ),
     FixedControlParameter(; name = :α, controls = (rng, t) -> [1.0]),
     FixedControlParameter(; name = :β, controls = (rng, t) -> [1.0]),
-	[ControlParameter(; name = psyms[i], controls = (rng, t) -> [1.0], bounds = t -> ([0.], [1.])) for i in eachindex(psyms)]...,
+    [ControlParameter(; name = psyms[i], controls = (rng, t) -> [1.0], bounds = t -> ([0.0], [1.0])) for i in eachindex(psyms)]...,
 )
 
 
@@ -67,7 +67,7 @@ sol, _ = layer(nothing, ps, st);
     @test sol.t == getsym(sol, :t)(sol)
     @test all(sol.p[2] .== getsym(sol, :α)(sol))
     @test all(sol.p[3] .== getsym(sol, :β)(sol))
-	@test ps.controls.u == sol.ps[:u][1:end-1]
+    @test ps.controls.u == sol.ps[:u][1:(end - 1)]
 
     x = reduce(hcat, sol.u)
 
@@ -80,12 +80,12 @@ sol, _ = layer(nothing, ps, st);
     @test allunique(sol.t)
     @test LuxCore.parameterlength(layer) == N + 7
 
-reg = Expr(
-    :call, :sum, Expr(
-        :tuple,
-		[    :(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
+    reg = Expr(
+        :call, :sum, Expr(
+            :tuple,
+            [    :(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
+        )
     )
-)
 
 
     for AD in (AutoForwardDiff(), AutoReverseDiff(), AutoZygote())

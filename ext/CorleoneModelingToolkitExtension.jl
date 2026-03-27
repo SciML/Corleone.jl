@@ -1,107 +1,201 @@
 module CorleoneModelingToolkitExtension
 
-@info "Loading MTK Extension"
+@info "MTK Extension loaded!"
 
 using Corleone
 using ModelingToolkit
-
-using Corleone.LuxCore
-using Corleone.Random
-using Corleone.DocStringExtensions
-using Corleone.SciMLBase
+using SciMLBase
 
 using ModelingToolkit.Symbolics
 using ModelingToolkit.SymbolicUtils
-using ModelingToolkit.Setfield
-using ModelingToolkit.SymbolicIndexingInterface
-using ModelingToolkit.Symbolics.RuntimeGeneratedFunctions
+using ModelingToolkit.SymbolicUtils.Code
 
-using ModelingToolkit: IndexCache, DiscreteIndex, BufferTemplate, ParameterTimeseriesIndex
+import Corleone: SingleShootingLayer, MultipleShootingLayer, DynamicOptimizationLayer
+import Corleone: ControlParameter, FixedControlParameter
 
-@info "Loading MTK Extension..."
 
-RuntimeGeneratedFunctions.init(@__MODULE__)
-
-function _control_timeseries_pairs(controls)
-    pairs = Pair[]
-    for (i, c) in enumerate(values(controls.controls))
-        name = c.name
-        # Whole control timeseries, e.g. `u(t)`.
-        push!(pairs, name => ParameterTimeseriesIndex(i, :))
-        # Per-component access for array-valued controls, e.g. `u[1]`.
-        try
-            for j in eachindex(name)
-                push!(
-                    pairs, name[j] => ParameterTimeseriesIndex(i, j)
-                )
-            end
-        catch
-            nothing
-        end
-    end
-    return pairs
-end
-
-function _mtk_parameter_index_map(sys, controls)
-    syms = collect(parameter_symbols(sys))
-
-    # Add component symbols for array-valued parameters so `traj.ps[α[1]]` works.
-    for sym in copy(syms)
-        try
-            for j in eachindex(sym)
-                subsym = sym[j]
-                if !any(isequal(subsym), syms)
-                    push!(syms, subsym)
-                end
-            end
-        catch
-            nothing
-        end
-    end
-
-    for c in values(controls.controls)
-        name = c.name
-        if !any(isequal(name), syms)
-            push!(syms, name)
-        end
-        try
-            for j in eachindex(name)
-                sym = name[j]
-                if !any(isequal(sym), syms)
-                    push!(syms, sym)
-                end
-            end
-        catch
-            nothing
-        end
-    end
-
-    idxmap = Dict{Any, Any}()
-    for sym in syms
-        idxmap[sym] = parameter_index(sys, sym)
-    end
-    return idxmap
-end
-
-function Corleone.remake_system(sys::ModelingToolkit.AbstractSystem, controls)
-    control_symbols = map(values(controls.controls)) do ci
-        csym = ci.name
-        csym => ParameterTimeseriesIndex(1, parameter_index(sys, csym))
-    end
-    ps = map(parameters(sys)) do xi
-        xi => parameter_index(sys, xi)
-    end
-    return SymbolCache(
-        unknowns(sys),
-        ps,
-        independent_variable_symbols(sys);
-        timeseries_parameters = Dict(reduce(vcat, control_symbols)),
+function Corleone.ControlParameter(x::Union{Num, SymbolicUtils.BasicSymbolic}, tpoints::AbstractVector)
+    u0 = Symbolics.getdefaultval(x)
+    lb, ub = ModelingToolkit.getbounds(x)
+    @info lb
+    return ControlParameter(
+        tpoints,
+        name = x,
+        controls = (rng, t) -> fill(u0, size(t, 1)),
+        bounds = (t) -> (fill(lb, size(t, 1)), fill(ub, size(t, 1)))
     )
 end
 
-#= 
-include("MTKExtension/utils.jl")
+Corleone.remake_system(sys::ModelingToolkit.AbstractSystem, args...) = sys
 
-include("MTKExtension/optimal_control.jl")
- =#
+function Corleone.SingleShootingLayer(
+        sys::ModelingToolkit.AbstractSystem,
+        defaults,
+        controls...;
+        algorithm::SciMLBase.AbstractDEAlgorithm,
+        tspan::Tuple,
+        saveat = [],
+        kwargs...
+    )
+    input_vars = ModelingToolkit.inputs(sys)
+    @assert isempty(setdiff(input_vars, first.(controls))) "Not all inputs of the system are present in the control specs"
+
+    ttype = promote_type(typeof.(tspan)...)
+    sys = mtkcompile(sys, inputs = input_vars)
+    ps = tunable_parameters(sys)
+    saveats = reduce(vcat, collect.(last.(controls)))
+    append!(saveats, ttype.(saveat))
+    params = map(filter(!isinitial, ps)) do var
+        idx = findfirst(Base.Fix1(isequal, var), first.(controls))
+        isnothing(idx) && return ControlParameter(var, ttype[0])
+        return ControlParameter(controls[idx]...)
+    end
+    tunable_ic = findall(ModelingToolkit.istunable, unknowns(sys))
+    unknown_bounds = ModelingToolkit.getbounds(unknowns(sys))
+    bounds_ic = let bounds = unknown_bounds
+        (t0) -> (bounds.lb, bounds.ub)
+    end
+    prob = ODEProblem(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, kwargs...)
+    return Corleone.SingleShootingLayer(prob, params...; algorithm = algorithm, tunable_ic, bounds_ic, kwargs...)
+end
+
+function Corleone.MultipleShootingLayer(
+        sys::ModelingToolkit.AbstractSystem,
+        defaults,
+        controls...;
+        algorithm,
+        tspan,
+        shooting,
+        kwargs...
+    )
+    single_layer = Corleone.SingleShootingLayer(sys, defaults, controls...; algorithm, tspan, kwargs...)
+    return Corleone.MultipleShootingLayer(single_layer, shooting...)
+end
+
+function collect_timepoints!(tpoints, ex)
+    if iscall(ex)
+        op, args = operation(ex), arguments(ex)
+        if SymbolicUtils.issym(op) && isa(first(args).val, Number) && length(args) == 1
+            tp = first(args).val
+            vars = get!(tpoints, op, typeof(tp)[])
+            push!(vars, tp)
+        end
+        return op(
+            map(args) do x
+                collect_timepoints!(tpoints, x)
+            end...
+        )
+    end
+    return ex
+end
+
+Corleone._maybesymbolifyme(x::SymbolicUtils.BasicSymbolic) = iscall(x) ? Symbol(operation(x)) : Symbol(x)
+Corleone._maybesymbolifyme(x::Num) = Corleone._maybesymbolifyme(Symbolics.unwrap(x))
+
+function collect_integrals!(subs, ex, t)
+    if iscall(ex)
+        op, args = operation(ex), arguments(ex)
+        ex = op(
+            map(args) do arg
+                collect_integrals!(subs, arg, t)
+            end...
+        )
+        if isa(op, Symbolics.Integral)
+            var = get!(subs, ex) do
+                sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(subs) + 1)))
+                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0 [tunable = false, bounds = (0.0, 0.0)])) # [costvariable = true]))
+                var
+            end
+            lo, hi = op.domain.domain.left, op.domain.domain.right
+            return operation(var)(hi) - operation(var)(lo)
+        end
+    end
+    return ex
+end
+
+function collect_expr(ex, replacer::Dict)
+    if iscall(ex)
+        op, args = operation(ex), arguments(ex)
+        args = map(args) do arg
+            collect_expr(arg, replacer) |> toexpr
+        end
+        return Expr(:call, Symbol(op), args...)
+    end
+    var = Symbol(ex)
+    return get(replacer, var, toexpr(ex))
+end
+
+maybenormalize(ex) = nothing, ex
+maybenormalize(ex::Symbolics.Inequality) = begin
+    x = Symbolics.canonical_form(ex)
+    operation(x), x.lhs
+end
+
+function Corleone.DynamicOptimizationLayer(
+        sys::ModelingToolkit.AbstractSystem,
+        defaults,
+        controls,
+        exprs...;
+        algorithm,
+        tspan = nothing,
+        shooting = [],
+        kwargs...
+    )
+    iv = ModelingToolkit.get_iv(sys)
+    lagranges = Dict()
+    tpoints = Dict()
+    tcollector = Base.Fix1(collect_timepoints!, tpoints)
+
+    exprs = map(exprs) do expr
+        newexp = collect_integrals!(lagranges, Symbolics.unwrap(expr), iv) |> tcollector
+
+    end
+    saveats = reduce(vcat, values(tpoints))
+    !isnothing(tspan) && append!(saveats, collect(tspan))
+    tspan = extrema(saveats)
+    unique!(sort!(saveats))
+    tspan = extrema(saveats)
+    if !isempty(lagranges)
+        # Add lagrangians and build the ODE Problem
+        sys = ModelingToolkit.add_accumulations(
+            sys, [v => only(arguments(k)) for (k, v) in lagranges]
+        )
+    end
+
+
+    if isempty(shooting)
+        shooting_layer = Corleone.SingleShootingLayer(
+            sys, defaults, controls...;
+            algorithm = algorithm,
+            tspan = tspan,
+            kwargs...
+        )
+    else
+        shooting_layer = Corleone.MultipleShootingLayer(
+            sys, defaults, controls...;
+            algorithm = algorithm,
+            tspan = tspan,
+            shooting = shooting,
+            kwargs...
+        )
+    end
+
+    replacer = Dict{Symbol, Expr}()
+    for p in tunable_parameters(sys)
+        ModelingToolkit.isinitial(p) && continue
+        ModelingToolkit.isinput(p) && continue
+        replacer[Symbol(p)] = Expr(:call, Symbol(p), first(tspan))
+    end
+    exprs = map(exprs) do expr
+        if isa(expr, Symbolics.Inequality) || isa(expr, Symbolics.Equation)
+            expr = Symbolics.canonical_form(expr)
+            new_lhs = collect_expr(expr.lhs, replacer)
+            op = isa(expr, Symbolics.Inequality) ? :(<=) : :(==)
+            return Expr(:call, op, new_lhs, 0)
+        end
+        collect_expr(expr, replacer)
+    end
+    return Corleone.DynamicOptimizationLayer(shooting_layer, exprs...)
+end
+
 end

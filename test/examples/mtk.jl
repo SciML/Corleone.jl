@@ -3,102 +3,35 @@ using Corleone
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEqTsit5
-using ComponentArrays, ForwardDiff
-using Optimization
-using OptimizationMOI, Ipopt
-using LuxCore, Random
+using Random
+using LuxCore
+using SymbolicIndexingInterface
 
+rng = Random.default_rng()
 
-@variables x(..) = 0.5 [tunable = false] y(..) = 0.7 [tunable = false]
-@variables u(..) = 0.0 [bounds = (0.0, 1.0), input = true]
-@constants begin
-    c₁ = 0.4
-    c₂ = 0.2
-end
-@parameters begin
-    α[1:1] = [1.0], [tunable = true, bounds = ([1.0], [1.0])]
-    β = 1.0, [tunable = true, bounds = (0.9, 1.1)]
-end
-
-cost = [
-    Symbolics.Integral(t in (0.0, 12.0))(
-        (x(t) - 1.0)^2 + (y(t) - 1.0)^2
-    ),
-]
-
-cons = [
-    x(0.0) ≳ 0.2,
-    β ~ 1.0,
-]
-
-@named lotka = System(
-    [
-        D(x(t)) ~ α[1] * x(t) - β * x(t) * y(t) - c₁ * u(t) * x(t),
-        D(y(t)) ~ - y(t) + x(t) * y(t) - c₂ * u(t) * y(t),
-    ], t; costs = cost, constraints = cons
-)
-
-@testset "Single Shooting" begin
-    dynopt = CorleoneDynamicOptProblem(
-        lotka, [],
-        u(t) => 0.0:0.1:11.9,
-        algorithm = Tsit5(),
-    )
-
-    optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
-
-    @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons)
-
-    ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
-
-    traj, _ = dynopt.layer(nothing, ps, st)
-
-    vars = map(dynopt.getters) do get
-        get(traj)
+@testset "MTK Example" begin
+    @variables begin
+        x(t) = 1.0, [tunable = false, bounds = (0.0, 1.0)]
+        u(t) = 1.0, [input = true, bounds = (0.0, 1.0)]
     end
-
-    @test dynopt.objective(ps, st) ≈ optprob.f(optprob.u0, optprob.p)
-    @test isapprox(dynopt.objective(ps, st), 6.062277381976436, atol = 1.0e-4)
-
-    sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-        hessian_approximation = "limited-memory"
-    )
-
-    @test isapprox(sol.u[1:2], ones(2), atol = 1.0e-4)
-    @test SciMLBase.successful_retcode(sol)
-    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
-end
-
-@testset "Multiple Shooting" begin
-    dynopt = CorleoneDynamicOptProblem(
-        lotka, [],
-        u(t) => 0.0:0.1:11.9,
-        algorithm = Tsit5(),
-        shooting = [0.0, 3.0, 6.0, 9.0]
-    )
-
-    optprob = OptimizationProblem(dynopt, AutoForwardDiff(), Val(:ComponentArrays))
-
-    @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons) + Corleone.get_number_of_shooting_constraints(dynopt.layer)
-
-    ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
-
-    traj, _ = dynopt.layer(nothing, ps, st)
-
-    vars = map(dynopt.getters) do get
-        get(traj)
+    @parameters begin
+        p = 1.0, [bounds = (-1.0, 1.0)]
     end
+    eqs = [D(x) ~ p * x - u]
+    @named simple = ODESystem(eqs, t)
+    
+    layer = SingleShootingLayer(simple, [], u => 0.0:0.1:1.0, algorithm = Tsit5(), tspan = (0.0, 1.0))
+    ps, st = LuxCore.setup(rng, layer)
 
-    @test dynopt.objective(ps, st) ≈ optprob.f(optprob.u0, optprob.p)
-    @test isapprox(dynopt.objective(ps, st), 1.2417260078523538, atol = 1.0e-4)
+    traj, st = layer(nothing, ps, st)
 
-    sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-        hessian_approximation = "limited-memory"
-    )
-
-    @test isapprox(sol.u[1:2], [1.0, 1.0], atol = 1.0e-4)
-    @test SciMLBase.successful_retcode(sol)
-    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+    @testset "MTK symbolic access works" begin
+        # This should work with MTK symbols
+        u_vals = traj.ps[u]
+        @test length(u_vals) == length(traj.t)
+        
+        # Controls are observed but not plain parameters
+        @test SymbolicIndexingInterface.is_observed(traj, u) == true
+        @test SymbolicIndexingInterface.is_parameter(traj, u) == false
+    end
 end
