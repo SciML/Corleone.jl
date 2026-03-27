@@ -10,6 +10,9 @@ using OrdinaryDiffEqTsit5
 using Random
 using LuxCore
 using SymbolicIndexingInterface
+using ComponentArrays
+using Optimization, OptimizationMOI, Ipopt
+using SciMLSensitivity
 
 rng = Random.default_rng()
 
@@ -202,4 +205,126 @@ end
     # Cost should be non-negative and increase over time
     @test all(c_vals .>= -1.0e-6)
     @test c_vals[end] >= c_vals[1]  # Cost integral should grow
+end
+
+@testset "MTK Single Shooting IPOPT Optimization" begin
+    # Full optimization test with IPOPT - similar to lotka_oc.jl lines 91-110
+    # MTK only supports ForwardDiff for AD
+    
+    layer = SingleShootingLayer(
+        lotka_system,
+        [],  # No initial condition overrides
+        u => cgrid;
+        algorithm = Tsit5(),
+        tspan = (0.0, 12.0),
+        quadrature_indices = [3]  # Index of cost variable
+    )
+    
+    ps, st = LuxCore.setup(rng, layer)
+    sol, _ = layer(nothing, ps, st)
+    
+    # Verify basic layer functionality first
+    @test sol.t == getsym(sol, :t)(sol)
+    @test all(sol.ps[:α] .== getsym(sol, α)(sol))
+    @test all(sol.ps[:β] .== getsym(sol, β)(sol))
+    
+    # Test bounds before optimization
+    lb = get_lower_bound(layer)
+    ub = get_upper_bound(layer)
+    @test all(lb.controls.u .>= 0.0 - 1.0e-6)
+    @test all(ub.controls.u .<= 1.0 + 1.0e-6)
+    
+    # Run optimization with AutoForwardDiff (MTK supports only ForwardDiff)
+    for AD in (AutoForwardDiff(),)
+        layer = remake(layer, sensealg = SciMLBase.NoAD())
+        optlayer = DynamicOptimizationLayer(layer, :(c(12.0)))
+        ps, st = LuxCore.setup(rng, optlayer)
+        
+        # Test type inference
+        @test_nowarn @inferred first(optlayer(nothing, ps, st))
+        
+        # Create optimization problem
+        optprob = OptimizationProblem(optlayer, AD, vectorizer = Val(:ComponentArrays))
+        p = ComponentArray(ps)
+        
+        # Test initial objective value (should match lotka_oc.jl: ~6.062277)
+        @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
+        
+        # Test bounds
+        @test all(optprob.ub .== 1.0)
+        @test all(optprob.lb .== 0.0)
+        
+        # Solve with IPOPT
+        sol = solve(
+            optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+            hessian_approximation = "limited-memory"
+        )
+        
+        # Verify successful optimization
+        @test SciMLBase.successful_retcode(sol)
+        
+        # Test final objective (should match lotka_oc.jl: ~1.344336)
+        @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+        
+        # Verify optimized parameters
+        p_opt = sol.u .+ zero(p)
+        @test isempty(p_opt.initial_conditions)
+        @test length(p_opt.controls.u) == N
+    end
+end
+
+@testset "MTK Multiple Shooting IPOPT Optimization" begin
+    # Multiple shooting optimization test - similar to lotka_oc.jl lines 113-143
+    
+    layer = SingleShootingLayer(
+        lotka_system,
+        [];
+        bounds_ic = (t0) -> (zeros(3), fill(Inf, 3)),
+        algorithm = Tsit5(),
+        tspan = (0.0, 12.0),
+        quadrature_indices = [3]
+    )
+    
+    ms_layer = MultipleShootingLayer(layer, 0.0, 3.0, 6.0, 9.0)
+    ps, st = LuxCore.setup(rng, ms_layer)
+    traj, _ = ms_layer(nothing, ps, st)
+    
+    # Test shooting constraints count
+    @test Corleone.get_number_of_shooting_constraints(ms_layer) == 6
+    
+    # Run optimization with AutoForwardDiff
+    for AD in (AutoForwardDiff(),)
+        ms_layer = remake(ms_layer, sensealg = SciMLBase.NoAD())
+        optlayer = DynamicOptimizationLayer(ms_layer, :(c(12.0)))
+        
+        # Test constraint bounds
+        @test length(optlayer.lcons) == length(optlayer.ucons) == 6
+        @test optlayer.lcons == optlayer.ucons
+        
+        ps, st = LuxCore.setup(rng, optlayer)
+        
+        # Test type inference
+        objectiveval = @inferred first(optlayer(nothing, ps, st))
+        
+        # Test initial objective (should match lotka_oc.jl: ~4.966904)
+        @test isapprox(objectiveval, 4.9669040432037574, atol = 1.0e-4)
+        
+        # Test constraint evaluation
+        res = zeros(6)
+        @inferred first(optlayer(res, ps, st))
+        @test isapprox(res, [-1.3757549609694821, -0.2235735751355118, -1.375754960969481, -0.22357357513551102, -1.3757549609694824, -0.2235735751355129], atol = 1.0e-4)
+        
+        # Create and solve optimization problem
+        optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+        sol = solve(
+            optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+            hessian_approximation = "limited-memory"
+        )
+        
+        # Verify successful optimization
+        @test SciMLBase.successful_retcode(sol)
+        
+        # Test final objective (should match lotka_oc.jl: ~1.344336)
+        @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
+    end
 end
