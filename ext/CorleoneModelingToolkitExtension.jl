@@ -162,17 +162,19 @@ function Corleone.DynamicOptimizationLayer(
         )
     end
 
+    # Normalize controls to a vector for consistent splatting
+    controls_vec = controls isa Pair ? [controls] : controls
 
     if isempty(shooting)
         shooting_layer = Corleone.SingleShootingLayer(
-            sys, defaults, controls...;
+            sys, defaults, controls_vec...;
             algorithm = algorithm,
             tspan = tspan,
             kwargs...
         )
-    else
+     else
         shooting_layer = Corleone.MultipleShootingLayer(
-            sys, defaults, controls...;
+            sys, defaults, controls_vec...;
             algorithm = algorithm,
             tspan = tspan,
             shooting = shooting,

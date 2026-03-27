@@ -6,6 +6,7 @@ using Corleone
 using Corleone: get_lower_bound, get_upper_bound
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
+using ModelingToolkit.Symbolics: Integral
 using OrdinaryDiffEqTsit5
 using Random
 using LuxCore
@@ -327,4 +328,236 @@ end
         # Test final objective (should match lotka_oc.jl: ~1.344336)
         @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
     end
+end
+
+# ============================================================================
+# Symbolic Interface Tests - Using DynamicOptimizationLayer(sys, ...) with Integrals
+# Note: This interface uses MTK systems with symbolic expressions for objectives/constraints
+# ============================================================================
+
+@testset "MTK Symbolic Interface - Terminal Cost" begin
+    # Test DynamicOptimizationLayer(sys, defaults, controls, expr) interface
+    # Uses symbolic expression c(t_final) as terminal cost (no Integral)
+    # Note: Use the variable symbol (u_sym) not the call (u_sym(t)) for controls
+    
+    @variables begin
+        x_sym(t) = 0.5, [tunable = false]
+        y_sym(t) = 0.7, [tunable = false]
+        c_sym(t) = 0.0, [tunable = false]  # Cost accumulator
+    end
+    @variables begin
+        u_sym(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
+    end
+    
+    # Use @parameters (not @constants) for parameters that can be referenced
+    @parameters begin
+        c₁_sym = 0.4
+        c₂_sym = 0.2
+    end
+    
+    eqs_sym = [
+        D(x_sym) ~ x_sym - x_sym * y_sym - c₁_sym * u_sym * x_sym
+        D(y_sym) ~ -y_sym + x_sym * y_sym - c₂_sym * u_sym * y_sym
+        D(c_sym) ~ (x_sym - 1.0)^2 + (y_sym - 1.0)^2
+    ]
+    
+    @named lotka_sym = ODESystem(eqs_sym, t)
+    
+    # Create DynamicOptimizationLayer directly from system with terminal cost
+    optlayer = DynamicOptimizationLayer(
+        lotka_sym,
+        [],  # No defaults overrides
+        u_sym => cgrid,  # Use variable symbol, not call
+        c_sym(12.0);  # Terminal cost: c(t_final)
+        algorithm = Tsit5()
+    )
+    
+    ps, st = LuxCore.setup(rng, optlayer)
+    
+    # Test evaluation
+    result = @inferred first(optlayer(nothing, ps, st))
+    @test result > 0  # Should be a positive cost
+    
+    # Test optimization problem construction
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+    @test optprob isa OptimizationProblem
+    
+    # Test initial objective (approximate - depends on discretization)
+    @test optprob.f(optprob.u0, optprob.p) > 1.0  # Should be positive cost
+end
+
+@testset "MTK Symbolic Interface - Lagrangian Cost with Integral" begin
+    # Test using Symbolics.Integral for Lagrangian cost term
+    # ∫₀ᴰ ((x-1)² + (y-1)²) dt
+    
+    @variables begin
+        x_int(t) = 0.5, [tunable = false]
+        y_int(t) = 0.7, [tunable = false]
+    end
+    @variables begin
+        u_int(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
+    end
+    
+    @parameters begin
+        c₁_int = 0.4
+        c₂_int = 0.2
+    end
+    
+    eqs_int = [
+        D(x_int) ~ x_int - x_int * y_int - c₁_int * u_int * x_int
+        D(y_int) ~ -y_int + x_int * y_int - c₂_int * u_int * y_int
+    ]
+    
+    # Define Lagrangian cost using Symbolics.Integral
+    lagrangian = Integral(t in (0.0, 12.0))(
+        (x_int - 1.0)^2 + (y_int - 1.0)^2
+    )
+    
+    @named lotka_integral = ODESystem(eqs_int, t)
+    
+    # Create DynamicOptimizationLayer with Integral expression
+    optlayer = DynamicOptimizationLayer(
+        lotka_integral,
+        [],
+        u_int => cgrid,  # Use variable symbol, not call
+        lagrangian;  # Pass Integral expression directly
+        algorithm = Tsit5()
+    )
+    
+    ps, st = LuxCore.setup(rng, optlayer)
+    
+    # Test evaluation
+    result = @inferred first(optlayer(nothing, ps, st))
+    @test result > 0  # Should be positive cost
+    
+    # Test optimization problem construction
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+    
+    # Test initial objective (should be positive cost)
+    @test optprob.f(optprob.u0, optprob.p) > 1.0
+end
+
+@testset "MTK Symbolic Interface - Single Shooting IPOPT" begin
+    # Full optimization test using symbolic interface with Integral
+    
+    # Define system without explicit cost state (Integral will add it)
+    @variables begin
+        x_opt(t) = 0.5, [tunable = false]
+        y_opt(t) = 0.7, [tunable = false]
+    end
+    @variables begin
+        u_opt(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
+    end
+    
+    @parameters begin
+        c₁_opt = 0.4
+        c₂_opt = 0.2
+    end
+    
+    eqs_opt = [
+        D(x_opt) ~ x_opt - x_opt * y_opt - c₁_opt * u_opt * x_opt
+        D(y_opt) ~ -y_opt + x_opt * y_opt - c₂_opt * u_opt * y_opt
+    ]
+    
+    # Lagrangian cost
+    lagrangian_opt = Integral(t in (0.0, 12.0))(
+        (x_opt - 1.0)^2 + (y_opt - 1.0)^2
+    )
+    
+    @named lotka_opt = ODESystem(eqs_opt, t)
+    
+    # Create optimization layer
+    optlayer = DynamicOptimizationLayer(
+        lotka_opt,
+        [],
+        u_opt => cgrid,  # Use variable symbol, not call
+        lagrangian_opt;
+        algorithm = Tsit5()
+    )
+    
+    ps, st = LuxCore.setup(rng, optlayer)
+    
+    # Test type inference
+    @test_nowarn @inferred first(optlayer(nothing, ps, st))
+    
+    # Create and solve optimization problem
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+    
+    # Test bounds propagation (control u should have bounds [0, 1])
+    @test all(optprob.ub .<= 1.0 + 1.0e-6)
+    @test all(optprob.lb .>= 0.0 - 1.0e-6)
+    
+    # Solve with IPOPT
+    sol = solve(
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
+    )
+    
+    # Verify successful optimization
+    @test SciMLBase.successful_retcode(sol)
+    
+    # Test final objective (should improve from initial)
+    @test sol.objective < 10.0  # Should be reasonable optimization result
+end
+
+@testset "MTK Symbolic Interface - Multiple Shooting with Integral" begin
+    # Multiple shooting optimization using symbolic interface
+    
+    @variables begin
+        x_ms(t) = 0.5, [tunable = false]
+        y_ms(t) = 0.7, [tunable = false]
+    end
+    @variables begin
+        u_ms(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
+    end
+    
+    @parameters begin
+        c₁_ms = 0.4
+        c₂_ms = 0.2
+    end
+    
+    eqs_ms = [
+        D(x_ms) ~ x_ms - x_ms * y_ms - c₁_ms * u_ms * x_ms
+        D(y_ms) ~ -y_ms + x_ms * y_ms - c₂_ms * u_ms * y_ms
+    ]
+    
+    # Lagrangian cost
+    lagrangian_ms = Integral(t in (0.0, 12.0))(
+        (x_ms - 1.0)^2 + (y_ms - 1.0)^2
+    )
+    
+    @named lotka_ms = ODESystem(eqs_ms, t)
+    
+    # Create optimization layer with multiple shooting
+    optlayer = DynamicOptimizationLayer(
+        lotka_ms,
+        [],
+        u_ms => cgrid,  # Use variable symbol, not call
+        lagrangian_ms;
+        algorithm = Tsit5(),
+        shooting = [0.0, 3.0, 6.0, 9.0]  # Multiple shooting points
+    )
+    
+    ps, st = LuxCore.setup(rng, optlayer)
+    
+    # Test shooting constraints are present (2 states × 3 intervals = 6)
+    @test length(optlayer.lcons) == length(optlayer.ucons) == 6
+    
+    # Test evaluation
+    result = @inferred first(optlayer(nothing, ps, st))
+    @test result > 0
+    
+    # Create and solve optimization problem
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
+    
+    sol = solve(
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
+    )
+    
+    # Verify successful optimization
+    @test SciMLBase.successful_retcode(sol)
+    
+    # Test final objective (should improve from initial)
+    @test sol.objective < 10.0  # Should be reasonable optimization result
 end
