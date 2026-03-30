@@ -55,8 +55,12 @@ function Corleone.SingleShootingLayer(
     bounds_ic = let bounds = unknown_bounds
         (t0) -> (bounds.lb, bounds.ub)
     end
-    prob = ODEProblem(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, kwargs...)
-    return Corleone.SingleShootingLayer(prob, params...; algorithm = algorithm, tunable_ic, bounds_ic, kwargs...)
+    # Extract sensealg for ODEProblem, but don't pass to SingleShootingLayer
+    # (InitialCondition doesn't accept sensealg kwarg)
+    sensealg = get(kwargs, :sensealg, nothing)
+    odep_kwargs = filter!(kw -> first(kw) !== :sensealg, collect(pairs(kwargs)))
+    prob = ODEProblem(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, sensealg, odep_kwargs...)
+    return Corleone.SingleShootingLayer(prob, params...; algorithm = algorithm, tunable_ic, bounds_ic, NamedTuple(odep_kwargs)...)
 end
 
 function Corleone.MultipleShootingLayer(
