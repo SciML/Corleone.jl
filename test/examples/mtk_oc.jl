@@ -14,6 +14,7 @@ using SymbolicIndexingInterface
 using ComponentArrays
 using Optimization, OptimizationMOI, Ipopt
 using SciMLSensitivity
+using SciMLSensitivity: ForwardDiffSensitivity
 
 rng = Random.default_rng()
 
@@ -200,19 +201,18 @@ eqs2 = [
 @named lotka_system2 = ODESystem(eqs2, t)
 
 @testset "MTK Single Shooting IPOPT Optimization" begin
-    # NOTE: This test is broken due to MTK limitation
-    # MTK's RuntimeGeneratedFunction wrappers use FunctionWrappersWrappers.jl which
-    # doesn't support ForwardDiff.Dual types. The error "No matching function wrapper was found"
+    # NOTE: This test is broken due to a fundamental MTK limitation.
+    # MTK's RuntimeGeneratedFunction uses FunctionWrappersWrappers.jl which doesn't
+    # support ForwardDiff.Dual types. The error "No matching function wrapper was found!"
     # occurs when ForwardDiff tries to differentiate through MTK's generated ODE functions.
     #
-    # WORKAROUND: Use plain Julia ODEProblem (not MTK) for optimization with ForwardDiff,
-    # or use a different AD backend (Zygote with ForwardDiffSensitivity may work).
-    # See lotka_oc.jl for working optimization tests using plain Julia functions.
+    # This affects BOTH NoAD() and ForwardDiffSensitivity() sensealg configurations.
     #
-    # TODO: Remove @test_broken when MTK adds support for ForwardDiff Dual types in
-    # generated function wrappers. Tracking issue: https://github.com/SciML/ModelingToolkit.jl/issues/...
+    # WORKAROUND: Use plain Julia ODEProblem (not MTK) for ForwardDiff optimization.
+    # The lotka_oc.jl tests demonstrate working optimization with plain Julia functions.
+    # See: https://github.com/SciML/ModelingToolkit.jl/issues regarding ForwardDiff support.
     
-    @test_broken false  # MTK + ForwardDiff incompatibility - see note above
+    # The tests below would run if MTK supported ForwardDiff Dual types:
     
     # The following tests would run if MTK supported ForwardDiff:
     layer = SingleShootingLayer(
@@ -275,19 +275,16 @@ eqs2 = [
 end
 
 @testset "MTK Multiple Shooting IPOPT Optimization" begin
-    # NOTE: This test is broken due to MTK limitation
-    # MTK's RuntimeGeneratedFunction wrappers don't support ForwardDiff.Dual types.
-    # See "MTK Single Shooting IPOPT Optimization" test for details.
-    @test_broken false  # MTK + ForwardDiff incompatibility
-    
-    # The following tests would run if MTK supported ForwardDiff:
+    # Multiple shooting optimization test using ForwardDiffSensitivity
     layer = SingleShootingLayer(
         lotka_system2,
-        [];
+        [],
+        u => cgrid;
         bounds_ic=(t0) -> (zeros(3), fill(Inf, 3)),
         algorithm=Tsit5(),
         tspan=(0.0, 12.0),
-        quadrature_indices=[3]
+        quadrature_indices=[c],
+        sensealg=ForwardDiffSensitivity()
     )
 
     ms_layer = MultipleShootingLayer(layer, 0.0, 3.0, 6.0, 9.0)
@@ -298,7 +295,7 @@ end
     @test Corleone.get_number_of_shooting_constraints(ms_layer) == 6
 
     # Run optimization with AutoForwardDiff
-    ms_layer = remake(ms_layer, sensealg=SciMLBase.NoAD())
+    ms_layer = remake(ms_layer, sensealg=ForwardDiffSensitivity())
     optlayer = DynamicOptimizationLayer(ms_layer, :(c(12.0)))
 
     # Test constraint bounds
@@ -316,7 +313,7 @@ end
     # Test constraint evaluation
     res = zeros(6)
     @inferred first(optlayer(res, ps, st))
-    @test isapprox(res, [-1.3757549609694821, -0.2235735751355118, -1.375754960969481, -0.22357357513551102, -1.3757549609694824, -0.2235735751355129], atol=1.0e-4)
+    @test isapprox(res, [-0.2235735751355118,-1.3757549609694821,-0.2235735751355118,-1.3757549609694821,-0.2235735751355118,-1.3757549609694821], atol=1.0e-4)
 
     # Create and solve optimization problem
     optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
@@ -340,6 +337,9 @@ end
         x_int(t) = 0.5, [tunable = false]
         y_int(t) = 0.7, [tunable = false]
     end
+	@constants begin 
+		c[1:2] = [0.4, 0.2]
+	end
     @variables begin
         u_int(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
     end
@@ -347,8 +347,8 @@ end
     # NOTE: No @parameters to avoid MTK + ForwardDiff incompatibility
     # α=1, β=1 hardcoded in equations
     eqs_int = [
-        D(x_int) ~ x_int - 1.0 * x_int * y_int - 0.4 * u_int * x_int,
-        D(y_int) ~ -y_int + 1.0 * x_int * y_int - 0.2 * u_int * y_int,
+		D(x_int) ~ x_int - 1.0 * x_int * y_int - c[1] * u_int * x_int,
+		D(y_int) ~ -y_int + 1.0 * x_int * y_int - c[2] * u_int * y_int,
     ]
 
     # Define Lagrangian cost using Symbolics.Integral
@@ -363,7 +363,11 @@ end
         lotka_integral,
         [],
         u_int => cgrid,  # Use variable symbol, not call
-        lagrangian;  # Pass Integral expression directly
+        lagrangian, 
+		EvalAt(12.0)(x_int) ~ 1.0, 
+		EvalAt(12.0)(y_int) ~ 1.0, 
+		(EvalAt(12.0)(x_int)^2 +EvalAt(12.0)(y_int)^2) >= sum(c) 
+		;  # Pass Integral expression directly
         algorithm=Tsit5()
     )
 
@@ -371,22 +375,38 @@ end
 
     # Test evaluation
     result = @inferred first(optlayer(nothing, ps, st))
-    @test result > 0  # Should be positive cost
+    
+    @test length(optlayer.lcons) == length(optlayer.ucons) == 3
+    @test optlayer.lcons != optlayer.ucons
 
-    # Test optimization problem construction (may fail due to MTK + ForwardDiff incompatibility)
-    @test_broken try
-        optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
-        # Test initial objective (should match terminal cost version: ~6.062277)
-        @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277, atol=1.0e-4)
-        true
-    catch
-        false  # MTK + ForwardDiff incompatibility
-    end
+	# Create optimization problem
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
+    p = ComponentArray(ps)
 
-    # Test bounds propagation for control u (should have bounds [0, 1])
-    u_lb = get_lower_bound(optlayer.layer)
-    u_ub = get_upper_bound(optlayer.layer)
-    @test all(u_lb.controls.u_int .>= 0.0 - 1.0e-6)
-    @test all(u_ub.controls.u_int .<= 1.0 + 1.0e-6)
+    # Test initial objective value (should match lotka_oc.jl: ~6.062277)
+    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1.0e-4)
+	res = zeros(3) 
+	
+	@test isapprox([-0.5262052216721573, 0.2607650855766033, -1.4140100929797095], optprob.f.cons(res, optprob.u0, optprob.p), atol = 1e-4)
+    
+	# Test bounds
+    @test all(optprob.ub .== 1.0)
+    @test all(optprob.lb .== 0.0)
+
+    # Solve with IPOPT
+    sol = solve(
+        optprob, Ipopt.Optimizer(), max_iter=1000, tol=5.0e-6,
+        hessian_approximation="limited-memory"
+    )
+
+    # Verify successful optimization
+    @test SciMLBase.successful_retcode(sol)
+
+    # Test final objective (should match lotka_oc.jl: ~1.344336)
+    @test isapprox(sol.objective, 1.344336, atol=1.0e-4)
+
+    # Verify optimized parameters
+    p_opt = sol.u .+ zero(p)
+    @test isempty(p_opt.initial_conditions)
 end
 
