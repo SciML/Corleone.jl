@@ -12,7 +12,13 @@ end
 maybevec(x::AbstractArray) = eachrow(reduce(hcat, x))
 maybevec(x) = x
 
-_getindex(x, i) = getindex(x, i)
+# For non-indexable types (like MTK symbols), just return as-is for labeling
+_getindex(x, i) = _try_getindex(x, i)
+_try_getindex(x, i) = try
+    getindex(x, i)
+catch
+    string(x)  # Fall back to string representation
+end
 _getindex(x::Symbol, i) = x
 
 function Makie.convert_arguments(
@@ -30,7 +36,7 @@ function Makie.convert_arguments(
     end
     if isempty(vars)
         for v in variable_symbols(sol)
-            push!(vars, variable_index(sol, v))
+            push!(vars, v)
         end
     end
     ts = []

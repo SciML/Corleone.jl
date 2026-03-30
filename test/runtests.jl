@@ -11,9 +11,6 @@ using SafeTestsets
     @safetestset "Controls" begin
         include("controls.jl")
     end
-    @safetestset "InitialCondition" begin
-        include("initializers.jl")
-    end
     @safetestset "Single shooting" begin
         include("single_shooting.jl")
     end
@@ -27,5 +24,14 @@ using SafeTestsets
         @safetestset "Lotka Optimal Control" begin
             include("examples/lotka_oc.jl")
         end
+        @safetestset "MTK Example" begin
+            include("examples/mtk.jl")
+        end
+        @safetestset "MTK Optimal Control" begin
+            include("examples/mtk_oc.jl")
+        end
+    end
+    @safetestset "MTK Symbolic Indexing" begin
+        include("mtk_symbolic_index.jl")
     end
 end

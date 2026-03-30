@@ -90,7 +90,7 @@ end
     bvals = getsym(traj, :b)(traj)
 
     @test length(xvals) == length(traj.t)
-    @test length(uvals) == length(traj.t) 
+    @test length(uvals) == length(traj.t)
     @test all(==(-1.0), avals)
     @test all(==(1.0), bvals)
     # traj.ps[:u] returns the full control timeseries over traj.t
