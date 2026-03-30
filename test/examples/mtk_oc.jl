@@ -366,7 +366,7 @@ end
         lagrangian, 
 		EvalAt(12.0)(x_int) ~ 1.0, 
 		EvalAt(12.0)(y_int) ~ 1.0, 
-		(EvalAt(12.0)(x_int)^2 +EvalAt(12.0)(y_int)^2) >= sum(c) 
+		(EvalAt(12.0)(x_int)^2 +EvalAt(12.0)(y_int)^2) >= c[1] + c[2] 
 		;  # Pass Integral expression directly
         algorithm=Tsit5()
     )
@@ -387,7 +387,7 @@ end
     @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1.0e-4)
 	res = zeros(3) 
 	
-	@test isapprox([-0.5262052216721573, 0.2607650855766033, -1.4140100929797095], optprob.f.cons(res, optprob.u0, optprob.p), atol = 1e-4)
+	@test isapprox([-0.5262052216721573, 0.2607650855766033, -1.2140100929797093], optprob.f.cons(res, optprob.u0, optprob.p), atol = 1e-4)
     
 	# Test bounds
     @test all(optprob.ub .== 1.0)
