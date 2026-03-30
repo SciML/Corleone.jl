@@ -36,7 +36,7 @@ end
 
 # Lotka-Volterra dynamics with control
 # dx/dt = x - β*x*y - 0.4*u*x   with β=1.0 hardcoded
-# dy/dt = -y + α*x*y - 0.2*u*y  with α=1.0 hardcoded  
+# dy/dt = -y + α*x*y - 0.2*u*y  with α=1.0 hardcoded
 # Cost: (x - 1)^2 + (y - 1)^2 integrated over time
 eqs = [
     D(x) ~ x - 1.0 * x * y - 0.4 * u * x,
@@ -56,9 +56,9 @@ N = length(cgrid)
         lotka_system,
         [],  # No initial condition overrides
         u => cgrid;
-        algorithm=Tsit5(),
-        tspan=(0.0, 12.0),
-        quadrature_indices=[3]  # Index of cost variable
+        algorithm = Tsit5(),
+        tspan = (0.0, 12.0),
+        quadrature_indices = [3]  # Index of cost variable
     )
 
     ps, st = LuxCore.setup(rng, layer)
@@ -68,7 +68,7 @@ N = length(cgrid)
     @test sol.t == getsym(sol, :t)(sol)
 
     # Control values
-    @test ps.controls.u == sol.ps[:u][1:(end-1)]
+    @test ps.controls.u == sol.ps[:u][1:(end - 1)]
 
     # State values via getsym - check lengths match
     @test length(getsym(sol, x)(sol)) == length(sol.t)
@@ -102,8 +102,8 @@ end
         lotka_system,
         [],
         u => cgrid;
-        algorithm=Tsit5(),
-        tspan=(0.0, 1.0)
+        algorithm = Tsit5(),
+        tspan = (0.0, 1.0)
     )
 
     ps, st = LuxCore.setup(rng, layer)
@@ -129,8 +129,8 @@ end
         lotka_system,
         [],
         u => 0.0:0.1:1.0;
-        algorithm=Tsit5(),
-        tspan=(0.0, 1.0)
+        algorithm = Tsit5(),
+        tspan = (0.0, 1.0)
     )
 
     ps, st = LuxCore.setup(rng, layer)
@@ -151,9 +151,9 @@ end
         lotka_system,
         [],
         u => cgrid;
-        algorithm=Tsit5(),
-        tspan=(0.0, 1.0),
-        quadrature_indices=[3]
+        algorithm = Tsit5(),
+        tspan = (0.0, 1.0),
+        quadrature_indices = [3]
     )
 
     optlayer = DynamicOptimizationLayer(layer, :(c(1.0)))
@@ -176,9 +176,9 @@ end
         lotka_system,
         [],
         u => 0.0:0.1:1.0;
-        algorithm=Tsit5(),
-        tspan=(0.0, 1.0),
-        quadrature_indices=[3]  # c is the cost variable
+        algorithm = Tsit5(),
+        tspan = (0.0, 1.0),
+        quadrature_indices = [3]  # c is the cost variable
     )
 
     ps, st = LuxCore.setup(rng, layer)
@@ -211,17 +211,17 @@ eqs2 = [
     # WORKAROUND: Use plain Julia ODEProblem (not MTK) for ForwardDiff optimization.
     # The lotka_oc.jl tests demonstrate working optimization with plain Julia functions.
     # See: https://github.com/SciML/ModelingToolkit.jl/issues regarding ForwardDiff support.
-    
+
     # The tests below would run if MTK supported ForwardDiff Dual types:
-    
+
     # The following tests would run if MTK supported ForwardDiff:
     layer = SingleShootingLayer(
         lotka_system2,
         [],  # No initial condition overrides
         u => cgrid;
-        algorithm=Tsit5(),
-        tspan=(0.0, 12.0),
-        quadrature_indices=[3]  # Index of cost variable
+        algorithm = Tsit5(),
+        tspan = (0.0, 12.0),
+        quadrature_indices = [3]  # Index of cost variable
     )
 
     ps, st = LuxCore.setup(rng, layer)
@@ -238,7 +238,7 @@ eqs2 = [
 
     # Run optimization with AutoForwardDiff (MTK supports only ForwardDiff)
     # Must use sensealg=NoAD() to avoid ForwardDiff function wrapper issues with MTK
-    layer = remake(layer, sensealg=SciMLBase.NoAD())
+    layer = remake(layer, sensealg = SciMLBase.NoAD())
     optlayer = DynamicOptimizationLayer(layer, :(c(12.0)))
     ps, st = LuxCore.setup(rng, optlayer)
 
@@ -246,11 +246,11 @@ eqs2 = [
     @test_nowarn @inferred first(optlayer(nothing, ps, st))
 
     # Create optimization problem
-    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
     p = ComponentArray(ps)
 
     # Test initial objective value (should match lotka_oc.jl: ~6.062277)
-    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1.0e-4)
+    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
 
     # Test bounds
     @test all(optprob.ub .== 1.0)
@@ -258,15 +258,15 @@ eqs2 = [
 
     # Solve with IPOPT
     sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter=1000, tol=5.0e-6,
-        hessian_approximation="limited-memory"
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
     )
 
     # Verify successful optimization
     @test SciMLBase.successful_retcode(sol)
 
     # Test final objective (should match lotka_oc.jl: ~1.344336)
-    @test isapprox(sol.objective, 1.344336, atol=1.0e-4)
+    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 
     # Verify optimized parameters
     p_opt = sol.u .+ zero(p)
@@ -280,11 +280,11 @@ end
         lotka_system2,
         [],
         u => cgrid;
-        bounds_ic=(t0) -> (zeros(3), fill(Inf, 3)),
-        algorithm=Tsit5(),
-        tspan=(0.0, 12.0),
-        quadrature_indices=[c],
-        sensealg=ForwardDiffSensitivity()
+        bounds_ic = (t0) -> (zeros(3), fill(Inf, 3)),
+        algorithm = Tsit5(),
+        tspan = (0.0, 12.0),
+        quadrature_indices = [c],
+        sensealg = ForwardDiffSensitivity()
     )
 
     ms_layer = MultipleShootingLayer(layer, 0.0, 3.0, 6.0, 9.0)
@@ -295,7 +295,7 @@ end
     @test Corleone.get_number_of_shooting_constraints(ms_layer) == 6
 
     # Run optimization with AutoForwardDiff
-    ms_layer = remake(ms_layer, sensealg=ForwardDiffSensitivity())
+    ms_layer = remake(ms_layer, sensealg = ForwardDiffSensitivity())
     optlayer = DynamicOptimizationLayer(ms_layer, :(c(12.0)))
 
     # Test constraint bounds
@@ -308,38 +308,38 @@ end
     objectiveval = @inferred first(optlayer(nothing, ps, st))
 
     # Test initial objective (should match lotka_oc.jl: ~4.966904)
-    @test isapprox(objectiveval, 4.9669040432037574, atol=1.0e-4)
+    @test isapprox(objectiveval, 4.9669040432037574, atol = 1.0e-4)
 
     # Test constraint evaluation
     res = zeros(6)
     @inferred first(optlayer(res, ps, st))
-    @test isapprox(res, [-0.2235735751355118,-1.3757549609694821,-0.2235735751355118,-1.3757549609694821,-0.2235735751355118,-1.3757549609694821], atol=1.0e-4)
+    @test isapprox(res, [-0.2235735751355118, -1.3757549609694821, -0.2235735751355118, -1.3757549609694821, -0.2235735751355118, -1.3757549609694821], atol = 1.0e-4)
 
     # Create and solve optimization problem
-    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
     sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter=1000, tol=5.0e-6,
-        hessian_approximation="limited-memory"
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
     )
 
     # Verify successful optimization
     @test SciMLBase.successful_retcode(sol)
 
     # Test final objective (should match lotka_oc.jl: ~1.344336)
-    @test isapprox(sol.objective, 1.344336, atol=1.0e-4)
+    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 end
 
 @testset "MTK Symbolic Interface - Lagrangian Cost with Integral" begin
     # Test using Symbolics.Integral for Lagrangian cost term
     # ∫₀ᴰ ((x-1)² + (y-1)²) dt
-    
+
     @variables begin
         x_int(t) = 0.5, [tunable = false]
         y_int(t) = 0.7, [tunable = false]
     end
-	@constants begin 
-		c[1:2] = [0.4, 0.2]
-	end
+    @constants begin
+        c[1:2] = [0.4, 0.2]
+    end
     @variables begin
         u_int(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
     end
@@ -347,8 +347,8 @@ end
     # NOTE: No @parameters to avoid MTK + ForwardDiff incompatibility
     # α=1, β=1 hardcoded in equations
     eqs_int = [
-		D(x_int) ~ x_int - 1.0 * x_int * y_int - c[1] * u_int * x_int,
-		D(y_int) ~ -y_int + 1.0 * x_int * y_int - c[2] * u_int * y_int,
+        D(x_int) ~ x_int - 1.0 * x_int * y_int - c[1] * u_int * x_int,
+        D(y_int) ~ -y_int + 1.0 * x_int * y_int - c[2] * u_int * y_int,
     ]
 
     # Define Lagrangian cost using Symbolics.Integral
@@ -363,50 +363,49 @@ end
         lotka_integral,
         [],
         u_int => cgrid,  # Use variable symbol, not call
-        lagrangian, 
-		EvalAt(12.0)(x_int) ~ 1.0, 
-		EvalAt(12.0)(y_int) ~ 1.0, 
-		(EvalAt(12.0)(x_int)^2 +EvalAt(12.0)(y_int)^2) >= c[1] + c[2] 
-		;  # Pass Integral expression directly
-        algorithm=Tsit5()
+        lagrangian,
+        EvalAt(12.0)(x_int) ~ 1.0,
+        EvalAt(12.0)(y_int) ~ 1.0,
+        (EvalAt(12.0)(x_int)^2 + EvalAt(12.0)(y_int)^2) >= c[1] + c[2]
+        ;  # Pass Integral expression directly
+        algorithm = Tsit5()
     )
 
     ps, st = LuxCore.setup(rng, optlayer)
 
     # Test evaluation
     result = @inferred first(optlayer(nothing, ps, st))
-    
+
     @test length(optlayer.lcons) == length(optlayer.ucons) == 3
     @test optlayer.lcons != optlayer.ucons
 
-	# Create optimization problem
-    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer=Val(:ComponentArrays))
+    # Create optimization problem
+    optprob = OptimizationProblem(optlayer, AutoForwardDiff(), vectorizer = Val(:ComponentArrays))
     p = ComponentArray(ps)
 
     # Test initial objective value (should match lotka_oc.jl: ~6.062277)
-    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol=1.0e-4)
-	res = zeros(3) 
-	
-	@test isapprox([-0.5262052216721573, 0.2607650855766033, -1.2140100929797093], optprob.f.cons(res, optprob.u0, optprob.p), atol = 1e-4)
-    
-	# Test bounds
+    @test isapprox(optprob.f(optprob.u0, optprob.p), 6.062277454291031, atol = 1.0e-4)
+    res = zeros(3)
+
+    @test isapprox([-0.5262052216721573, 0.2607650855766033, -1.2140100929797093], optprob.f.cons(res, optprob.u0, optprob.p), atol = 1.0e-4)
+
+    # Test bounds
     @test all(optprob.ub .== 1.0)
     @test all(optprob.lb .== 0.0)
 
     # Solve with IPOPT
     sol = solve(
-        optprob, Ipopt.Optimizer(), max_iter=1000, tol=5.0e-6,
-        hessian_approximation="limited-memory"
+        optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
+        hessian_approximation = "limited-memory"
     )
 
     # Verify successful optimization
     @test SciMLBase.successful_retcode(sol)
 
     # Test final objective (should match lotka_oc.jl: ~1.344336)
-    @test isapprox(sol.objective, 1.344336, atol=1.0e-4)
+    @test isapprox(sol.objective, 1.344336, atol = 1.0e-4)
 
     # Verify optimized parameters
     p_opt = sol.u .+ zero(p)
     @test isempty(p_opt.initial_conditions)
 end
-

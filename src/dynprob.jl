@@ -142,7 +142,7 @@ function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Ex
     end
     unique!(sort!(timegrid))
     layer = remake(layer, saveat = timegrid)
-	replacer = Dict([ki => find_indices(vi, timegrid) for (ki, vi) in zip(keys(collector), values(collector)) if !isempty(vi) || is_parameter(problem, ki)])
+    replacer = Dict([ki => find_indices(vi, timegrid) for (ki, vi) in zip(keys(collector), values(collector)) if !isempty(vi) || is_parameter(problem, ki)])
     new_exprs = map(expressions) do ex
         replace_timepoints(ex, replacer)
     end

@@ -44,9 +44,9 @@ function Corleone.SingleShootingLayer(
 
     ttype = promote_type(typeof.(tspan)...)
     sys = mtkcompile(sys, inputs = input_vars, sort_eqs = true)
-	quadrature_indices = [isa(id, Int) ? id : variable_index(sys, id) for id in quadrature_indices]
+    quadrature_indices = [isa(id, Int) ? id : variable_index(sys, id) for id in quadrature_indices]
     ps = tunable_parameters(sys)
-	saveats = reduce(vcat, collect.(last.(controls)))
+    saveats = reduce(vcat, collect.(last.(controls)))
     append!(saveats, ttype.(saveat))
     params = map(filter(!isinitial, ps)) do var
         idx = findfirst(Base.Fix1(isequal, var), first.(controls))
@@ -62,7 +62,7 @@ function Corleone.SingleShootingLayer(
     # (InitialCondition doesn't accept sensealg kwarg)
     sensealg = get(kwargs, :sensealg, nothing)
     odep_kwargs = filter!(kw -> first(kw) !== :sensealg, collect(pairs(kwargs)))
-	prob = ODEProblem{true, SciMLBase.FullSpecialize()}(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, sensealg, odep_kwargs...)
+    prob = ODEProblem{true, SciMLBase.FullSpecialize()}(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, sensealg, odep_kwargs...)
     return Corleone.SingleShootingLayer(prob, params...; algorithm = algorithm, tunable_ic, bounds_ic, quadrature_indices, NamedTuple(odep_kwargs)...)
 end
 
@@ -177,16 +177,16 @@ function Corleone.DynamicOptimizationLayer(
             sys, defaults, controls_vec...;
             algorithm = algorithm,
             tspan = tspan,
-			quadrature_indices = values(lagranges),
+            quadrature_indices = values(lagranges),
             kwargs...
         )
-     else
+    else
         shooting_layer = Corleone.MultipleShootingLayer(
             sys, defaults, controls_vec...;
             algorithm = algorithm,
             tspan = tspan,
             shooting = shooting,
-			quadrature_indices = values(lagranges),
+            quadrature_indices = values(lagranges),
             kwargs...
         )
     end
