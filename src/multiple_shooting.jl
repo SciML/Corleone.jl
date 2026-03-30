@@ -1,328 +1,103 @@
 """
 $(TYPEDEF)
-Defines a callable layer that integrates a differential equation using multiple shooting,
-i.e., the problem is lifted and integration is decoupled on disjunct time intervals given
-in `shooting_intervals`. Initial conditions on the `shooting_intervals` are degrees of
-freedom (except perhaps for the first layer), for which the initialization scheme
-`initialization` provides initial values. Parallelization is integration is possible,
-for which a suitable `EnsembleAlgorithm` can be specified with `ensemble_alg`.
 
-# Fields
-$(FIELDS)
+Defines a layer for multiple shooting. Simply a wrapper for the [ParallelShootingLayer](@ref) but returns a single trajectory.
 """
-struct MultipleShootingLayer{L, I, E, Z} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    "The original layer"
+struct MultipleShootingLayer{L, S <: NamedTuple} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    "The instance of a [ParallelShootingLayer](@ref) to be solved in parallel."
     layer::L
-    "The shooting intervals"
-    shooting_intervals::I
-    "The ensemble algorithm"
-    ensemble_alg::E
-    "The initialization scheme"
-    initialization::Z
+    "Indicator for shooting constraints for each of the layers."
+    shooting_variables::S
 end
 
-function Base.show(io::IO, layer::MultipleShootingLayer)
-    type_color, no_color = SciMLBase.get_colorizers(io)
-    print(
-        io,
-        type_color,
-        "MultipleShootingLayer ",
-        no_color,
-        "with $(length(layer.shooting_intervals)) shooting intervals and $(length(get_controls(layer.layer))) controls.\n",
+function MultipleShootingLayer(layer::LuxCore.AbstractLuxLayer, shooting_points::Real...; kwargs...)
+    tspan = get_tspan(layer)
+    tpoints = unique!(sort!(vcat(collect(shooting_points), collect(tspan))))
+    layers = ntuple(
+        i -> remake(
+            layer,
+            tspan = (tpoints[i], tpoints[i + 1]),
+            tunable_ic = get_tunable_u0(layer, i != 1),
+        ), length(tpoints) - 1
     )
-    print(io, "Underlying problem: ")
-    return print(io, layer.layer)
+    layers = NamedTuple{ntuple(i -> Symbol(:layer_, i), length(layers))}(layers)
+    shooting_variables = map(get_shooting_variables, layers)
+    layer = ParallelShootingLayer(layers; kwargs...)
+
+    return MultipleShootingLayer{typeof(layer), typeof(shooting_variables)}(layer, shooting_variables)
 end
 
-get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(layer.layer)
+get_problem(layer::MultipleShootingLayer) = get_problem(layer.layer.layers[1])
+get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(layer.layer.layers[1])
+get_tspan(layer::MultipleShootingLayer) = begin
+    t0, _ = get_problem(layer.layer.layers[1]).tspan
+    _, tinf = get_problem(layer.layer.layers[end]).tspan
+    (t0, tinf)
+end
+get_timegrid(layer::MultipleShootingLayer) = reduce(vcat, values(get_timegrid(layer.layer)))
 
-"""
-$(FUNCTIONNAME)
-
-Initializes all shooting nodes with their default value, i.e., their initial value in
-the underlying problem.
-"""
-function default_initialization(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
-    (; shooting_intervals, layer) = shooting
-    names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
-    vals = ntuple(
-        i -> __initialparameters(
-            rng, layer; tspan = shooting_intervals[i], shooting_layer = i != 1
-        ),
-        length(shooting_intervals),
-    )
-    return NamedTuple{names}(vals)
+function SciMLBase.remake(layer::MultipleShootingLayer; kwargs...)
+    newlayer = remake(layer.layer; kwargs...)
+    return MultipleShootingLayer{typeof(newlayer), typeof(layer.shooting_variables)}(newlayer, layer.shooting_variables)
 end
 
-```
-$(METHODLIST)
-
-Constructs a `MultipleShootingLayer` from given `AbstractDEProblem` `prob` with suitable
-integration method `alg` and vector of shooting points `tpoints`.
-```
-function MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...)
-    return MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
+function (layer::MultipleShootingLayer)(u0, ps, st)
+    results, st = layer.layer(u0, ps, st)
+    return Trajectory(layer, results), st
 end
 
-function MultipleShootingLayer(
-        prob::SciMLBase.AbstractDEProblem,
-        alg::SciMLBase.DEAlgorithm,
-        tpoints::Real...;
-        ensemble_alg = EnsembleSerial(),
-        initialization = default_initialization,
-        kwargs...,
-    )
-    layer = SingleShootingLayer(prob, alg; kwargs...)
-    return MultipleShootingLayer(layer, tpoints...; ensemble_alg, initialization, kwargs...)
+function get_number_of_shooting_constraints(layer::MultipleShootingLayer)
+    # We ignore the first shooting variables here
+    return size(reduce(vcat, fleaves(Base.tail(layer.shooting_variables))), 1)
 end
 
-function MultipleShootingLayer(
-        layer,
-        tpoints::Real...;
-        ensemble_alg = EnsembleSerial(),
-        initialization = default_initialization,
-        kwargs...,
-    )
-    tspans = vcat(collect(tpoints), collect(layer.problem.tspan))
-    sort!(tspans)
-    unique!(tspans)
-    tspans = [tispan for tispan in zip(tspans[1:(end - 1)], tspans[2:end])]
-    tspans = tuple(tspans...)
-    return MultipleShootingLayer{
-        typeof(layer), typeof(tspans), typeof(ensemble_alg), typeof(initialization),
-    }(
-        layer, tspans, ensemble_alg, initialization
-    )
+function matchings(layer::MultipleShootingLayer, us, sub_trajs)
+    (; shooting_variables) = layer
+    vars = variable_symbols(get_problem(layer))
+    return map(Base.OneTo(length(shooting_variables) - 1)) do i
+        specs = shooting_variables[i + 1]
+        state_matching = map(specs.state) do id
+            Symbol(vars[id]), first(us[i + 1])[id] .- last(us[i])[id]
+        end |> NamedTuple
+        control_matching = map(specs.control) do csym
+            traj_prev = sub_trajs[i]
+            traj_next = sub_trajs[i + 1]
+            v_prev = getproperty(_apply(traj_prev.controls.model, last(traj_prev.t), traj_prev.controls.ps, traj_prev.controls.st)[1], csym)
+            v_next = getproperty(_apply(traj_next.controls.model, first(traj_next.t), traj_next.controls.ps, traj_next.controls.st)[1], csym)
+            Symbol(csym), v_next .- v_prev
+        end |> NamedTuple
+        Symbol(:matching_, i), (; state = state_matching, control = control_matching)
+    end |> NamedTuple
 end
 
-function LuxCore.initialparameters(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
-    (; initialization) = shooting
-    return initialization(rng, shooting)
-end
-
-function LuxCore.parameterlength(shooting::MultipleShootingLayer)
-    return last(get_block_structure(shooting))
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, shooting::MultipleShootingLayer)
-    (; shooting_intervals, layer) = shooting
-    names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
-    vals = ntuple(
-        i ->
-        __initialstates(rng, layer; tspan = shooting_intervals[i], shooting_layer = i != 1),
-        length(shooting_intervals),
-    )
-    return NamedTuple{names}(vals)
-end
-
-function _parallel_solve(
-        shooting::MultipleShootingLayer,
-        u0,
-        ps,
-        st::NamedTuple{fields},
+function Trajectory(
+        layer::MultipleShootingLayer, solutions::NamedTuple{fields};
+        kwargs...
     ) where {fields}
-    args = collect(
-        ntuple(
-            i -> (u0, __getidx(ps, fields[i]), __getidx(st, fields[i]), i > 1), length(st)
-        )
-    )
-    return mythreadmap(shooting.ensemble_alg, Base.Splat(shooting.layer), args)
-end
 
-function (shooting::MultipleShootingLayer)(u0, ps, st::NamedTuple{fields}) where {fields}
-    ret = Corleone._parallel_solve(shooting, u0, ps, st)
-    u = first.(ret)
-    sts = NamedTuple{fields}(last.(ret))
-    return Trajectory(u, sts, get_quadrature_indices(shooting)), sts
-end
-
-function Trajectory(u::AbstractVector{TR}, sts, quadrature_indices) where {TR <: Trajectory}
-    size(u, 1) == 1 && return only(u)
-    p = first(u).p
-    sys = first(u).sys
-    us = map(state_values, u)
-    ts = map(current_time, u)
-    tnew = reduce(
-        vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:(end - 1)], eachindex(ts))
-    )
-    offsets = cumsum(map(i -> lastindex(us[i]), eachindex(us[1:(end - 1)])))
-    shooting_val_1 = ((u0 = eltype(first(first(us)))[], p = eltype(p)[], controls = eltype(first(first(us)))[]))
-    shooting_vals = map(eachindex(us[1:(end - 1)])) do i
-        uprev = us[i]
-        unext = us[i + 1]
-        idx = sts[i + 1].shooting_indices
-        nx = statelength(sts[i + 1].initial_condition)
-        controlidx = setdiff(idx, Base.OneTo(nx))
-        stateidx = setdiff(idx, controlidx)
-
-        (
-            u0 = last(uprev)[stateidx] .- first(unext)[stateidx],
-            p = u[i].p .- u[i + 1].p,
-            controls = last(uprev)[controlidx] .- first(unext)[controlidx],
-        )
+    sub_trajs = values(solutions)
+    us = map(Base.Fix2(getproperty, :u), sub_trajs)
+    ts = map(Base.Fix2(getproperty, :t), sub_trajs)
+    shooting_violations = matchings(layer, us, sub_trajs)
+    # Use the first sub-trajectory's StatefulLuxLayer for the combined controls
+    controls = first(sub_trajs).controls
+    p = deepcopy(first(sub_trajs).p)
+    # Update the quadratures
+    quadratures = get_quadrature_indices(layer)
+    q_prev = last(us[1])
+    keeper = [i in quadratures for i in eachindex(q_prev)]
+    us_ = map(us[2:end]) do ui
+        new_uij = map(uij -> uij .+ keeper .* q_prev, ui)
+        q_prev = keeper .* last(new_uij)
+        new_uij
     end
-    shootings = NamedTuple{(keys(sts)...,)}(
-        (
-            shooting_val_1,
-            shooting_vals...,
-        )
-    )
-    # Sum up the quadratures
-    q_prev = us[1][end][quadrature_indices]
-    for i in eachindex(us)[2:end]
-        for j in eachindex(us[i])
-            us[i][j][quadrature_indices] += q_prev
-        end
-        q_prev = us[i][end][quadrature_indices]
-    end
+    us = [us[1], us_...]
     unew = reduce(
         vcat, map(i -> i == lastindex(us) ? us[i] : us[i][1:(end - 1)], eachindex(us))
     )
-    return Trajectory(sys, unew, p, tnew, shootings, offsets)
-end
-
-function get_number_of_state_matchings(
-        shooting::MultipleShootingLayer,
-        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
-        st = LuxCore.initialstates(Random.default_rng(), shooting),
+    t_new = reduce(
+        vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:(end - 1)], eachindex(ts))
     )
-    return sum(xi -> size(intersect(xi.shooting_indices, Base.OneTo(statelength(xi.initial_condition))), 1), Base.tail(st))
-end
-
-function get_number_of_parameter_matchings(
-        shooting::MultipleShootingLayer,
-        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
-        st = LuxCore.initialstates(Random.default_rng(), shooting),
-    )
-    return sum(xi -> size(xi.p, 1), Base.front(ps))
-end
-
-function get_number_of_control_matchings(
-        shooting::MultipleShootingLayer,
-        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
-        st = LuxCore.initialstates(Random.default_rng(), shooting),
-    )
-    return sum(xi -> size(setdiff(xi.shooting_indices, Base.OneTo(statelength(xi.initial_condition))), 1), Base.tail(st))
-end
-
-get_number_of_shooting_constraints(::SingleShootingLayer) = 0
-
-function get_number_of_shooting_constraints(
-        shooting::MultipleShootingLayer,
-        ps = LuxCore.initialparameters(Random.default_rng(), shooting),
-        st = LuxCore.initialstates(Random.default_rng(), shooting),
-    )
-    return get_number_of_state_matchings(shooting, ps, st) +
-        get_number_of_control_matchings(shooting, ps, st) +
-        get_number_of_parameter_matchings(shooting, ps, st)
-end
-
-deepvcat(V::AbstractVector) = V
-deepvcat(NTV::NamedTuple) = reduce(vcat, NTV |> values .|> deepvcat)
-
-"""
-    stage_ordered_shooting_constraints(traj)
-
-Returns the shooting violations sorted by shooting-stage
-and per-stage sorted by states - parameters - controls
-"""
-stage_ordered_shooting_constraints(traj::Trajectory) = deepvcat(traj.shooting)
-
-function collect_into!(res::AbstractVector, sval::SV, ind::Vector{Int64} = [0]) where {SV <: AbstractVector}
-    for i in eachindex(sval)
-        res[ind[1] += 1] = sval[i]
-    end
-    return
-end
-function collect_into!(res::AbstractVector, sval::NamedTuple, ind::Vector{Int64} = [0])
-    for key in keys(sval)
-        collect_into!(res, sval[key], ind)
-    end
-    return
-end
-
-"""
-$(SIGNATURES)
-
-In-place version of `stage_ordered_shooting_constraints`.
-"""
-function stage_ordered_shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
-    collect_into!(res, traj.shooting)
-    return res
-end
-
-
-function _matchings(traj::Trajectory{S, U, P, T, SH}, kind::Symbol) where {S, U, P, T, SH <: NamedTuple}
-    return map(keys(traj.shooting)) do key
-        traj.shooting[key][kind]
-    end |> Base.Fix1(reduce, vcat)
-end
-state_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :u0)
-parameter_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :p)
-control_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :controls)
-
-function _matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}, kind::Symbol, ind::Vector{Int64} = [1]) where {S, U, P, T, SH <: NamedTuple}
-    for key in keys(traj.shooting)
-        res[UnitRange(ind[1], (ind[1] += length(traj.shooting[key][kind])) - 1)] = traj.shooting[key][kind]
-    end
-    return res
-end
-
-state_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :u0)
-parameter_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :p)
-control_matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings!(res, traj, :controls)
-
-"""
-$(SIGNATURES)
-
-Returns the shooting violations sorted by states - parameters - controls and per-kind
-sorted by shooting-stage.
-"""
-shooting_constraints(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = vcat((_matchings(traj, kind) for kind in (:u0, :p, :controls))...)
-
-shooting_constraints(traj::Trajectory) = utype(traj)[]
-"""
-$(SIGNATURES)
-
-In-place version of `shooting_constraints`.
-"""
-function shooting_constraints!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple}
-    ind = [1]
-    for kind in (:u0, :p, :controls)
-        _matchings!(res, traj, kind, ind)
-    end
-    return res
-end
-
-shooting_constraints!(res, traj::Trajectory) = res
-
-"""
-$(SIGNATURES)
-
-Compute the block structure of the hessian of the Lagrangian of an optimal control problem
-as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
-Note: Constraints other than the matching conditions of the multiple shooting approach
-are not considered here and might alter the block structure.
-"""
-function get_block_structure(mslayer::MultipleShootingLayer)
-    (; layer, shooting_intervals) = mslayer
-    ps_lengths = collect(
-        map(enumerate(shooting_intervals)) do (i, tspan)
-            __parameterlength(layer; tspan = tspan, shooting_layer = i > 1)
-        end,
-    )
-    return vcat(0, cumsum(ps_lengths))
-end
-
-```
-$(SIGNATURES)
-Extracts lower and upper bounds of all optimization variables in the `MultipleShootingLayer`.
-```
-function get_bounds(mslayer::MultipleShootingLayer)
-    (; layer, shooting_intervals) = mslayer
-    names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
-    bounds = map(enumerate(shooting_intervals)) do (i, tspan)
-        get_bounds(layer; tspan = tspan, shooting = i > 1)
-    end
-    return NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
+    sys = first(solutions).sys
+    return Trajectory{typeof(sys), typeof(unew), typeof(p), typeof(t_new), typeof(controls), typeof(shooting_violations)}(sys, unew, p, t_new, controls, shooting_violations)
 end
