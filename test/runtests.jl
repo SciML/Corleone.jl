@@ -34,4 +34,7 @@ using SafeTestsets
     @safetestset "MTK Symbolic Indexing" begin
         include("mtk_symbolic_index.jl")
     end
+    @safetestset "Custom Observed Functions" begin
+        include("custom_observed.jl")
+    end
 end
