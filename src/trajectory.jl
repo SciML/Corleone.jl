@@ -21,15 +21,15 @@ struct Trajectory{S, U, P, T, C, SH, O}
     shooting::SH
     "Custom observed functions (NamedTuple of functions with signature (u, p, t) -> value)"
     custom_observed::O
-    
+
     # Inner constructor for backward compatibility: default custom_observed to empty NamedTuple
     function Trajectory{S, U, P, T, C, SH}(sys::S, u::U, p::P, t::T, controls::C, shooting::SH) where {S, U, P, T, C, SH}
-        new{S, U, P, T, C, SH, NamedTuple{(), Tuple{}}}(sys, u, p, t, controls, shooting, NamedTuple())
+        return new{S, U, P, T, C, SH, NamedTuple{(), Tuple{}}}(sys, u, p, t, controls, shooting, NamedTuple())
     end
-    
+
     # Full constructor with all 7 fields
     function Trajectory{S, U, P, T, C, SH, O}(sys::S, u::U, p::P, t::T, controls::C, shooting::SH, custom_observed::O) where {S, U, P, T, C, SH, O}
-        new{S, U, P, T, C, SH, O}(sys, u, p, t, controls, shooting, custom_observed)
+        return new{S, U, P, T, C, SH, O}(sys, u, p, t, controls, shooting, custom_observed)
     end
 end
 
@@ -194,12 +194,12 @@ Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
     name = _maybesymbolifyme(sym)
-    
+
     # Handle control parameters
     if name in _control_names(fp)
         return (u, p, t) -> getproperty(fp.controls(t), name)
     end
-    
+
     # Handle custom observed functions
     if hasproperty(fp.custom_observed, name)
         custom_fn = getproperty(fp.custom_observed, name)
@@ -216,7 +216,7 @@ function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
             end
         end
     end
-    
+
     error("Unknown observed symbol: $name")
 end
 

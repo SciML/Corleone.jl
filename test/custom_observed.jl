@@ -29,7 +29,8 @@ end
         shooting = nothing
 
         # Create trajectory with custom observed functions
-        traj = Trajectory(sys, u, p, t, controls, shooting;
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
             sum_state = (u, p, t) -> u[1] + u[2],
             double_p = (u, p, t) -> 2 * p[1],
         )
@@ -49,7 +50,8 @@ end
         controls = (;)
         shooting = nothing
 
-        traj = Trajectory(sys, u, p, t, controls, shooting;
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
             custom_func = (u, p, t) -> u[1]^2,
         )
 
@@ -69,7 +71,8 @@ end
         controls = (;)
         shooting = nothing
 
-        traj = Trajectory(sys, u, p, t, controls, shooting;
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
             sum_vals = (u, p, t) -> u[1] + u[2],
             prod_vals = (u, p, t) -> u[1] * u[2],
         )
@@ -103,10 +106,11 @@ end
         controls = (;)
         shooting = nothing
 
-        traj = Trajectory(sys, u, p, t, controls, shooting;
-            norm = (u, p, t) -> sqrt(sum(u.^2)),
-            energy = (u, p, t) -> 0.5 * sum(u.^2),
-            momentum = (u, p, t) -> u[1] + 2*u[2] + 3*u[3],
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
+            norm = (u, p, t) -> sqrt(sum(u .^ 2)),
+            energy = (u, p, t) -> 0.5 * sum(u .^ 2),
+            momentum = (u, p, t) -> u[1] + 2 * u[2] + 3 * u[3],
             param_scaled = (u, p, t) -> p[1] * (u[1] + u[2]),
         )
 
@@ -120,7 +124,7 @@ end
         @test energy_val ≈ 0.5 * (1.0^2 + 2.0^2 + 3.0^2)
 
         momentum_val = getsym(traj, :momentum)(traj)[1]
-        @test momentum_val ≈ 1.0 + 2*2.0 + 3*3.0
+        @test momentum_val ≈ 1.0 + 2 * 2.0 + 3 * 3.0
 
         param_val = getsym(traj, :param_scaled)(traj)[1]
         @test param_val ≈ 10.0 * (1.0 + 2.0)
@@ -172,7 +176,8 @@ end
         # Track what arguments the function receives
         received_calls = Vector{Tuple{Vector{Float64}, Vector{Float64}, Float64}}()
 
-        traj = Trajectory(sys, u, p, t, controls, shooting;
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
             inspector = (state, params, time) -> begin
                 push!(received_calls, (copy(state), copy(params), time))
                 return 0.0
@@ -202,7 +207,8 @@ end
         controls = (;)
         shooting = nothing
 
-        traj = Trajectory(sys, u, p, t, controls, shooting;
+        traj = Trajectory(
+            sys, u, p, t, controls, shooting;
             a = (u, p, t) -> 1.0,
             b = (u, p, t) -> 2.0,
         )
