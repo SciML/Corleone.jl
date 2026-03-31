@@ -21,6 +21,16 @@ struct Trajectory{S, U, P, T, C, SH, O}
     shooting::SH
     "Custom observed functions (NamedTuple of functions with signature (u, p, t) -> value)"
     custom_observed::O
+    
+    # Inner constructor for backward compatibility: default custom_observed to empty NamedTuple
+    function Trajectory{S, U, P, T, C, SH}(sys::S, u::U, p::P, t::T, controls::C, shooting::SH) where {S, U, P, T, C, SH}
+        new{S, U, P, T, C, SH, NamedTuple{(), Tuple{}}}(sys, u, p, t, controls, shooting, NamedTuple())
+    end
+    
+    # Full constructor with all 7 fields
+    function Trajectory{S, U, P, T, C, SH, O}(sys::S, u::U, p::P, t::T, controls::C, shooting::SH, custom_observed::O) where {S, U, P, T, C, SH, O}
+        new{S, U, P, T, C, SH, O}(sys, u, p, t, controls, shooting, custom_observed)
+    end
 end
 
 """
@@ -184,20 +194,15 @@ end
 """
 $(SIGNATURES)
 
-Convenience constructor for Trajectory without custom observed functions.
-Uses an empty NamedTuple as default.
-"""
-function Trajectory(sys, u, p, t, controls, shooting)
-    return Trajectory(sys, u, p, t, controls, shooting, NamedTuple())
-end
+Convenience constructor for Trajectory with optional custom observed functions.
+Custom observed functions can be passed as keyword arguments, e.g.:
 
-"""
-$(SIGNATURES)
+    Trajectory(sys, u, p, t, controls, shooting; total_energy = (u, p, t) -> 0.5 * sum(u.^2))
 
-Convenience constructor for Trajectory with custom observed functions passed as keyword arguments.
+When called without keyword arguments, uses an empty NamedTuple as default.
 """
 function Trajectory(sys, u, p, t, controls, shooting; custom_observed...)
-    return Trajectory(sys, u, p, t, controls, shooting, NamedTuple(custom_observed))
+    return Trajectory(typeof(sys), typeof(u), typeof(p), typeof(t), typeof(controls), typeof(shooting), typeof(NamedTuple(custom_observed)))(sys, u, p, t, controls, shooting, NamedTuple(custom_observed))
 end
 
 """
