@@ -6,7 +6,7 @@ $(FIELDS)
 # Note 
 If present, `shooting_points` contains a list of `Tuple`s `(timeseries_index, last_shooting_point)`.  
 """
-struct Trajectory{S, U, P, T, C, SH}
+struct Trajectory{S, U, P, T, C, SH, O}
     "The symbolic system used for SymbolicIndexingInterface"
     sys::S
     "The state trajectory"
@@ -19,6 +19,8 @@ struct Trajectory{S, U, P, T, C, SH}
     controls::C
     "The shooting values"
     shooting::SH
+    "Custom observed functions (NamedTuple of functions with signature (u, p, t) -> value)"
+    custom_observed::O
 end
 
 """
@@ -129,7 +131,9 @@ Return `true` when `sym` is a control parameter of `fp`.
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
-    return _maybesymbolifyme(sym) in _control_names(fp)
+    name = _maybesymbolifyme(sym)
+    # Check control parameters and custom observed
+    return name in _control_names(fp) || hasproperty(fp.custom_observed, name)
 end
 
 """
@@ -141,7 +145,18 @@ Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
     name = _maybesymbolifyme(sym)
-    return (u, p, t) -> getproperty(fp.controls(t), name)
+    
+    # Handle control parameters
+    if name in _control_names(fp)
+        return (u, p, t) -> getproperty(fp.controls(t), name)
+    end
+    
+    # Handle custom observed functions
+    if hasproperty(fp.custom_observed, name)
+        return getproperty(fp.custom_observed, name)
+    end
+    
+    error("Unknown observed symbol: $name")
 end
 
 """
@@ -164,6 +179,25 @@ function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
             getproperty(fp.controls(t), name)
         end
     end
+end
+
+"""
+$(SIGNATURES)
+
+Convenience constructor for Trajectory without custom observed functions.
+Uses an empty NamedTuple as default.
+"""
+function Trajectory(sys, u, p, t, controls, shooting)
+    return Trajectory(sys, u, p, t, controls, shooting, NamedTuple())
+end
+
+"""
+$(SIGNATURES)
+
+Convenience constructor for Trajectory with custom observed functions passed as keyword arguments.
+"""
+function Trajectory(sys, u, p, t, controls, shooting; custom_observed...)
+    return Trajectory(sys, u, p, t, controls, shooting, NamedTuple(custom_observed))
 end
 
 """
