@@ -15,35 +15,34 @@ import Corleone: SingleShootingLayer, MultipleShootingLayer, DynamicOptimization
 import Corleone: ControlParameter, FixedControlParameter
 
 
-function Corleone.ControlParameter(x::Union{Num, SymbolicUtils.BasicSymbolic}, tpoints::AbstractVector)
+function Corleone.ControlParameter(x::Union{Num,SymbolicUtils.BasicSymbolic}, tpoints::AbstractVector)
     u0 = Symbolics.getdefaultval(x)
     lb, ub = ModelingToolkit.getbounds(x)
-    @info lb
     return ControlParameter(
         tpoints,
-        name = x,
-        controls = (rng, t) -> fill(u0, size(t, 1)),
-        bounds = (t) -> (fill(lb, size(t, 1)), fill(ub, size(t, 1)))
+        name=x,
+        controls=(rng, t) -> fill(u0, size(t, 1)),
+        bounds=(t) -> (fill(lb, size(t, 1)), fill(ub, size(t, 1)))
     )
 end
 
 Corleone.remake_system(sys::ModelingToolkit.AbstractSystem, args...) = sys
 
 function Corleone.SingleShootingLayer(
-        sys::ModelingToolkit.AbstractSystem,
-        defaults,
-        controls...;
-        algorithm::SciMLBase.AbstractDEAlgorithm,
-        tspan::Tuple,
-        saveat = [],
-        quadrature_indices = [],
-        kwargs...
-    )
+    sys::ModelingToolkit.AbstractSystem,
+    defaults,
+    controls...;
+    algorithm::SciMLBase.AbstractDEAlgorithm,
+    tspan::Tuple,
+    saveat=[],
+    quadrature_indices=[],
+    kwargs...
+)
     input_vars = ModelingToolkit.inputs(sys)
     @assert isempty(setdiff(input_vars, first.(controls))) "Not all inputs of the system are present in the control specs"
 
     ttype = promote_type(typeof.(tspan)...)
-    sys = mtkcompile(sys, inputs = input_vars, sort_eqs = true)
+    sys = mtkcompile(sys, inputs=input_vars, sort_eqs=true)
     quadrature_indices = [isa(id, Int) ? id : variable_index(sys, id) for id in quadrature_indices]
     ps = tunable_parameters(sys)
     saveats = reduce(vcat, collect.(last.(controls)))
@@ -62,19 +61,23 @@ function Corleone.SingleShootingLayer(
     # (InitialCondition doesn't accept sensealg kwarg)
     sensealg = get(kwargs, :sensealg, nothing)
     odep_kwargs = filter!(kw -> first(kw) !== :sensealg, collect(pairs(kwargs)))
-    prob = ODEProblem{true, SciMLBase.FullSpecialize()}(sys, defaults, tspan; saveat = saveats, build_initializeprob = false, sensealg, odep_kwargs...)
-    return Corleone.SingleShootingLayer(prob, params...; algorithm = algorithm, tunable_ic, bounds_ic, quadrature_indices, NamedTuple(odep_kwargs)...)
+    prob = ODEProblem{true,SciMLBase.FullSpecialize()}(sys, defaults, tspan; saveat=saveats,
+        build_initializeprob=false,
+        check_compatibility=false,
+        sensealg, odep_kwargs...)
+    layer = Corleone.SingleShootingLayer(prob, params...; algorithm=algorithm, tunable_ic, bounds_ic, quadrature_indices, NamedTuple(odep_kwargs)...)
+    return layer
 end
 
 function Corleone.MultipleShootingLayer(
-        sys::ModelingToolkit.AbstractSystem,
-        defaults,
-        controls...;
-        algorithm,
-        tspan,
-        shooting,
-        kwargs...
-    )
+    sys::ModelingToolkit.AbstractSystem,
+    defaults,
+    controls...;
+    algorithm,
+    tspan,
+    shooting,
+    kwargs...
+)
     single_layer = Corleone.SingleShootingLayer(sys, defaults, controls...; algorithm, tspan, kwargs...)
     return Corleone.MultipleShootingLayer(single_layer, shooting...)
 end
@@ -132,31 +135,47 @@ function collect_expr(ex, replacer::Dict)
     return get(replacer, var, toexpr(ex))
 end
 
-maybenormalize(ex) = nothing, ex
-maybenormalize(ex::Symbolics.Inequality) = begin
-    x = Symbolics.canonical_form(ex)
-    operation(x), x.lhs
+maybenormalize(ex) = ex
+maybenormalize(ex::Union{Symbolics.Inequality, Symbolics.Equation}) = begin
+    Symbolics.canonical_form(ex).lhs
 end
 
 function Corleone.DynamicOptimizationLayer(
-        sys::ModelingToolkit.AbstractSystem,
-        defaults,
-        controls,
-        exprs...;
-        algorithm,
-        tspan = nothing,
-        shooting = [],
-        kwargs...
-    )
+    sys::ModelingToolkit.AbstractSystem,
+    defaults, 
+    controls;
+    kwargs...
+)
+
+    costs = ModelingToolkit.get_costs(sys)
+    constraints = ModelingToolkit.get_constraints(sys)
+    exprs = vcat(costs, constraints)
+    return Corleone.DynamicOptimizationLayer(sys, defaults, controls, exprs...; kwargs...)
+end
+
+function Corleone.DynamicOptimizationLayer(
+    sys::ModelingToolkit.AbstractSystem,
+    defaults,
+    controls,
+    exprs...;
+    algorithm,
+    tspan=nothing,
+    shooting=[],
+    kwargs...
+)
     iv = ModelingToolkit.get_iv(sys)
     lagranges = Dict()
     tpoints = Dict()
     tcollector = Base.Fix1(collect_timepoints!, tpoints)
 
     exprs = map(exprs) do expr
-        newexp = collect_integrals!(lagranges, Symbolics.unwrap(expr), iv) |> tcollector
-
+        newexpr = maybenormalize(expr)
+        newexp = collect_integrals!(lagranges, Symbolics.unwrap(newexpr), iv) |> tcollector
+        isa(expr, Symbolics.Equation) && return newexp ~ 0        
+        isa(expr, Symbolics.Inequality) && return newexp ≲ 0
+        return newexp
     end
+
     saveats = reduce(vcat, values(tpoints))
     !isnothing(tspan) && append!(saveats, collect(tspan))
     tspan = extrema(saveats)
@@ -175,28 +194,29 @@ function Corleone.DynamicOptimizationLayer(
     if isempty(shooting)
         shooting_layer = Corleone.SingleShootingLayer(
             sys, defaults, controls_vec...;
-            algorithm = algorithm,
-            tspan = tspan,
-            quadrature_indices = values(lagranges),
+            algorithm=algorithm,
+            tspan=tspan,
+            quadrature_indices=values(lagranges),
             kwargs...
         )
     else
         shooting_layer = Corleone.MultipleShootingLayer(
             sys, defaults, controls_vec...;
-            algorithm = algorithm,
-            tspan = tspan,
-            shooting = shooting,
-            quadrature_indices = values(lagranges),
+            algorithm=algorithm,
+            tspan=tspan,
+            shooting=shooting,
+            quadrature_indices=values(lagranges),
             kwargs...
         )
     end
 
-    replacer = Dict{Symbol, Expr}()
-    for p in tunable_parameters(sys)
+    replacer = Dict{Symbol,Union{Expr, Symbol}}()
+    for p in parameters(sys)
         ModelingToolkit.isinitial(p) && continue
         ModelingToolkit.isinput(p) && continue
-        replacer[Symbol(p)] = Expr(:call, Symbol(p), first(tspan))
+        replacer[Symbol(p)] = ModelingToolkit.istunable(p) ? Expr(:call, Symbol(p), first(tspan)) : Symbol(p)
     end
+
     exprs = map(exprs) do expr
         if isa(expr, Symbolics.Inequality) || isa(expr, Symbolics.Equation)
             expr = Symbolics.canonical_form(expr)
@@ -206,6 +226,7 @@ function Corleone.DynamicOptimizationLayer(
         end
         collect_expr(expr, replacer)
     end
+
     return Corleone.DynamicOptimizationLayer(shooting_layer, exprs...)
 end
 
