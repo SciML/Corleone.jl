@@ -210,11 +210,11 @@ function Corleone.DynamicOptimizationLayer(
         )
     end
 
-    replacer = Dict{Symbol,Expr}()
+    replacer = Dict{Symbol,Union{Expr, Symbol}}()
     for p in parameters(sys)
         ModelingToolkit.isinitial(p) && continue
         ModelingToolkit.isinput(p) && continue
-        replacer[Symbol(p)] = Expr(:call, Symbol(p), first(tspan))
+        replacer[Symbol(p)] = ModelingToolkit.istunable(p) ? Expr(:call, Symbol(p), first(tspan)) : Symbol(p)
     end
 
     exprs = map(exprs) do expr
