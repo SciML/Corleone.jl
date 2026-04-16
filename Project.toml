@@ -14,6 +14,7 @@ OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
@@ -25,8 +26,8 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
+CorleoneComponentArraysExtension = "ComponentArrays"
 CorleoneMakieExtension = "Makie"
-CorleoneComponentArraysExtension = ["ComponentArrays"]
 CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
@@ -51,6 +52,7 @@ OrdinaryDiffEqTsit5 = "1"
 Random = "1"
 RecursiveArrayTools = "3.30"
 Reexport = "1.2"
+RuntimeGeneratedFunctions = "0.5"
 SafeTestsets = "0.1"
 SciMLBase = "2.110"
 SciMLSensitivity = "7.87"
