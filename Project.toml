@@ -1,7 +1,7 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 version = "0.0.3"
+authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
@@ -25,8 +25,8 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
-CorleoneMakieExtension = "Makie"
 CorleoneComponentArraysExtension = ["ComponentArrays"]
+CorleoneMakieExtension = "Makie"
 CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
@@ -47,7 +47,7 @@ OhMyThreads = "0.8"
 Optimization = "5"
 OptimizationMOI = "1"
 OrdinaryDiffEqBDF = "1"
-OrdinaryDiffEqTsit5 = "1"
+OrdinaryDiffEqTsit5 = "1, 2"
 Random = "1"
 RecursiveArrayTools = "3.30"
 Reexport = "1.2"
