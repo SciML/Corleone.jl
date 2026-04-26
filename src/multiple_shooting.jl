@@ -66,7 +66,7 @@ end
 
 function MultipleShootingLayer(
         prob::SciMLBase.AbstractDEProblem,
-        alg::SciMLBase.DEAlgorithm,
+        alg::SciMLBase.AbstractDEAlgorithm,
         tpoints::Real...;
         ensemble_alg = EnsembleSerial(),
         initialization = default_initialization,
