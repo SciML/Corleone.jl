@@ -54,12 +54,12 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCR
     return Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     layer = SingleShootingLayer(prob, alg; kwargs...)
     return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
 end
 
-function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points...; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
+function OEDLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points...; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
     return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
 end
