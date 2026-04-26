@@ -214,7 +214,7 @@ function __parameterlength(
     return N
 end
 
-function retrieve_symbol_cache(problem::SciMLBase.DEProblem, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id in 1:length(control_indices)])
+function retrieve_symbol_cache(problem::SciMLBase.AbstractDEProblem, control_indices; control_names = [Symbol(:u, _subscript(u_id)) for u_id in 1:length(control_indices)])
     return retrieve_symbol_cache(problem.f.sys, problem.u0, problem.p, control_indices; control_names = control_names)
 end
 

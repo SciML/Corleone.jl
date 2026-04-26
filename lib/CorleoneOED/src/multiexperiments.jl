@@ -42,7 +42,7 @@ function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}) wh
 end
 
 function MultiExperimentLayer{DISCRETE}(
-        prob::DEProblem, alg::DEAlgorithm, nexp::Int;
+        prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, nexp::Int;
         params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...
     ) where {DISCRETE}
     layer = OEDLayer{DISCRETE}(prob, alg; params = params, measurements = measurements, observed = observed, kwargs...)
@@ -50,7 +50,7 @@ function MultiExperimentLayer{DISCRETE}(
     return MultiExperimentLayer{DISCRETE, fixed, false, SingleShootingLayer, typeof(layer), typeof(params)}(layer, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, params::Vector{Vector{Int64}}; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, params::Vector{Vector{Int64}}; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg; params = param, measurements = measurements, observed = observed, kwargs...)
@@ -66,12 +66,12 @@ function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, param
     return MultiExperimentLayer{DISCRETE, fixed, true, SingleShootingLayer, typeof(layers), typeof(new_params)}(layers, nexp, new_params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     layers = OEDLayer{DISCRETE}(prob, alg, shooting_points...; params = params, measurements = measurements, observed = observed, kwargs...)
     return MultiExperimentLayer{DISCRETE, false, false, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
 end
 
-function MultiExperimentLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points::AbstractVector{<:Real}, params::Vector{Vector{Int64}} = [eachindex(prob.p) for _ in 1:nexp]; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
+function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points::AbstractVector{<:Real}, params::Vector{Vector{Int64}} = [eachindex(prob.p) for _ in 1:nexp]; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     nexp = length(params)
     layers = map(params) do param
         OEDLayer{DISCRETE}(prob, alg, shooting_points...; params = param, measurements = measurements, observed = observed, kwargs...)
