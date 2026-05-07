@@ -1,6 +1,10 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
+authors = [
+  "Carl Julius Martensen <carl.martensen@ovgu.de>",
+  "Christoph Plate <christoph.plate@ovgu.de>",
+  "and contributors",
+]
 version = "0.0.3"
 
 [deps]
@@ -11,6 +15,7 @@ Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
@@ -49,7 +54,7 @@ Optimization = "5"
 OptimizationMOI = "1"
 OrdinaryDiffEqBDF = "1"
 OrdinaryDiffEqTsit5 = "1"
-Preferences = "1.5"
+Preferences = "1.5.2"
 Random = "1"
 RecursiveArrayTools = "3.30"
 Reexport = "1.2"
@@ -79,4 +84,19 @@ SciMLSensitivity = "1ed8b502-d754-442c-8d5d-10ac956f44a1"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ComponentArrays", "Test", "OrdinaryDiffEqTsit5", "OrdinaryDiffEqBDF", "LinearAlgebra", "JET", "SciMLSensitivity", "Optimization", "OptimizationMOI", "Ipopt", "SafeTestsets", "ForwardDiff", "ModelingToolkit"]
+test = [
+  "Aqua",
+  "ComponentArrays",
+  "Test",
+  "OrdinaryDiffEqTsit5",
+  "OrdinaryDiffEqBDF",
+  "LinearAlgebra",
+  "JET",
+  "SciMLSensitivity",
+  "Optimization",
+  "OptimizationMOI",
+  "Ipopt",
+  "SafeTestsets",
+  "ForwardDiff",
+  "ModelingToolkit",
+]
