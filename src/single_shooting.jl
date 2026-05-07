@@ -100,9 +100,10 @@ remake_system(x, _, controls) = remake_system(x, controls)
 """
 $(SIGNATURES)
 
-Rebuild `sys` with the same variables and parameters (controls are now exposed
-via `parameter_observed` on the `Trajectory`, so no `timeseries_parameters` are
-needed here).
+Rebuild `sys` with the same variables and parameters. Controls are registered
+as parameters in the `SymbolCache` and exposed as timeseries parameters on
+`Trajectory` via `is_timeseries_parameter` / `timeseries_parameter_index` / 
+`get_parameter_timeseries_collection`.
 """
 function remake_system(sys::SymbolCache, controls)
     return SymbolCache(
@@ -230,7 +231,8 @@ function Trajectory(layer::SingleShootingLayer, solutions, ps, st)
     t = _collect(solutions, :t)
     p = deepcopy(first(map(sol -> sol.p, solutions)))
     controls = LuxCore.StatefulLuxLayer{false}(layer.controls, ps.controls, st.controls)
-    return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controls), Nothing}(system, u, p, t, controls, nothing), st
+    control_timeseries = _build_control_timeseries(controls, t, p)
+    return Trajectory{typeof(system), typeof(u), typeof(p), typeof(t), typeof(controls), Nothing, typeof(control_timeseries)}(system, u, p, t, controls, nothing, control_timeseries), st
 end
 
 function _collect(solutions, sym::Symbol, f::Function = identity)

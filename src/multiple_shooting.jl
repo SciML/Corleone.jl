@@ -99,5 +99,8 @@ function Trajectory(
         vcat, map(i -> i == lastindex(ts) ? ts[i] : ts[i][1:(end - 1)], eachindex(ts))
     )
     sys = first(solutions).sys
-    return Trajectory{typeof(sys), typeof(unew), typeof(p), typeof(t_new), typeof(controls), typeof(shooting_violations)}(sys, unew, p, t_new, controls, shooting_violations)
+    controls = first(sub_trajs).controls
+    p = deepcopy(first(sub_trajs).p)
+    control_timeseries = _build_control_timeseries(controls, t_new, p)
+    return Trajectory{typeof(sys), typeof(unew), typeof(p), typeof(t_new), typeof(controls), typeof(shooting_violations), typeof(control_timeseries)}(sys, unew, p, t_new, controls, shooting_violations, control_timeseries)
 end
