@@ -24,9 +24,9 @@ RuntimeGeneratedFunctions.init(@__MODULE__)
 using Preferences
 
 @static if VERSION >= v"1.6"
-	const MAXBINSIZE = @load_preference("maxbinsize", 100)
+    const MAXBINSIZE = @load_preference("maxbinsize", 100)
 else
-	const MAXBINSIZE = 100
+    const MAXBINSIZE = 100
 end
 
 # For evaluation
