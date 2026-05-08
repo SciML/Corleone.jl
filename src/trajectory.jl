@@ -23,6 +23,11 @@ struct Trajectory{S, U, P, T, C, SH, CT}
     control_timeseries::CT
 end
 
+# Backward-compatible constructor for the pre-existing public API shape
+# before `control_timeseries` was added as a field.
+Trajectory(sys, u, p, t, controls, shooting) =
+    Trajectory(sys, u, p, t, controls, shooting, nothing)
+
 """
 $(SIGNATURES)
 
@@ -136,6 +141,17 @@ parameters. This frees the `is_observed` channel for genuine algebraic observabl
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
+    is_timeseries_parameter(fp, sym) && return false
+
+    if applicable(SymbolicIndexingInterface.is_observed, fp.sys, sym)
+        SymbolicIndexingInterface.is_observed(fp.sys, sym) && return true
+    end
+
+    name = _maybesymbolifyme(sym)
+    if name != sym && applicable(SymbolicIndexingInterface.is_observed, fp.sys, name)
+        SymbolicIndexingInterface.is_observed(fp.sys, name) && return true
+    end
+
     return false
 end
 
