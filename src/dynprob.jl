@@ -29,6 +29,7 @@ struct DynamicOptimizationLayer{N, L, G, O, C, CB} <: LuxCore.AbstractLuxWrapper
     ucons::CB
 end
 
+_extract_timepoints(::Symbol) = []
 _extract_timepoints(x::Number) = [x]
 _extract_timepoints(x::Expr) = begin
     @assert x.head == :vect "Timepoints must be provided as a scalar or vector, e.g. `x(1.0)` or `x([1.0, 2.0])"
@@ -143,16 +144,18 @@ function DynamicOptimizationLayer(layer::LuxCore.AbstractLuxLayer, objective::Ex
     unique!(sort!(timegrid))
     layer = remake(layer, saveat = timegrid)
     replacer = Dict([ki => find_indices(vi, timegrid) for (ki, vi) in zip(keys(collector), values(collector)) if !isempty(vi) || is_parameter(problem, ki)])
+    @info replacer
     new_exprs = map(expressions) do ex
         replace_timepoints(ex, replacer)
     end
     header = map(collect(keys(replacer))) do k
-        if is_parameter(problem, k)
-            return :($(k) = trajectory.ps[$(QuoteNode(k))])
-        else
+        if !is_parameter(problem, k)
             return :($(k) = trajectory[$(QuoteNode(k))])
+        else
+            return :($(k) = trajectory.ps[$(QuoteNode(k))])
         end
     end
+    @info header
     getter = nothing
     objective = build_oop(problem, header, new_exprs[1:1])
     constraints = build_iip(problem, header, new_exprs[2:end], get_number_of_shooting_constraints(layer))
