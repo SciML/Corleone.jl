@@ -180,7 +180,7 @@ st.F_init
 
 previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
 
-st_new = CorleoneOED.update_fim(oed, [previous_experiment], st_new)
+st_new = CorleoneOED.update_fim(oed, [previous_experiment], st)
 st_new.F_init
 
 # Now, the optimization problem can be remaked and solved with the updated state.
