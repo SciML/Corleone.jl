@@ -30,7 +30,7 @@ rng = Random.default_rng()
         u_vals = traj.ps[u]
         @test length(u_vals) == length(traj.t)
 
-        @test SymbolicIndexingInterface.is_observed(traj, u) == false 
-        @test SymbolicIndexingInterface.is_parameter(traj, u) == true 
+        @test SymbolicIndexingInterface.is_observed(traj, u) == false
+        @test SymbolicIndexingInterface.is_parameter(traj, u) == true
     end
 end

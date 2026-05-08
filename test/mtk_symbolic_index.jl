@@ -50,16 +50,16 @@ rng = Random.default_rng()
 
     @testset "is_observed with MTK symbols" begin
         # Both u and p are observed (they are ControlParameters)
-        @test SymbolicIndexingInterface.is_observed(traj, u) == false 
-        @test SymbolicIndexingInterface.is_observed(traj, p) == false 
+        @test SymbolicIndexingInterface.is_observed(traj, u) == false
+        @test SymbolicIndexingInterface.is_observed(traj, p) == false
         # x is a state, not a control
         @test SymbolicIndexingInterface.is_observed(traj, x) == false
     end
 
     @testset "is_parameter distinguishes controls from states" begin
         # Both u and p are observed (controls), so not plain parameters
-        @test SymbolicIndexingInterface.is_parameter(traj, u) == true 
-        @test SymbolicIndexingInterface.is_parameter(traj, p) == true 
+        @test SymbolicIndexingInterface.is_parameter(traj, u) == true
+        @test SymbolicIndexingInterface.is_parameter(traj, p) == true
         # x is a state, not a parameter
         @test SymbolicIndexingInterface.is_parameter(traj, x) == false
     end

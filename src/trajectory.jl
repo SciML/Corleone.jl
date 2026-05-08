@@ -216,10 +216,12 @@ is called at each time to produce a `ControlSignal` for each control name.
 """
 function _build_control_timeseries(controls, t, p)
     ctrl_names = Tuple(_maybesymbolifyme(c.name) for c in values(controls.model.controls))
-    ctrl_signals = NamedTuple{ctrl_names}(map(ctrl_names) do name
-        vals = [getproperty(controls(ti), name) for ti in t]
-        ControlSignal(collect(t), vals)
-    end)
+    ctrl_signals = NamedTuple{ctrl_names}(
+        map(ctrl_names) do name
+            vals = [getproperty(controls(ti), name) for ti in t]
+            ControlSignal(collect(t), vals)
+        end
+    )
     return ParameterTimeseriesCollection(ctrl_signals, p)
 end
 

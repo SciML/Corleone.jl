@@ -90,11 +90,11 @@ $(SIGNATURES)
 Return a symbolic system with control parameters registered as time series.
 """
 function get_new_system(problem, controls)
-    sys = symbolic_container(problem.f) 
+    sys = symbolic_container(problem.f)
     return remake_system(sys, problem, controls)
 end
 
-remake_system(::SymbolCache{Nothing,}, problem, controls) = remake_system(default_system(problem, controls), controls)
+remake_system(::SymbolCache{Nothing}, problem, controls) = remake_system(default_system(problem, controls), controls)
 remake_system(x, _, controls) = remake_system(x, controls)
 
 """
