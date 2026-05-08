@@ -21,6 +21,14 @@ using Functors
 using RuntimeGeneratedFunctions
 RuntimeGeneratedFunctions.init(@__MODULE__)
 
+using Preferences
+
+@static if VERSION >= v"1.6"
+    const MAXBINSIZE = @load_preference("maxbinsize", 100)
+else
+    const MAXBINSIZE = 100
+end
+
 # For evaluation
 """
 $(SIGNATURES)
@@ -131,8 +139,6 @@ Sample random values uniformly between elementwise bounds `lb` and `ub`.
 """
 _random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
 
-# TODO We need to set this using Preferences
-const MAXBINSIZE = 100
 
 include("trajectory.jl")
 export Trajectory

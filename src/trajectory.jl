@@ -6,7 +6,7 @@ $(FIELDS)
 # Note 
 If present, `shooting_points` contains a list of `Tuple`s `(timeseries_index, last_shooting_point)`.  
 """
-struct Trajectory{S, U, P, T, C, SH}
+struct Trajectory{S, U, P, T, C, SH, CT}
     "The symbolic system used for SymbolicIndexingInterface"
     sys::S
     "The state trajectory"
@@ -19,7 +19,14 @@ struct Trajectory{S, U, P, T, C, SH}
     controls::C
     "The shooting values"
     shooting::SH
+    "Pre-computed control timeseries values for SII parameter-timeseries indexing"
+    control_timeseries::CT
 end
+
+# Backward-compatible constructor for the pre-existing public API shape
+# before `control_timeseries` was added as a field.
+Trajectory(sys, u, p, t, controls, shooting) =
+    Trajectory(sys, u, p, t, controls, shooting, nothing)
 
 """
 $(SIGNATURES)
@@ -114,56 +121,124 @@ _control_names(fp::Trajectory) = isnothing(fp.controls) ? () : Tuple(_maybesymbo
 """
 $(SIGNATURES)
 
-Override parameter check: control parameter symbols are exposed as observed, not
-as plain parameters, so `getsym`/`getp` route through `parameter_observed`.
+Check whether `sym` is a timeseries parameter in `fp`.
+Control parameters are timeseries parameters — their values change over time.
+This routes `getp`/`getsym` through SII's `GetParameterTimeseriesIndex` pathway
+for discrete-time indexed access, rather than the old `GetParameterObserved` pathway.
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
-function SymbolicIndexingInterface.is_parameter(fp::Trajectory, sym)
-    return is_parameter(fp.sys, sym) && !(_maybesymbolifyme(sym) in _control_names(fp))
-end
-
-"""
-$(SIGNATURES)
-
-Return `true` when `sym` is a control parameter of `fp`.
-Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
-"""
-function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
+function SymbolicIndexingInterface.is_timeseries_parameter(fp::Trajectory, sym)
     return _maybesymbolifyme(sym) in _control_names(fp)
 end
 
 """
 $(SIGNATURES)
 
-Return a time-dependent observed function for control parameter `sym`.
-Used by `getsym` on timeseries objects to broadcast over all timepoints.
+Return `true` when `sym` is an observed (algebraic/postprocessing) quantity of `fp`.
+Control parameters are no longer classified as observed — they are timeseries
+parameters. This frees the `is_observed` channel for genuine algebraic observables
+(e.g. postprocessing layers, MTK observed equations).
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
-function SymbolicIndexingInterface.observed(fp::Trajectory, sym)
+function SymbolicIndexingInterface.is_observed(fp::Trajectory, sym)
+    is_timeseries_parameter(fp, sym) && return false
+
+    if applicable(SymbolicIndexingInterface.is_observed, fp.sys, sym)
+        SymbolicIndexingInterface.is_observed(fp.sys, sym) && return true
+    end
+
     name = _maybesymbolifyme(sym)
-    return (u, p, t) -> getproperty(fp.controls(t), name)
+    if name != sym && applicable(SymbolicIndexingInterface.is_observed, fp.sys, name)
+        SymbolicIndexingInterface.is_observed(fp.sys, name) && return true
+    end
+
+    return false
+end
+
+"""
+$(SIGNATURES)
+
+Return the `ParameterTimeseriesIndex` for control parameter `sym` in `fp`.
+This identifies which timeseries object in the `ParameterTimeseriesCollection`
+corresponds to this control, enabling SII's `GetParameterTimeseriesIndex` pathway.
+Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
+"""
+function SymbolicIndexingInterface.timeseries_parameter_index(fp::Trajectory, sym)
+    if is_timeseries_parameter(fp, sym)
+        name = _maybesymbolifyme(sym)
+        ctrl_names = collect(_control_names(fp))
+        ts_idx = findfirst(==(name), ctrl_names)
+        return ParameterTimeseriesIndex(ts_idx, 1)
+    end
+    return nothing
 end
 
 """
 $(SIGNATURES)
 
 Return a time-dependent parameter-observed function for control parameter `sym`.
-The returned function has the signature `(p, t) -> value` and is used by `getp`.
-For control parameters, the value is retrieved from the controls NamedTuple using
-the symbol name (converted to Symbol for MTK compatibility).
+The returned function has the signature `(p, t) -> value` and supports
+interpolated evaluation at arbitrary time points (ZOH by default).
+
+Note: This is a standalone evaluation API, not triggered through `getp` dispatch.
+For `getp`/`getsym` access, controls now route through the `GetParameterTimeseriesIndex`
+pathway, which provides discrete-time indexed access via the `ParameterTimeseriesCollection`.
+`parameter_observed` remains available for continuous-time interpolated evaluation
+(e.g. in objective/constraint functions at arbitrary time points).
+
 Accepts both Symbol (`:u`) and MTK symbolic (`u(t)`) inputs.
 """
 function SymbolicIndexingInterface.parameter_observed(fp::Trajectory, sym)
-    # Convert MTK symbolic to Symbol for NamedTuple property access
-    # _maybesymbolifyme extracts :u from u(t) or passes through plain :u
-    name = _maybesymbolifyme(sym)
-    return (p, t) -> begin
-        if t isa AbstractVector
-            map(ti -> getproperty(fp.controls(ti), name), t)
-        else
-            getproperty(fp.controls(t), name)
+    if is_timeseries_parameter(fp, sym)
+        name = _maybesymbolifyme(sym)
+        ctrl_eval = fp.controls  # capture only the control evaluator, not the full Trajectory
+        return (p, t) -> begin
+            if t isa AbstractVector
+                map(ti -> getproperty(ctrl_eval(ti), name), t)
+            else
+                getproperty(ctrl_eval(t), name)
+            end
         end
     end
+    return nothing
+end
+
+"""
+$(SIGNATURES)
+
+Declare [`Trajectory`](@ref) as containing parameter timeseries data.
+This is required for SII's `GetParameterTimeseriesIndex` dispatch.
+"""
+SymbolicIndexingInterface.is_parameter_timeseries(::Type{<:Trajectory}) = Timeseries()
+
+"""
+$(SIGNATURES)
+
+Return the `ParameterTimeseriesCollection` for `fp`, containing pre-computed control
+values at all trajectory timepoints. Each control is stored as a `ControlSignal`
+(timeseries object), enabling SII's `GetParameterTimeseriesIndex` to extract
+control values at discrete time indices.
+"""
+function SymbolicIndexingInterface.get_parameter_timeseries_collection(fp::Trajectory)
+    return fp.control_timeseries
+end
+
+"""
+$(SIGNATURES)
+
+Build the `ParameterTimeseriesCollection` by evaluating each control at all
+corresponding trajectory timepoints. The control evaluator (`StatefulLuxLayer`)
+is called at each time to produce a `ControlSignal` for each control name.
+"""
+function _build_control_timeseries(controls, t, p)
+    ctrl_names = Tuple(_maybesymbolifyme(c.name) for c in values(controls.model.controls))
+    ctrl_signals = NamedTuple{ctrl_names}(
+        map(ctrl_names) do name
+            vals = [getproperty(controls(ti), name) for ti in t]
+            ControlSignal(collect(t), vals)
+        end
+    )
+    return ParameterTimeseriesCollection(ctrl_signals, p)
 end
 
 """
@@ -202,7 +277,7 @@ Return symbolic values indexed by `sym` from `A`.
 Parameter indexing through `getindex` is deprecated; use `A.ps[sym]` instead.
 """
 function Base.getindex(A::Trajectory, sym)
-    if is_parameter(A, sym)
+    if is_parameter(A, sym) && !is_timeseries_parameter(A, sym)
         error("Indexing with parameters is deprecated. Use `sol.ps[$sym]` for parameter indexing.")
     end
     return getsym(A, sym)(A)

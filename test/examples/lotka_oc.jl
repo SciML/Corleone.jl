@@ -83,7 +83,7 @@ sol, _ = layer(nothing, ps, st);
     reg = Expr(
         :call, :sum, Expr(
             :tuple,
-            [    :(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
+            [:(abs2($(s)(12.0) .- $(rand()))) for s in psyms]...
         )
     )
 

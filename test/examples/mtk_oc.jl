@@ -201,20 +201,6 @@ eqs2 = [
 @named lotka_system2 = ODESystem(eqs2, t)
 
 @testset "MTK Single Shooting IPOPT Optimization" begin
-    # NOTE: This test is broken due to a fundamental MTK limitation.
-    # MTK's RuntimeGeneratedFunction uses FunctionWrappersWrappers.jl which doesn't
-    # support ForwardDiff.Dual types. The error "No matching function wrapper was found!"
-    # occurs when ForwardDiff tries to differentiate through MTK's generated ODE functions.
-    #
-    # This affects BOTH NoAD() and ForwardDiffSensitivity() sensealg configurations.
-    #
-    # WORKAROUND: Use plain Julia ODEProblem (not MTK) for ForwardDiff optimization.
-    # The lotka_oc.jl tests demonstrate working optimization with plain Julia functions.
-    # See: https://github.com/SciML/ModelingToolkit.jl/issues regarding ForwardDiff support.
-
-    # The tests below would run if MTK supported ForwardDiff Dual types:
-
-    # The following tests would run if MTK supported ForwardDiff:
     layer = SingleShootingLayer(
         lotka_system2,
         [],  # No initial condition overrides
@@ -344,8 +330,6 @@ end
         u_int(t) = 0.0, [input = true, bounds = (0.0, 1.0)]
     end
 
-    # NOTE: No @parameters to avoid MTK + ForwardDiff incompatibility
-    # α=1, β=1 hardcoded in equations
     eqs_int = [
         D(x_int) ~ x_int - 1.0 * x_int * y_int - c[1] * u_int * x_int,
         D(y_int) ~ -y_int + 1.0 * x_int * y_int - c[2] * u_int * y_int,
