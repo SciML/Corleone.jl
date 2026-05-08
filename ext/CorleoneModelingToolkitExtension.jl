@@ -18,7 +18,6 @@ import Corleone: ControlParameter, FixedControlParameter
 function Corleone.ControlParameter(x::Union{Num, SymbolicUtils.BasicSymbolic}, tpoints::AbstractVector)
     u0 = Symbolics.getdefaultval(x)
     lb, ub = ModelingToolkit.getbounds(x)
-    @info lb
     return ControlParameter(
         tpoints,
         name = x,
