@@ -108,7 +108,15 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLa
             LuxCore.initialstates(rng, multi.layers[i])
         end
     )
-    return NamedTuple{exp_names}(exp_ps)
+    np = length(multi.params.all)
+
+    st1 = exp_ps[1]
+    F_init = zeros(eltype(exp_ps[1].F_init), np, np)
+    st1 = merge(st1, (; F_init = F_init, ))
+
+    new_sts = (st1, exp_ps[2:end]...)
+
+    return NamedTuple{exp_names}(new_sts)
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})

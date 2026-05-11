@@ -336,7 +336,7 @@ function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, false}, integ
     return int_u0
 end
 
-function get_integrality(layer::MultiExperimentLayer{<:Any, false, true}, integer::Bool, ps::ComponentArray, st)
+function get_integrality(layer::MultiExperimentLayer{<:Any, false, true}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
     int_u0 = Bool.(ps * 0)
     !integer &&  return int_u0
     for (i,field) in enumerate(fields)
