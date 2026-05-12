@@ -327,7 +327,7 @@ function get_integrality(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLay
     return int_u0
 end
 
-function get_integrality(layer::MultiExperimentLayer, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
+function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, true}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
     int_u0 = Bool.(ps * 0)
     !integer &&  return int_u0
     for (i, field) in enumerate(fields)
@@ -335,6 +335,16 @@ function get_integrality(layer::MultiExperimentLayer, integer::Bool, ps::Compone
     end
     return int_u0
 end
+
+function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, false}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+    for field in fields
+        int_u0[field] = get_integrality(layer.layers, integer, getproperty(int_u0, field), getproperty(st, field))
+    end
+    return int_u0
+end
+
 
 function Optimization.OptimizationProblem(
         layer::Union{OEDLayer{<:Any, true, false}, MultiExperimentLayer{<:Any, false}},
