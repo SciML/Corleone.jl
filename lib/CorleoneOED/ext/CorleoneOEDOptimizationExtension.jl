@@ -301,13 +301,68 @@ function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:Mu
     return sampling_cons
 end
 
+function get_integrality(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+
+    for field in fields
+        _ps = getproperty(int_u0, field)
+        _st = getproperty(st, field)
+        subsets = CorleoneOED.__get_subsets(_st.active_controls, layer.sampling_indices)
+        for subset in subsets
+            _ps.controls[subset] .= true
+        end
+    end
+    return int_u0
+end
+
+function get_integrality(layer::OEDLayer{false, true, <:Any, <:SingleShootingLayer}, integer::Bool, ps::ComponentArray, st)
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+    subsets = CorleoneOED.__get_subsets(st.index_grid, layer.sampling_indices)
+    for subset in subsets
+        int_u0.controls[unique(subset)] .= true
+    end
+    return int_u0
+end
+
+function get_integrality(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLayer}, integer::Bool, ps::ComponentArray, st)
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+
+    subsets = CorleoneOED.__get_subsets(st.active_controls, layer.sampling_indices)
+    for subset in subsets
+        int_u0.controls[subset] .= true
+    end
+    return int_u0
+end
+
+function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, true}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+    for (i, field) in enumerate(fields)
+        int_u0[field] = get_integrality(layer.layers[i], integer, getproperty(int_u0, field), getproperty(st, field))
+    end
+    return int_u0
+end
+
+function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, false}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
+    int_u0 = Bool.(ps * 0)
+    !integer &&  return int_u0
+    for field in fields
+        int_u0[field] = get_integrality(layer.layers, integer, getproperty(int_u0, field), getproperty(st, field))
+    end
+    return int_u0
+end
+
+
 function Optimization.OptimizationProblem(
         layer::Union{OEDLayer{<:Any, true, false}, MultiExperimentLayer{<:Any, false}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
         constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
-        variable_type::Type{T} = Float64,
+        variable_type::Type{T} = Float64, integer_weights = false,
         M = default_M(layer),
         kwargs...
     ) where {T}
@@ -332,6 +387,8 @@ function Optimization.OptimizationProblem(
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
 
+    integer_sampling = get_integrality(layer, integer_weights, u0, st)
+
     # Constraints
     cons = setup_constraints(layer, sol, constraints)
     lcons, ucons = extract_constraint_bounds(layer, constraints, M)
@@ -342,17 +399,17 @@ function Optimization.OptimizationProblem(
     # Return the optimization problem
     return OptimizationProblem(
         opt_f, u0[:], st, lb = lb[:], ub = ub[:],
-        lcons = lcons, ucons = ucons,
+        lcons = lcons, ucons = ucons, int = integer_sampling[:]
     )
 end
 
 function Optimization.OptimizationProblem(
-        layer::Union{OEDLayer{<:Any, true, true}, MultiExperimentLayer{<:Any, true}},
+        layer::Union{OEDLayer{<:Any, true, true, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, true}},
         crit::CorleoneOED.AbstractCriterion;
         AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
         u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
         constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
-        variable_type::Type{T} = Float64,
+        variable_type::Type{T} = Float64, integer_weights = false,
         M = default_M(layer),
         kwargs...
     ) where {T}
@@ -387,6 +444,8 @@ function Optimization.OptimizationProblem(
 
     @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
 
+    integer_sampling = get_integrality(layer, integer_weights, u0, st)
+
     # Constraints
     cons = setup_constraints(layer, sol, constraints)
     lcons, ucons = extract_constraint_bounds(layer, constraints, M)
@@ -397,7 +456,7 @@ function Optimization.OptimizationProblem(
     # Return the optimization problem
     return OptimizationProblem(
         opt_f, u0[:], st, lb = lb[:], ub = ub[:],
-        lcons = lcons, ucons = ucons,
+        lcons = lcons, ucons = ucons, int = integer_sampling
     )
 end
 

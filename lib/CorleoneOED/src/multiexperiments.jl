@@ -101,14 +101,43 @@ function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperime
     return NamedTuple{exp_names}(exp_ps)
 end
 
-function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true})
+function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true, <:SingleShootingLayer})
     exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
     exp_ps = Tuple(
         map(1:multi.n_exp) do i
             LuxCore.initialstates(rng, multi.layers[i])
         end
     )
-    return NamedTuple{exp_names}(exp_ps)
+    np = length(multi.params.all)
+
+    st1 = exp_ps[1]
+    F_init = zeros(eltype(exp_ps[1].F_init), np, np)
+    st1 = merge(st1, (; F_init = F_init))
+
+    new_sts = (st1, exp_ps[2:end]...)
+
+    return NamedTuple{exp_names}(new_sts)
+end
+
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer})
+    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
+    exp_ps = Tuple(
+        map(1:multi.n_exp) do i
+            LuxCore.initialstates(rng, multi.layers[i])
+        end
+    )
+    np = length(multi.params.all)
+
+    exp1 = exp_ps[1]
+    int1 = exp1[1]
+    F_init = zeros(eltype(int1.F_init), np, np)
+    int1 = merge(int1, (; F_init = F_init))
+    st1 = merge(exp1, (; interval_1 = int1))
+
+    new_sts = (st1, exp_ps[2:end]...)
+
+    return NamedTuple{exp_names}(new_sts)
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})

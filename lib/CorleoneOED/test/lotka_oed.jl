@@ -63,10 +63,48 @@ res = zeros(3)
 @test [12.0, 12.0, 0.0] == res
 @test CorleoneOED.get_sampling_sums(oed, nothing, ps, st) == res[1:2]
 @test_nowarn @inferred CorleoneOED.get_sampling_sums(oed, nothing, ps, st)
+shooting_points = [0.0, 3.0, 6.0, 9.0]
+
+@testset "Integer measurements" begin
+    for discrete in [true, false]
+        for integer_sampling in [true, false]
+            for fixed in [true, false]
+                for shooting in [true, false]
+
+                    shooting && fixed && continue
+
+                    oed = shooting ? OEDLayer{discrete}(
+                            prob, Tsit5(), shooting_points,
+                            params = [2, 3],
+                            controls = fixed ? [] : (1 => control,),
+                            measurements = [
+                                ControlParameter(collect(tgrid1), controls = ones(length(tgrid1)), bounds = (0.0, 1.0)),
+                                ControlParameter(collect(tgrid2), controls = ones(length(tgrid2)), bounds = (0.0, 1.0)),
+                            ],
+                            observed = (u, p, t) -> u[1:2],
+                        ) : OEDLayer{discrete}(
+                            prob, Tsit5(),
+                            params = [2, 3],
+                            controls = fixed ? [] : (1 => control,),
+                            measurements = [
+                                ControlParameter(collect(tgrid1), controls = ones(length(tgrid1)), bounds = (0.0, 1.0)),
+                                ControlParameter(collect(tgrid2), controls = ones(length(tgrid2)), bounds = (0.0, 1.0)),
+                            ],
+                            observed = (u, p, t) -> u[1:2],
+                        )
+
+                    optprob = OptimizationProblem(oed, ACriterion(), M = [4.0, 4.0], integer_weights = integer_sampling)
+
+                    @test sum(optprob.int) == (integer_sampling ? length(tgrid1) + length(tgrid2) : 0)
+                end
+            end
+        end
+    end
+end
+
 
 
 @testset "Single Experiments" begin
-    shooting_points = [0.0, 3.0, 6.0, 9.0]
     multi_layer = MultipleShootingLayer(prob, Tsit5(), shooting_points..., controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 
     for _layer in [layer, multi_layer]
