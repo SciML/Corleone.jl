@@ -82,7 +82,6 @@ function compute_initial_F(prob::Union{ODEProblem, DAEProblem}, alg, config, par
     return F_tf_sens
 end
 
-
 function compute_svd_of_F(prob, alg, config, params; ns = nothing, threshold_singular_values = 0.95, threshold_singular_vectors = 0.1, kwargs...)
     F = compute_initial_F(prob, alg, config, params)
     svdF = svd(F)

@@ -112,3 +112,35 @@ optu = uopt.u + zero(ComponentArray(ps))
 sol, _ = oed(nothing, optu, st)
 
 plot_oed(sol, optu.controls)
+
+
+# ## Integer sampling decisions
+
+# Even though optimal solutions to OED problems tend to have integer solutions if the
+# discretization grid is chosen adequately, sometimes it might be necessary to enforce
+# integrality of the sampling decisions and include it in the problem formulation. This is
+# also possible in Corleone. This is possible by passing `integer_weights = true` to the
+# OptimizationProblem constructor.
+
+optprob = OptimizationProblem(oed, DCriterion(); M = [6.0], integer_weights = true)
+
+# This problem must then be solved by a suitable MINLP solver. In this case, we use Juniper.
+
+using Juniper
+
+opt = OptimizationMOI.MOI.OptimizerWithAttributes(
+    Juniper.Optimizer,
+    "nl_solver" => OptimizationMOI.MOI.OptimizerWithAttributes(
+        Ipopt.Optimizer,
+        "print_level" => 0,
+    )
+)
+
+sol = solve(optprob, opt)
+
+# As the relaxed solution was already integer, the same solution is obtained via Juniper.
+
+optu = uopt.u + zero(ComponentArray(ps))
+sol, _ = oed(nothing, optu, st)
+
+plot_oed(sol, optu.controls)

@@ -22,7 +22,7 @@ makedocs(
     format = Documenter.HTML(
         assets = ["assets/favicon.ico"],
         canonical = "https://docs.sciml.ai/Corleone/stable/",
-        size_threshold = 1_000_000,  # bytes
+        size_threshold = 1_500_000,  # bytes
     ),
     #DocumenterVitepress.MarkdownVitepress(
     #    repo = "github.com/SciML/Corleone.jl",

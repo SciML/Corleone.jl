@@ -117,6 +117,29 @@ optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st)
 
 plot_experiments(optsol)
 
+# ## Updating the FIM
+
+# As before in [the Lotka OED example](@ref lotka_oed), the initial FIM can be updated from
+# the obtained solution. This way, the `MultiExperimentLayer` can be easily used in an iterative
+# measurement campaign in which it is necessary to also consider previous experiments.
+
+previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
+
+st_new = CorleoneOED.update_fim(multi_exp, [previous_experiment], st)
+optprob = remake(optprob, p = st_new)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-7,
+    hessian_approximation = "limited-memory",
+    max_iter = 300
+);
+
+#
+optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st_new)
+
+plot_experiments(optsol)
+
 
 # ## Different parameters per experiment
 

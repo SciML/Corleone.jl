@@ -64,7 +64,6 @@ function OEDLayer{DISCRETE}(prob::DEProblem, alg::DEAlgorithm, shooting_points..
     return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
 end
 
-
 function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
 
     (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
@@ -142,6 +141,28 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
 end
 
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+    FIM = sum(
+        map(experiments) do experiment
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+        end
+    )
+
+    return merge(st, (; F_init = FIM + st.F_init))
+end
+
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+    FIM = sum(
+        map(experiments) do experiment
+            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+        end
+    )
+
+    st1 = merge(st[1], (; F_init = FIM + st[1].F_init))
+
+    return merge(st, (; interval_1 = st1))
+end
+
 n_observed(layer::OEDLayer) = length(layer.sampling_indices)
 Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
 Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
@@ -181,10 +202,18 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         end
         end : measurement_indices
 
+    T = eltype(problem.u0)
+    size_F = size(oed.observed.fisher.getters)
+    if length(size_F) > 2
+        size_F = size_F[1:2]
+    end
+    F_init = zeros(T, size_F)
+
     return merge(
         st, (;
             observation_grid = WeightedObservation(weighting_grid),
             active_controls = measurement_indices,
+            F_init = F_init,
         )
     )
 end
@@ -195,8 +224,10 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
     st = LuxCore.initialstates(rng, layer)
     # Our goal is to build a weigthing matrix similar to the indexgrid
     grids = Corleone.get_timegrid.(controls)
+    T = eltype(problem.u0)
+    F_init = zeros(T, size(oed.observed.fisher.getters))
 
-    return map(st) do sti
+    st_new = map(st) do sti
         tspan = (first(first(sti.tspans)), last(last(sti.tspans)))
         overall_grid = vcat(reduce(vcat, grids), collect(tspan))
         unique!(sort!(overall_grid))
@@ -233,6 +264,34 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
             )
         )
     end
+
+    st1 = merge(st_new[1], (; F_init = F_init))
+    return merge(st_new, (; interval_1 = st1))
+end
+
+get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = oed.layer.problem
+get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = oed.layer.layer.problem
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer})
+    (; layer, sampling_indices) = oed
+    st = LuxCore.initialstates(rng, layer)
+    problem = get_problem(oed)
+    T = eltype(problem.u0)
+    F_init = zeros(T, size(oed.observed.fisher.getters))
+
+    return merge(st, (; F_init = F_init))
+end
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer})
+    (; layer, sampling_indices) = oed
+    st = LuxCore.initialstates(rng, layer)
+    problem = get_problem(oed)
+    T = eltype(problem.u0)
+    F_init = zeros(T, size(oed.observed.fisher.getters))
+
+    st1 = st.interval_1
+    st1 = merge(st1, (; F_init = F_init))
+    return merge(st, (; interval_1 = st1))
 end
 
 __fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
@@ -269,57 +328,79 @@ function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory,
     return observation_grid(controls, Gs)
 end
 
-fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer, x, ps, st::NamedTuple; add_initial = true) = begin
     traj, st = oed(x, ps, st)
-    sum(__fisher_information(oed, traj)), st
+    F = add_initial ? st.F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
+    return F, st
 end
 
 # Continuous ALWAYS last FIM
-fisher_information(oed::OEDLayer{false}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
     traj, st = oed(x, ps, st)
-    last(__fisher_information(oed, traj)), st
+    F = add_initial ? st.F_init + last(__fisher_information(oed, traj)) : last(__fisher_information(oed, traj))
+    return F, st
+end
+
+fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
+    traj, st = oed(x, ps, st)
+    F = add_initial ? st[1].F_init + last(__fisher_information(oed, traj)) : last(__fisher_information(oed, traj))
+    return F, st
 end
 
 # DISCRETE and SAMPLING -> weighted sum
-fisher_information(oed::OEDLayer{true, true, false, <:SingleShootingLayer}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{true, true, false, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
     (; observation_grid) = st
     traj, st = oed(x, ps, st)
     Gs = __fisher_information(oed, traj)
-    observation_grid(ps.controls, Gs), st
+    F = add_initial ? st.F_init + observation_grid(ps.controls, Gs) : observation_grid(ps.controls, Gs)
+    return F, st
 end
 
 # FIXED DISCRETE and SAMPLING -> use helper function
-fisher_information(oed::OEDLayer{true, true, true}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{true, true, true}, x, ps, st::NamedTuple; add_initial = true) = begin
     traj, st = oed(x, ps, st)
-    __fisher_information(oed, traj, ps, st), st
+    F = add_initial ? st.F_init + __fisher_information(oed, traj, ps, st) : __fisher_information(oed, traj, ps, st)
+    return F, st
 end
 
-fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
     traj, st = oed(x, ps, st)
     Gs = __fisher_information(oed, traj, ps, st)
-    sum(
-            map(eachindex(Gs)) do i
-                psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
-                sti.observation_grid(psi.controls, Gs[i])
+    F = sum(
+        map(eachindex(Gs)) do i
+            psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
+            sti.observation_grid(psi.controls, Gs[i])
         end
-        ), st
+    )
 
+    add_initial && return st[1].F_init + F, st
+    return F, st
 end
 
 # DISCRETE -> SUM
-fisher_information(oed::OEDLayer{true, false}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{true, false, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
     (; sampling_indices, layer) = oed
     (; observation_grid) = st
     traj, st = oed(x, ps, st)
-    sum(__fisher_information(oed, traj)), st
+    F = add_initial ? st.F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
+    return F, st
+end
+
+fisher_information(oed::OEDLayer{true, false, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
+    (; sampling_indices, layer) = oed
+    (; observation_grid) = st
+    traj, st = oed(x, ps, st)
+    F = add_initial ? st[1].F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
+    return F, st
 end
 
 # FIXED + CONTINUOUS
-fisher_information(oed::OEDLayer{false, true, true}, x, ps, st::NamedTuple) = begin
+fisher_information(oed::OEDLayer{false, true, true}, x, ps, st::NamedTuple; add_initial = true) = begin
     (; sampling_indices, layer) = oed
     (; observation_grid) = st
     traj, st = oed(x, ps, st)
-    __fisher_information(oed, traj, ps, st), st
+    F = add_initial ? st.F_init + __fisher_information(oed, traj, ps, st) : __fisher_information(oed, traj, ps, st)
+    return F, st
 end
 
 sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
