@@ -111,7 +111,7 @@ function Corleone.CorleoneDynamicOptProblem(
     # We currently assume a single cost
     costbody = SymbolicUtils.Code.toexpr(substitute(only(newcosts), vars_subs))
 
-    costfn = :(($(args_...)) -> $costbody)
+    costfn = Expr(:->, Expr(:tuple, args_...), costbody)
 
     costfun = @RuntimeGeneratedFunction(
         costfn
