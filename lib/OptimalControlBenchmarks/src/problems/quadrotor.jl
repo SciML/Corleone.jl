@@ -44,6 +44,7 @@ function quadrotor(grids)
         grid_cons_x₃...,
     ]
 
+    t_f = last(tspan)
     costs = [
         5 * (x₁(t_f) - 6)^2 + 5 * (x₃(t_f) - 1)^2 + 5 * (sin(x₅(t_f) * 0.5))^2 + Symbolics.Integral(t in (0.0, last(tspan)))(
             5 * u(t)^2

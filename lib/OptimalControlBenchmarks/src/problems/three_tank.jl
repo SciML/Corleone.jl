@@ -35,8 +35,16 @@ function three_tank(grids)
 
     grid_cons_w = [w₁(tᵢ) + w₂(tᵢ) + w₃(tᵢ) ~ 1.0 for tᵢ in constraint_grid]
 
+    # ensure that the state variables remain positive
+    grid_cons_x₁ = [x₁(tᵢ) ≳ 0. for tᵢ in constraint_grid]
+    grid_cons_x₂ = [x₂(tᵢ) ≳ 0. for tᵢ in constraint_grid]
+    grid_cons_x₃ = [x₃(tᵢ) ≳ 0. for tᵢ in constraint_grid]
+
     cons = [
         grid_cons_w...,
+        grid_cons_x₁...,
+        grid_cons_x₂...,
+        grid_cons_x₃...,
     ]
 
     costs = [
