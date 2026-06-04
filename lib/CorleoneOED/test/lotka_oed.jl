@@ -103,7 +103,6 @@ shooting_points = [0.0, 3.0, 6.0, 9.0]
 end
 
 
-
 @testset "Single Experiments" begin
     multi_layer = MultipleShootingLayer(prob, Tsit5(), shooting_points..., controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
 

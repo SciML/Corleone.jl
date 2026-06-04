@@ -2,7 +2,7 @@ function rao_mease(grids)
 
     num_states = 2
     num_controls = 1
-    tspan = (0.0, 10)
+    tspan = (0.0, 10.0)
 
     scaled_grids = scale_grids!(tspan, grids)
 
