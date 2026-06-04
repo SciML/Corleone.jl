@@ -1,12 +1,7 @@
 using CorleoneOED
 using SafeTestsets
 
-# Centralized sublibrary CI emits GROUP as the bare package name (-> "Core") or
-# "<pkg>_<grp>" (-> "<grp>"). Map it to the standard Core/QA section names this
-# file dispatches on. GROUP="All" keeps local `Pkg.test()` runs running everything.
-const _G = get(ENV, "GROUP", "All")
-const _SUB = "CorleoneOED"
-const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SUB) + 2):end] : _G)
+const GROUP = get(ENV, "CORLEONE_TEST_GROUP", "All")
 
 if GROUP == "All" || GROUP == "Core"
     @safetestset "1D Example" begin
