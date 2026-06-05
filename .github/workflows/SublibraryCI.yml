@@ -1,15 +1,22 @@
 name: Sublibrary CI
+
 on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
-  sublibrary-ci:
-    uses: "SciML/.github/.github/workflows/sublibrary-tests.yml@v1"
+  sublibraries:
+    uses: "SciML/.github/.github/workflows/sublibrary-project-tests.yml@v1"
     secrets: "inherit"
