@@ -24,15 +24,10 @@ jobs:
           - QA
         version:
           - 'lts'
-          - '1.11'
           - '1'
           - 'pre'
         exclude:
-          # QA (Aqua) only needs the current release.
-          - group: QA
-            version: 'lts'
-          - group: QA
-            version: '1.11'
+          # QA (Aqua) runs on lts + current release only, not pre.
           - group: QA
             version: 'pre'
     uses: "SciML/.github/.github/workflows/tests.yml@v1"
