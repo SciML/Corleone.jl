@@ -15,27 +15,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch || github.ref != 'refs/tags/v*' }}
 jobs:
   tests:
-    name: "${{ matrix.group }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        group:
-          - Core
-          - Examples
-          - QA
-        version:
-          - 'lts'
-          - '1'
-          - 'pre'
-        exclude:
-          # QA (Aqua) runs on lts + current release only, not pre.
-          - group: QA
-            version: 'pre'
-    uses: "SciML/.github/.github/workflows/tests.yml@v1"
+    uses: "SciML/.github/.github/workflows/grouped-tests.yml@v1"
     with:
-      julia-version: "${{ matrix.version }}"
-      group: "${{ matrix.group }}"
-      group-env-name: "GROUP"
       check-bounds: "auto"
       coverage-directories: "src"
     secrets: "inherit"
