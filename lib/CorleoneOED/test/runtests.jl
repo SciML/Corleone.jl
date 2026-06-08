@@ -24,13 +24,13 @@ const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SU
 
 if GROUP == "All" || GROUP == "Core"
     @safetestset "1D Example" begin
-        include("1d_oed.jl")
+        include("core/1d_oed.jl")
     end
     @safetestset "Lotka Volterra" begin
-        include("lotka_oed.jl")
+        include("core/lotka_oed.jl")
     end
     @safetestset "Lotka Volterra SVD" begin
-        include("lotka_oed_svd.jl")
+        include("core/lotka_oed_svd.jl")
     end
 end
 
