@@ -1,6 +1,19 @@
 using OptimalControlBenchmarks
 using Test
 using SafeTestsets
+using Pkg
+
+# QA (Aqua) runs in an isolated environment (test/qa) so its tooling deps never
+# enter the main test target's resolve. On Julia < 1.11 the [sources] table is
+# ignored, so develop the package and its in-repo sibling by path.
+function activate_qa_env()
+    Pkg.activate(joinpath(@__DIR__, "qa"))
+    Pkg.develop([
+        Pkg.PackageSpec(path = joinpath(@__DIR__, "..")),
+        Pkg.PackageSpec(path = joinpath(@__DIR__, "..", "..", ".."))
+    ])
+    return Pkg.instantiate()
+end
 
 # Centralized sublibrary CI sets CORLEONE_TEST_GROUP to the bare package name
 # (-> "Core") or "<pkg>_<grp>" (-> "<grp>"). Fall back to GROUP, then "All", so
@@ -18,9 +31,6 @@ if GROUP == "All" || GROUP == "Core"
 end
 
 if GROUP == "All" || GROUP == "QA"
-    @safetestset "Code quality (Aqua.jl)" begin
-        using Aqua
-        using OptimalControlBenchmarks
-        Aqua.test_all(OptimalControlBenchmarks)
-    end
+    activate_qa_env()
+    @safetestset "Code quality (Aqua.jl)" include("qa/qa.jl")
 end
