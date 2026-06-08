@@ -1,0 +1,61 @@
+[default.extend-words]
+# Julia-specific functions
+indexin = "indexin"
+findfirst = "findfirst"
+findlast = "findlast"
+eachindex = "eachindex"
+setp = "setp"
+getp = "getp"
+setu = "setu"
+getu = "getu"
+
+# Common variable patterns in Julia/SciML
+osys = "osys"
+rsys = "rsys"
+usys = "usys"
+eqs = "eqs"
+rhs = "rhs"
+lhs = "lhs"
+ode = "ode"
+oed = "oed"
+ivp = "ivp"
+
+# Common abbreviations
+tol = "tol"
+rtol = "rtol"
+atol = "atol"
+idx = "idx"
+prev = "prev"
+curr = "curr"
+init = "init"
+tmp = "tmp"
+vec = "vec"
+arr = "arr"
+dt = "dt"
+du = "du"
+dx = "dx"
+dy = "dy"
+
+# Algorithm/type suffixes
+alg = "alg"
+prob = "prob"
+sol = "sol"
+cb = "cb"
+opts = "opts"
+args = "args"
+kwargs = "kwargs"
+
+# Scientific abbreviations
+ND = "ND"
+nd = "nd"
+MTK = "MTK"
+ODE = "ODE"
+OED = "OED"
+
+# Domain terms
+jacobian = "jacobian"
+hessian = "hessian"
+discretization = "discretization"
+parameterized = "parameterized"
+discretized = "discretized"
+vectorized = "vectorized"

@@ -1,5 +1,4 @@
 using BenchmarkTools
-using OptimalControlBenchmarks
 
 function run_all(benchmarks, optimizer, grids)
 
