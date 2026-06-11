@@ -177,7 +177,7 @@ get_size_F(oed::OEDLayer{true, true, <:Any}) = begin
 end
 get_size_F(oed::OEDLayer{false, true, true}) = begin
     sizeF = size(oed.observed.fisher.getters)
-        if length(sizeF) > 2
+    if length(sizeF) > 2
         sizeF = sizeF[1:2]
     end
     return sizeF
