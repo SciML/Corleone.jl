@@ -6,7 +6,9 @@ using OrdinaryDiffEqTsit5
 using ComponentArrays, ForwardDiff
 using Optimization
 using OptimizationMOI, Ipopt
-using LuxCore, Random
+using LuxCore, StableRNGs
+
+rng = StableRNG(42)
 
 
 @variables x(..) = 0.5 [tunable = false] y(..) = 0.7 [tunable = false]
@@ -49,7 +51,7 @@ cons = [
 
     @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons)
 
-    ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
+    ps, st = LuxCore.setup(rng, dynopt.layer)
 
     traj, _ = dynopt.layer(nothing, ps, st)
 
@@ -82,7 +84,7 @@ end
 
     @test size(optprob.lcons, 1) == size(optprob.ucons, 1) == length(cons) + Corleone.get_number_of_shooting_constraints(dynopt.layer)
 
-    ps, st = LuxCore.setup(Random.default_rng(), dynopt.layer)
+    ps, st = LuxCore.setup(rng, dynopt.layer)
 
     traj, _ = dynopt.layer(nothing, ps, st)
 

@@ -1,7 +1,7 @@
 using Corleone
 using OrdinaryDiffEqTsit5
 using Test
-using Random
+using StableRNGs
 using LuxCore
 using ComponentArrays
 using Optimization, OptimizationMOI, Ipopt
@@ -11,7 +11,7 @@ using SciMLSensitivity.ReverseDiff
 using SciMLSensitivity.Zygote
 using SymbolicIndexingInterface
 
-rng = Random.default_rng()
+rng = StableRNG(42)
 
 function lotka_dynamics!(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]

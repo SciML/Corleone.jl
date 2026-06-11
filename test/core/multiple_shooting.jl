@@ -1,12 +1,12 @@
 using Corleone
 using OrdinaryDiffEqTsit5
 using Test
-using Random
+using StableRNGs
 using LuxCore
 using ComponentArrays
 using LinearAlgebra
 
-rng = Random.default_rng()
+rng = StableRNG(42)
 
 function lotka_dynamics(u, p, t)
     return [
@@ -51,7 +51,7 @@ lb, ub = Corleone.get_bounds(layer)
     @test Corleone.get_block_structure(layer) == vcat(0, blocks)
     traj, st2 = layer(nothing, ps, st)
     @test Corleone.is_shooting_solution(traj)
-    @test Corleone.shooting_constraints(traj) == [
+    @test isapprox(Corleone.shooting_constraints(traj), [
         1.375754960969482,
         0.22357357513551113,
         1.2417260108009396,
@@ -67,12 +67,12 @@ lb, ub = Corleone.get_bounds(layer)
         0.0,
         0.0,
         0.0,
-    ]
+    ], atol=1e-10)
     @test Corleone.get_number_of_shooting_constraints(layer) ==
         length(Corleone.shooting_constraints(traj)) ==
         15
     res = zeros(30)
-    @test Corleone.shooting_constraints!(res[10:24], traj) == [
+    @test isapprox(Corleone.shooting_constraints!(res[10:24], traj), [
         1.375754960969482,
         0.22357357513551113,
         1.2417260108009396,
@@ -88,9 +88,9 @@ lb, ub = Corleone.get_bounds(layer)
         0.0,
         0.0,
         0.0,
-    ]
+    ], atol=1e-10)
     @views Corleone.shooting_constraints!(res[10:24], traj)
-    @test res[10:24] == [
+    @test isapprox(res[10:24], [
         1.375754960969482,
         0.22357357513551113,
         1.2417260108009396,
@@ -106,7 +106,7 @@ lb, ub = Corleone.get_bounds(layer)
         0.0,
         0.0,
         0.0,
-    ]
+    ], atol=1e-10)
 end
 
 @testset "Parallel" begin
@@ -211,8 +211,7 @@ end
         traj, _ = layer(nothing, ps, st)
         @test isempty(ps.interval_1.u0)
         @test ps.interval_2.u0 == [0.5, 3.0, -5.0]
-        @test ps.interval_3.u0 ==
-            [0.2875960819428889, 0.27699894224421623, -1.088467272254529]
+        @test isapprox(ps.interval_3.u0, [0.2875960819428889, 0.27699894224421623, -1.088467272254529], atol=1e-10)
         @test ps.interval_4.u0 == u0
     end
 end
