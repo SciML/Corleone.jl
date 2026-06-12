@@ -168,6 +168,21 @@ Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <
 Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
 
+get_size_F(oed::OEDLayer{true, true, <:Any}) = begin
+    size_hxG = size(oed.observed.fisher.getters)
+    if length(size_hxG) > 2
+        size_hxG = size_hxG[1:2]
+    end
+    return (size_hxG[2], size_hxG[2])
+end
+get_size_F(oed::OEDLayer{false, true, true}) = begin
+    sizeF = size(oed.observed.fisher.getters)
+    if length(sizeF) > 2
+        sizeF = sizeF[1:2]
+    end
+    return sizeF
+end
+
 # This is the only case where we need to sample the trajectory
 function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true, true, <:Any, <:SingleShootingLayer}, OEDLayer{false, true, true}})
     (; layer, sampling_indices) = oed
@@ -203,11 +218,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true
         end : measurement_indices
 
     T = eltype(problem.u0)
-    size_F = size(oed.observed.fisher.getters)
-    if length(size_F) > 2
-        size_F = size_F[1:2]
-    end
-    F_init = zeros(T, size_F)
+    F_init = zeros(T, get_size_F(oed))
 
     return merge(
         st, (;
@@ -225,7 +236,7 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true
     # Our goal is to build a weigthing matrix similar to the indexgrid
     grids = Corleone.get_timegrid.(controls)
     T = eltype(problem.u0)
-    F_init = zeros(T, size(oed.observed.fisher.getters))
+    F_init = zeros(T, get_size_F(oed))
 
     st_new = map(st) do sti
         tspan = (first(first(sti.tspans)), last(last(sti.tspans)))

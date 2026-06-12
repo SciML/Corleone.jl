@@ -1,10 +1,10 @@
 using Corleone
 using OrdinaryDiffEqTsit5
 using Test
-using Random
+using StableRNGs
 using LuxCore
 
-rng = Random.default_rng()
+rng = StableRNG(42)
 
 c = ControlParameter(0:0.01:1.0)
 lb, ub = Corleone.get_bounds(c)
@@ -70,7 +70,7 @@ c5 = ControlParameter(1.0:10.0, bounds = (ones(10), -ones(10)), controls = colle
     )
 
     layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = ([2, 3, 1] .=> [c2, c3, c1]))
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    ps, st = LuxCore.setup(rng, layer)
     sol, _ = layer(nothing, ps, st)
 
     @test all(0.6 .<= sol[:con3] .<= 0.8)
