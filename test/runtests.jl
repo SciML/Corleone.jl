@@ -35,9 +35,15 @@ function activate_examples_env()
     return Pkg.instantiate()
 end
 
+# Reserved main-suite group names: these route to the main-package branch below,
+# never to a sublibrary, even if a lib/<name> directory happened to match.
+const _RESERVED_GROUPS = ("All", "Core", "Examples", "QA")
+
 # Scan underscores right-to-left to find the longest matching sublibrary prefix,
-# returning (sublibrary, test_group) where test_group defaults to "Core".
+# returning (sublibrary, test_group) where test_group defaults to "Core". An empty
+# or reserved GROUP is never a sublibrary (an empty name would match lib/ itself).
 function _detect_sublibrary_group(group, lib_dir)
+    (isempty(group) || group in _RESERVED_GROUPS) && return (group, "Core")
     isdir(joinpath(lib_dir, group)) && return (group, "Core")
     for i in length(group):-1:1
         if group[i] == '_' && isdir(joinpath(lib_dir, group[1:(i - 1)]))
@@ -49,7 +55,7 @@ end
 
 const _SUBLIB, _SUB_GROUP = _detect_sublibrary_group(GROUP, LIB_DIR)
 
-if isdir(joinpath(LIB_DIR, _SUBLIB))
+if !isempty(_SUBLIB) && !(_SUBLIB in _RESERVED_GROUPS) && isdir(joinpath(LIB_DIR, _SUBLIB))
     sublib_path = joinpath(LIB_DIR, _SUBLIB)
     Pkg.activate(sublib_path)
     # On Julia < 1.11 the [sources] table in Project.toml is ignored, so develop
