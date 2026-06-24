@@ -1,3 +1,7 @@
+# Ipopt and UnoSolver are NLP solver back ends used only by this demo script,
+# not by the OptimalControlBenchmarks package, so they are not package deps.
+# Add them to the active environment before running this script, e.g.
+#   import Pkg; Pkg.add(["Ipopt", "UnoSolver"])
 using OptimalControlBenchmarks
 using Corleone
 using UnoSolver

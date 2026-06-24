@@ -299,6 +299,32 @@ shooting_constraints!(res, traj::Trajectory) = res
 """
 $(SIGNATURES)
 
+Concatenate the shooting constraints of a collection of `Trajectory`s, as produced when a
+layer is evaluated over multiple experiments.
+"""
+function shooting_constraints(trajs::AbstractVector{<:Trajectory})
+    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
+end
+
+"""
+$(SIGNATURES)
+
+In-place version of `shooting_constraints` for a collection of `Trajectory`s.
+"""
+function shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
+    i = 0
+    for traj in trajs
+        for subvec in traj.shooting, j in eachindex(subvec)
+            i += 1
+            res[i] = subvec[j]
+        end
+    end
+    return res
+end
+
+"""
+$(SIGNATURES)
+
 Compute the block structure of the hessian of the Lagrangian of an optimal control problem
 as specified via the `shooting_intervals` of the `MultipleShootingLayer`.
 Note: Constraints other than the matching conditions of the multiple shooting approach

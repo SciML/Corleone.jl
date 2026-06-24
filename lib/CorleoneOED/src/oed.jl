@@ -141,7 +141,7 @@ function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = 
     return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
 end
 
-function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {SAMPLED, FIXED}
     FIM = sum(
         map(experiments) do experiment
             fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
@@ -151,7 +151,7 @@ function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer},
     return merge(st, (; F_init = FIM + st.F_init))
 end
 
-function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, SAMPLED, FIXED}
+function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {SAMPLED, FIXED}
     FIM = sum(
         map(experiments) do experiment
             fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
@@ -458,6 +458,9 @@ end
 
 get_sampling_sums(::OEDLayer{<:Any, false}, x, ps, st) = []
 get_sampling_sums!(res, ::OEDLayer{<:Any, false}, x, ps, st) = nothing
+
+get_sampling_sums(::OEDLayer{<:Any, false, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple) = []
+get_sampling_sums!(res, ::OEDLayer{<:Any, false, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple) = nothing
 
 __get_subsets(active_controls::AbstractVector, indices) = active_controls[indices]
 __get_subsets(index_grid::AbstractMatrix, indices) = index_grid[indices, :]
