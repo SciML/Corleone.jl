@@ -27,7 +27,7 @@ CorleoneOEDOptimizationExtension = ["Optimization", "ComponentArrays"]
 CorleoneOEDZygoteExtension = "Zygote"
 
 [compat]
-Corleone = "0.0.3"
+Corleone = "0.0.4"
 ComponentArrays = "0.15"
 DocStringExtensions = "0.9"
 ForwardDiff = "1.3"

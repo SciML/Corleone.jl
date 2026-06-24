@@ -10,7 +10,7 @@ Corleone = {path = "../.."}
 
 [compat]
 Aqua = "0.8"
-Corleone = "0.0.3"
+Corleone = "0.0.4"
 SafeTestsets = "0.1, 1"
 SciMLTesting = "1"
 Test = "1"
