@@ -2,6 +2,7 @@
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
 OptimalControlBenchmarks = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
+SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
@@ -12,5 +13,6 @@ OptimalControlBenchmarks = {path = "../.."}
 Aqua = "0.8"
 Corleone = "0.0.5"
 OptimalControlBenchmarks = "0.0.3"
+SciMLTesting = "1.6"
 Test = "1"
 julia = "1.10"
