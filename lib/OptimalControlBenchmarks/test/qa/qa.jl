@@ -13,8 +13,5 @@ run_qa(
         no_stale_explicit_imports = (; allow_unanalyzable = (OptimalControlBenchmarks,)),
         # `inputs` is re-exported by ModelingToolkit from ModelingToolkitBase.
         all_explicit_imports_via_owners = (; ignore = (:inputs,)),
-        all_explicit_imports_are_public = (; ignore = (:inputs,)),
-        # Deliberate uses of internal names not (yet) declared public upstream.
-        all_qualified_accesses_are_public = (; ignore = (:default_rng, :initialstates)),
     ),
 )

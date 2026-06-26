@@ -13,15 +13,16 @@ run_qa(
         # `ADTypes` is reached through `SciMLBase.ADTypes.AbstractADType`; ADTypes
         # is not a direct Corleone dependency, so the access goes via SciMLBase.
         all_qualified_accesses_via_owners = (; ignore = (:ADTypes,)),
-        # Deliberate uses of well-known Base/stdlib/SciML internal names that are
-        # not (yet) declared public in their owning modules.
+        # Names still not declared public in their owning modules: Base internals
+        # (`AbstractVecOrTuple`, `Splat`), SciMLBase internals (`ADTypes`,
+        # `AbstractDEAlgorithm`, `AbstractDEProblem`, `EnsembleAlgorithm`,
+        # `get_colorizers`), and SciMLStructures internals (`Tunable`,
+        # `canonicalize`).
         all_qualified_accesses_are_public = (;
             ignore = (
                 :ADTypes, :AbstractDEAlgorithm, :AbstractDEProblem,
-                :AbstractVecOrTuple, :EnsembleAlgorithm, :Fix1, :Fix2, :OneTo,
-                :Splat, :Tunable, :canonicalize, :default_rng, :front,
-                :get_colorizers, :initialparameters, :initialstates,
-                :parameterlength, :setup, :tail,
+                :AbstractVecOrTuple, :EnsembleAlgorithm, :Splat, :Tunable,
+                :canonicalize, :get_colorizers,
             ),
         ),
     ),
