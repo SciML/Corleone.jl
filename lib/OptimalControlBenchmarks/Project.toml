@@ -33,7 +33,7 @@ UnoSolver = "1baa60ac-02f7-4b39-a7a8-2f4f58486b05"
 
 [compat]
 ComponentArrays = "0.15"
-Corleone = "0.0.4"
+Corleone = "0.0.5"
 DocStringExtensions = "0.9"
 ForwardDiff = "1.3"
 Ipopt = "1"

@@ -19,7 +19,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 ComponentArrays = "0.15"
-Corleone = "0.0.4"
+Corleone = "0.0.5"
 ForwardDiff = "1.2"
 Ipopt = "1.10"
 LuxCore = "1.4"
