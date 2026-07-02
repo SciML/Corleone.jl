@@ -330,7 +330,7 @@ function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, 
 end
 
 function Corleone.shooting_constraints(trajs::AbstractVector{<:Trajectory})
-    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
+    return reduce(vcat, reduce(vcat, Corleone.shooting_violations.(trajs)))
 end
 
 function Corleone.shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
