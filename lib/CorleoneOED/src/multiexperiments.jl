@@ -170,7 +170,7 @@ Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
 Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
 
-function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
+function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED}
     FIM = sum(
         map(experiments) do experiment
             fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
@@ -184,7 +184,7 @@ function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleSh
 end
 
 
-function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED, SPLIT}
+function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED}
     FIM = sum(
         map(experiments) do experiment
             fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
@@ -327,19 +327,4 @@ function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, 
     block_structure = reduce(vcat, [i == 1 ? blocks[i] : blocks[i][2:end] for i in 1:layer.n_exp])
 
     return block_structure
-end
-
-function Corleone.shooting_constraints(trajs::AbstractVector{<:Trajectory})
-    return reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
-end
-
-function Corleone.shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
-    i = 0
-    for traj in trajs
-        for subvec in traj.shooting, j in eachindex(subvec)
-            i += 1
-            res[i] = subvec[j]
-        end
-    end
-    return res
 end
