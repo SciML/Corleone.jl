@@ -296,6 +296,19 @@ end
 
 shooting_constraints!(res, traj::Trajectory) = res
 
+shooting_constraints(trajs::AbstractVector{<:Trajectory}) = reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
+
+function shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
+    i = 0
+    for traj in trajs
+        for subvec in traj.shooting, j in eachindex(subvec)
+            i += 1
+            res[i] = subvec[j]
+        end
+    end
+    return res
+end
+
 """
 $(SIGNATURES)
 
