@@ -1,6 +1,8 @@
 """
 $(TYPEDEF)
+
 Generalization of OEDLayer to multiple experiments that can be jointly optimized.
+
 # Fields
 $(FIELDS)
 """
@@ -41,6 +43,26 @@ function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}) wh
     end
 end
 
+"""
+$(SIGNATURES)
+
+Constructs a multi-experiment OED layer from one differential equation problem.
+
+# Arguments
+- `prob`: Differential equation problem shared by the experiments.
+- `alg`: Differential equation solver algorithm.
+- `nexp`: Number of experiments, or pass a vector of parameter-index vectors to split
+  parameters across experiments.
+- `shooting_points`: Optional multiple-shooting points.
+
+# Keywords
+- `params`: Parameter indices included in each experiment.
+- `measurements`: Optional measurement controls.
+- `observed`: Observation map `(u, p, t) -> y`.
+
+# Returns
+A `MultiExperimentLayer` whose parameters and states are grouped by experiment.
+"""
 function MultiExperimentLayer{DISCRETE}(
         prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, nexp::Int;
         params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...
