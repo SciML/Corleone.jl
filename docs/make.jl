@@ -1,6 +1,6 @@
 using Pkg
 
-using Documenter, Corleone
+using Documenter, Corleone, CorleoneOED, OptimalControlBenchmarks
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
@@ -18,7 +18,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib
 makedocs(
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone],
+    modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
     format = Documenter.HTML(
         assets = ["assets/favicon.ico"],
         canonical = "https://docs.sciml.ai/Corleone/stable/",

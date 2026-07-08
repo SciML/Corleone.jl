@@ -54,12 +54,12 @@ function default_initialization(rng::Random.AbstractRNG, shooting::MultipleShoot
     return NamedTuple{names}(vals)
 end
 
-```
+"""
 $(METHODLIST)
 
 Constructs a `MultipleShootingLayer` from given `AbstractDEProblem` `prob` with suitable
 integration method `alg` and vector of shooting points `tpoints`.
-```
+"""
 function MultipleShootingLayer(prob, alg, tpoints::AbstractVector; kwargs...)
     return MultipleShootingLayer(prob, alg, tpoints...; kwargs...)
 end
@@ -327,10 +327,10 @@ function get_block_structure(mslayer::MultipleShootingLayer)
     return vcat(0, cumsum(ps_lengths))
 end
 
-```
+"""
 $(SIGNATURES)
 Extracts lower and upper bounds of all optimization variables in the `MultipleShootingLayer`.
-```
+"""
 function get_bounds(mslayer::MultipleShootingLayer)
     (; layer, shooting_intervals) = mslayer
     names = ntuple(i -> Symbol(:interval, "_", i), length(shooting_intervals))
