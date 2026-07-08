@@ -13,3 +13,10 @@ Order = [:type, :function]
 Modules = [CorleoneOED]
 Order = [:type, :function]
 ```
+
+## OptimalControlBenchmarks
+
+```@autodocs
+Modules = [OptimalControlBenchmarks]
+Order = [:type, :function]
+```
