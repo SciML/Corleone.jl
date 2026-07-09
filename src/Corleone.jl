@@ -2,10 +2,12 @@ module Corleone
 
 using Reexport
 using DocStringExtensions
+using DispatchDoctor: @stable
 using Random
-
-using RecursiveArrayTools
 using LinearAlgebra
+
+using ConcreteStructs
+
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
@@ -18,11 +20,9 @@ using ChainRulesCore
 using LuxCore
 using Functors
 
-# For evaluation
-mythreadmap(::EnsembleSerial, args...) = map(args...)
-mythreadmap(::EnsembleThreads, args...) = tmap(args...)
-mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
+include("solutions/Solutions.jl")
 
+#=
 # General methods for Corleone Layer
 get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
 get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
@@ -55,5 +55,5 @@ abstract type AbstractCorleoneFunctionWrapper end
 
 include("dynprob.jl")
 export CorleoneDynamicOptProblem
-
+=#
 end

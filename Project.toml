@@ -1,10 +1,12 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 version = "0.0.5"
+authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
+DispatchDoctor = "8d63f2c5-f18a-4cf2-ba9d-b3f60fc568c8"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
@@ -12,7 +14,6 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
@@ -25,13 +26,15 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
-CorleoneMakieExtension = "Makie"
-CorleoneComponentArraysExtension = ["ComponentArrays"]
-CorleoneModelingToolkitExtension = "ModelingToolkit"
+#CorleoneComponentArraysExtension = ["ComponentArrays"]
+#CorleoneMakieExtension = "Makie"
+#CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
 ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15"
+ConcreteStructs = "0.2.5"
+DispatchDoctor = "0.4.28"
 Distributed = "1"
 DocStringExtensions = "0.9.3"
 Functors = "0.5"
@@ -44,13 +47,12 @@ Optimization = "5"
 OrdinaryDiffEqTsit5 = "1, 2"
 Pkg = "1"
 Random = "1"
-RecursiveArrayTools = "3.37.0"
 Reexport = "1.2.2"
 SafeTestsets = "0.1, 1"
-StableRNGs = "1"
 SciMLBase = "2.141.0, 3"
 SciMLStructures = "1.7"
 SciMLTesting = "1"
+StableRNGs = "1"
 SymbolicIndexingInterface = "0.3.43"
 Test = "1"
 julia = "1.10"
