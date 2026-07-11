@@ -48,6 +48,7 @@ Reexport = "1.2.2"
 SafeTestsets = "0.1"
 SciMLBase = "2.141.0, 3"
 SciMLStructures = "1.7"
+SciMLTesting = "2.1"
 StableRNGs = "1"
 SymbolicIndexingInterface = "0.3.43"
 Symbolics = "7.2.0"
@@ -62,10 +63,11 @@ OptimizationMOI = "fd9f6733-72f4-499f-8506-86b2bdd0dea1"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources.Corleone]
 path = "../.."
 
 [targets]
-test = ["Pkg", "SafeTestsets", "Test"]
+test = ["Pkg", "SafeTestsets", "SciMLTesting", "Test"]
