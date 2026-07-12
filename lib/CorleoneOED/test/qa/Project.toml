@@ -11,7 +11,7 @@ Corleone = {path = "../../../.."}
 [compat]
 Aqua = "0.8"
 Corleone = "0.0.5"
-CorleoneOED = "0.0.5"
+CorleoneOED = "0.0.6"
 SciMLTesting = "2.1"
 Test = "1"
 julia = "1.10"
