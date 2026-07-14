@@ -1,4 +1,4 @@
-@concrete terse struct ShootingLayer <: LuxCore.AbstractLuxContainerLayer{(:intervals, :controls)}
+@concrete terse struct ParallelLayer <: LuxCore.AbstractLuxContainerLayer{(:intervals, :controls)}
     control_cache
     intervals
     controls
@@ -7,7 +7,7 @@
 end
 
 
-function ShootingLayer(
+function ParallelLayer(
     problem::SciMLBase.AbstractDEProblem, 
     variable_id,
     controls...; 
@@ -20,6 +20,7 @@ function ShootingLayer(
     controlnames = reduce(vcat, map(Base.Fix2(getfield, :parameter_id), controls))
     cache = ControlSymbolCache(problem, collect(controlnames), get(kwargs, :quadratures, []))
     controls = Controls(controls...; sys = something(Solutions.get_symbolic_container(problem.f), Solutions.default_cache(problem)))
+    reset!(controls)
     timepoints = get(problem.kwargs, :saveat, eltype(tspan)[])
     append!(timepoints, collect(tspan))
     unique!(sort!(timepoints))
@@ -31,7 +32,7 @@ function ShootingLayer(
             get(kwargs, :shooting_intervals, (;))...
         )
     end
-    ShootingLayer(
+    ParallelLayer(
         cache, tuple(ics...), controls, algorithm, ensemble_algorithm
     )
 end
@@ -40,27 +41,6 @@ end
 mythreadmap(::EnsembleSerial, args...) = map(args...)
 mythreadmap(::EnsembleThreads, args...) = tmap(args...)
 mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
-
-#function sequential_solve(prob, alg, setter, controls, ps, st, tspans::NTuple{N}) where N
-#    (t0, tinf), next... = tspans 
-#    p_, st = controls(t0, ps, st)
-#    sol = solve(prob, alg,
-#        p = setter(p_), tspan = (t0, tinf), 
-#        save_everystep = false, 
-#        )
-#    next_sols = sequential_solv(remake(sol.prob, u0 = last(sol.u)), alg, setter, controls, ps, st, next)
-#    return (sol, next_sols...)
-#end
-#
-#function sequential_solve(prob, alg, setter, controls, ps, st, tspans::NTuple{1}) 
-#    (t0, tinf) = only(tspans) 
-#    p_, st = controls(t0, ps, st)
-#    sol = solve(prob, alg,
-#        p = setter(p_), tspan = (t0, tinf), 
-#        save_everystep = false, 
-#        )
-#    return (sol,)
-#end
 
 function sequential_solve(cache, prob, alg, setter, controls, ps, st, tspans::AbstractVector)
     (t0, t1) = first(tspans)
@@ -91,7 +71,7 @@ end
 
 in_tspan((ti, _)::Tuple, (t0, tinf)::Tuple) = t0 <= ti < tinf
 
-function (layer::ShootingLayer)(problem::SciMLBase.AbstractDEProblem, ps, st)
+function (layer::ParallelLayer)(problem::SciMLBase.AbstractDEProblem, ps, st)
     (; control_cache, intervals, controls, algorithm, ensemble_algorithm) = layer 
     probs, tgrids, st_interval = get_probs(intervals, controls, problem, ps, st)
     setter = let p0 = problem.p
@@ -103,6 +83,6 @@ function (layer::ShootingLayer)(problem::SciMLBase.AbstractDEProblem, ps, st)
         algorithm, setter, controls, ps.controls, st.controls, 
         tgrids[i]), length(intervals))
     sols = mythreadmap(ensemble_algorithm, Base.Fix2(Solutions.ShootingSegment, control_cache) ∘ Base.splat(sequential_solve), args)
-    Trajectory(sols, control_cache), merge(st, (; interval = st_interval))
+    sols, merge(st, (; interval = st_interval))
 end
 

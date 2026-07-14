@@ -60,3 +60,9 @@ function optimal_shooting_points(method::AbstractAutoShoot, layer::Controls, ps,
     sort!(next_shooting_points)
     next_shooting_points
 end
+
+function reset!(layer::Controls)
+    foreach(layer.controls) do control 
+        reset!(control)
+    end
+end

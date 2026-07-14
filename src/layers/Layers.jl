@@ -37,7 +37,9 @@ include("shooting.jl")
 
 include("shooting_interval.jl")
 
-include("shootinglayer.jl")
+include("parallel_layer.jl")
+
+include("shooting_layer.jl")
 
 export PiecewiseParameter
 export number_of_shooting_constraints

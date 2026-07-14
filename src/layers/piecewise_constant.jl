@@ -33,7 +33,7 @@ function PiecewiseParameter(parameter_id, tpoints::AbstractVector{<:Number}, ini
 end
 
 function reset!(pc::PiecewiseParameter)
-    deleteat!(pc.tpoints, pc.injected)
+    deleteat!(pc.tpoints, sort!(unique!(pc.injected)))
     empty!(pc.injected)
     return pc
 end
@@ -42,6 +42,9 @@ function inject!(pc::PiecewiseParameter, t::T) where T<:Number
     idx = searchsortedlast(pc.tpoints, t)
     if pc.tpoints[idx] != t
         insert!(pc.tpoints, idx+1, t)
+        # Update all 
+        idxs = findall(pc.injected .> idx+1)
+        pc.injected[idxs] .+= 1
         push!(pc.injected, idx+1)
     end
     return pc
