@@ -4,7 +4,7 @@
     for (r, n) in zip(rets, NAMES)
         push!(expr, :($(r) = f(x.$(n), ps.$(n), st.$(n))))
     end
-    push!(expr, :(return $(Expr(:vect, rets...))))
+    push!(expr, :(return NamedTuple{NAMES}(($(rets...),))))
     Expr(:block, expr...)
 end
 
@@ -75,9 +75,9 @@ function collect_activity_pattern(timepoints::AbstractVector, x::LuxCore.Abstrac
 end
 
 function collect_activity_pattern(timeponts::AbstractVector, x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where T
-    reduce(hcat, map(T) do ti 
+    map(T) do ti 
         getter = Base.Fix2(getfield, ti)
-        reduce(hcat, nested_eval(Base.Fix1(collect_activity_pattern, timeponts), getter(x), getter(ps), getter(st)))
-    end)
+        ti => nested_eval(Base.Fix1(collect_activity_pattern, timeponts), getter(x), getter(ps), getter(st))
+    end |> NamedTuple
 end
 

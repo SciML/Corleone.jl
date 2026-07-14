@@ -17,6 +17,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [weakdeps]
@@ -26,9 +27,6 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
-#CorleoneComponentArraysExtension = ["ComponentArrays"]
-#CorleoneMakieExtension = "Makie"
-#CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
 ChainRulesCore = "1.25.1"
@@ -52,6 +50,7 @@ SafeTestsets = "0.1, 1"
 SciMLBase = "2.141.0, 3"
 SciMLStructures = "1.7"
 SciMLTesting = "1"
+SparseArrays = "1.12.0"
 StableRNGs = "1"
 SymbolicIndexingInterface = "0.3.43"
 Test = "1"

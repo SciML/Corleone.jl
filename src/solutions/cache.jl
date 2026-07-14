@@ -59,6 +59,7 @@ maybegetme(ps, index::Union{<:Int, UnitRange}) = ps[index]
 
 function ControlSymbolCache(prob::P where P <: SciMLBase.AbstractDEProblem, controls::AbstractVector = [], quadratures::AbstractVector = []) 
     sys = something(get_symbolic_container(prob.f), default_cache(prob))
+    @info sys
     ps = parameter_symbols(sys)
     sort!(ps, by = Base.Fix1(parameter_index, sys))
     us = variable_symbols(sys)

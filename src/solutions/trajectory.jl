@@ -24,7 +24,7 @@ traj.p          # parameter values of the first segment
 traj.t          # current time across all segments
 ```
 """
-struct Trajectory{N,S<:ShootingSegment, SYS} <: AbstractCompositeSolution{N, S}
+struct Trajectory{N,S<:ShootingSegment, SYS} <: AbstractCompositeSolution{S}
     "The shooting segments of the trajectory"
     segments::NTuple{N,S}
     "The symbolic system cache"

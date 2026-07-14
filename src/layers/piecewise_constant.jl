@@ -111,8 +111,6 @@ LuxCore.initialstates(::Random.AbstractRNG, pc::PiecewiseParameter) = (;
 
 LuxCore.statelength(::PiecewiseParameter) = length(pc.tpoints) + 4
 
-using SparseArrays
-
 function collect_activity_pattern(timepoints::AbstractVector, pc::PiecewiseParameter, ps, st)
     (; tpoints) = pc
     N = prod(get_parameter_shape(pc))
