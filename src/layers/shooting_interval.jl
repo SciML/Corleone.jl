@@ -25,17 +25,17 @@ $(FIELDS)
 end
 
 function ShootingInterval(
-    problem, 
-    variable_id,
-    tspan = problem.tspan; 
-    init = nothing, 
-    bounds = nothing
-)
-    ShootingInterval(
+        problem,
+        variable_id,
+        tspan = problem.tspan;
+        init = nothing,
+        bounds = nothing
+    )
+    return ShootingInterval(
         variable_id,
         isnothing(init) ? (
-            isempty(variable_id) ? eltype(problem.u0)[] : getsym(problem, variable_id)(problem)
-        ) : Base.Fix1(init, problem),
+                isempty(variable_id) ? eltype(problem.u0)[] : getsym(problem, variable_id)(problem)
+            ) : Base.Fix1(init, problem),
         bounds,
         tspan
     )
@@ -49,23 +49,23 @@ LuxCore.display_name(pc::ShootingInterval) = begin
 end
 
 function LuxCore.initialparameters(rng::Random.AbstractRNG, ic::ShootingInterval)
-    maybecallme(ic.init, rng)
+    return maybecallme(ic.init, rng)
 end
 
-LuxCore.initialstates(::Random.AbstractRNG, s::ShootingInterval) = (; 
-    tspan = s.tspan, 
-    )
+LuxCore.initialstates(::Random.AbstractRNG, s::ShootingInterval) = (;
+    tspan = s.tspan,
+)
 
 function get_lower_bound(pc::ShootingInterval, ps, st)
     (; bounds) = pc
     isnothing(bounds) && return get_lower_bound(ps)
-    first_or_first(bounds, ps, st)
+    return first_or_first(bounds, ps, st)
 end
 
 function get_upper_bound(pc::ShootingInterval, ps, st)
     (; bounds) = pc
     isnothing(bounds) && return get_lower_bound(ps)
-    last_or_last(bounds, ps, st)
+    return last_or_last(bounds, ps, st)
 end
 
 
@@ -75,27 +75,27 @@ function (s::ShootingInterval)(problem::SciMLBase.AbstractDEProblem, ps, st::Nam
     A = [i == j for i in idx, j in var_idx]
     B = diagm([(i ∉ var_idx) for i in eachindex(idx)])
     new_problem = remake(
-        problem, 
-        tspan = something(st.tspan, problem.tspan), 
+        problem,
+        tspan = something(st.tspan, problem.tspan),
         u0 = A * ps .+ B * problem.u0,
     )
     return new_problem, st
 end
 
 get_vs_index(sys, x) =
-    if isa(SymbolicIndexingInterface.symbolic_type(x), SymbolicIndexingInterface.NotSymbolic)
-        return x
-    else
-        return SymbolicIndexingInterface.variable_index(sys, x)
-    end
+if isa(SymbolicIndexingInterface.symbolic_type(x), SymbolicIndexingInterface.NotSymbolic)
+    return x
+else
+    return SymbolicIndexingInterface.variable_index(sys, x)
+end
 
 get_vs_index(sys, x::Base.AbstractVecOrTuple) = map(x) do xi
     get_vs_index(sys, xi)
 end
 
-function get_variable_index(container::C, pc::ShootingInterval) where C
+function get_variable_index(container::C, pc::ShootingInterval) where {C}
     (; variable_id) = pc
-    get_vs_index(container, variable_id)
+    return get_vs_index(container, variable_id)
 end
 
 get_variable_index(::Nothing, pc::ShootingInterval) = begin

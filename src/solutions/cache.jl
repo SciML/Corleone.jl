@@ -21,43 +21,43 @@ $(FIELDS)
     quadratures
 end
 
-function ControlSymbolCache(sys, controls=[], quadratures=Symbol[])
+function ControlSymbolCache(sys, controls = [], quadratures = Symbol[])
     control_param_indices = filter!(!isnothing, map(Base.Fix1(parameter_index, sys), controls))
     parameter_indices = setdiff(parameter_symbols(sys), controls)
-    var_offset = maximum(variable_symbols(sys); init=0) do v
-        maximum(variable_index(sys, v); init=0)
+    var_offset = maximum(variable_symbols(sys); init = 0) do v
+        maximum(variable_index(sys, v); init = 0)
     end
     control_var_indices = var_offset .+ (1:length(controls))
     controls = Dict(zip(controls, zip(control_var_indices, control_param_indices)))
     parameter_indices = Dict([sym => parameter_index(sys, sym) for sym in parameter_indices])
     quadratures = Set{Symbol}(quadratures)
-    ControlSymbolCache(sys, controls, parameter_indices, quadratures)
+    return ControlSymbolCache(sys, controls, parameter_indices, quadratures)
 end
 
 subscript(i) = join(Char(0x2080 + digit) for digit in digits(i))
 
-default_cache(prob::P where P <: SciMLBase.AbstractDEProblem) = SymbolCache(
-    [Symbol(:u, subscript(i)) for i in eachindex(prob.u0)], 
+default_cache(prob::P where {P <: SciMLBase.AbstractDEProblem}) = SymbolCache(
+    [Symbol(:u, subscript(i)) for i in eachindex(prob.u0)],
     [Symbol(:p, subscript(i)) for i in eachindex(prob.p)],
     :t
 )
 
-get_symbolic_container(f) = begin 
+get_symbolic_container(f) = begin
     sys = symbolic_container(f)
-    isnothing(sys) && return sys 
-    isempty(variable_symbols(sys)) && return nothing 
-    sys 
+    isnothing(sys) && return sys
+    isempty(variable_symbols(sys)) && return nothing
+    sys
 end
 
 maybegetme(ps, index::Base.AbstractVecOrTuple) = map(Base.Fix1(maybegetme, ps), index)
-maybegetme(ps, index) = begin 
+maybegetme(ps, index) = begin
     @assert index ∈ ps "$index not in collection!"
-    index 
+    index
 end
 
 maybegetme(ps, index::Union{<:Int, UnitRange}) = ps[index]
 
-function ControlSymbolCache(prob::P where P <: SciMLBase.AbstractDEProblem, controls::AbstractVector = [], quadratures::AbstractVector = []) 
+function ControlSymbolCache(prob::P where {P <: SciMLBase.AbstractDEProblem}, controls::AbstractVector = [], quadratures::AbstractVector = [])
     sys = something(get_symbolic_container(prob.f), default_cache(prob))
     ps = parameter_symbols(sys)
     sort!(ps, by = Base.Fix1(parameter_index, sys))
@@ -79,7 +79,7 @@ SymbolicIndexingInterface.is_independent_variable(sys::ControlSymbolCache, var) 
 SymbolicIndexingInterface.independent_variable_symbols(sys::ControlSymbolCache) = independent_variable_symbols(sys.sys)
 
 function SymbolicIndexingInterface.is_variable(cache::ControlSymbolCache, sym)
-    haskey(cache.controls, sym) || is_variable(cache.sys, sym)
+    return haskey(cache.controls, sym) || is_variable(cache.sys, sym)
 end
 
 SymbolicIndexingInterface.constant_structure(cache::ControlSymbolCache) = constant_structure(cache.sys)
@@ -102,11 +102,11 @@ function SymbolicIndexingInterface.variable_index(cache::ControlSymbolCache, sym
 end
 
 function SymbolicIndexingInterface.variable_symbols(csys::ControlSymbolCache)
-    union(variable_symbols(csys.sys), keys(csys.controls))
+    return union(variable_symbols(csys.sys), keys(csys.controls))
 end
 
 function SymbolicIndexingInterface.is_parameter(csys::ControlSymbolCache, sym)
-    !haskey(csys.controls, sym) && is_parameter(csys.sys, sym)
+    return !haskey(csys.controls, sym) && is_parameter(csys.sys, sym)
 end
 
 function SymbolicIndexingInterface.parameter_index(csys::ControlSymbolCache, sym)
@@ -118,9 +118,9 @@ function SymbolicIndexingInterface.parameter_index(csys::ControlSymbolCache, sym
 end
 
 function SymbolicIndexingInterface.parameter_symbols(csys::ControlSymbolCache)
-    setdiff(parameter_symbols(csys.sys), keys(csys.controls))
+    return setdiff(parameter_symbols(csys.sys), keys(csys.controls))
 end
 
 function SymbolicIndexingInterface.is_timeseries_parameter(csys::ControlSymbolCache, sym)
-    is_parameter(csys, sym) && is_timeseries_parameter(csys.sys, sym)
+    return is_parameter(csys, sym) && is_timeseries_parameter(csys.sys, sym)
 end

@@ -19,7 +19,7 @@ SymbolicIndexingInterface.symbolic_container(seg::ControlSegment) = seg.sys
 
 function control_values(seg::ControlSegment)
     cache = symbolic_container(seg)
-    syms = sort(collect(keys(cache.controls)); by=s -> cache.controls[s][1])
+    syms = sort(collect(keys(cache.controls)); by = s -> cache.controls[s][1])
     return [parameter_values(seg.sol)[cache.controls[s][2]] for s in syms]
 end
 
@@ -37,7 +37,7 @@ function minimal_state_values(seg::ControlSegment)
     return [u_i[keep] for u_i in seg.sol.u]
 end
 
-SymbolicIndexingInterface.parameter_values(seg::ControlSegment) = begin 
+SymbolicIndexingInterface.parameter_values(seg::ControlSegment) = begin
     (; sys, sol) = seg
     map(Base.Fix1(parameter_values, sol), sort((collect ∘ values)(sys.parameter_indices)))
 end

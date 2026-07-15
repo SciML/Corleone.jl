@@ -127,7 +127,7 @@ end
 
 @testset "Controls" begin
     prob = LotkaVolterra.generate()
-    sys  = symbolic_container(prob.f)
+    sys = symbolic_container(prob.f)
 
     # 5-breakpoint grid spanning tspan  DimensionMismatch: new dimensions (6,) must be consistent with array length 2
     cgrid = collect(LinRange(0.0, 12.0, 6))
@@ -165,10 +165,10 @@ end
 # ---------------------------------------------------------------------------
 
 @testset "ShootingLayer – single shooting" begin
-    prob  = ControlledLotka.generate()
+    prob = ControlledLotka.generate()
     cgrid = collect(LinRange(0.0, 12.0, 6))
-    pc1   = PiecewiseParameter(:u1, copy(cgrid))
-    pc2   = PiecewiseParameter(:u2, copy(cgrid))
+    pc1 = PiecewiseParameter(:u1, copy(cgrid))
+    pc2 = PiecewiseParameter(:u2, copy(cgrid))
 
     # Symbol[] → no tunable ICs; fixed initial condition from the problem
     layer = ShootingLayer(prob, Symbol[], pc1, pc2; algorithm = Tsit5())
@@ -183,16 +183,16 @@ end
 end
 
 @testset "ShootingLayer – multiple shooting (FixedShoot)" begin
-    prob  = ControlledLotka.generate()
+    prob = ControlledLotka.generate()
     cgrid = collect(LinRange(0.0, 12.0, 13))
-    pc1   = PiecewiseParameter(:u1, copy(cgrid))
-    pc2   = PiecewiseParameter(:u2, copy(cgrid))
+    pc1 = PiecewiseParameter(:u1, copy(cgrid))
+    pc2 = PiecewiseParameter(:u2, copy(cgrid))
 
     # Symbol[] → all intervals share the same ShootingInterval concrete type
     layer = ShootingLayer(
         prob, Symbol[], pc1, pc2;
-        algorithm        = Tsit5(),
-        shooting_method  = FixedShoot([3.0, 6.0, 9.0]),
+        algorithm = Tsit5(),
+        shooting_method = FixedShoot([3.0, 6.0, 9.0]),
     )
     ps, st = LuxCore.setup(rng, layer)
     traj, _ = layer(prob, ps, st)
@@ -248,7 +248,7 @@ end
     ps, st = LuxCore.setup(rng, pc)
     ps_vals = [fill(Float64(i), 1) for i in 1:4]
     # Inject a Dict cache into the state
-    dict_cache = Dict{Any,Int}()
+    dict_cache = Dict{Any, Int}()
     st_cached = merge(st, (; cache = dict_cache))
     v1, st2 = pc(0.5, ps_vals, st_cached)
     @test v1 == ps_vals[2]
@@ -277,7 +277,7 @@ end
 
 @testset "Controls – maybekeys gensym branch" begin
     prob = LotkaVolterra.generate()
-    sys  = symbolic_container(prob.f)
+    sys = symbolic_container(prob.f)
     # Integer id (no symbolic name) → maybekeys hits gensym branch
     pc1 = PiecewiseParameter(5, collect(LinRange(0.0, 12.0, 4)))  # id=5 (param index)
     pc2 = PiecewiseParameter(6, collect(LinRange(0.0, 12.0, 4)))  # id=6
@@ -305,8 +305,8 @@ end
     # Number branch (lines 49-50)
     @test Corleone.get_lower_bound(1.0f0) === -Inf32
     @test Corleone.get_upper_bound(1.0f0) === Inf32
-    @test Corleone.get_lower_bound(2.0)   === -Inf
-    @test Corleone.get_upper_bound(2.0)   === Inf
+    @test Corleone.get_lower_bound(2.0) === -Inf
+    @test Corleone.get_upper_bound(2.0) === Inf
 
     # AbstractArray branch (line 53-54)
     lb_arr = Corleone.get_lower_bound([1.0, 2.0])
@@ -321,13 +321,13 @@ end
     @test ub_tup == (Inf, Inf)
 
     # NamedTuple branch
-    lb_nt = Corleone.get_lower_bound((; a=1.0, b=2.0f0))
+    lb_nt = Corleone.get_lower_bound((; a = 1.0, b = 2.0f0))
     @test lb_nt.a === -Inf && lb_nt.b === -Inf32
 end
 
 @testset "abstract.jl – get_lower/upper_bound and get_bounds on layer" begin
     prob = LotkaVolterra.generate()
-    sys  = symbolic_container(prob.f)
+    sys = symbolic_container(prob.f)
     cgrid = collect(LinRange(0.0, 12.0, 4))
     pc1 = PiecewiseParameter(:u1, copy(cgrid))
     pc2 = PiecewiseParameter(:u2, copy(cgrid))
@@ -354,7 +354,7 @@ end
 
     # Container: Controls with no injected pts → nested NamedTuple result
     prob = LotkaVolterra.generate()
-    sys  = symbolic_container(prob.f)
+    sys = symbolic_container(prob.f)
     cgrid = collect(LinRange(0.0, 12.0, 4))
     pc1 = PiecewiseParameter(:u1, copy(cgrid))
     pc2 = PiecewiseParameter(:u2, copy(cgrid))
@@ -375,7 +375,7 @@ end
 
 @testset "abstract.jl – collect_activity_pattern layer variants" begin
     prob = LotkaVolterra.generate()
-    sys  = symbolic_container(prob.f)
+    sys = symbolic_container(prob.f)
     cgrid = collect(LinRange(0.0, 12.0, 4))
     pc1 = PiecewiseParameter(:u1, copy(cgrid))
     pc2 = PiecewiseParameter(:u2, copy(cgrid))
@@ -415,8 +415,10 @@ end
     # get_lower/upper_bound with bounds set
     lb_fn = (ps, st) -> fill(-5.0, length(ps))
     ub_fn = (ps, st) -> fill(5.0, length(ps))
-    si_bounded = ShootingInterval(prob, [1, 2], prob.tspan;
-        bounds = (lb_fn, ub_fn))
+    si_bounded = ShootingInterval(
+        prob, [1, 2], prob.tspan;
+        bounds = (lb_fn, ub_fn)
+    )
     ps_si, st_si = LuxCore.setup(rng, si_bounded)
     lb = Corleone.get_lower_bound(si_bounded, ps_si, st_si)
     ub = Corleone.get_upper_bound(si_bounded, ps_si, st_si)
@@ -433,16 +435,16 @@ end
 end
 
 @testset "ShootingLayer – AutoBlock shooting" begin
-    prob  = ControlledLotka.generate()
+    prob = ControlledLotka.generate()
     cgrid = collect(LinRange(0.0, 12.0, 13))
-    pc1   = PiecewiseParameter(:u1, copy(cgrid))
-    pc2   = PiecewiseParameter(:u2, copy(cgrid))
+    pc1 = PiecewiseParameter(:u1, copy(cgrid))
+    pc2 = PiecewiseParameter(:u2, copy(cgrid))
 
     # AutoBlock(n) injects n-1 shooting points, producing n segments
     n_blocks = 3
     layer = ShootingLayer(
         prob, Symbol[], pc1, pc2;
-        algorithm       = Tsit5(),
+        algorithm = Tsit5(),
         shooting_method = AutoBlock(n_blocks),
     )
     ps, st = LuxCore.setup(rng, layer)
@@ -457,7 +459,7 @@ end
 # ---------------------------------------------------------------------------
 
 @testset "ShootingLayer – EnsembleThreads" begin
-    prob  = ControlledLotka.generate()
+    prob = ControlledLotka.generate()
     cgrid = collect(LinRange(0.0, 12.0, 7))
 
     ref_traj = let
@@ -470,8 +472,9 @@ end
 
     pc1 = PiecewiseParameter(:u1, copy(cgrid))
     pc2 = PiecewiseParameter(:u2, copy(cgrid))
-    layer = ShootingLayer(prob, Symbol[], pc1, pc2;
-        algorithm          = Tsit5(),
+    layer = ShootingLayer(
+        prob, Symbol[], pc1, pc2;
+        algorithm = Tsit5(),
         ensemble_algorithm = EnsembleThreads(),
     )
     ps, st = LuxCore.setup(rng, layer)
@@ -481,12 +484,13 @@ end
 end
 
 @testset "ShootingLayer – EnsembleDistributed" begin
-    prob  = ControlledLotka.generate()
+    prob = ControlledLotka.generate()
     cgrid = collect(LinRange(0.0, 12.0, 7))
     pc1 = PiecewiseParameter(:u1, copy(cgrid))
     pc2 = PiecewiseParameter(:u2, copy(cgrid))
-    layer = ShootingLayer(prob, Symbol[], pc1, pc2;
-        algorithm          = Tsit5(),
+    layer = ShootingLayer(
+        prob, Symbol[], pc1, pc2;
+        algorithm = Tsit5(),
         ensemble_algorithm = EnsembleDistributed(),
     )
     ps, st = LuxCore.setup(rng, layer)

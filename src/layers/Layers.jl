@@ -16,9 +16,8 @@ using Distributed: pmap
 abstract type AbstractAutoShoot end
 
 
-
 maybecallme(f::Base.Callable, args...) = f(args...)
-maybecallme(args...) = first(args) 
+maybecallme(args...) = first(args)
 first_or_first(f::Base.Callable, ps, st) = first(f(ps, st))
 first_or_first(f::Tuple, ps, st) = maybecallme(first(f), ps, st)
 last_or_last(f::Base.Callable, ps, st) = last(f(ps, st))

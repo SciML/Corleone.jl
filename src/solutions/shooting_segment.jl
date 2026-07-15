@@ -12,5 +12,5 @@ struct ShootingSegment{C, T <: Base.AbstractVecOrTuple{<:ControlSegment}, S} <: 
 end
 
 function ShootingSegment(segments::T, sys::S) where {T, S}
-    ShootingSegment{eltype(segments), T, S}(segments, sys)
+    return ShootingSegment{eltype(segments), T, S}(segments, sys)
 end

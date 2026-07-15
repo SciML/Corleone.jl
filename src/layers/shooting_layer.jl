@@ -26,14 +26,14 @@ end
 
 
 function ShootingLayer(
-    problem::SciMLBase.AbstractDEProblem, 
-    variable_id,
-    controls...; 
-    shooting_method::AbstractAutoShoot = NoShoot(),
-    algorithm::SciMLBase.AbstractDEAlgorithm, 
-    ensemble_algorithm::SciMLBase.EnsembleAlgorithm = EnsembleSerial(), 
-    tspan = problem.tspan,
-    kwargs...
+        problem::SciMLBase.AbstractDEProblem,
+        variable_id,
+        controls...;
+        shooting_method::AbstractAutoShoot = NoShoot(),
+        algorithm::SciMLBase.AbstractDEAlgorithm,
+        ensemble_algorithm::SciMLBase.EnsembleAlgorithm = EnsembleSerial(),
+        tspan = problem.tspan,
+        kwargs...
     )
     controlnames = reduce(vcat, map(Base.Fix2(getfield, :parameter_id), controls))
     cache = ControlSymbolCache(problem, collect(controlnames), get(kwargs, :quadratures, []))
@@ -45,21 +45,22 @@ function ShootingLayer(
     shooting_points = optimal_shooting_points(shooting_method, controls, LuxCore.setup(Random.default_rng(), controls)...; timepoints)
     append!(shooting_points, collect(tspan))
     unique!(sort!(shooting_points))
-    ics = map(enumerate(zip(shooting_points[1:end-1], shooting_points[2:end]))) do (i,tspan)
-        ShootingInterval(problem, i == 1 ? variable_id : variable_symbols(cache), tspan; 
+    ics = map(enumerate(zip(shooting_points[1:(end - 1)], shooting_points[2:end]))) do (i, tspan)
+        ShootingInterval(
+            problem, i == 1 ? variable_id : variable_symbols(cache), tspan;
             get(kwargs, :shooting_intervals, (;))...
         )
     end
-    ShootingLayer(
+    return ShootingLayer(
         cache, tuple(ics...), controls, algorithm, ensemble_algorithm
     )
 end
 
 # For evaluation
 mythreadmap(::EnsembleSerial, args...) = map(args...)
-mythreadmap(::EnsembleThreads, f, args::NTuple{N}...) where N = begin 
-    res = tmap(f, collect.(args)...) 
-    ntuple(i->res[i], N)
+mythreadmap(::EnsembleThreads, f, args::NTuple{N}...) where {N} = begin
+    res = tmap(f, collect.(args)...)
+    ntuple(i -> res[i], N)
 end
 mythreadmap(::EnsembleThreads, f, args...) = tmap(f, args...)
 mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
@@ -74,37 +75,42 @@ function sequential_solve(cache, prob, alg, setter, controls, ps, st, tspans::Ab
     return vcat(ret, sequential_solve(cache, new_prob, alg, setter, controls, ps, st, tspans[2:end]))
 end
 
-@generated function get_probs(ic::NTuple{N, Any}, controls, prob, ps, st) where N
+@generated function get_probs(ic::NTuple{N, Any}, controls, prob, ps, st) where {N}
     probs = [gensym() for _ in Base.OneTo(N)]
     tspans = [gensym() for _ in Base.OneTo(N)]
     sts = [gensym() for _ in Base.OneTo(N)]
     exprs = Expr[]
     for i in Base.OneTo(N)
-        push!(exprs, 
+        push!(
+            exprs,
             :(($(probs[i]), $(sts[i])) = ic[$(i)](prob, ps.intervals[$(i)], st.intervals[$(i)]))
-        ) 
-        push!(exprs, 
+        )
+        push!(
+            exprs,
             :($(tspans[i]) = collect_timegrid(controls, ps.controls, st.controls, $(probs[i]).tspan))
         )
     end
-    push!(exprs, :(return ($(Expr(:tuple, probs...)), $(Expr(:tuple, tspans...)), $(Expr(:tuple, sts...)))) )
+    push!(exprs, :(return ($(Expr(:tuple, probs...)), $(Expr(:tuple, tspans...)), $(Expr(:tuple, sts...)))))
     return Expr(:block, exprs...)
 end
 
 in_tspan((ti, _)::Tuple, (t0, tinf)::Tuple) = t0 <= ti < tinf
 
 function (layer::ShootingLayer)(problem::SciMLBase.AbstractDEProblem, ps, st)
-    (; sys, intervals, controls, algorithm, ensemble_algorithm) = layer 
+    (; sys, intervals, controls, algorithm, ensemble_algorithm) = layer
     probs, tgrids, st_interval = get_probs(intervals, controls, problem, ps, st)
     setter = let p0 = problem.p
-        (ps) -> begin 
+        (ps) -> begin
             SciMLStructures.replace(SciMLStructures.Tunable(), p0, ps)
         end
     end
-    args = ntuple(i->(sys, probs[i], 
-        algorithm, setter, controls, ps.controls, st.controls, 
-        tgrids[i]), length(intervals))
+    args = ntuple(
+        i -> (
+            sys, probs[i],
+            algorithm, setter, controls, ps.controls, st.controls,
+            tgrids[i],
+        ), length(intervals)
+    )
     sols = mythreadmap(ensemble_algorithm, Base.Fix2(Solutions.ShootingSegment, sys) ∘ Base.splat(sequential_solve), args)
-    Trajectory(sols, sys), merge(st, (; interval = st_interval))
+    return Trajectory(sols, sys), merge(st, (; interval = st_interval))
 end
-

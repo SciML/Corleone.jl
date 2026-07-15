@@ -9,11 +9,11 @@ using DocStringExtensions
 abstract type AbstractCompositeSolution{T} end
 
 function _aggregate_trim(f, seg::AbstractCompositeSolution)
-    (; segments) = seg 
+    (; segments) = seg
     N = length(segments)
     pieces = map(enumerate(segments)) do (i, s)
         vals = f(s)
-        (i == N) ? vals : vals[begin:end - 1]
+        (i == N) ? vals : vals[begin:(end - 1)]
     end
     return reduce(vcat, pieces)
 end
