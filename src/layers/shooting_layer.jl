@@ -100,7 +100,7 @@ function (layer::ShootingLayer)(problem::SciMLBase.AbstractDEProblem, ps, st)
     args = ntuple(i->(sys, probs[i], 
         algorithm, setter, controls, ps.controls, st.controls, 
         tgrids[i]), length(intervals))
-    sols = mythreadmap(ensemble_algorithm, Base.Fix2(Solutions.ShootingSegment, control_cache) ∘ Base.splat(sequential_solve), args)
+    sols = mythreadmap(ensemble_algorithm, Base.Fix2(Solutions.ShootingSegment, sys) ∘ Base.splat(sequential_solve), args)
     Trajectory(sols, sys), merge(st, (; interval = st_interval))
 end
 

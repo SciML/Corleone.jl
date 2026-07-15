@@ -26,7 +26,7 @@ $(FIELDS)
     injected::Vector{Int64}
 end
 
-function PiecewiseParameter(parameter_id, tpoints::AbstractVector{<:Number}, init=nothing, bounds=nothing) where {P,V,T}
+function PiecewiseParameter(parameter_id, tpoints::AbstractVector{<:Number}, init=nothing, bounds=nothing) 
     @assert issorted(tpoints) "tpoints must be sorted"
     @assert allunique(tpoints) "tpoints must be unique"
     return PiecewiseParameter(parameter_id, init, tpoints, bounds, Int64[])
@@ -171,7 +171,6 @@ function shooting_constraints!(res::AbstractArray, pc::PiecewiseParameter, ps, s
     (; injected) = pc
     res .= ps[injected] .- ps[injected .- 1]
 end
-
 
 
 #=
