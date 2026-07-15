@@ -57,7 +57,11 @@ end
 
 # For evaluation
 mythreadmap(::EnsembleSerial, args...) = map(args...)
-mythreadmap(::EnsembleThreads, args...) = tmap(args...)
+mythreadmap(::EnsembleThreads, f, args::NTuple{N}...) where N = begin 
+    res = tmap(f, collect.(args)...) 
+    ntuple(i->res[i], N)
+end
+mythreadmap(::EnsembleThreads, f, args...) = tmap(f, args...)
 mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
 
 function sequential_solve(cache, prob, alg, setter, controls, ps, st, tspans::AbstractVector)
