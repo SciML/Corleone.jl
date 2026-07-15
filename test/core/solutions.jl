@@ -3,6 +3,7 @@ using Corleone
 using Corleone: Solutions
 using OrdinaryDiffEqTsit5
 using SymbolicIndexingInterface
+using SciMLBase: ParameterIndexingProxy
 
 include(joinpath(@__FILE__, "..", "..", "helper.jl"))
 
@@ -84,5 +85,104 @@ end
     )
 end
 
+# ---------------------------------------------------------------------------
+# Trajectory accessors
+# ---------------------------------------------------------------------------
 
+@testset "Trajectory accessors" begin
+    prob = LotkaVolterra.generate()
+    sys = ControlSymbolCache(prob, [:u1, :u2], [:L])
+    sol1 = solve(prob, Tsit5(), saveat=0.5, p=[2., 1., 3., 4., 1.0, 0.0], tspan=(0., 5.))
+    sol2 = solve(prob, Tsit5(), saveat=0.5, p=[2., 1., 2., 4., 0.0, 1.0], tspan=(5., 12.))
+    seg1 = Corleone.Solutions.ShootingSegment((Solutions.ControlSegment(sol1, sys),), sys)
+    seg2 = Corleone.Solutions.ShootingSegment((Solutions.ControlSegment(sol2, sys),), sys)
+    traj = Trajectory((seg1, seg2), sys)
 
+    @test symbolic_container(traj) === sys
+
+    @test traj.u  == state_values(traj)
+    @test traj.u_minimal == Solutions.minimal_state_values(traj)
+    @test traj.c  == Solutions.control_values(traj)
+    @test traj.t  == current_time(traj)
+    @test traj.p  == parameter_values(traj)
+    @test traj.ps isa ParameterIndexingProxy
+
+    # Int getindex
+    @test traj[1] == traj.u[1]
+    @test traj[2] == traj.u[2]
+
+    # Symbolic getindex – known variable
+    x_vals = traj[:x]
+    @test length(x_vals) == length(traj.t)
+    @test x_vals ≈ getindex.(state_values(traj), variable_index(sys, :x))
+
+    # Control variable (:u1) is augmented into state_values via ControlSymbolCache
+    u1_vals = traj[:u1]
+    @test length(u1_vals) == length(traj.t)
+
+    # Matrix shape: states × timepoints
+    M = Matrix(traj)
+    @test size(M, 2) == length(traj.t)
+end
+
+# ---------------------------------------------------------------------------
+# ControlSymbolCache – SII passthroughs
+# ---------------------------------------------------------------------------
+
+@testset "ControlSymbolCache SII passthroughs" begin
+    prob = LotkaVolterra.generate()
+    cache = ControlSymbolCache(prob, [:u1, :u2], [:L])
+
+    # independent variable
+    @test is_independent_variable(cache, :t)
+    @test independent_variable_symbols(cache) == independent_variable_symbols(prob.f)
+
+    # is_variable: control sym, real state var, parameter
+    @test is_variable(cache, :u1)   # control → registered in cache.controls
+    @test is_variable(cache, :x)    # real state var
+    @test !is_variable(cache, :α)   # parameter
+
+    # variable_index: control branch vs plain-var branch
+    ui = variable_index(cache, :u1)
+    @test ui isa Int
+    xi = variable_index(cache, :x)
+    @test xi isa Int
+    @test xi != ui
+
+    # variable_symbols includes controls
+    vsyms = variable_symbols(cache)
+    @test :u1 ∈ vsyms && :u2 ∈ vsyms && :x ∈ vsyms
+
+    # all_variable_symbols = union of sys vars + control keys
+    all_vs = all_variable_symbols(cache)
+    @test :u1 ∈ all_vs && :x ∈ all_vs
+
+    # all_symbols
+    @test all_symbols(cache) == all_symbols(cache.sys)
+
+    # default_values
+    @test default_values(cache) == default_values(cache.sys)
+
+    # constant_structure
+    @test constant_structure(cache) == constant_structure(cache.sys)
+
+    # is_time_dependent
+    @test is_time_dependent(cache)
+
+    # is_parameter: param vs control
+    @test is_parameter(cache, :α)
+    @test !is_parameter(cache, :u1)   # control is NOT a parameter
+
+    # parameter_index: None for control, index for param
+    @test parameter_index(cache, :u1) === nothing
+    @test parameter_index(cache, :α) isa Int
+
+    # parameter_symbols excludes controls
+    psyms = parameter_symbols(cache)
+    @test :u1 ∉ psyms && :u2 ∉ psyms
+    @test :α ∈ psyms
+
+    # is_timeseries_parameter
+    @test !is_timeseries_parameter(cache, :u1)
+    @test !is_timeseries_parameter(cache, :α)
+end
