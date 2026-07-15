@@ -1,6 +1,5 @@
-using Reexport 
+using Reexport
 
-#@reexport module Layers
 using SparseArrays
 using SymbolicIndexingInterface
 using SciMLBase
@@ -11,11 +10,10 @@ using SciMLStructures
 using Random
 using ChainRulesCore
 using Functors
+using OhMyThreads: tmap
+using Distributed: pmap
 
 abstract type AbstractAutoShoot end
-
-#include("../solutions/Solutions.jl")
-#include("../core/Core.jl")
 
 
 

@@ -100,6 +100,6 @@ end
 
 get_variable_index(::Nothing, pc::ShootingInterval) = begin
     (; variable_id) = pc
-    @assert isa(SymbolicIndexingInterface.symbolic_type(parameter_id), SymbolicIndexingInterface.NotSymbolic) "Symbolic indices are only valid when providing a symbolic container!"
-    ; variable_id
+    @assert isa(SymbolicIndexingInterface.symbolic_type(variable_id), SymbolicIndexingInterface.NotSymbolic) "Symbolic indices are only valid when providing a symbolic container!"
+    variable_id
 end

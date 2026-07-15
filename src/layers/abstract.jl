@@ -41,7 +41,7 @@ function shooting_constraints!(res, x::LuxCore.AbstractLuxContainerLayer{T}, ps,
     for ti in T 
         getter = Base.Fix2(getfield, ti)
         layer = getter(x)
-        n += 1:number_of_shooting_constraints(layer)
+        n += 1:number_of_shooting_constraints(layer, getter(ps), getter(st))
         nested_eval(Base.Fix1(shooting_constraints!, res[n]), layer, getter(ps), getter(st))
     end
 end
