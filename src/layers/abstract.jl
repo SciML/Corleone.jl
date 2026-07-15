@@ -8,6 +8,12 @@
     Expr(:block, expr...)
 end
 
+"""
+$(FUNCTIONNAME)(layer, ps, st)
+
+Total number of piecewise-continuity constraints contributed by `layer` (i.e. the
+number of injected breakpoints across all `PiecewiseParameter` children).
+"""
 number_of_shooting_constraints(x::LuxCore.AbstractLuxLayer, ps, st) = 0
 number_of_shooting_constraints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where T = number_of_shooting_constraints(getfield(x, only(T)), ps, st)
 function number_of_shooting_constraints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where T
@@ -16,7 +22,11 @@ function number_of_shooting_constraints(x::LuxCore.AbstractLuxContainerLayer{T},
         nested_eval(number_of_shooting_constraints, getter(x), getter(ps), getter(st))
     end
 end
+"""
+$(FUNCTIONNAME)(layer, ps, st)
 
+Evaluate the continuity constraint contributed by `layer`.
+"""
 shooting_constraints(::LuxCore.AbstractLuxLayer, ps, st) = nothing
 shooting_constraints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where T = shooting_constraints(getfield(x, only(T)), ps, st)
 shooting_constraints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where T = reduce(vcat, map(T) do ti

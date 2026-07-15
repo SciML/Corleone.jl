@@ -1,8 +1,23 @@
+"""
+$(TYPEDEF)
+
+A single shooting stage in a direct multiple-shooting discretization. It holds the
+indices (numeric or symbolic) of the state variables whose initial conditions are
+treated as tunable parameters (`variable_id`), an initializer, optional bounds, and
+the time span for this stage.
+
+When called with a `DEProblem`, it constructs a new problem whose initial condition
+has the free components replaced by the current parameter values while the remaining
+components keep the original `u0`.
+
+# Fields
+$(FIELDS)
+"""
 @concrete struct ShootingInterval <: LuxCore.AbstractLuxLayer
     "Tunable initial conditons"
     variable_id
     "Initializer for the variable"
-    init 
+    init
     "Bounds"
     bounds
     "The tspan for the initial condition"
@@ -17,9 +32,11 @@ function ShootingInterval(
     bounds = nothing
 )
     ShootingInterval(
-        variable_id, 
-        isnothing(init) ? getsym(problem, variable_id)(problem) : Base.Fix1(init, problem), 
-        bounds, 
+        variable_id,
+        isnothing(init) ? (
+            isempty(variable_id) ? eltype(problem.u0)[] : getsym(problem, variable_id)(problem)
+        ) : Base.Fix1(init, problem),
+        bounds,
         tspan
     )
 end

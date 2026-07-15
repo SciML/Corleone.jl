@@ -37,17 +37,19 @@ include("shooting.jl")
 
 include("shooting_interval.jl")
 
-include("parallel_layer.jl")
-
 include("shooting_layer.jl")
 
 export PiecewiseParameter
+export inject!, reset!
 export number_of_shooting_constraints
 export shooting_constraints, shooting_constraints!
 
 export Controls
+export collect_timegrid
 
 export ShootingInterval
+
+export NoShoot, FixedShoot, AutoBlock
 
 export ShootingLayer
 

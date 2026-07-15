@@ -1,6 +1,17 @@
+"""
+$(TYPEDEF)
+
+A container layer that collects multiple `PiecewiseParameter` controls and evaluates
+them jointly at a given time `t`. Each child control is queried for its active value;
+the resulting values are assembled into a single vector sorted to match the parameter
+ordering of the ODE system (via `permutation`).
+
+# Fields
+$(FIELDS)
+"""
 @concrete terse struct Controls{N <: NamedTuple} <: LuxCore.AbstractLuxContainerLayer{(:controls,)}
     sys
-    controls::N 
+    controls::N
     permutation
 end
 
@@ -12,7 +23,6 @@ function Controls(x...; sys = nothing, kwargs...)
     perm = reduce(vcat, map(x) do xi 
         get_parameter_index(sys, xi)
     end)
-    @info perm
     ps = sortperm(perm)
     return Controls(sys, nt, ps)
 end
