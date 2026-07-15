@@ -1,3 +1,12 @@
+"""
+    load_benchmarks()
+
+Loads all benchmark problem constructors from the `problems` directory.
+
+# Returns
+A vector of benchmark constructor functions. Each function accepts a benchmark grid
+configuration and returns the corresponding optimal control problem data.
+"""
 function load_benchmarks()
     benchmarks = []
     problems_dir = joinpath(@__DIR__, "problems")

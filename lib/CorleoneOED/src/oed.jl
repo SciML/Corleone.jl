@@ -20,6 +20,10 @@ default_observed = (u, p, t) -> u
 """
 $(TYPEDEF)
 
+Wraps a Corleone shooting layer with the augmented dynamics needed for optimal experimental
+design. The `DISCRETE` type parameter selects discrete or continuous information accumulation,
+and optional measurement controls can restrict where observations are collected.
+
 # Fields
 $(FIELDS)
 """
@@ -54,6 +58,24 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCR
     return Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
 
+"""
+$(SIGNATURES)
+
+Constructs an `OEDLayer` from a differential equation problem and solver algorithm.
+
+# Arguments
+- `prob`: Differential equation problem whose parameters are considered for experimental design.
+- `alg`: Differential equation solver algorithm.
+
+# Keywords
+- `params`: Parameter indices included in the Fisher information matrix.
+- `measurements`: Optional `ControlParameter`s that define measurement schedules.
+- `observed`: Observation map `(u, p, t) -> y`.
+
+# Returns
+An `OEDLayer` that can be initialized with `LuxCore.setup` and evaluated like the wrapped
+Corleone layer.
+"""
 function OEDLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
     layer = SingleShootingLayer(prob, alg; kwargs...)
     return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
@@ -339,6 +361,23 @@ function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory,
     return observation_grid(controls, Gs)
 end
 
+"""
+$(SIGNATURES)
+
+Computes the Fisher information matrix for an `OEDLayer` at parameters `ps` and state `st`.
+
+# Arguments
+- `oed`: Optimal experimental design layer.
+- `x`: External input passed through the Lux layer interface.
+- `ps`: Layer parameters, typically from `LuxCore.initialparameters` or `LuxCore.setup`.
+- `st`: Layer state, typically from `LuxCore.initialstates` or `LuxCore.setup`.
+
+# Keywords
+- `add_initial`: Include previously accumulated information stored in `st`.
+
+# Returns
+A tuple `(F, st)` containing the Fisher information matrix and updated layer state.
+"""
 fisher_information(oed::OEDLayer, x, ps, st::NamedTuple; add_initial = true) = begin
     traj, st = oed(x, ps, st)
     F = add_initial ? st.F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
@@ -414,6 +453,15 @@ fisher_information(oed::OEDLayer{false, true, true}, x, ps, st::NamedTuple; add_
     return F, st
 end
 
+"""
+$(SIGNATURES)
+
+Returns the parameter sensitivities of the observed outputs for an OED trajectory.
+
+# Returns
+For trajectory inputs, the sensitivity arrays are returned directly. For layer inputs, the
+return value is `(sensitivities, st)` with the updated layer state.
+"""
 sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
 
 sensitivities(oed::OEDLayer, x, ps, st::NamedTuple) = begin
@@ -421,6 +469,15 @@ sensitivities(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     sensitivities(oed, traj), st
 end
 
+"""
+$(SIGNATURES)
+
+Evaluates the observation equations associated with an `OEDLayer`.
+
+# Returns
+For trajectory inputs, observed values are returned directly. For layer inputs, the return
+value is `(observed, st)` with the updated layer state.
+"""
 observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
 
 observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
@@ -430,6 +487,16 @@ end
 
 _local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_weighted_sensitivity(traj)
 
+"""
+$(SIGNATURES)
+
+Computes local information gain contributions from each observed quantity along the OED
+trajectory.
+
+# Returns
+A tuple `(gains, st)` containing per-observation information matrices and the updated layer
+state.
+"""
 local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     # This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
@@ -442,6 +509,16 @@ local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     end, st
 end
 
+"""
+$(SIGNATURES)
+
+Computes global information gain contributions scaled by the inverse final Fisher information
+matrix.
+
+# Returns
+A tuple `(gains, st)` containing per-observation information matrices and the updated layer
+state.
+"""
 global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
     traj, st = oed(x, ps, st)
     F_tf, st = fisher_information(oed, x, ps, st)

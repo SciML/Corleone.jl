@@ -16,7 +16,12 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 OptimizationLBFGSB = "22f7324a-a79d-40f2-bebe-3af60c77bd15"
 OptimizationMOI = "fd9f6733-72f4-499f-8506-86b2bdd0dea1"
+OptimalControlBenchmarks = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+
+[sources]
+CorleoneOED = {path = "../lib/CorleoneOED"}
+OptimalControlBenchmarks = {path = "../lib/OptimalControlBenchmarks"}

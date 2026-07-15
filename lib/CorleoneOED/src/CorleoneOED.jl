@@ -12,6 +12,69 @@ using SciMLBase
 using DocStringExtensions
 using LinearAlgebra
 
+"""
+    @symbolic_wrap(ex)
+
+Reexported from Symbolics; wrap an expression as a symbolic value.
+"""
+var"@symbolic_wrap"
+
+"""
+    @wrapped(ex)
+
+Reexported from Symbolics; create a wrapped symbolic expression.
+"""
+var"@wrapped"
+
+"""
+    RuleSet
+
+Reexported from Symbolics; a collection of symbolic rewrite rules.
+"""
+RuleSet
+
+"""
+    get_canonical_expr(x)
+
+Reexported from Symbolics; return the canonical symbolic expression for `x`.
+"""
+get_canonical_expr
+
+"""
+    infimum(x)
+
+Reexported from Symbolics; return the lower endpoint or symbolic infimum of `x`.
+"""
+infimum
+
+"""
+    is_derivative(x)
+
+Reexported from Symbolics; test whether `x` represents a symbolic derivative.
+"""
+is_derivative
+
+"""
+    istree(x)
+
+Reexported from Symbolics; test whether `x` has tree-structured symbolic arguments.
+"""
+istree
+
+"""
+    solve_for(args...)
+
+Reexported from Symbolics; solve a symbolic equation or system for selected variables.
+"""
+solve_for
+
+"""
+    supremum(x)
+
+Reexported from Symbolics; return the upper endpoint or symbolic supremum of `x`.
+"""
+supremum
+
 # TODO Clean and more tests (also for LV)
 include("augmentation.jl")
 
