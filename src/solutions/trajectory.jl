@@ -88,11 +88,11 @@ function Base.getindex(traj::Trajectory, i)
 end
 
 function shooting_constraints(trajectory::Trajectory{1})
-    return eltype(first(first(trajectory.segments).segments).u[1])[]
+    return eltype(first(first(trajectory.segments).segments).sol.u[1])[]
 end
 
 function shooting_constraints(trajectory::Trajectory{N}) where N
-    T = eltype(first(first(trajectory.segments).segments).u[1])
+    T = eltype(first(first(trajectory.segments).segments).sol.u[1])
     n_states = length(first(minimal_state_values(first(trajectory.segments))))
     res = Vector{T}(undef, (N - 1) * n_states)
     shooting_constraints!(res, trajectory)
