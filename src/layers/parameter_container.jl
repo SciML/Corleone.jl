@@ -51,10 +51,9 @@ end
 end
 
 function collect_timegrid(controls, ps, st, tspan = (-Inf, Inf))
-    tpoints = reduce(vcat, map(Base.Fix2(getfield, :tpoints), st.controls))
+    tpoints = get_timepoints(controls, ps, st)
     filter!(ti -> tspan[1] <= ti <= tspan[2], unique!(sort!(tpoints)))
     return collect(zip(@view(tpoints[begin:(end - 1)]), @view(tpoints[(begin + 1):end])))
-    #ntuple(i->(tpoints[i], tpoints[i+1]), size(tpoints,1)-1)
 end
 
 @non_differentiable collect_timegrid(controls, ps, st, tspan)
