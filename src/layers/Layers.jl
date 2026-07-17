@@ -26,6 +26,8 @@ last_or_last(f::Tuple, ps, st) = maybecallme(Base.last(f), ps, st)
 
 include("abstract.jl")
 
+include("fixed_layer.jl")
+
 include("piecewise_constant.jl")
 
 include("parameter_container.jl")
@@ -36,10 +38,13 @@ include("shooting_interval.jl")
 
 include("shooting_layer.jl")
 
+export FixedLayer
+
 export PiecewiseParameter
 export inject!, reset!
 export number_of_shooting_constraints
 export shooting_constraints, shooting_constraints!
+export get_timepoints
 
 export Controls
 export collect_timegrid

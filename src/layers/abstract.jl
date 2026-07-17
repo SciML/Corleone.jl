@@ -93,3 +93,21 @@ function collect_activity_pattern(timeponts::AbstractVector, x::LuxCore.Abstract
         ti => nested_eval(Base.Fix1(collect_activity_pattern, timeponts), getter(x), getter(ps), getter(st))
     end |> NamedTuple
 end
+
+
+# Timed function API 
+function get_timepoints(x::LuxCore.AbstractLuxLayer, ps, st) 
+    []
+end 
+
+function get_timepoints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where T 
+    get_timepoints(getfield(x, only(T)), ps, st)
+end
+
+function get_timepoints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
+    tpoints = reduce(vcat, map(T) do ti
+        getter = Base.Fix2(getfield, ti)
+        ti => nested_eval(get_timepoints, getter(x), getter(ps), getter(st))
+    end) 
+    unique!(sort!(tpoints))
+end
