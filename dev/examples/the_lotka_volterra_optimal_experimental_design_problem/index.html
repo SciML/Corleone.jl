@@ -172,7 +172,7 @@ Number of inequality constraint evaluations          = 42
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 41
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 56.193
+Total seconds in IPOPT                               = 60.562
 
 EXIT: Optimal Solution Found.
 </code></pre><p>After solving, we now only need to investigate the solution.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
@@ -277,7 +277,7 @@ Number of inequality constraint evaluations          = 50
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 48
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 21.541
+Total seconds in IPOPT                               = 25.510
 
 EXIT: Optimal Solution Found.
 </code></pre><p>However, in this example, the solution is the same, as also the parameter values are unchanged.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st_new)
@@ -301,10 +301,10 @@ u0: 9-element Vector{Float64}:
  0.0
  0.0
  0.0</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.13
   [b0b7db55] ComponentArrays v0.15.42
-  [2751e0db] Corleone v0.0.5 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.5 `~/work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v0.0.6 `../lib/CorleoneOED`
   [e30172f5] Documenter v1.17.0
   [daee34ce] DocumenterCitations v1.4.1
@@ -317,9 +317,9 @@ u0: 9-element Vector{Float64}:
   [bb33d45b] LuxCore v1.5.3
 ⌃ [961ee093] ModelingToolkit v11.26.8
   [d147904a] OptimalControlBenchmarks v0.0.3 `../lib/OptimalControlBenchmarks`
-  [7f7a1694] Optimization v5.6.4
-  [22f7324a] OptimizationLBFGSB v1.4.2
-  [fd9f6733] OptimizationMOI v1.3.2
+  [7f7a1694] Optimization v5.6.5
+  [22f7324a] OptimizationLBFGSB v1.4.3
+  [fd9f6733] OptimizationMOI v1.3.3
 ⌃ [b1df2697] OrdinaryDiffEqTsit5 v1.12.0
   [2efcf032] SymbolicIndexingInterface v0.3.51
   [ddb6d928] YAML v0.4.16
@@ -332,16 +332,13 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 128 × AMD EPYC 7513 32-Core Processor
+  CPU: 4 × AMD EPYC 9V74 80-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-18.1.7 (ORCJIT, znver3)
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver4)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
-Environment:
-  JULIA_CPU_THREADS = 4
-  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.22.2
   [14f7f29c] AMD v0.5.3
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -363,8 +360,8 @@ Environment:
   [198e06fe] BangBang v0.4.9
   [18cc8868] BaseDirs v1.4.0
   [6e4b80f9] BenchmarkTools v1.8.0
-  [2027ae74] BibInternal v0.3.7
-  [13533e5b] BibParser v0.2.3
+  [2027ae74] BibInternal v0.3.8
+  [13533e5b] BibParser v0.2.4
   [f1be7e48] Bibliography v0.3.1
   [e2ed5e7c] Bijections v0.2.2
   [caf10ac8] BipartiteGraphs v0.1.9
@@ -401,11 +398,11 @@ Environment:
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v0.0.5 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v0.0.5 `~/work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v0.0.6 `../lib/CorleoneOED`
   [adafc99b] CpuId v0.3.1
   [9a962f9c] DataAPI v1.16.0
-  [864edb3b] DataStructures v0.19.5
+  [864edb3b] DataStructures v0.19.6
   [e2d170a0] DataValueInterfaces v1.0.0
   [927a84f5] DelaunayTriangulation v1.6.6
 ⌅ [2b5f629d] DiffEqBase v6.218.0
@@ -431,11 +428,11 @@ Environment:
   [7034ab61] FastBroadcast v1.3.4
   [9aa1b823] FastClosures v0.3.2
   [a4df4552] FastPower v1.3.4
-  [5789e2e9] FileIO v1.19.0
+  [5789e2e9] FileIO v1.20.0
   [8fc22ac5] FilePaths v0.9.0
   [48062228] FilePathsBase v0.9.24
-  [1a297f60] FillArrays v1.16.0
-  [64ca27bc] FindFirstFunctions v3.1.0
+  [1a297f60] FillArrays v1.17.0
+  [64ca27bc] FindFirstFunctions v3.2.0
   [6a86dc24] FiniteDiff v2.32.0
 ⌅ [53c48c17] FixedPointNumbers v0.8.6
   [1fa38f19] Format v1.3.7
@@ -502,7 +499,7 @@ Environment:
   [d125e4d3] ManualMemory v0.1.8
   [dbb5928d] MappedArrays v0.4.3
   [d0879d2d] MarkdownAST v0.1.3
-  [b8f27783] MathOptInterface v1.51.1
+  [b8f27783] MathOptInterface v1.51.2
   [0a4f8689] MathTeXEngine v0.6.9
   [bb5d69b7] MaybeInplace v0.1.6
   [e1d29d7a] Missings v1.2.0
@@ -510,7 +507,7 @@ Environment:
 ⌃ [7771a370] ModelingToolkitBase v1.42.2
 ⌃ [6bb917b9] ModelingToolkitTearing v1.15.0
   [e94cdb99] MosaicViews v0.3.4
-  [2e0e35c7] Moshi v0.3.11
+  [2e0e35c7] Moshi v0.3.12
   [46d2c3a1] MuladdMacro v0.2.6
   [102ac46a] MultivariatePolynomials v0.5.19
   [d8a4904e] MutableArithmetics v1.8.0
@@ -523,10 +520,10 @@ Environment:
   [67456a42] OhMyThreads v0.8.6
   [52e1d378] OpenEXR v0.3.3
   [d147904a] OptimalControlBenchmarks v0.0.3 `../lib/OptimalControlBenchmarks`
-  [7f7a1694] Optimization v5.6.4
-  [bca83a33] OptimizationBase v5.2.0
-  [22f7324a] OptimizationLBFGSB v1.4.2
-  [fd9f6733] OptimizationMOI v1.3.2
+  [7f7a1694] Optimization v5.6.5
+  [bca83a33] OptimizationBase v5.2.1
+  [22f7324a] OptimizationLBFGSB v1.4.3
+  [fd9f6733] OptimizationMOI v1.3.3
 ⌅ [bac558e1] OrderedCollections v1.8.2
 ⌅ [bbf590c4] OrdinaryDiffEqCore v3.33.1
 ⌃ [b1df2697] OrdinaryDiffEqTsit5 v1.12.0
@@ -562,17 +559,17 @@ Environment:
   [05181044] RelocatableFolders v1.0.1
   [ae029012] Requires v1.3.1
   [79098fc4] Rmath v0.9.0
-  [f2b01f46] Roots v3.0.4
+  [f2b01f46] Roots v3.0.6
   [5eaf0fd0] RoundingEmulator v0.2.1
   [7e49a35a] RuntimeGeneratedFunctions v0.5.22
 ⌃ [9dfe8606] SCCNonlinearSolve v1.13.0
   [fdea26ae] SIMD v3.7.2
   [94e857df] SIMDTypes v0.1.0
 ⌅ [0bca4576] SciMLBase v2.155.1
-  [19f34311] SciMLJacobianOperators v0.1.14
+  [19f34311] SciMLJacobianOperators v0.1.16
 ⌅ [a6db7da4] SciMLLogging v1.10.1
-  [c0aeaf25] SciMLOperators v1.24.0
-  [431bcebd] SciMLPublic v1.2.2
+  [c0aeaf25] SciMLOperators v1.24.4
+  [431bcebd] SciMLPublic v1.2.3
   [53ae85a6] SciMLStructures v1.10.3
   [7e506255] ScopedValues v1.6.2
   [6c6a2e73] Scratch v1.3.0
@@ -605,9 +602,9 @@ Environment:
   [09ab397b] StructArrays v0.7.3
   [ec057cc2] StructUtils v2.8.2
   [2efcf032] SymbolicIndexingInterface v0.3.51
-  [19f23fe9] SymbolicLimits v1.1.3
-  [d1185830] SymbolicUtils v4.40.0
-  [0c5d862f] Symbolics v7.31.0
+  [19f23fe9] SymbolicLimits v1.1.4
+  [d1185830] SymbolicUtils v4.40.2
+  [0c5d862f] Symbolics v7.32.1
   [3783bdb8] TableTraits v1.0.1
   [bd369af6] Tables v1.13.0
   [ed4db957] TaskLocalValues v0.1.3
@@ -617,7 +614,7 @@ Environment:
   [1c621080] TestItems v1.0.0
   [8290d209] ThreadingUtilities v0.5.6
   [731e570b] TiffImages v0.11.9
-  [a759f4b9] TimerOutputs v0.5.29
+⌅ [a759f4b9] TimerOutputs v0.5.29
   [3bb67fe8] TranscodingStreams v0.11.3
   [981d1d27] TriplotBase v0.1.0
   [781d530d] TruncatedStacktraces v1.4.0
@@ -753,4 +750,4 @@ Environment:
   [8e850ede] nghttp2_jll v1.64.0+1
   [3f19e933] p7zip_jll v17.7.0+0
 Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 12 July 2026 21:31">Sunday 12 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 21 July 2026 17:13">Tuesday 21 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
