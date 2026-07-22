@@ -4,7 +4,6 @@ using Test
 
 run_qa(
     OptimalControlBenchmarks;
-    explicit_imports = true,
     ei_kwargs = (;
         # `problem_registry.jl` registers problems through a dynamic `include`,
         # which ExplicitImports cannot follow, so the module is unanalyzable for
@@ -15,7 +14,6 @@ run_qa(
         all_explicit_imports_via_owners = (; ignore = (:inputs,)),
     ),
     api_docs_kwargs = (;
-        rendered = true,
         docs_src = normpath(@__DIR__, "..", "..", "..", "..", "docs", "src"),
     ),
 )

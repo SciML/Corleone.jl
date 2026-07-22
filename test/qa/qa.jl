@@ -4,7 +4,6 @@ using Test
 
 run_qa(
     Corleone;
-    explicit_imports = true,
     # Corleone pulls all of its deps in with bare `using`, so the package leans
     # on a large set of implicit imports. Converting every one to an explicit
     # import is a sizable refactor tracked in SciML/Corleone.jl#103.
@@ -26,5 +25,4 @@ run_qa(
             ),
         ),
     ),
-    api_docs_kwargs = (; rendered = true),
 )
