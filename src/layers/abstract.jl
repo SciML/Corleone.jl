@@ -107,7 +107,19 @@ end
 function get_timepoints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
     tpoints = reduce(vcat, map(T) do ti
         getter = Base.Fix2(getfield, ti)
-        ti => nested_eval(get_timepoints, getter(x), getter(ps), getter(st))
+        container = getter(x)
+        ps_i = !isnothing(ps) ? getter(ps) : nothing
+        st_i = !isnothing(st) ? getter(st) : nothing
+        # container might be a NamedTuple of layers (like Controls.controls)
+        # or a single layer wrapped in a NamedTuple
+        if container isa NamedTuple
+            # Recursively get timepoints from each layer in the NamedTuple
+            reduce(vcat, map(keys(container)) do ki
+                get_timepoints(container[ki], !isnothing(ps_i) ? ps_i[ki] : nothing, !isnothing(st_i) ? st_i[ki] : nothing)
+            end)
+        else
+            get_timepoints(container, ps_i, st_i)
+        end
     end) 
     unique!(sort!(tpoints))
 end

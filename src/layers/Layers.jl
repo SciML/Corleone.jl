@@ -26,8 +26,6 @@ last_or_last(f::Tuple, ps, st) = maybecallme(Base.last(f), ps, st)
 
 include("abstract.jl")
 
-include("fixed_layer.jl")
-
 include("piecewise_constant.jl")
 
 include("parameter_container.jl")

@@ -150,3 +150,7 @@ function shooting_constraints!(res::AbstractArray, pc::PiecewiseParameter, ps, s
     (; injected) = pc
     return res .= ps[injected] .- ps[injected .- 1]
 end
+
+function get_timepoints(pc::PiecewiseParameter, ps, st)
+    return pc.tpoints
+end
