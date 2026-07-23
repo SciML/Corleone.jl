@@ -1,5 +1,8 @@
 using Pkg
 
+# OptimalControlBenchmarks is bundled with Corleone and is not registry-resolvable.
+Pkg.develop(PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")))
+
 using Documenter, Corleone, CorleoneOED, OptimalControlBenchmarks
 using DocumenterInterLinks
 using DocumenterCitations
