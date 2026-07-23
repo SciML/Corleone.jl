@@ -36,8 +36,6 @@ include("shooting_interval.jl")
 
 include("shooting_layer.jl")
 
-export FixedLayer
-
 export PiecewiseParameter
 export inject!, reset!
 export number_of_shooting_constraints
