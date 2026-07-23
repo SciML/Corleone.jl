@@ -95,28 +95,32 @@ function collect_activity_pattern(timepoints::AbstractVector, x::LuxCore.Abstrac
 end
 
 
-# Timed function API 
-function get_timepoints(x::LuxCore.AbstractLuxLayer, ps, st) 
-    []
-end 
-
-function get_timepoints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where T 
-    get_timepoints(getfield(x, only(T)), ps, st)
+# Timed function API
+function get_timepoints(x::LuxCore.AbstractLuxLayer, ps, st)
+    return []
 end
 
-function get_timepoints(x::NamedTuple{NAMES}, ps, st) where NAMES 
-    reduce(vcat, map(NAMES) do key 
-        get_timepoints(getproperty(x, key), getproperty(ps, key), getproperty(st, key))
-    end)
+function get_timepoints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where {T}
+    return get_timepoints(getfield(x, only(T)), ps, st)
+end
+
+function get_timepoints(x::NamedTuple{NAMES}, ps, st) where {NAMES}
+    return reduce(
+        vcat, map(NAMES) do key
+            get_timepoints(getproperty(x, key), getproperty(ps, key), getproperty(st, key))
+        end
+    )
 end
 
 function get_timepoints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
-    tpoints = reduce(vcat, map(T) do ti
-        getter = Base.Fix2(getfield, ti)
-        container = getter(x)
-        ps_i = getter(ps)
-        st_i = getter(st)
-        get_timepoints(container, ps_i, st_i)
-    end) 
-    unique!(sort!(tpoints))
+    tpoints = reduce(
+        vcat, map(T) do ti
+            getter = Base.Fix2(getfield, ti)
+            container = getter(x)
+            ps_i = getter(ps)
+            st_i = getter(st)
+            get_timepoints(container, ps_i, st_i)
+        end
+    )
+    return unique!(sort!(tpoints))
 end
