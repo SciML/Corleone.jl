@@ -87,10 +87,10 @@ function collect_activity_pattern(timepoints::AbstractVector, x::LuxCore.Abstrac
     return collect_activity_pattern(timepoints, getfield(x, only(T)), ps, st)
 end
 
-function collect_activity_pattern(timeponts::AbstractVector, x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
+function collect_activity_pattern(timepoints::AbstractVector, x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
     return map(T) do ti
         getter = Base.Fix2(getfield, ti)
-        ti => nested_eval(Base.Fix1(collect_activity_pattern, timeponts), getter(x), getter(ps), getter(st))
+        ti => nested_eval((x...) -> collect_activity_pattern(timepoints, x...), getter(x), getter(ps), getter(st))
     end |> NamedTuple
 end
 
@@ -104,22 +104,19 @@ function get_timepoints(x::LuxCore.AbstractLuxWrapperLayer{T}, ps, st) where T
     get_timepoints(getfield(x, only(T)), ps, st)
 end
 
+function get_timepoints(x::NamedTuple{NAMES}, ps, st) where NAMES 
+    reduce(vcat, map(NAMES) do key 
+        get_timepoints(getproperty(x, key), getproperty(ps, key), getproperty(st, key))
+    end)
+end
+
 function get_timepoints(x::LuxCore.AbstractLuxContainerLayer{T}, ps, st) where {T}
     tpoints = reduce(vcat, map(T) do ti
         getter = Base.Fix2(getfield, ti)
         container = getter(x)
-        ps_i = !isnothing(ps) ? getter(ps) : nothing
-        st_i = !isnothing(st) ? getter(st) : nothing
-        # container might be a NamedTuple of layers (like Controls.controls)
-        # or a single layer wrapped in a NamedTuple
-        if container isa NamedTuple
-            # Recursively get timepoints from each layer in the NamedTuple
-            reduce(vcat, map(keys(container)) do ki
-                get_timepoints(container[ki], !isnothing(ps_i) ? ps_i[ki] : nothing, !isnothing(st_i) ? st_i[ki] : nothing)
-            end)
-        else
-            get_timepoints(container, ps_i, st_i)
-        end
+        ps_i = getter(ps)
+        st_i = getter(st)
+        get_timepoints(container, ps_i, st_i)
     end) 
     unique!(sort!(tpoints))
 end

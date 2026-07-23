@@ -21,8 +21,8 @@
     @testset "collect_timegrid covers tspan" begin
         c = Controls(pc1, pc2; sys = sys)
         reset!(c)
-        _, st = LuxCore.setup(rng, c)
-        tspans = Corleone.collect_timegrid(c, nothing, st, (0.0, 12.0))
+        ps, st = LuxCore.setup(rng, c)
+        tspans = Corleone.collect_timegrid(c, ps, st, (0.0, 12.0))
         @test first(first(tspans)) == 0.0
         @test last(last(tspans)) == 12.0
     end
