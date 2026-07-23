@@ -14,7 +14,7 @@ components keep the original `u0`.
 $(FIELDS)
 """
 @concrete struct ShootingInterval <: LuxCore.AbstractLuxLayer
-    "Tunable initial conditons"
+    "Tunable initial conditions"
     variable_id
     "Initializer for the variable"
     init
