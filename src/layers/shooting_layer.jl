@@ -68,9 +68,10 @@ mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
 function sequential_solve(cache, prob, alg, setter, controls, ps, st, tspans::AbstractVector)
     (t0, t1) = first(tspans)
     p, st = controls(t0, ps, st)
-    sol = solve(prob, alg; p = setter(p), tspan = (t0, t1), save_everystep = false)
+    sol = solve(prob, alg; p = setter(p), tspan = (t0, t1), save_everystep = false, save_start = true, save_end = true)
     ret = Solutions.ControlSegment(sol, cache)
     length(tspans) == 1 && return vcat(ret)
+    @info sol.t t0 t1
     new_prob = remake(sol.prob, u0 = sol.u[end])
     return vcat(ret, sequential_solve(cache, new_prob, alg, setter, controls, ps, st, tspans[2:end]))
 end

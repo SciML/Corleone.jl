@@ -82,6 +82,8 @@ function SymbolicIndexingInterface.is_variable(cache::ControlSymbolCache, sym)
     return haskey(cache.controls, sym) || is_variable(cache.sys, sym)
 end
 
+control_indices(cache::ControlSymbolCache) = first.(values(cache.controls))
+
 SymbolicIndexingInterface.constant_structure(cache::ControlSymbolCache) = constant_structure(cache.sys)
 
 SymbolicIndexingInterface.all_variable_symbols(cache::ControlSymbolCache) = union(all_variable_symbols(cache.sys), keys(cache.controls))

@@ -22,6 +22,8 @@ get_utype(seg::AbstractCompositeSolution) = get_utype(first(seg.segments))
 
 SymbolicIndexingInterface.symbolic_container(seg::AbstractCompositeSolution) = seg.sys
 SymbolicIndexingInterface.state_values(seg::AbstractCompositeSolution) = _aggregate_trim(state_values, seg)
+SymbolicIndexingInterface.state_values(seg::AbstractCompositeSolution, idxs) = _aggregate_trim(Base.Fix2(state_values, idxs), seg)
+
 minimal_state_values(seg::AbstractCompositeSolution) = _aggregate_trim(minimal_state_values, seg)
 SymbolicIndexingInterface.current_time(seg::AbstractCompositeSolution) = _aggregate_trim(current_time, seg)
 

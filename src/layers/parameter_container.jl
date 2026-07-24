@@ -52,7 +52,8 @@ end
 
 function collect_timegrid(controls, ps, st, tspan = (-Inf, Inf))
     tpoints = get_timepoints(controls, ps, st)
-    filter!(ti -> tspan[1] <= ti <= tspan[2], unique!(sort!(tpoints)))
+    append!(tpoints, collect(tspan))
+    filter!(ti -> isfinite(ti) && (tspan[1] <= ti <= tspan[2]), unique!(sort!(tpoints)))
     return collect(zip(@view(tpoints[begin:(end - 1)]), @view(tpoints[(begin + 1):end])))
 end
 
@@ -66,10 +67,10 @@ function optimal_shooting_points(method::AbstractAutoShoot, layer::Controls, ps,
     unique!(tpoints)
     pattern = collect_activity_pattern(tpoints, layer, ps, st)
     next_shooting_points = apply_auto_shoot(method, pattern, tpoints)
+    sort!(next_shooting_points)
     for layer in controls, ti in next_shooting_points
         inject!(layer, ti)
     end
-    sort!(next_shooting_points)
     return next_shooting_points
 end
 

@@ -29,6 +29,10 @@ function SymbolicIndexingInterface.state_values(seg::ControlSegment)
     return vcat.(seg.sol.u, fill(c, length(seg.sol.t)))
 end
 
+function SymbolicIndexingInterface.state_values(seg::ControlSegment, idx)
+    map(Base.Fix2(getindex, idx), state_values(seg))
+end
+
 
 function minimal_state_values(seg::ControlSegment)
     q_idxs = quadrature_indices(seg.sys)

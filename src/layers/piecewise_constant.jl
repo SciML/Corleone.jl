@@ -39,7 +39,7 @@ end
 
 function inject!(pc::PiecewiseParameter, t::T) where {T <: Number}
     idx = searchsortedlast(pc.tpoints, t)
-    if pc.tpoints[idx] != t
+    if iszero(idx) || (pc.tpoints[idx] != t)
         insert!(pc.tpoints, idx + 1, t)
         # Update all
         idxs = findall(pc.injected .> idx + 1)
