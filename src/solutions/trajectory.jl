@@ -33,27 +33,31 @@ end
 
 SymbolicIndexingInterface.symbolic_container(traj::Trajectory) = traj.sys
 
-function SymbolicIndexingInterface.state_values(traj::Trajectory)
-    q_idxs = quadrature_indices(traj.sys)
-    n_quad = length(q_idxs)
-    segs = traj.segments
-    T = get_utype(traj)
-    cumulative_offset = zeros(T, n_quad)
-    out = Vector{Vector{T}}()
-    for (i, seg) in enumerate(segs)
-        vals = map(copy, state_values(seg))
-        terminal_quad = n_quad > 0 ? last(vals)[q_idxs] : T[]
-        for v in vals
-            v[q_idxs] .+= cumulative_offset
-        end
-        if i < length(segs)
-            vals = vals[begin:(end - 1)]
-        end
-        cumulative_offset = cumulative_offset .+ terminal_quad
-        append!(out, vals)
-    end
-    return out
+SymbolicIndexingInterface.state_values(traj::Trajectory) = _state_values(traj, Colon())
+SymbolicIndexingInterface.state_values(traj::Trajectory, idxs) = _state_values(traj, idxs)
+
+function _state_values(traj::Trajectory{N}, idxs = Colon()) where N
+    q_idxs = isa(idxs, Colon) ? quadrature_indices(traj.sys) : intersect(quadrature_indices(traj.sys), idxs)
+    isempty(q_idxs) && return _aggregate_trim(Base.Fix2(state_values, idxs), traj)
+    
+    segs = map(Base.Fix2(state_values, idxs), traj.segments)
+    offset = zero(first(first(segs)))
+    selector = [i ∈ q_idxs for i in idxs]
+    reduce(vcat, __accumulate_quadratures(offset, selector, segs))
 end
+
+function __accumulate_quadratures(offset, selector, segs::Tuple)
+    current = first(segs)
+    seg = map(Base.Fix1(+, offset), current)
+    offset = selector .* last(seg)
+    (seg[1:end-1], __accumulate_quadratures(offset, selector, Base.tail(segs))...)
+end
+
+function __accumulate_quadratures(offset, selector, segs::Tuple{T}) where T
+    current = first(segs)
+    seg = map(Base.Fix1(+, offset), current)
+    (seg,)
+end 
 
 function Base.getproperty(traj::Trajectory, sym::Symbol)
     if sym == :ps
