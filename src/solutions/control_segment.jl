@@ -30,7 +30,7 @@ function SymbolicIndexingInterface.state_values(seg::ControlSegment)
 end
 
 function SymbolicIndexingInterface.state_values(seg::ControlSegment, idx)
-    map(Base.Fix2(getindex, idx), state_values(seg))
+    return map(Base.Fix2(getindex, idx), state_values(seg))
 end
 
 

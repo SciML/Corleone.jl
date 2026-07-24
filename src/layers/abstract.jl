@@ -112,7 +112,7 @@ function get_timepoints(x::NamedTuple{NAMES}, ps, st) where {NAMES}
     )
 end
 
-function get_timepoints(x::Tuple, ps::Tuple, st::Tuple) 
+function get_timepoints(x::Tuple, ps::Tuple, st::Tuple)
     return reduce(
         vcat, map(zip(x, ps, st)) do (xi, psi, sti)
             get_timepoints(xi, psi, sti)

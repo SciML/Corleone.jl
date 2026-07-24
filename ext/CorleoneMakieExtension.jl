@@ -3,7 +3,6 @@ using Corleone.Solutions: ControlSegment, AbstractCompositeSolution, control_ind
 using Makie
 using SymbolicIndexingInterface
 
-
 Makie.plottype(::AbstractCompositeSolution) = Makie.Lines
 
 function Makie.used_attributes(::Type{<:Plot}, sol::AbstractCompositeSolution)
@@ -11,17 +10,19 @@ function Makie.used_attributes(::Type{<:Plot}, sol::AbstractCompositeSolution)
 end
 
 function Makie.convert_arguments(
-    PT::Type{<:Plot},
-    sol::AbstractCompositeSolution;
-    vars=[],
-    idxs=Int[],
-    show_segments::Bool=true,
-    show_segment_ends::Bool=true,
-    kwargs...
-)
-    new_idxs = reduce(vcat, map(vars) do vi
-        SymbolicIndexingInterface.variable_index(sol, vi)
-    end)
+        PT::Type{<:Plot},
+        sol::AbstractCompositeSolution;
+        vars = [],
+        idxs = Int[],
+        show_segments::Bool = true,
+        show_segment_ends::Bool = true,
+        kwargs...
+    )
+    new_idxs = reduce(
+        vcat, map(vars) do vi
+            SymbolicIndexingInterface.variable_index(sol, vi)
+        end
+    )
 
     append!(idxs, new_idxs)
     cidx = control_indices(sol.sys)
@@ -34,30 +35,31 @@ function Makie.convert_arguments(
     plot_type_sym = Makie.plotsym(PT)
     plots = map(
         ((id, i)::Tuple) -> if i ∈ control_idx
-            PlotSpec(Makie.Stairs, Point2f.(t, view(vis, id, :)); label = labels[i], color=colors[i], step=:post)
+            PlotSpec(Makie.Stairs, Point2f.(t, view(vis, id, :)); label = labels[i], color = colors[i], step = :post)
         else
-            PlotSpec(plot_type_sym, Point2f.(t, view(vis, id, :)); label = labels[i], color=colors[i])
+            PlotSpec(plot_type_sym, Point2f.(t, view(vis, id, :)); label = labels[i], color = colors[i])
         end, enumerate(idxs)
     )
 
     if show_segments && length(sol.segments) > 1
-        tends = collect(map(xi->current_time(xi)[end], sol.segments[1:(end-1)]))
-        push!(plots, PlotSpec(VLines, tends; color=:black, linestyle=:dash))
+        tends = collect(map(xi -> current_time(xi)[end], sol.segments[1:(end - 1)]))
+        push!(plots, PlotSpec(VLines, tends; color = :black, linestyle = :dash))
     end
 
     if show_segment_ends && length(sol.segments) > 1
-        foreach(sol.segments[1:(end-1)]) do seg
+        foreach(sol.segments[1:(end - 1)]) do seg
             ti = current_time(seg)[end]
             ui = state_values(seg)[end]
-            for i in setdiff( idxs, qidx)
-                push!(plots,
+            for i in setdiff(idxs, qidx)
+                push!(
+                    plots,
                     PlotSpec(
-                        Scatter, Point2f(ti, ui[i]); marker=:xcross, color=colors[i]
+                        Scatter, Point2f(ti, ui[i]); marker = :xcross, color = colors[i]
                     )
                 )
             end
         end
     end
-    plots
+    return plots
 end
 end
