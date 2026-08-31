@@ -18,7 +18,7 @@ const SYMBOLICS_REEXPORTS = (
     Symbol("@symstruct"), Symbol("@variables"), Symbol("@wrapped"), :BS, :Differential,
     :Equation, :IRStructure, :Inequality, :Integral, :Num, :Rewriters, :RuleSet, :SafeReal,
     :SymReal, :SymStruct, :SymbolicLinearODE, :SymbolicUtils, :Symbolics,
-    :SymbolicsSparsityDetector, :TreeReal, :approximation_function, :arguments,
+    :SymbolicsSparsityDetector, :TreeReal, :Unknown, :approximation_function, :arguments,
     :build_function, :expand, :expand_derivatives, :factors, :flatten_fractions,
     :gather_factor, :get_canonical_expr, :get_reachability, :getmetadata, :groebner_basis,
     :has_inverse, :has_left_inverse, :has_right_inverse, :hasmetadata, :ifelse_branching,
@@ -27,7 +27,8 @@ const SYMBOLICS_REEXPORTS = (
     :limit, :majorization_function, :minorization_function, :operation,
     :parse_expr_to_symbolic, :partial_frac_decomposition, :polynomial_coeffs,
     :populate_ir!, :print_ir, :quick_cancel, :right_continuous_function, :right_inverse,
-    :rootfunction, :semilinear_form, :semipolynomial_form, :semiquadratic_form, :series,
+    :rootfunction, :scalarize, :semilinear_form, :semipolynomial_form, :semiquadratic_form,
+    :series, :shape,
     :setmetadata, :simplify, :simplify_fractions, :solve_for, :solve_linear_ode_system,
     :solve_symbolic_IVP, :sorted_arguments, :substitute, :substitute_in_deriv,
     :substitute_in_deriv_and_depvar, :supremum, :symbolic_linear_solve, :symbolic_solve,
@@ -36,8 +37,8 @@ const SYMBOLICS_REEXPORTS = (
     :sympy_ode_solve, :sympy_pythoncall_algebraic_solve, :sympy_pythoncall_integrate,
     :sympy_pythoncall_limit, :sympy_pythoncall_linear_solve, :sympy_pythoncall_ode_solve,
     :sympy_pythoncall_simplify, :sympy_pythoncall_to_symbolics, :sympy_simplify,
-    :sympy_to_symbolics, :taylor, :taylor_coeff, :term, :terms, :tosymbol, :unwrap_const,
-    :vartype, Symbol("≲"), Symbol("≳"),
+    :sympy_to_symbolics, :taylor, :taylor_coeff, :term, :terms, :tosymbol, :unwrap,
+    :unwrap_const, :vartype, Symbol("≲"), Symbol("≳"),
 )
 run_qa(
     CorleoneOED;
