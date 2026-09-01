@@ -56,7 +56,7 @@ function make_tutorial(path)
         path, outpath,
         execute = true,
         preprocess = preprocess_script,
-        # flavor = Literate.CommonMarkFlavor(),
+        flavor = Literate.CommonMarkFlavor(),
         name = fname
     )
     metadata["link"] = joinpath(".", "examples", fname)
