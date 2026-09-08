@@ -18,23 +18,23 @@ struct SingleShootingLayer{P, A, C, B, PB, SI, PI} <: LuxCore.AbstractLuxLayer
     "The algorithm with which `problem` is integrated."
     algorithm::A
     "Indices in parameters of `prob` corresponding to controls"
-    control_indices::Vector{Int64}
+    control_indices::Vector{Int}
     "The controls"
     controls::C
     "Indices of `prob.u0` which are degrees of freedom"
-    tunable_ic::Vector{Int64}
+    tunable_ic::Vector{Int}
     "Bounds on the tunable initial conditions of the problem"
     bounds_ic::B
     "Initialization of u"
     state_initialization::SI
     "Indices of `prob.p` which are degrees of freedom. This is derived from control_indices!"
-    tunable_p::Vector{Int64}
+    tunable_p::Vector{Int}
     "Bounds on the tunable parameters of the problem"
     bounds_p::PB
     "Initialization of p"
     parameter_initialization::PI
     "Indices of differential states that are quadratures, i.e. they do not enter into the right hand side of `problem`"
-    quadrature_indices::Vector{Int64}
+    quadrature_indices::Vector{Int}
 end
 
 function default_u0(
@@ -92,17 +92,17 @@ function SingleShootingLayer(
         prob,
         alg;
         controls = [],
-        tunable_ic = Int64[],
+        tunable_ic = Int[],
         bounds_ic = nothing,
         state_initialization = default_u0,
         bounds_p = nothing,
         parameter_initialization = default_p0,
-        quadrature_indices = Int64[],
+        quadrature_indices = Int[],
         kwargs...,
     )
     _prob = init_problem(remake(prob; kwargs...), alg)
     controls = collect(controls)
-    control_indices = isempty(controls) ? Int64[] : first.(controls)
+    control_indices = isempty(controls) ? Int[] : Int.(first.(controls))
     controls = isempty(controls) ? controls : last.(controls)
     u0 = prob.u0
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
@@ -110,7 +110,7 @@ function SingleShootingLayer(
     p_vec = p_vec[tunable_p]
     ic_bounds = isnothing(bounds_ic) ? (to_val(u0, -Inf), to_val(u0, Inf)) : bounds_ic
     p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
-    quadrature_indices = isempty(quadrature_indices) ? Int64[] : collect(quadrature_indices)
+    quadrature_indices = isempty(quadrature_indices) ? Int[] : Int.(collect(quadrature_indices))
 
     @assert size(ic_bounds[1]) == size(ic_bounds[2]) == size(u0) "The size of the initial states and its bounds is inconsistent."
     @assert size(p_bounds[1]) == size(p_bounds[2]) == size(p_vec) "The size of the initial parameter vector and its bounds is inconsistent."
@@ -121,10 +121,10 @@ function SingleShootingLayer(
         alg,
         control_indices,
         controls,
-        tunable_ic,
+        Int.(tunable_ic),
         ic_bounds,
         state_initialization,
-        tunable_p,
+        Int.(tunable_p),
         p_bounds,
         parameter_initialization,
         quadrature_indices
@@ -277,8 +277,8 @@ function _retrieve_symbol_cache(xs, ps, t, idx)
 end
 
 struct InitialConditionRemaker <: Function
-    sorting::Vector{Int64}
-    constants::Vector{Int64}
+    sorting::Vector{Int}
+    constants::Vector{Int}
 end
 
 function (ic::InitialConditionRemaker)(
@@ -351,7 +351,7 @@ function __initialstates(
         grid = build_index_grid(controls...; tspan, subdivide = 100)
         tspans = collect_tspans(controls...; tspan, subdivide = 100)
     else
-        grid = Int64[i for i in control_indices]
+        grid = Int[i for i in control_indices]
         tspans = (problem.tspan,)
     end
     shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
@@ -398,7 +398,7 @@ function (layer::SingleShootingLayer)(u0::AbstractArray, ps, st)
 end
 
 function build_optimal_control_solution(u, t, p, sys)
-    return Trajectory(sys, u, p, t, empty(u), Int64[])
+    return Trajectory(sys, u, p, t, empty(u), Int[])
 end
 
 sequential_solve(args...) = _sequential_solve(args...)

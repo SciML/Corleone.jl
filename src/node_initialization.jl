@@ -460,7 +460,7 @@ function (f::HybridInitialization)(rng::Random.AbstractRNG, layer::MultipleShoot
     forward_default = typeof(f.default_init) <: ForwardSolveInitialization
 
     any_forward = any(forward_involved) || forward_default
-    forward_vars = any(forward_involved) ? reduce(vcat, defined_vars[forward_involved]) : Int64[]
+    forward_vars = any(forward_involved) ? reduce(vcat, defined_vars[forward_involved]) : Int[]
 
     defined_vars = reduce(vcat, defined_vars)
     remaining_vars = [i for i in shooting_variables if i ∉ defined_vars]
