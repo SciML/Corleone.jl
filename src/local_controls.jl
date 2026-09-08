@@ -132,7 +132,7 @@ function get_subvector_indices(M::Int, L::Int)
     # Calculate the number of full-length vectors (N)
     N = floor(Int, M / L)
 
-    indices = Vector{UnitRange{Int64}}()
+    indices = Vector{UnitRange{Int}}()
 
     # Create the N full-length vectors
     for i in 1:N
@@ -152,12 +152,12 @@ function get_subvector_indices(M::Int, L::Int)
     return indices
 end
 
-function build_index_grid(controls::ControlParameter...; offset::Bool = true, tspan::Tuple = (-Inf, Inf), subdivide::Int64 = typemax(Int64))
+function build_index_grid(controls::ControlParameter...; offset::Bool = true, tspan::Tuple = (-Inf, Inf), subdivide::Int = typemax(Int))
     ts = map(controls) do ci
         get_timegrid(ci, tspan)
     end
     time_grid = vcat(reduce(vcat, ts), collect(tspan)) |> sort! |> unique! |> Base.Fix1(filter!, isfinite)
-    indices = zeros(Int64, length(ts), size(time_grid, 1) - 1)
+    indices = zeros(Int, length(ts), size(time_grid, 1) - 1)
     for i in axes(indices, 1), j in axes(indices, 2)
         indices[i, j] = clamp(
             searchsortedlast(ts[i], time_grid[j]),
@@ -186,7 +186,7 @@ end
 find_shooting_indices(tspan, control::ControlParameter) = any(first(tspan) .== control.t)
 
 
-function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf), subdivide::Int64 = typemax(Int64))
+function collect_tspans(controls::ControlParameter...; tspan = (-Inf, Inf), subdivide::Int = typemax(Int))
     ts = map(controls) do ci
         get_timegrid(ci, tspan)
     end
