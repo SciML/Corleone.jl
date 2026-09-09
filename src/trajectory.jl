@@ -18,7 +18,7 @@ struct Trajectory{S, U, P, T, SH}
     "The shooting values"
     shooting::SH
     "The shooting indices"
-    shooting_indices::Vector{Int64}
+    shooting_indices::Vector{Int}
 end
 
 SymbolicIndexingInterface.is_timeseries(::Type{<:Trajectory}) = Timeseries()

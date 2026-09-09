@@ -235,13 +235,13 @@ and per-stage sorted by states - parameters - controls
 """
 stage_ordered_shooting_constraints(traj::Trajectory) = deepvcat(traj.shooting)
 
-function collect_into!(res::AbstractVector, sval::SV, ind::Vector{Int64} = [0]) where {SV <: AbstractVector}
+function collect_into!(res::AbstractVector, sval::SV, ind::Vector{Int} = [0]) where {SV <: AbstractVector}
     for i in eachindex(sval)
         res[ind[1] += 1] = sval[i]
     end
     return
 end
-function collect_into!(res::AbstractVector, sval::NamedTuple, ind::Vector{Int64} = [0])
+function collect_into!(res::AbstractVector, sval::NamedTuple, ind::Vector{Int} = [0])
     for key in keys(sval)
         collect_into!(res, sval[key], ind)
     end
@@ -268,7 +268,7 @@ state_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: Named
 parameter_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :p)
 control_matchings(traj::Trajectory{S, U, P, T, SH}) where {S, U, P, T, SH <: NamedTuple} = _matchings(traj, :controls)
 
-function _matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}, kind::Symbol, ind::Vector{Int64} = [1]) where {S, U, P, T, SH <: NamedTuple}
+function _matchings!(res::AbstractVector, traj::Trajectory{S, U, P, T, SH}, kind::Symbol, ind::Vector{Int} = [1]) where {S, U, P, T, SH <: NamedTuple}
     for key in keys(traj.shooting)
         res[UnitRange(ind[1], (ind[1] += length(traj.shooting[key][kind])) - 1)] = traj.shooting[key][kind]
     end
