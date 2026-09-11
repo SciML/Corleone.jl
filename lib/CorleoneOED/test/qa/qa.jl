@@ -38,6 +38,11 @@ const SYMBOLICS_REEXPORTS = (
     :sympy_pythoncall_simplify, :sympy_pythoncall_to_symbolics, :sympy_simplify,
     :sympy_to_symbolics, :taylor, :taylor_coeff, :term, :terms, :tosymbol, :unwrap_const,
     :vartype, Symbol("≲"), Symbol("≳"),
+    # Added 2026-09-11. These four are Symbolics names that the `@reexport using
+    # Symbolics` facade has been re-exporting at runtime all along; the snapshot
+    # had gone stale because this lane is skipped unless lib/ changes. Recording
+    # them does not widen the facade. Flagged for review in SciML/Corleone.jl#150.
+    :Unknown, :scalarize, :shape, :unwrap,
 )
 run_qa(
     CorleoneOED;
