@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiexperiments · Corleone.jl</title><meta name="title" content="Multiexperiments · Corleone.jl"/><meta property="og:title" content="Multiexperiments · Corleone.jl"/><meta property="twitter:title" content="Multiexperiments · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Optimal Experimental Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete measurements</a></li><li class="is-active"><a class="tocitem" href>Multiexperiments</a><ul class="internal"><li><a class="tocitem" href="#Lotka-Volterra-Multiexperiments"><span>Lotka-Volterra Multiexperiments</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Lotka-Volterrra-Dynamics"><span>Lotka Volterrra Dynamics</span></a></li><li><a class="tocitem" href="#Construct-the-MultiExperimentLayer"><span>Construct the <code>MultiExperimentLayer</code></span></a></li><li><a class="tocitem" href="#Set-up-and-solve-the-problem"><span>Set up and solve the problem</span></a></li><li><a class="tocitem" href="#Updating-the-FIM"><span>Updating the FIM</span></a></li><li><a class="tocitem" href="#Different-parameters-per-experiment"><span>Different parameters per experiment</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Multiexperiments</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiexperiments</a></li></ul></nav><div class="docs-right"><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="Lotka-Volterra-Multiexperiments"><a class="docs-heading-anchor" href="#Lotka-Volterra-Multiexperiments">Lotka-Volterra Multiexperiments</a><a id="Lotka-Volterra-Multiexperiments-1"></a><a class="docs-heading-anchor-permalink" href="#Lotka-Volterra-Multiexperiments" title="Permalink"></a></h2><p><code>CorleoneOED</code> also provides features to optimize multiple experiments at once. This page shows how to do this, again with the example of the Lotka-Volterra system shown before in the OED example.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>We will use <code>Corleone</code> and <code>CorleoneOED</code>to model the optimal experimental design problem with multiple experiments optimized simultaneously.</p><pre><code class="language-julia hljs">using Corleone, CorleoneOED</code></pre><p>Additionally, we will need the following packages</p><ul><li><a href><code>LuxCore</code></a> and <a href><code>Random</code></a> for basic setup functions</li><li><a href><code>OrdinaryDiffEqTsit5</code></a> as an adaptive solver for the related ODEProblem</li><li><a href><code>SymbolicIndexingInterface</code></a> to conveniently access variables and controls of the solution</li><li><a href><code>Optimization</code></a>, <a href><code>OptimizationMOI</code></a>, <a href><code>Ipopt</code></a>, and <a href><code>ComponentArrays</code></a> to setup and solve the optimization problem</li><li><a href><code>CairoMakie</code></a> to plot the solution</li></ul><pre><code class="language-julia hljs">using LuxCore
+using Random
+using OrdinaryDiffEqTsit5
+using SymbolicIndexingInterface
+using Optimization
+using OptimizationMOI
+using Ipopt
+using ComponentArrays
+using CairoMakie</code></pre><h2 id="Lotka-Volterrra-Dynamics"><a class="docs-heading-anchor" href="#Lotka-Volterrra-Dynamics">Lotka Volterrra Dynamics</a><a id="Lotka-Volterrra-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Lotka-Volterrra-Dynamics" title="Permalink"></a></h2><pre><code class="language-julia hljs">function lotka_dynamics(du, u, p, t)
+    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    return
+end
+tspan = (0.0, 12.0)
+u0 = [0.5, 0.7]
+p0 = [0.0, 1.0, 1.0]
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0)</code></pre><pre><code class="nohighlight hljs">ODEProblem with uType Vector{Float64} and tType Float64. In-place: true
+Non-trivial mass matrix: false
+timespan: (0.0, 12.0)
+u0: 2-element Vector{Float64}:
+ 0.5
+ 0.7</code></pre><h2 id="Construct-the-MultiExperimentLayer"><a class="docs-heading-anchor" href="#Construct-the-MultiExperimentLayer">Construct the <code>MultiExperimentLayer</code></a><a id="Construct-the-MultiExperimentLayer-1"></a><a class="docs-heading-anchor-permalink" href="#Construct-the-MultiExperimentLayer" title="Permalink"></a></h2><p>For designing multiple experiments at once, <code>CorleoneOED</code> provides the <code>MultiExperimentLayer</code>. It can be constructed analogous to the <code>OEDLayer</code> from an <code>ODEProblem</code> and a suitable algorithm, with an additional integer specifying the number of experiments to optimize. In this case we want to design two experiments.</p><pre><code class="language-julia hljs">cgrid = collect(0.0:0.25:11.75)
+control = ControlParameter(
+    cgrid, name = :fishing, bounds = (0.0, 1.0)
+)
+
+multi_exp = MultiExperimentLayer{false}(
+    prob, Tsit5(), 2;
+    params = [2, 3],
+    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
+    controls = (1 =&gt; control,),
+    measurements = [
+        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
+        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
+    ],
+    observed = (u, p, t) -&gt; u[1:2]
+)</code></pre><pre><code class="nohighlight hljs">MultiExperimentLayer with continuous measurement model and 2 experiments.
+</code></pre><p>Calling this layer with the appropriate arguments integrates the two experiments. We can define a plotting function and look at the initial experiments for the initial values provided above.</p><pre><code class="language-julia hljs">function plot_experiments(sols)
+    f = Figure()
+    for (i, sol) in enumerate(sols)
+        ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = &quot;Experiment $i\nStates&quot;)
+        ax2 = CairoMakie.Axis(f[2, i], xticks = 0:2:12, title = &quot;Sensitivities&quot;)
+        ax3 = CairoMakie.Axis(f[3, i], xticks = 0:1:12, title = &quot;Sampling&quot;)
+        ax4 = CairoMakie.Axis(f[4, i], xticks = 0:1:12, title = &quot;Controls&quot;)
+        plot!(ax, sol, idxs = [1, 2])
+        plot!(ax2, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), &quot;G&quot;)])
+        stairs!(ax3, sol, vars = [:w₁, :w₂])
+        stairs!(ax4, sol, vars = [:p₁])
+    end
+    return f
+end
+ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
+
+sols, _ = multi_exp(nothing, ps, st)
+plot_experiments(sols)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-12.png" alt/></p><h2 id="Set-up-and-solve-the-problem"><a class="docs-heading-anchor" href="#Set-up-and-solve-the-problem">Set up and solve the problem</a><a id="Set-up-and-solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Set-up-and-solve-the-problem" title="Permalink"></a></h2><p>The problem is set up like the single experiment problem by providing a suitable criterion and an upper bound on the measurements. Here, we take the <code>ACriterion</code>, i.e., the trace of the inverse of the Fisher information matrix.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(
+    multi_exp, ACriterion(); M = zeros(4) .+ 4.0
+)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-7,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
+);</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:     1152
+Number of nonzeros in Lagrangian Hessian.............:        0
+
+Total number of variables............................:      288
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      288
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        4
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        4
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  2.7087225e-02 7.88e+00 1.07e-03   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  3.1105972e-01 0.00e+00 5.73e-02  -0.0 2.13e+00    -  3.23e-02 1.00e+00f  1
+   2  2.9769938e-01 0.00e+00 4.90e-03  -2.3 4.75e-02    -  9.55e-01 1.00e+00f  1
+   3  2.1836282e-01 0.00e+00 1.27e-02  -2.8 3.24e-01    -  8.57e-01 1.00e+00f  1
+   4  1.6117025e-01 0.00e+00 1.39e-02  -3.3 4.50e-01    -  1.00e+00 1.00e+00f  1
+   5  9.8785313e-02 0.00e+00 6.33e-03  -3.4 1.64e+00    -  9.73e-01 8.66e-01f  1
+   6  5.9813700e-02 0.00e+00 2.15e-03  -3.3 7.59e-01    -  7.51e-01 6.63e-01f  1
+   7  4.1756751e-02 0.00e+00 2.56e-03  -3.7 2.55e-01    -  9.32e-01 1.00e+00f  1
+   8  3.1680495e-02 0.00e+00 7.23e-04  -4.2 2.70e-01    -  9.85e-01 8.96e-01f  1
+   9  2.6641927e-02 0.00e+00 3.97e-04  -4.6 3.67e-01    -  9.75e-01 8.04e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  2.4074046e-02 0.00e+00 3.62e-04  -5.0 5.81e-01    -  9.89e-01 5.39e-01f  1
+  11  2.2890669e-02 0.00e+00 2.93e-04  -5.2 8.16e-01    -  9.95e-01 2.52e-01f  1
+  12  2.1522939e-02 0.00e+00 3.43e-04  -4.8 1.10e+00    -  1.00e+00 4.47e-01f  1
+  13  2.1112574e-02 0.00e+00 1.89e-04  -4.9 1.95e-01    -  9.88e-01 1.00e+00f  1
+  14  2.0319317e-02 0.00e+00 1.39e-04  -5.1 6.98e-01    -  9.87e-01 8.07e-01f  1
+  15  1.9819966e-02 0.00e+00 1.19e-04  -5.3 4.52e-01    -  9.90e-01 7.45e-01f  1
+  16  1.9454870e-02 0.00e+00 1.74e-04  -5.5 4.12e-01    -  1.00e+00 8.32e-01f  1
+  17  1.9131312e-02 0.00e+00 5.61e-05  -5.8 6.15e-01    -  9.97e-01 6.77e-01f  1
+  18  1.9284648e-02 0.00e+00 7.69e-05  -5.5 3.87e-01    -  1.00e+00 1.00e+00f  1
+  19  1.9156537e-02 0.00e+00 4.60e-05  -5.6 1.44e-01    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  1.9148164e-02 0.00e+00 4.49e-05  -5.6 1.19e-01    -  1.00e+00 1.00e+00f  1
+  21  1.9149661e-02 0.00e+00 2.77e-05  -5.6 5.40e-02    -  1.00e+00 1.00e+00f  1
+  22  1.9150438e-02 0.00e+00 2.18e-05  -5.6 3.68e-02    -  1.00e+00 1.00e+00f  1
+  23  1.9131623e-02 0.00e+00 6.70e-04  -8.0 1.39e-03    -  1.00e+00 1.00e+00f  1
+  24  1.8976114e-02 0.00e+00 1.78e-04  -8.0 1.29e-01    -  1.00e+00 7.29e-02f  1
+  25  1.8890273e-02 0.00e+00 9.48e-05  -8.4 2.50e-01    -  1.00e+00 6.74e-02f  1
+  26  1.8827664e-02 0.00e+00 7.51e-05  -8.7 4.31e-01    -  1.00e+00 7.46e-02f  1
+  27  1.8768488e-02 0.00e+00 9.89e-05  -7.7 2.29e+00    -  1.00e+00 3.00e-02f  1
+  28  1.8709197e-02 0.00e+00 3.31e-05  -7.2 1.30e+00    -  1.00e+00 1.09e-01f  1
+  29  1.8650545e-02 0.00e+00 4.57e-05  -6.8 9.10e-01    -  1.00e+00 2.24e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  1.8638511e-02 0.00e+00 4.29e-04  -8.7 9.12e-04    -  1.00e+00 1.00e+00f  1
+  31  1.8620733e-02 0.00e+00 7.25e-05  -9.7 5.50e-02    -  1.00e+00 7.00e-02f  1
+  32  1.8605785e-02 0.00e+00 4.74e-05  -8.3 5.69e-01    -  1.00e+00 3.48e-02f  1
+  33  1.8593635e-02 0.00e+00 1.26e-04  -7.2 6.37e+00    -  1.00e+00 5.85e-03f  1
+  34  1.8557344e-02 0.00e+00 1.21e-04  -6.6 5.13e+00    -  1.00e+00 6.95e-02f  1
+  35  1.8551303e-02 0.00e+00 1.45e-04  -6.4 1.59e+00    -  1.00e+00 9.43e-02f  1
+  36  1.8627049e-02 0.00e+00 1.17e-04  -6.2 3.91e-01    -  1.00e+00 8.36e-01f  1
+  37  1.8624990e-02 0.00e+00 9.37e-03  -6.3 9.51e-03    -  1.00e+00 1.00e+00f  1
+  38  1.8618908e-02 0.00e+00 6.89e-03  -6.3 6.20e-01    -  2.65e-01 1.49e-01f  2
+  39  1.8580714e-02 0.00e+00 9.32e-05  -6.3 2.89e-01    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  1.8520548e-02 0.00e+00 1.87e-04  -6.3 1.29e+00    -  2.02e-01 5.28e-01f  1
+  41  1.8785837e-02 0.00e+00 2.94e-05  -5.7 2.29e+00    -  5.06e-01 4.37e-01f  1
+  42  1.8667080e-02 0.00e+00 2.41e-04  -6.0 1.02e+00    -  4.91e-02 8.46e-01f  1
+  43  1.8642754e-02 0.00e+00 2.77e-01  -6.0 2.77e-01    -  1.00e+00 1.00e+00f  1
+  44  1.8573876e-02 0.00e+00 1.80e-01  -6.0 8.90e-01    -  3.49e-01 1.87e-01f  1
+  45  1.8442547e-02 0.00e+00 5.91e-02  -6.0 9.86e-01    -  6.73e-01 4.49e-01f  1
+  46  1.8671679e-02 0.00e+00 6.93e-04  -5.5 7.12e-01    -  9.88e-01 7.33e-01f  1
+  47  1.8672240e-02 0.00e+00 3.40e-04  -5.6 3.41e-04    -  1.00e+00 1.00e+00f  1
+  48  1.8596932e-02 0.00e+00 2.41e-04  -5.6 3.42e-01    -  1.00e+00 9.18e-01f  1
+  49  1.8544068e-02 0.00e+00 1.60e-04  -5.6 7.69e-01    -  5.64e-01 6.69e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  1.8527193e-02 0.00e+00 1.83e-04  -5.6 3.92e-01    -  1.00e+00 1.98e-01f  1
+  51  1.8484176e-02 0.00e+00 2.04e-04  -5.6 3.29e-01    -  1.00e+00 1.00e+00f  1
+  52  1.8482331e-02 0.00e+00 1.70e-04  -5.6 1.70e-04    -  1.00e+00 1.00e+00f  1
+  53  1.8424701e-02 0.00e+00 9.24e-05  -5.6 3.24e-02    -  1.00e+00 1.00e+00f  1
+  54  1.8277208e-02 0.00e+00 5.55e-05  -6.3 3.84e-02    -  9.98e-01 5.45e-01f  1
+  55  1.8099413e-02 0.00e+00 6.54e-05  -6.7 2.45e-01    -  1.00e+00 4.26e-01f  1
+  56  1.8038993e-02 0.00e+00 9.66e-05  -5.9 1.03e+00    -  1.00e+00 2.92e-01f  1
+  57  1.8136167e-02 0.00e+00 1.75e-04  -5.7 4.87e-01    -  1.00e+00 7.72e-01f  1
+  58  1.8118277e-02 0.00e+00 2.11e-04  -5.8 1.66e+00    -  5.85e-01 9.12e-02f  1
+  59  1.8076470e-02 0.00e+00 2.49e-04  -5.8 2.74e-01    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  1.8059952e-02 0.00e+00 2.43e-04  -5.8 1.69e-01    -  1.00e+00 1.00e+00f  1
+  61  1.8051927e-02 0.00e+00 2.29e-04  -5.8 1.40e-01    -  1.00e+00 1.00e+00f  1
+  62  1.8049984e-02 0.00e+00 2.14e-04  -5.8 2.18e-04    -  1.00e+00 1.00e+00f  1
+  63  1.8027650e-02 0.00e+00 4.79e-05  -5.8 1.33e-02    -  1.00e+00 1.00e+00f  1
+  64  1.7871871e-02 0.00e+00 4.98e-05  -6.7 2.16e-02    -  9.98e-01 1.00e+00f  1
+  65  1.7813664e-02 0.00e+00 3.84e-05  -7.0 1.36e-01    -  1.00e+00 3.34e-01f  1
+  66  1.7766159e-02 0.00e+00 5.30e-05  -6.3 9.44e-01    -  1.00e+00 2.68e-01f  1
+  67  1.7845998e-02 0.00e+00 4.01e-05  -5.9 5.79e-01    -  1.00e+00 3.58e-01f  1
+  68  1.7870907e-02 0.00e+00 1.53e-05  -6.0 2.61e-01    -  9.57e-01 1.00e+00f  1
+  69  1.7864254e-02 0.00e+00 4.07e-05  -6.0 2.23e-01    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  1.7862814e-02 0.00e+00 3.32e-05  -6.0 1.34e-01    -  1.00e+00 1.00e+00f  1
+  71  1.7862997e-02 0.00e+00 5.22e-06  -6.0 7.03e-02    -  1.00e+00 1.00e+00f  1
+  72  1.7731366e-02 0.00e+00 1.72e-05  -8.0 2.50e-01    -  4.62e-01 6.32e-01f  1
+  73  1.7696170e-02 0.00e+00 8.15e-06  -6.6 3.08e-01    -  1.00e+00 1.00e+00f  1
+  74  1.7659886e-02 0.00e+00 6.43e-06  -6.9 1.86e-01    -  9.94e-01 1.00e+00f  1
+  75  1.7632609e-02 0.00e+00 1.73e-05  -7.5 2.55e-01    -  1.00e+00 1.00e+00f  1
+  76  1.7639685e-02 0.00e+00 9.33e-06  -7.2 9.46e-02    -  1.00e+00 1.00e+00f  1
+  77  1.7635825e-02 0.00e+00 9.81e-06  -7.3 1.56e-01    -  9.64e-01 1.00e+00f  1
+  78  1.7635811e-02 0.00e+00 5.54e-06  -7.3 1.20e+00    -  4.47e-01 3.57e-02f  5
+  79  1.7635660e-02 0.00e+00 6.38e-06  -7.3 6.98e-02    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  1.7635615e-02 0.00e+00 9.10e-07  -7.3 9.42e-03    -  1.00e+00 1.00e+00h  1
+  81  1.7635601e-02 0.00e+00 2.76e-07  -7.3 3.34e-03    -  1.00e+00 1.00e+00h  1
+  82  1.7624872e-02 0.00e+00 5.33e-06  -8.0 4.80e-02    -  1.00e+00 1.00e+00f  1
+  83  1.7622378e-02 0.00e+00 2.06e-06  -9.9 1.65e-02    -  1.00e+00 9.14e-01f  1
+  84  1.7622140e-02 0.00e+00 1.49e-07 -11.0 2.31e-03    -  1.00e+00 9.37e-01f  1
+  85  1.7622125e-02 0.00e+00 2.00e-08 -11.0 1.85e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 85
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.7622124849475007e-02    1.7622124849475007e-02
+Dual infeasibility......:   2.0048535422090286e-08    2.0048535422090286e-08
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   3.0807609100951747e-09    3.0807609100951747e-09
+Complementarity.........:   1.0093943175272222e-11    1.0093943175272222e-11
+Overall NLP error.......:   2.0048535422090286e-08    2.0048535422090286e-08
+
+
+Number of objective function evaluations             = 95
+Number of objective gradient evaluations             = 86
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 95
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 86
+Number of Lagrangian Hessian evaluations             = 0
+Total seconds in IPOPT                               = 100.550
+
+EXIT: Optimal Solution Found.
+</code></pre><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
+optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st)
+
+plot_experiments(optsol)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-16.png" alt/></p><h2 id="Updating-the-FIM"><a class="docs-heading-anchor" href="#Updating-the-FIM">Updating the FIM</a><a id="Updating-the-FIM-1"></a><a class="docs-heading-anchor-permalink" href="#Updating-the-FIM" title="Permalink"></a></h2><p>As before in the Lotka OED example, the initial FIM can be updated from the obtained solution. This way, the <code>MultiExperimentLayer</code> can be easily used in an iterative measurement campaign in which it is necessary to also consider previous experiments.</p><pre><code class="language-julia hljs">previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
+
+st_new = CorleoneOED.update_fim(multi_exp, [previous_experiment], st)
+optprob = remake(optprob, p = st_new)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-7,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
+);</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:     1152
+Number of nonzeros in Lagrangian Hessian.............:        0
+
+Total number of variables............................:      288
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      288
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        4
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        4
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.0583827e-02 7.88e+00 1.61e-04   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.6653575e-02 0.00e+00 8.10e-02  -0.0 2.13e+00    -  3.23e-02 1.00e+00f  1
+   2  1.6653496e-02 0.00e+00 8.23e-04  -6.2 5.03e-05    -  9.90e-01 1.00e+00h  1
+   3  1.5198079e-02 0.00e+00 4.85e-04  -2.3 3.14e+00    -  4.06e-01 6.86e-01f  1
+   4  1.5200228e-02 0.00e+00 3.67e-06  -4.3 3.32e-02    -  9.93e-01 1.00e+00f  1
+   5  1.4300206e-02 0.00e+00 9.85e-05  -4.2 2.57e-01    -  1.00e+00 1.00e+00f  1
+   6  1.3664310e-02 0.00e+00 8.10e-05  -4.7 1.73e-01    -  9.72e-01 1.00e+00f  1
+   7  1.1870600e-02 0.00e+00 1.26e-04  -5.1 3.94e-01    -  9.90e-01 1.00e+00f  1
+   8  1.0748936e-02 0.00e+00 1.21e-04  -5.5 4.62e-01    -  9.95e-01 6.02e-01f  1
+   9  1.0748284e-02 0.00e+00 1.94e-04 -11.0 3.66e-04    -  1.00e+00 5.22e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.0542411e-02 0.00e+00 3.51e-04  -8.3 8.19e+00    -  1.00e+00 4.70e-03f  1
+  11  1.0238382e-02 0.00e+00 1.24e-04  -8.2 1.37e+00    -  1.00e+00 7.48e-02f  1
+  12  9.9013922e-03 0.00e+00 9.49e-05  -7.2 7.65e+00    -  1.00e+00 2.57e-02f  1
+  13  9.6266621e-03 0.00e+00 7.67e-05  -6.2 4.85e+00    -  1.00e+00 5.91e-02f  1
+  14  9.4848634e-03 0.00e+00 4.06e-05  -5.6 1.14e+00    -  1.00e+00 4.56e-01f  1
+  15  9.4836823e-03 0.00e+00 2.27e-04 -11.0 3.58e-04    -  1.00e+00 9.32e-01f  1
+  16  9.3672960e-03 0.00e+00 9.13e-05  -8.2 4.79e+00    -  1.00e+00 6.73e-03f  1
+  17  9.3205098e-03 0.00e+00 4.16e-05  -7.6 2.83e+00    -  1.00e+00 1.77e-02f  1
+  18  9.2151184e-03 0.00e+00 3.04e-05  -7.5 1.54e+00    -  1.00e+00 1.30e-01f  1
+  19  9.1140992e-03 0.00e+00 2.76e-05  -6.9 1.38e+00    -  1.00e+00 2.08e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  9.1136518e-03 0.00e+00 2.10e-04 -11.0 3.42e-04    -  1.00e+00 3.66e-01f  1
+  21  9.0812273e-03 0.00e+00 5.68e-05  -8.4 1.41e+00    -  1.00e+00 1.21e-02f  1
+  22  9.0703604e-03 0.00e+00 2.70e-05  -7.0 1.64e+01    -  1.00e+00 3.26e-03f  1
+  23  9.0317053e-03 0.00e+00 4.33e-05  -6.3 3.92e+00    -  5.63e-01 1.01e-01f  1
+  24  9.0787500e-03 0.00e+00 3.80e-05  -6.0 1.02e+00    -  8.67e-01 2.69e-01f  1
+  25  9.0788988e-03 0.00e+00 3.30e-02  -6.2 3.35e-02    -  1.00e+00 1.00e+00f  1
+  26  9.0792148e-03 0.00e+00 2.76e-04  -6.2 4.10e-04    -  1.00e+00 1.00e+00f  1
+  27  9.0617331e-03 0.00e+00 2.69e-05  -6.2 5.85e-01    -  1.00e+00 6.79e-01f  1
+  28  9.0762751e-03 0.00e+00 2.70e-05  -6.2 1.92e-01    -  1.00e+00 8.61e-01f  1
+  29  9.0697296e-03 0.00e+00 9.90e-06  -6.2 1.60e-01    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  9.0546312e-03 0.00e+00 1.75e-05  -6.2 9.78e-01    -  5.43e-01 4.82e-01f  1
+  31  9.0542119e-03 0.00e+00 2.02e-05  -6.2 4.49e-01    -  1.00e+00 4.18e-01f  2
+  32  9.0487871e-03 0.00e+00 1.38e-05  -6.2 1.05e-01    -  1.00e+00 1.00e+00f  1
+  33  9.0450903e-03 0.00e+00 1.43e-05  -6.2 1.50e-01    -  1.00e+00 1.00e+00f  1
+  34  9.0392864e-03 0.00e+00 1.90e-05  -6.2 2.41e-01    -  1.00e+00 1.00e+00f  1
+  35  9.0392539e-03 0.00e+00 1.75e-05  -6.2 1.75e-05    -  1.00e+00 1.00e+00h  1
+  36  9.0366427e-03 0.00e+00 1.21e-05  -6.2 2.02e-02    -  1.00e+00 1.00e+00f  1
+  37  9.0332174e-03 0.00e+00 1.89e-05  -6.2 1.65e-01    -  1.00e+00 1.00e+00f  1
+  38  9.0313752e-03 0.00e+00 7.00e-06  -6.2 5.36e-01    -  9.29e-01 1.87e-01f  2
+  39  8.9715773e-03 0.00e+00 1.62e-05  -6.6 4.73e-01    -  9.94e-01 6.74e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  8.9620101e-03 0.00e+00 1.21e-05  -6.5 2.87e-01    -  9.38e-01 5.75e-01f  1
+  41  8.9606095e-03 0.00e+00 2.02e-04 -11.0 3.27e-04    -  1.00e+00 1.00e+00f  1
+  42  8.9384043e-03 0.00e+00 3.74e-05  -9.7 5.04e-01    -  1.00e+00 1.41e-02f  1
+  43  8.9293346e-03 0.00e+00 1.72e-05  -9.3 1.11e+00    -  1.00e+00 1.83e-02f  1
+  44  8.9212570e-03 0.00e+00 3.51e-05  -7.2 4.14e+00    -  1.00e+00 1.50e-02f  1
+  45  8.9188881e-03 0.00e+00 8.86e-06  -6.7 6.44e-01    -  1.00e+00 2.11e-01f  1
+  46  8.8934949e-03 0.00e+00 3.44e-06  -7.0 3.65e-01    -  1.00e+00 1.00e+00f  1
+  47  8.8877210e-03 0.00e+00 7.54e-06  -7.1 1.93e-01    -  9.84e-01 1.00e+00f  1
+  48  8.8715764e-03 0.00e+00 7.22e-06  -7.6 1.91e-01    -  9.97e-01 1.00e+00f  1
+  49  8.8671269e-03 0.00e+00 3.23e-06  -8.6 8.59e-02    -  1.00e+00 6.73e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  8.8644512e-03 0.00e+00 9.68e-07  -9.8 3.96e-02    -  1.00e+00 9.21e-01f  1
+  51  8.8641796e-03 0.00e+00 2.64e-07 -11.0 6.65e-03    -  1.00e+00 9.37e-01f  1
+  52  8.8641621e-03 0.00e+00 8.29e-08 -11.0 4.53e-03    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 52
+
+                                   (scaled)                 (unscaled)
+Objective...............:   8.8641620851027496e-03    8.8641620851027496e-03
+Dual infeasibility......:   8.2898444335493182e-08    8.2898444335493182e-08
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0947875438547435e-11    1.0947875438547435e-11
+Overall NLP error.......:   8.2898444335493182e-08    8.2898444335493182e-08
+
+
+Number of objective function evaluations             = 59
+Number of objective gradient evaluations             = 53
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 59
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 53
+Number of Lagrangian Hessian evaluations             = 0
+Total seconds in IPOPT                               = 58.100
+
+EXIT: Optimal Solution Found.
+</code></pre><pre><code class="language-julia hljs">optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st_new)
+
+plot_experiments(optsol)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-20.png" alt/></p><h2 id="Different-parameters-per-experiment"><a class="docs-heading-anchor" href="#Different-parameters-per-experiment">Different parameters per experiment</a><a id="Different-parameters-per-experiment-1"></a><a class="docs-heading-anchor-permalink" href="#Different-parameters-per-experiment" title="Permalink"></a></h2><p>The <code>MultiExperimentLayer</code> can also be used to target different subsets of parameters per experiment. In this case, instead of specifying how many experiments shall be optimized, a vector of experiment-specific parameters must be provided. In the following example, we will design one experiment targeting parameter 2, with the second targeting parameter 3. Of course, also combinations of the parameters can be targeted in each experiment.</p><pre><code class="language-julia hljs">params_per_experiment = [[2], [3]]
+
+split_exp = MultiExperimentLayer{false}(
+    prob, Tsit5(), params_per_experiment;
+    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
+    controls = (1 =&gt; control,),
+    measurements = [
+        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
+        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
+    ],
+    observed = (u, p, t) -&gt; u[1:2]
+)
+
+
+optprob = OptimizationProblem(
+    split_exp, ACriterion(); M = zeros(4) .+ 4.0
+)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-7,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
+);</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:     1152
+Number of nonzeros in Lagrangian Hessian.............:        0
+
+Total number of variables............................:      288
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      288
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        4
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        4
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  5.3987718e-02 7.88e+00 2.90e-03   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  5.8810575e-01 0.00e+00 2.12e-01  -0.0 2.13e+00    -  3.23e-02 1.00e+00f  1
+   2  4.9594449e-01 0.00e+00 4.26e-02  -1.5 2.16e-01    -  8.98e-01 1.00e+00f  1
+   3  3.5007664e-01 0.00e+00 6.57e-02  -2.0 5.23e-01    -  9.90e-01 1.00e+00f  1
+   4  2.1405573e-01 0.00e+00 2.24e-02  -2.6 8.90e-01    -  9.22e-01 1.00e+00f  1
+   5  1.3918896e-01 0.00e+00 6.78e-03  -2.9 8.31e-01    -  7.21e-01 6.41e-01f  1
+   6  9.1422101e-02 0.00e+00 7.77e-03  -3.1 2.86e-01    -  9.24e-01 1.00e+00f  1
+   7  6.6477927e-02 0.00e+00 3.82e-03  -3.5 3.36e-01    -  9.90e-01 1.00e+00f  1
+   8  5.6135094e-02 0.00e+00 1.88e-03  -4.0 5.15e-01    -  9.01e-01 5.56e-01f  1
+   9  4.9314972e-02 0.00e+00 1.30e-03  -4.1 3.37e-01    -  9.83e-01 5.61e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  4.3678550e-02 0.00e+00 2.05e-03  -4.2 4.04e-01    -  9.78e-01 7.58e-01f  1
+  11  4.0522434e-02 0.00e+00 9.60e-04  -4.4 3.21e-01    -  9.87e-01 5.64e-01f  1
+  12  3.8490298e-02 0.00e+00 8.00e-04  -4.4 1.23e+00    -  9.87e-01 3.40e-01f  1
+  13  3.7494059e-02 0.00e+00 9.32e-04  -4.4 3.40e-01    -  9.57e-01 8.34e-01f  1
+  14  3.5595535e-02 0.00e+00 9.24e-04  -4.6 5.32e-01    -  9.87e-01 7.64e-01f  1
+  15  3.7704167e-02 0.00e+00 1.26e-03  -4.3 2.00e-01    -  1.00e+00 1.00e+00f  1
+  16  3.6450794e-02 0.00e+00 7.68e-04  -4.4 1.36e-01    -  1.00e+00 1.00e+00f  1
+  17  3.6134711e-02 0.00e+00 6.44e-04  -4.4 8.74e-02    -  1.00e+00 1.00e+00f  1
+  18  3.6098961e-02 0.00e+00 2.24e-04  -4.4 1.32e-01    -  1.00e+00 1.00e+00f  1
+  19  3.3723766e-02 0.00e+00 9.47e-04  -6.6 4.27e-01    -  5.03e-01 5.66e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  3.2556848e-02 0.00e+00 6.05e-04  -5.2 3.47e-01    -  1.00e+00 7.10e-01f  1
+  21  3.1686871e-02 0.00e+00 3.13e-04  -5.6 2.02e-01    -  1.00e+00 8.48e-01f  1
+  22  3.1440401e-02 0.00e+00 2.27e-04  -5.8 2.67e-01    -  1.00e+00 3.24e-01f  1
+  23  3.1248928e-02 0.00e+00 2.62e-04  -5.4 1.72e+00    -  1.00e+00 2.41e-01f  1
+  24  3.1474161e-02 0.00e+00 1.73e-04  -5.2 2.99e-01    -  1.00e+00 5.07e-01f  1
+  25  3.1410100e-02 0.00e+00 1.66e-04  -5.3 1.08e-01    -  1.00e+00 1.00e+00f  1
+  26  3.1390335e-02 0.00e+00 3.41e-05  -5.3 5.97e-02    -  1.00e+00 1.00e+00f  1
+  27  3.0921990e-02 0.00e+00 1.40e-04  -8.0 3.78e-01    -  6.07e-01 5.11e-01f  1
+  28  3.0739082e-02 0.00e+00 8.68e-05  -6.1 5.35e-01    -  9.99e-01 4.22e-01f  1
+  29  3.0559493e-02 0.00e+00 5.24e-05  -6.2 7.04e-01    -  9.95e-01 5.33e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  3.0483729e-02 0.00e+00 3.22e-05  -6.1 4.76e-01    -  1.00e+00 6.86e-01f  1
+  31  3.0413696e-02 0.00e+00 9.02e-05  -6.4 5.40e-01    -  1.00e+00 6.03e-01f  1
+  32  3.0332930e-02 0.00e+00 2.36e-05  -6.8 1.90e-01    -  1.00e+00 8.94e-01f  1
+  33  3.0312830e-02 0.00e+00 2.56e-05  -6.8 2.08e-01    -  1.00e+00 8.46e-01f  1
+  34  3.0340893e-02 0.00e+00 1.15e-05  -6.6 1.20e-01    -  1.00e+00 1.00e+00f  1
+  35  3.0325783e-02 0.00e+00 8.37e-06  -6.7 1.27e-01    -  1.00e+00 1.00e+00f  1
+  36  3.0325488e-02 0.00e+00 9.64e-06  -6.7 1.05e-01    -  1.00e+00 5.00e-01f  2
+  37  3.0325360e-02 0.00e+00 7.07e-06  -6.7 5.93e-02    -  1.00e+00 5.00e-01f  2
+  38  3.0325250e-02 0.00e+00 2.05e-06  -6.7 1.43e-02    -  1.00e+00 1.00e+00f  1
+  39  3.0298432e-02 0.00e+00 5.57e-06  -8.0 4.54e-01    -  6.28e-01 4.94e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  3.0280869e-02 0.00e+00 3.17e-05  -7.4 4.50e-01    -  1.00e+00 7.59e-01f  1
+  41  3.0269784e-02 0.00e+00 2.83e-05  -8.1 2.88e-01    -  1.00e+00 8.67e-01f  1
+  42  3.0268093e-02 0.00e+00 3.61e-05  -8.0 1.51e-01    -  1.00e+00 1.00e+00f  1
+  43  3.0267077e-02 0.00e+00 1.37e-05  -8.3 5.79e-02    -  1.00e+00 4.03e-01f  1
+  44  3.0265486e-02 0.00e+00 1.43e-05  -9.3 4.22e-02    -  1.00e+00 6.57e-01f  1
+  45  3.0265152e-02 0.00e+00 5.39e-06 -10.6 3.94e-02    -  1.00e+00 3.24e-01f  1
+  46  3.0264653e-02 0.00e+00 5.89e-06  -9.8 3.01e-02    -  1.00e+00 9.20e-01f  1
+  47  3.0264561e-02 0.00e+00 2.83e-06 -11.0 1.60e-02    -  1.00e+00 7.50e-01f  1
+  48  3.0264808e-02 0.00e+00 1.54e-05  -9.1 1.20e-02    -  1.00e+00 1.00e+00f  1
+  49  3.0264709e-02 0.00e+00 3.66e-07  -9.2 1.10e-02    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  3.0264709e-02 0.00e+00 3.14e-07  -9.2 1.09e-03    -  1.00e+00 1.00e+00h  1
+  51  3.0264709e-02 0.00e+00 1.37e-07  -9.2 6.36e-04    -  1.00e+00 1.00e+00h  1
+  52  3.0264709e-02 0.00e+00 5.82e-08  -9.2 5.22e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 52
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.0264708638814093e-02    3.0264708638814093e-02
+Dual infeasibility......:   5.8245181118834512e-08    5.8245181118834512e-08
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   6.0735351583746104e-10    6.0735351583746104e-10
+Overall NLP error.......:   5.8245181118834512e-08    5.8245181118834512e-08
+
+
+Number of objective function evaluations             = 59
+Number of objective gradient evaluations             = 53
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 59
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 53
+Number of Lagrangian Hessian evaluations             = 0
+Total seconds in IPOPT                               = 45.714
+
+EXIT: Optimal Solution Found.
+</code></pre><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), split_exp)
+split_sols, _ = split_exp(nothing, uopt + zero(ComponentArray(ps)), st)
+
+plot_experiments(split_sols)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-24.png" alt/></p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+  [13f3f980] CairoMakie v0.15.14
+  [b0b7db55] ComponentArrays v0.15.48
+  [2751e0db] Corleone v0.0.8 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v0.0.9 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [f6369f11] ForwardDiff v1.4.5
+  [b6b21f68] Ipopt v1.15.0
+  [682c06a0] JSON v1.8.0
+  [2ddba703] Juniper v0.9.4
+  [98b081ad] Literate v2.21.0
+  [bb33d45b] LuxCore v1.5.3
+  [961ee093] ModelingToolkit v11.41.0
+  [d147904a] OptimalControlBenchmarks v0.0.3 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
+  [7f7a1694] Optimization v5.9.0
+  [22f7324a] OptimizationLBFGSB v1.5.1
+  [fd9f6733] OptimizationMOI v1.4.1
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.4
+  [2efcf032] SymbolicIndexingInterface v0.3.55
+  [ddb6d928] YAML v0.4.16
+  [9a3f8284] Random v1.11.0
+</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre><pre><code class="nohighlight hljs">Julia Version 1.12.7
+Commit 6d172b025e4 (2026-08-15 08:05 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver5)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+  [47edcb42] ADTypes v1.24.0
+  [14f7f29c] AMD v0.5.4
+  [a4c015fc] ANSIColoredPrinters v0.0.1
+  [621f4979] AbstractFFTs v1.5.0
+  [6e696c72] AbstractPlutoDingetjes v1.4.1
+  [1520ce14] AbstractTrees v0.4.5
+  [7d9f7c33] Accessors v0.1.45
+  [79e6a3ab] Adapt v4.7.0
+  [35492f91] AdaptivePredicates v1.2.0
+  [66dad0bd] AliasTables v1.1.3
+  [27a7e980] Animations v0.4.2
+  [ec485272] ArnoldiMethod v0.4.0
+  [4fba245c] ArrayInterface v7.30.1
+  [4c555306] ArrayLayouts v1.12.2
+  [67c07d97] Automa v1.2.0
+  [13072b0f] AxisAlgorithms v1.1.0
+  [39de3d68] AxisArrays v0.4.8
+  [aae01518] BandedMatrices v1.12.0
+  [198e06fe] BangBang v0.4.9
+  [18cc8868] BaseDirs v1.4.0
+  [6e4b80f9] BenchmarkTools v1.8.0
+  [2027ae74] BibInternal v0.4.0
+  [13533e5b] BibParser v0.3.0
+  [f1be7e48] Bibliography v0.4.0
+  [e2ed5e7c] Bijections v0.2.2
+  [b2a6c25c] BinaryHeaps v1.1.0
+  [caf10ac8] BipartiteGraphs v0.1.14
+  [8e7c35d0] BlockArrays v1.10.0
+  [70df07ce] BracketingNonlinearSolve v1.12.6
+  [fa961155] CEnum v0.5.0
+  [96374032] CRlibm v1.0.2
+  [159f3aea] Cairo v1.1.1
+  [13f3f980] CairoMakie v0.15.14
+  [d360d2e6] ChainRulesCore v1.26.1
+  [ae650224] ChunkSplitters v3.2.0
+  [523fee87] CodecBzip2 v0.8.5
+  [944b1d66] CodecZlib v0.7.9
+  [6b39b394] CodecZstd v0.8.7
+  [a2cac450] ColorBrewer v0.4.2
+  [35d6a980] ColorSchemes v3.31.0
+  [3da002f7] ColorTypes v0.12.1
+  [c3611d14] ColorVectorSpace v0.11.0
+  [5ae59095] Colors v0.13.1
+⌅ [861a8166] Combinatorics v1.0.2
+  [38540f10] CommonSolve v0.2.14
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [f70d9fcc] CommonWorldInvalidations v1.2.2
+  [34da2185] Compat v4.18.1
+  [b0b7db55] ComponentArrays v0.15.48
+  [b152e2b5] CompositeTypes v0.1.4
+  [a33af91c] CompositionsBase v0.1.2
+  [95dc2771] ComputePipeline v0.1.8
+  [2569d6c7] ConcreteStructs v0.2.8
+  [88cd18e8] ConsoleProgressMonitor v0.1.2
+  [187b0558] ConstructionBase v1.6.0
+  [d38c429a] Contour v0.6.3
+  [b7a15901] CoreMath v0.1.0
+  [2751e0db] Corleone v0.0.8 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v0.0.9 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
+  [a8cc5b0e] Crayons v4.2.0
+  [9a962f9c] DataAPI v1.16.0
+  [864edb3b] DataStructures v0.19.6
+  [e2d170a0] DataValueInterfaces v1.0.0
+  [927a84f5] DelaunayTriangulation v1.6.6
+  [2b5f629d] DiffEqBase v7.20.1
+  [459566f4] DiffEqCallbacks v4.19.3
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.16.0
+  [a0c0ee7d] DifferentiationInterface v0.7.21
+  [8d63f2c5] DispatchDoctor v0.4.28
+  [31c24e10] Distributions v0.25.131
+  [43dc2714] DocInventories v1.0.0
+  [ffbed154] DocStringExtensions v0.9.5
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [5b8099bc] DomainSets v0.8.1
+  [7c1d4256] DynamicPolynomials v0.6.8
+  [4e289a0a] EnumX v1.0.7
+  [f151be2c] EnzymeCore v0.8.21
+  [429591f6] ExactPredicates v2.2.9
+  [e2ba6199] ExprTools v0.1.11
+  [55351af7] ExproniconLite v0.10.14
+  [b86e33f2] FFTA v0.3.1
+  [7034ab61] FastBroadcast v1.4.0
+  [9aa1b823] FastClosures v0.3.2
+  [a4df4552] FastPower v1.5.0
+  [5789e2e9] FileIO v1.20.0
+  [8fc22ac5] FilePaths v0.9.0
+  [48062228] FilePathsBase v0.9.24
+  [1a297f60] FillArrays v1.17.0
+  [64ca27bc] FindFirstFunctions v3.2.1
+  [6a86dc24] FiniteDiff v2.33.0
+⌅ [53c48c17] FixedPointNumbers v0.8.6
+  [1fa38f19] Format v1.3.7
+  [f6369f11] ForwardDiff v1.4.5
+  [b38be410] FreeType v4.1.1
+  [663a7486] FreeTypeAbstraction v0.10.8
+  [a85aefff] FunctionMaps v0.1.2
+  [069b7b12] FunctionWrappers v1.1.3
+  [77dc65aa] FunctionWrappersWrappers v1.13.0
+  [d9f16b24] Functors v0.5.3
+  [46192b85] GPUArraysCore v0.2.0
+  [a0844989] Gamma v1.2.0
+  [5c1252a2] GeometryBasics v0.5.12
+  [d7ba0133] Git v1.5.0
+  [a2bd30eb] Graphics v1.1.3
+  [86223c79] Graphs v1.15.0
+  [3955a311] GridLayoutBase v0.11.3
+  [076d061b] HashArrayMappedTries v0.2.0
+  [34004b35] HypergeometricFunctions v0.3.30
+  [b5f81e59] IOCapture v1.0.0
+  [615f187c] IfElse v0.1.1
+  [2803e5a7] ImageAxes v0.6.12
+  [c817782e] ImageBase v0.1.7
+  [a09fc81d] ImageCore v0.10.5
+  [82e4d734] ImageIO v0.6.10
+  [bc367c6b] ImageMetadata v0.9.10
+  [3263718b] ImplicitDiscreteSolve v2.3.0
+  [9b13fd28] IndirectArrays v1.0.0
+  [d25df0c9] Inflate v0.1.5
+  [22cec73e] InitialValues v0.3.1
+  [18e54dd8] IntegerMathUtils v0.1.4
+  [a98d9a8b] Interpolations v0.16.3
+  [d1acc4aa] IntervalArithmetic v1.0.11
+  [8197267c] IntervalSets v0.7.14
+  [3587e190] InverseFunctions v0.1.17
+  [b6b21f68] Ipopt v1.15.0
+  [92d709cd] IrrationalConstants v0.2.6
+  [f1662d9f] Isoband v0.1.1
+  [c8e1da08] IterTools v1.10.0
+  [82899510] IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] JLLWrappers v1.8.0
+  [682c06a0] JSON v1.8.0
+  [7d188eb4] JSONSchema v1.5.0
+  [ae98c720] Jieko v0.2.1
+  [b835a17e] JpegTurbo v0.1.6
+  [ccbc3e58] JumpProcesses v9.32.2
+  [2ddba703] Juniper v0.9.4
+  [5ab0869b] KernelDensity v0.6.12
+  [ba0b0d4f] Krylov v0.10.9
+  [5be7bae1] LBFGSB v0.4.1
+  [2faa5264] LHLFactorization v2.2.2
+  [b964fa9f] LaTeXStrings v1.4.1
+  [0e77f7df] LazilyInitializedFields v1.3.0
+  [8cdb02fc] LazyModules v0.3.1
+  [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
+  [87fe0de2] LineSearch v0.1.16
+  [7ed4a6bd] LinearSolve v5.16.0
+  [98b081ad] Literate v2.21.0
+  [2ab3a3ac] LogExpFunctions v1.0.1
+  [e6f89c97] LoggingExtras v1.2.0
+  [bb33d45b] LuxCore v1.5.3
+  [1914dd2f] MacroTools v0.5.16
+  [ee78f7c6] Makie v0.24.14
+  [dbb5928d] MappedArrays v0.4.3
+  [d0879d2d] MarkdownAST v0.1.3
+  [b8f27783] MathOptInterface v1.53.0
+  [0a4f8689] MathTeXEngine v0.6.9
+  [bb5d69b7] MaybeInplace v0.1.8
+  [e1d29d7a] Missings v1.2.0
+  [961ee093] ModelingToolkit v11.41.0
+⌃ [7771a370] ModelingToolkitBase v1.68.3
+  [6bb917b9] ModelingToolkitTearing v1.20.6
+  [e94cdb99] MosaicViews v0.3.4
+  [2e0e35c7] Moshi v0.3.12
+  [46d2c3a1] MuladdMacro v0.2.7
+  [102ac46a] MultivariatePolynomials v0.5.19
+  [d8a4904e] MutableArithmetics v1.8.0
+  [77ba4419] NaNMath v1.1.4
+  [f09324ee] Netpbm v1.1.1
+  [be0214bd] NonlinearSolveBase v2.49.4
+  [5959db7a] NonlinearSolveFirstOrder v2.5.1
+  [510215fc] Observables v0.5.5
+  [6fe1bfb0] OffsetArrays v1.17.0
+  [67456a42] OhMyThreads v0.8.6
+  [52e1d378] OpenEXR v0.3.3
+  [d147904a] OptimalControlBenchmarks v0.0.3 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
+  [7f7a1694] Optimization v5.9.0
+  [bca83a33] OptimizationBase v5.5.3
+  [22f7324a] OptimizationLBFGSB v1.5.1
+  [fd9f6733] OptimizationMOI v1.4.1
+  [bac558e1] OrderedCollections v2.0.1
+  [bbf590c4] OrdinaryDiffEqCore v4.16.1
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.4
+  [90014a1f] PDMats v0.11.41
+  [f57f5aa1] PNGFiles v0.4.5
+  [19eb6ba3] Packing v0.5.1
+  [5432bcbf] PaddedViews v0.5.12
+  [69de0a69] Parsers v3.0.0
+  [eebad327] PkgVersion v0.3.3
+  [995b91a9] PlotUtils v1.4.4
+  [e409e4f3] PoissonRandom v0.4.13
+  [647866c9] PolygonOps v0.1.2
+  [d236fae5] PreallocationTools v1.7.1
+  [aea7be01] PrecompileTools v1.3.4
+  [21216c6a] Preferences v1.5.2
+  [08abe8d2] PrettyTables v3.4.8
+  [27ebfcd6] Primes v0.5.7
+  [33c8b6b6] ProgressLogging v0.1.6
+  [92933f4c] ProgressMeter v1.11.0
+  [43287f4e] PtrArrays v1.4.0
+  [0c0d3e7f] PureKLU v1.4.1
+  [4b34888f] QOI v1.0.2
+  [1fd47b50] QuadGK v2.11.3
+  [b3c3ace0] RangeArrays v0.3.2
+  [c84ed2f1] Ratios v0.4.5
+  [988b38a3] ReadOnlyArrays v0.2.0
+  [795d4caa] ReadOnlyDicts v1.0.1
+  [3cdcf5f2] RecipesBase v1.3.4
+  [731186ca] RecursiveArrayTools v4.5.1
+  [189a3867] Reexport v1.2.2
+  [2792f1a3] RegistryInstances v0.1.0
+  [05181044] RelocatableFolders v1.0.1
+  [ae029012] Requires v1.3.1
+  [9fe22ead] RespecializeParams v1.3.0
+  [79098fc4] Rmath v0.9.0
+  [f2b01f46] Roots v3.0.8
+  [5eaf0fd0] RoundingEmulator v0.2.1
+  [7e49a35a] RuntimeGeneratedFunctions v0.5.26
+  [9dfe8606] SCCNonlinearSolve v1.15.2
+  [fdea26ae] SIMD v3.7.2
+  [0bca4576] SciMLBase v3.53.1
+  [19f34311] SciMLJacobianOperators v0.1.19
+  [a6db7da4] SciMLLogging v2.1.0
+  [c0aeaf25] SciMLOperators v1.30.0
+  [431bcebd] SciMLPublic v1.3.0
+  [53ae85a6] SciMLStructures v1.10.5
+  [7e506255] ScopedValues v1.6.2
+  [6c6a2e73] Scratch v1.3.0
+  [efcf1570] Setfield v1.1.2
+  [65257c39] ShaderAbstractions v0.5.0
+  [73760f76] SignedDistanceFields v0.4.1
+  [727e6d20] SimpleNonlinearSolve v2.14.2
+  [699a6c99] SimpleTraits v0.9.6
+  [45858cf5] Sixel v0.1.5
+  [a2af1166] SortingAlgorithms v1.2.3
+  [a57abbd0] SparseColumnPivotedQR v2.1.8
+  [9f842d2f] SparseConnectivityTracer v1.2.3
+  [0a514795] SparseMatrixColorings v0.4.28
+  [276daf66] SpecialFunctions v2.9.0
+  [860ef19b] StableRNGs v1.0.4
+  [91464d47] StableTasks v0.1.7
+  [cae243ae] StackViews v0.1.2
+  [0c0c59c1] StarAlgebras v0.3.0
+  [64909d44] StateSelection v1.11.1
+  [aedffcd0] Static v1.4.6
+  [0d7ed370] StaticArrayInterface v1.10.0
+  [90137ffa] StaticArrays v1.9.20
+  [1e83bf80] StaticArraysCore v1.4.4
+  [10745b16] Statistics v1.11.5
+  [82ae8749] StatsAPI v1.8.0
+  [2913bbd2] StatsBase v0.34.13
+  [4c63d2b9] StatsFuns v2.2.1
+  [69024149] StringEncodings v0.3.7
+⌅ [892a3eda] StringManipulation v0.5.0
+  [09ab397b] StructArrays v0.7.3
+  [ec057cc2] StructUtils v2.8.5
+  [2efcf032] SymbolicIndexingInterface v0.3.55
+  [19f23fe9] SymbolicLimits v1.2.1
+⌃ [d1185830] SymbolicUtils v4.46.1
+  [0c5d862f] Symbolics v7.39.0
+  [3783bdb8] TableTraits v1.0.1
+  [bd369af6] Tables v1.14.0
+  [ed4db957] TaskLocalValues v0.1.3
+  [62fd8b95] TensorCore v0.1.1
+  [8ea1fca8] TermInterface v2.0.0
+  [5d786b92] TerminalLoggers v0.1.8
+  [1c621080] TestItems v1.1.0
+  [731e570b] TiffImages v0.11.9
+  [a759f4b9] TimerOutputs v1.2.1
+  [3bb67fe8] TranscodingStreams v0.11.3
+  [981d1d27] TriplotBase v0.1.0
+  [781d530d] TruncatedStacktraces v1.4.0
+  [5c2747f8] URIs v1.7.0
+  [3a884ed6] UnPack v1.0.2
+  [1cfade01] UnicodeFun v0.4.1
+  [1986cc42] Unitful v1.29.0
+  [d30d5f5c] WeakCacheSets v0.1.0
+  [e3aaa7dc] WebP v0.1.3
+  [efce3f68] WoodburyMatrices v1.1.0
+  [ddb6d928] YAML v0.4.16
+  [ae81ac8f] ASL_jll v0.1.5+0
+  [6e34b625] Bzip2_jll v1.0.9+0
+  [4e9b3aee] CRlibm_jll v1.0.1+0
+  [83423d85] Cairo_jll v1.18.7+0
+  [a38c48d9] CoreMath_jll v0.1.0+0
+⌅ [5ae413db] EarCut_jll v2.2.4+0
+  [2e619515] Expat_jll v2.8.3+0
+⌅ [b22a6f82] FFMPEG_jll v8.1.2+0
+  [a3f928ae] Fontconfig_jll v2.17.1+0
+  [d7e528f0] FreeType2_jll v2.14.3+1
+  [559328eb] FriBidi_jll v1.0.17+0
+⌅ [b0724c58] GettextRuntime_jll v0.22.4+0
+⌅ [59f7168a] Giflib_jll v5.2.3+0
+  [020c3dae] Git_LFS_jll v3.7.1+0
+  [f8c6e375] Git_jll v2.55.0+0
+  [7746bdde] Glib_jll v2.88.3+0
+  [3b182d85] Graphite2_jll v1.3.16+0
+  [2e76f6c2] HarfBuzz_jll v100.14003.0+0
+  [e33a78d0] Hwloc_jll v2.14.0+0
+  [905a6f67] Imath_jll v3.2.2+0
+  [1d5cc7b8] IntelOpenMP_jll v2025.2.0+0
+⌅ [9cc047cb] Ipopt_jll v300.1400.1902+0
+  [aacddb02] JpegTurbo_jll v3.2.0+1
+  [c1c5ebd0] LAME_jll v3.100.3+0
+  [88015f11] LERC_jll v4.1.0+0
+  [1d63c593] LLVMOpenMP_jll v22.1.7+0
+  [81d17ec3] L_BFGS_B_jll v3.0.1+0
+⌅ [e9f186c6] Libffi_jll v3.4.7+0
+  [7e76a0d4] Libglvnd_jll v1.7.1+1
+  [94ce4f54] Libiconv_jll v1.18.0+0
+  [4b2f31a3] Libmount_jll v2.42.0+0
+  [89763e89] Libtiff_jll v4.7.3+0
+  [38a345b3] Libuuid_jll v2.42.0+0
+  [d00139f3] METIS_jll v5.1.3+0
+  [856f044c] MKL_jll v2025.2.0+0
+  [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [e7412a2a] Ogg_jll v1.3.6+0
+  [656ef2d0] OpenBLAS32_jll v0.3.34+0
+  [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
+  [18a262bb] OpenEXR_jll v3.4.14+0
+  [9bd350c2] OpenSSH_jll v10.5.1+0
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [91d4177d] Opus_jll v1.6.1+0
+  [36c8627f] Pango_jll v1.58.2+0
+  [30392449] Pixman_jll v0.46.4+0
+  [f50d1b31] Rmath_jll v0.5.2+0
+  [319450e9] SPRAL_jll v2025.9.18+1
+⌅ [02c8fc9c] XML2_jll v2.13.9+0
+  [ffd25f8a] XZ_jll v5.8.3+0
+  [4f6342f7] Xorg_libX11_jll v1.8.13+0
+  [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
+  [a3789734] Xorg_libXdmcp_jll v1.1.6+0
+  [1082639a] Xorg_libXext_jll v1.3.8+0
+  [d091e8ba] Xorg_libXfixes_jll v6.0.2+0
+  [ea2f1a96] Xorg_libXrender_jll v0.9.12+0
+  [a65dc6b1] Xorg_libpciaccess_jll v0.19.0+0
+  [c7cfdc94] Xorg_libxcb_jll v1.17.1+0
+  [c5fb5394] Xorg_xtrans_jll v1.6.0+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [9a68df92] isoband_jll v0.2.3+0
+  [a4ae2306] libaom_jll v3.14.1+0
+  [0ac62f75] libass_jll v0.17.5+0
+  [8e53e030] libdrm_jll v2.4.134+0
+  [f638f0a6] libfdk_aac_jll v2.0.4+0
+  [b53b4c65] libpng_jll v1.6.58+0
+  [075b6546] libsixel_jll v1.10.5+0
+  [9a156e7d] libva_jll v2.23.0+0
+  [f27f6e37] libvorbis_jll v1.3.8+0
+  [c5f90fcd] libwebp_jll v1.6.0+0
+  [1317d2d5] oneTBB_jll v2022.3.0+0
+⌅ [1270edf5] x264_jll v10164.0.1+0
+  [dfaa095f] x265_jll v4.1.0+0
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [8bf52ea8] CRC32c v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [9fa8497b] Future v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] LazyArtifacts v1.11.0
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.12.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [a63ad114] Mmap v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.12.1
+  [de0858da] Printf v1.11.0
+  [9abbd945] Profile v1.11.0
+  [3fa0cd96] REPL v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization v1.11.0
+  [1a1011a3] SharedArrays v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.12.0
+  [f489334b] StyledStrings v1.11.0
+  [4607b0f0] SuiteSparse
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.3.1+2
+  [deac9b47] LibCURL_jll v8.15.0+0
+  [e37daf67] LibGit2_jll v1.9.0+0
+  [29816b5a] LibSSH2_jll v1.11.3+1
+  [14a3606d] MozillaCACerts_jll v2025.11.4
+  [4536629a] OpenBLAS_jll v0.3.29+0
+  [05823500] OpenLibm_jll v0.8.7+0
+  [458c3c95] OpenSSL_jll v3.5.6+0
+  [efcefdf7] PCRE2_jll v10.44.0+1
+  [bea87d4a] SuiteSparse_jll v7.8.3+2
+  [83775a58] Zlib_jll v1.3.1+2
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.64.0+1
+  [3f19e933] p7zip_jll v17.7.0+0
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../compartmental_oed_problem/">« Discrete measurements</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Monday 7 September 2026 10:27">Monday 7 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
