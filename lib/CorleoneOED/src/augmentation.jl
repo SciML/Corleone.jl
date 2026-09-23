@@ -279,29 +279,32 @@ end
 
 function build_new_system(prob::DAEProblem, config; control_indices = Int64[], kwargs...)
     (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
-    (; observed_jacobian, observed, sensitivities) = config
+    (; observed_continuous_jacobian, observed_discrete_jacobian, sensitivities) = config
     # Append the local information gain
-    ex_local = reduce(
-        vcat, map(axes(observed_jacobian, 1)) do i
-            G = observed_jacobian[i:i, :] * sensitivities
-        end
-    )
-    observed = merge(observed, (; local_weighted_sensitivity = Num.(ex_local)))
+    ex_local_cont = observed_continuous_jacobian * sensitivities
+    ex_local_disc = observed_discrete_jacobian * sensitivities
+    observed = merge(observed, (; local_information_gain = Num.(vcat(ex_local_cont, ex_local_disc))))
     IIP = SciMLBase.isinplace(prob)
     foop, fiip = Symbolics.build_function(equations, differential_vars, vars, parameters, only(independent_vars); expression = Val{false}, cse = true)
     u0 = Symbolics.getdefaultval.(vars)
     p0 = Symbolics.getdefaultval.(parameters)
     du0 = vcat(prob.du0, zeros(eltype(u0), size(u0, 1) - size(prob.du0, 1)))
+
+    _du0 = foop(du0, u0, prob.p, 0.0)
+    du0 = vcat(prob.du0, _du0[(size(prob.du0, 1) + 1):end])
+
+    diff_vars = vcat(prob.differential_vars, ones(Bool, size(u0, 1) - size(prob.differential_vars, 1)))
     defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
     newsys = SymbolCache(
         Symbol.(vars), Symbol.(parameters), independent_vars;
         defaults = defaults
     )
     fnew = DAEFunction(IIP ? fiip : foop, sys = newsys)
-    problem = remake(prob, f = fnew, du0 = du0, u0 = u0, p = p0)
-    layersys = Corleone.retrieve_symbol_cache(problem, control_indices)
+
+    problem = remake(prob, f = fnew, du0 = du0, u0 = u0, p = p0, differential_vars = diff_vars)
     obsfun = map(observed) do ex
-        getsym(layersys, Symbolics.SymbolicUtils.Code.toexpr.(ex))
+        fobs = getsym(problem, Symbolics.SymbolicUtils.Code.toexpr.(ex))
+        fobs
     end
     return problem, obsfun
 end
