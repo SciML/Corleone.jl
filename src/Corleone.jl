@@ -4,25 +4,22 @@ using Reexport
 using DocStringExtensions
 import PrecompileTools: @compile_workload, @setup_workload
 using Random
-
-using RecursiveArrayTools
 using LinearAlgebra
+
+using ConcreteStructs
+
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
-
-using OhMyThreads
-using Distributed
 
 using ChainRulesCore
 
 using LuxCore
 using Functors
 
-# For evaluation
-mythreadmap(::EnsembleSerial, args...) = map(args...)
-mythreadmap(::EnsembleThreads, args...) = tmap(args...)
-mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
+include("solutions/Solutions.jl")
+
+include("layers/Layers.jl")
 
 """
     get_block_structure(layer; kwargs...)
@@ -47,28 +44,30 @@ to_val(x::AbstractArray{T}, val) where {T <: Number} = T(val) .+ zero(x)
 get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
 
-# Random
-_random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
+# Bridge: add Trajectory dispatch to Corleone.shooting_constraints (which was shadowed
+# by the Layers definition) so both the layer and trajectory APIs share one name.
+shooting_constraints(traj::Solutions.Trajectory) = Solutions.shooting_constraints(traj)
+shooting_constraints!(res::AbstractVector, traj::Solutions.Trajectory) = Solutions.shooting_constraints!(res, traj)
 
-include("trajectory.jl")
-export Trajectory
+include("parser/Parser.jl")
 
-include("local_controls.jl")
-export ControlParameter
-
-include("single_shooting.jl")
-export SingleShootingLayer
-include("multiple_shooting.jl")
-export MultipleShootingLayer
-export default_initialization
-include("node_initialization.jl")
-export random_initialization, forward_initialization, linear_initialization
-export custom_initialization, constant_initialization, hybrid_initialization
-
-abstract type AbstractCorleoneFunctionWrapper end
-
-include("dynprob.jl")
-export CorleoneDynamicOptProblem
+@setup_workload begin
+    @compile_workload begin
+        rng = Random.MersenneTwister(1)
+        controls = ControlParameter(
+            collect(0.0:0.25:0.75);
+            name = :u,
+            controls = [0.1, 0.2, 0.3, 0.4],
+            bounds = (0.0, 1.0),
+        )
+        get_timegrid(controls, (0.0, 0.75))
+        control_length(controls)
+        get_controls(rng, controls)
+        get_bounds(controls)
+        check_consistency(rng, controls)
+        build_index_grid(controls; tspan = (0.0, 0.75))
+    end
+end
 
 @setup_workload begin
     @compile_workload begin

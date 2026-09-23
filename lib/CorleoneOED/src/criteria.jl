@@ -50,7 +50,7 @@ Maximizes the smallest eigenvalue of `F` by minimizing its negative.
 """
 struct FisherECriterion <: AbstractCriterion end
 
-function (crit::AbstractCriterion)(layer::Union{OEDLayer, MultiExperimentLayer}, x, ps, st::NamedTuple)
+function (crit::AbstractCriterion)(layer::OEDLayer, x, ps, st::NamedTuple)
     F, st = fisher_information(layer, x, ps, st)
     return crit(F), st
 end

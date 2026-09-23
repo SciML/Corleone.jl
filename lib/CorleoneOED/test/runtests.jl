@@ -19,6 +19,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Lotka Volterra" begin
                 include("core/lotka_oed.jl")
             end
+            @safetestset "Rober DAE" begin
+                include("core/rober.jl")
+            end
             @safetestset "Generic criterion interface" begin
                 include("core/interface_contracts.jl")
             end

@@ -1,3 +1,4 @@
+#=
 # Helper for weighting the controls over the trajectory
 struct WeightedObservation
     grid::Vector{Vector{Int64}}
@@ -14,9 +15,272 @@ function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector
         w(controls, i, G[i])
     end
 end
+=#
 
-default_observed = (u, p, t) -> u
+abstract type AbstractMeasurement end
 
+@concrete struct DiscreteMeasurement <: AbstractMeasurement
+    "Measurement identifier"
+    id 
+    "Discrete measurement points"
+    tpoints
+    "Observed function"
+    observed
+end
+
+@concrete struct ContinuousMeasurement <: AbstractMeasurement 
+    "Measurement identifier"
+    id
+    "Breakpoints of continuous measurement grid"
+    tpoints
+    "Observed function"
+    observed
+end
+
+@concrete terse struct OEDLayer <: LuxCore.AbstractLuxContainerLayer{(:shooting,)}
+    "The underlying shooting layer"
+    shooting
+    "Problem with augmented differential equations"
+    augmented_prob
+    "Measurements"
+    measurements
+end
+
+function control_from_measurement(m::Union{DiscreteMeasurement,ContinuousMeasurement})
+    return Corleone.PiecewiseParameter(
+        Symbol(m.id), m.tpoints, 1.0, (ps, st) -> ([zeros(1,) for _ in 1:length(m.tpoints)+1], [ones(1,) for _ in 1: length(m.tpoints)+1])
+    )
+end
+
+function get_missing_params(prob, control_symbols, params::Array{<:Symbol})
+    return filter(p -> p ∉ control_symbols, params)
+end
+
+function get_missing_params(prob, control_symbols, params::Array{<:Int})
+    map(params) do idx
+        findfirst(==(idx), prob.f.sys.parameters)
+    end
+end
+
+function OEDLayer(
+    problem::SciMLBase.AbstractDEProblem,
+    variable_id,
+    params::Union{Vector{<:Int}, Vector{<:Symbol}},
+    controls...;
+    shooting_method::Corleone.AbstractAutoShoot = NoShoot(),
+    algorithm::SciMLBase.AbstractDEAlgorithm,
+    ensemble_algorithm::SciMLBase.EnsembleAlgorithm = EnsembleSerial(),
+    tspan = problem.tspan,
+    measurements = AbstractMeasurement[],
+    kwargs...
+)
+
+    current_control_symbols = [cp.parameter_id for cp in controls if cp isa PiecewiseParameter]
+    missing_params = begin
+        try
+            get_missing_params(problem, current_control_symbols, collect(keys(problem.f.sys.parameters)))
+        catch
+            get_missing_params(problem, current_control_symbols, eachindex(problem.p))
+        end
+    end 
+    
+    auto_controls = map(missing_params) do p_sym
+       # Find the index of the parameter in the problem to get initial value
+       p_idx = get(problem.f.sys.parameters, p_sym, nothing)
+       val = p_idx !== nothing ? problem.p[p_idx] : 1.0
+       PiecewiseParameter(p_sym, [problem.tspan[1]], val, (val, val))
+    end
+
+    observed_continuous = filter(x -> typeof(x) <: ContinuousMeasurement, measurements)
+    observed_discrete = filter(x -> typeof(x) <: DiscreteMeasurement, measurements)
+
+    newproblem, observed = augment_system(
+        problem, algorithm, params = params, continuous_measurements = observed_continuous,
+        discrete_measurements = observed_discrete
+    )
+
+    sampling_controls = PiecewiseParameter[CorleoneOED.control_from_measurement(x) for x in measurements]
+
+    shooting_layer = ShootingLayer(newproblem, variable_id, controls..., auto_controls..., sampling_controls...,
+        algorithm=algorithm, ensemble_algorithm=ensemble_algorithm, shooting_method=shooting_method,
+        tspan = tspan
+    )
+
+    return OEDLayer(shooting_layer, newproblem, (; observed = observed, discrete = observed_discrete, continuous = observed_continuous))
+end
+
+function get_size_F(oed::OEDLayer)
+    size_hxG = size(oed.measurements.observed.fisher.getters)
+    if length(size_hxG) > 2
+        size_hxG = size_hxG[1:2]
+    end
+    return (size_hxG[2], size_hxG[2])
+end
+
+LuxCore.initialparameters(rng::Random.AbstractRNG, oed::OEDLayer) = LuxCore.initialparameters(rng, oed.shooting)
+LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer) = begin
+    
+    st = LuxCore.initialstates(rng, oed.shooting)
+    size_F = get_size_F(oed)
+    T = eltype(oed.augmented_prob.u0)
+    F_init = zeros(T, size_F)
+
+    return merge(st, (; F_init = F_init))
+end
+
+function update_fim(oed::OEDLayer, experiments, st::NamedTuple)
+    FIM = sum(
+        map(experiments) do experiment
+            # sum up only information gained by the experiment
+            fisher_information(oed, nothing, experiment.ps, st)[1] - st.F_init
+        end
+    )
+
+    return merge(st, (; F_init = FIM + st.F_init))
+end
+
+function update_fim(oed::OEDLayer, experiments)
+    ps, st = LuxCore.setup(Random.default_rng(), oed)
+    FIM = sum(
+        map(experiments) do experiment
+            # sum up only information gained by the experiment
+            fisher_information(oed, nothing, experiment.ps, st)[1]
+        end
+    )
+
+    return merge(st, (; F_init = FIM))
+end
+
+function (x::OEDLayer)(Nothing, ps, st)
+    x.shooting(x.augmented_prob, ps, st)
+end
+
+function __continuous_fisher_information(oed::OEDLayer, traj::Trajectory)
+    (; measurements) = oed
+    (; observed, continuous) = measurements
+    isempty(continuous) && return zeros(eltype(oed.augmented_prob.u0), get_size_F(oed))
+    F_cont = last.(oed.measurements.observed.fisher(traj))
+    return F_cont
+end
+
+function __discrete_fisher_information(oed::OEDLayer, traj::Trajectory)
+    (; measurements) = oed
+    (; observed, discrete) = measurements
+
+    isempty(discrete) && return zeros(eltype(oed.augmented_prob.u0), get_size_F(oed))
+    hx_G_discrete = observed.hx_G_discrete(traj)
+    F_discrete = sum(map(enumerate(discrete)) do (i,obs_disc_i)
+        id, tpoints = obs_disc_i.id, obs_disc_i.tpoints
+        id_t_in_sol = [findfirst(t -> isapprox(t, ti; atol=1e-10, rtol=0), traj.t) for ti in tpoints]
+        sol_w = traj[id][id_t_in_sol]
+        sol_hx_G = [getindex.(hx_G_discrete, idx)[i:i,:] for idx in id_t_in_sol]
+        F_disc = [x' * x for x in sol_hx_G]
+        sum(sol_w .* F_disc)
+    end)
+    return F_discrete
+end
+
+__fisher_information(oed::OEDLayer, traj::Trajectory) = __discrete_fisher_information(oed, traj) .+ __continuous_fisher_information(oed, traj)
+
+__fisher_information(oed::OEDLayer, x, ps, st::NamedTuple) = begin
+    sol, _ = oed(x, ps, st)
+    return __fisher_information(oed, sol)
+end
+
+function fisher_information(oed, x, ps, st::NamedTuple)
+    sol, _ = oed(x, ps, st)
+    st.F_init + __fisher_information(oed, sol), st
+end
+
+
+function discrete_sampling_sums(oed::OEDLayer, x, ps, st::NamedTuple)
+    (; measurements,) = oed
+    (; discrete,) = measurements
+
+    ctrl = ps.controls.controls
+
+    res = zeros(eltype(first(first(ps.controls.controls))), size(discrete, 1))
+    @inbounds for i in eachindex(discrete)
+        vecs = getproperty(ctrl, discrete[i].id)
+        s = zero(eltype(first(first(ctrl))))
+        for v in vecs
+            start = (v === first(vecs)) ? 2 : 1
+            @inbounds for j=start:length(v)
+                s += v[j]
+            end
+        end
+        res[i] = s
+
+    end
+    return res
+end
+
+function discrete_sampling_sums!(res, oed::OEDLayer, x, ps, st::NamedTuple)
+    (; measurements,) = oed
+    (; discrete,) = measurements
+    ctrl = ps.controls.controls
+
+    @inbounds for i in eachindex(discrete)
+        vecs = getproperty(ctrl, discrete[i].id)
+        s = zero(eltype(first(first(ctrl))))
+        for v in vecs
+            start = (v === first(vecs)) ? 2 : 1
+            @inbounds for j=start:length(v)
+                s += v[j]
+            end
+        end
+        res[i] = s
+    end
+    return
+end
+
+function continuous_sampling_sums(oed::OEDLayer, x, ps, st::NamedTuple)
+    (; measurements,) = oed
+    (; continuous,) = measurements
+
+    sol, _ = oed(x, ps, st)
+    res = zeros(eltype(first(first(ps.controls.controls))), size(continuous, 1))
+    dt = diff(sol.t)
+    @inbounds for i in eachindex(continuous)
+        w_i = sol[continuous[i].id]
+        res[i] = dot(dt, @view w_i[1:end-1])
+    end
+    return res
+end
+
+function continuous_sampling_sums!(res, oed::OEDLayer, x, ps, st::NamedTuple)
+    (; measurements,) = oed
+    (; continuous,) = measurements
+
+    sol, _ = oed(x, ps, st)
+    dt = diff(sol.t)
+
+    @inbounds for i in eachindex(continuous)
+        w_i = sol[continuous[i].id]
+        res[i] = dot(dt, @view w_i[1:end-1])
+    end
+    return
+end
+
+function sampling_sums(oed::OEDLayer, x, ps, st)
+    return vcat(continuous_sampling_sums(oed, x, ps, st), discrete_sampling_sums(oed, x, ps, st))
+end
+
+function sampling_sums!(res, oed::OEDLayer, x, ps, st)
+    n_cont, n_disc = length(oed.measurements.continuous), length(oed.measurements.discrete)
+    if n_cont > 0
+        continuous_sampling_sums!(view(res, (1:n_cont)), oed, x, ps, st)
+    end
+    if n_disc > 0
+        discrete_sampling_sums!(view(res, (n_cont+1:n_cont+n_disc)), oed, x, ps, st)
+    end
+    return
+end
+
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer) = Corleone.get_number_of_shooting_constraints(oed.shooting)
+n_observed(layer::OEDLayer) = length(layer.measurements.discrete) + length(layer.measurements.continuous)
+
+#=
 """
 $(TYPEDEF)
 
@@ -57,6 +321,8 @@ function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCR
     print(io, no_color, "Underlying problem: ")
     return Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
 end
+
+
 
 """
 $(SIGNATURES)
@@ -186,8 +452,7 @@ function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer
 end
 
 n_observed(layer::OEDLayer) = length(layer.sampling_indices)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
+
 Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
 
 get_size_F(oed::OEDLayer{true, true, <:Any}) = begin
@@ -632,3 +897,4 @@ function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false, true, fal
 end
 
 get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)
+=#

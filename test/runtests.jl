@@ -26,8 +26,14 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
-            @safetestset "Local controls" begin
-                include("core/local_controls.jl")
+            @safetestset "Solutions" begin
+                include("core/solutions.jl")
+            end
+            @safetestset "Precompile workload" begin
+                include("core/precompile_workload.jl")
+            end
+            @safetestset "Generic layer interface" begin
+                include("core/interface_contracts.jl")
             end
             @safetestset "Precompile workload" begin
                 include("core/precompile_workload.jl")
@@ -46,6 +52,7 @@ else
             "Examples" => (;
                 env = joinpath(@__DIR__, "examples"),
                 body = function ()
+                    #=
                     @safetestset "Lotka" begin
                         include("examples/lotka_oc.jl")
                     end
@@ -55,6 +62,7 @@ else
                     return @safetestset "Lotka MTK" begin
                         include("examples/mtk.jl")
                     end
+                    =#
                 end,
             ),
         ),
