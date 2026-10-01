@@ -1,23 +1,36 @@
 """
     Experiment(t, y; σ = nothing, u0 = nothing, controls = nothing)
+    Experiment(times, ys; σ = nothing, u0 = nothing, controls = nothing)
 
 The time-series observations of a *single experiment* of a dynamical system, together with
-the measurement noise level, the initial conditions used to simulate this experiment and
+ the measurement noise level, the initial conditions used to simulate this experiment and
 optionally the **fixed controls** applied in it.
 
-# Arguments
+There are two equivalent ways to describe the observations:
+
+1. **Shared-grid matrix form** `Experiment(t, y)`: `t` is the observation time vector and
+   every measured quantity is observed at *every* time point in `t`. `y` is either
+   an `AbstractVector` of length `length(t)` (a single measured quantity) or an
+   `AbstractMatrix` of size `(n_obs, length(t))` measuring `n_obs` quantities at each time
+   point (one row per measured component, matching the ordering the layer's `observed`
+   map returns).
+2. **Per-quantity form** `Experiment(times, ys)`: a *different* set of observation time
+   points per measured quantity. `times` and `ys` are vectors-of-vectors with one entry
+   per measured quantity: the `k`-th quantity of the layer's `observed` map is observed at
+   time points `times[k]` with values `ys[k]` (`length(times[k]) == length(ys[k])`). This
+   is useful when e.g. different species of the model are sampled at different times, as
+   chosen by an optimal experimental design.
+
+# Arguments (matrix form)
 - `t`: Observation time points as an `AbstractVector` of reals.
-- `y`: Observed values. Either
-    - an `AbstractVector` of length `length(t)` for a single measured quantity, or
-    - an `AbstractMatrix` of size `(n_obs, length(t))` measuring `n_obs` quantities
-      at each time point (one row per measured component, matching the ordering the
-      layer's `observed` map returns).
 
 # Keywords
-- `σ`: Measurement uncertainty (noise scale). May be
+- `σ`: Measurement uncertainty (noise scale). For the shared-grid matrix form it may be
     - a scalar (shared by all observations),
     - an `AbstractVector` of length `n_obs` (per measured component), or
     - an `AbstractMatrix` of size `(n_obs, length(t))` (per observation).
+    For the per-quantity form it may be a scalar (shared) or a vector-of-vectors with one
+    noise series per quantity (`length(σ[k]) == length(times[k])`).
     When provided, weighted residuals `(y_obs - y_model) ./ σ` are used in the
     least-squares problem. When `nothing`, unweighted residuals are used.
 - `u0`: Initial conditions used to simulate this experiment. Either `nothing` (the initial
@@ -38,14 +51,17 @@ exp = Experiment(t, y; σ = 0.05, u0 = [1.0])
 # An experiment with a fixed control acting on parameter 1
 exp = Experiment(t, y; σ = 0.05, u0 = [1.0],
     controls = (1 => ControlParameter(collect(0.0:1.0:5.0), controls = ones(5)),))
+
+# Two quantities observed at different time points (per-quantity form)
+exp = Experiment([prey_times, predator_times], [prey_data, predator_data]; σ = 0.05)
 ```
 """
 struct Experiment{
-    T<:AbstractVector, Y, S<:Union{Nothing, Number, AbstractVector, AbstractMatrix}, U, C
+    P, T<:AbstractVector, Y, S<:Union{Nothing, Number, AbstractVector, AbstractMatrix}, U, C
 }
-    "Observation time points"
+    "Observation time points (Union grid when per-quantity times are used)"
     t::T
-    "Observed values (matrix `n_obs × n_t` or vector `n_t` for a single component)"
+    "Observed values: matrix `n_obs × n_t`, vector `n_t` (single quantity), or vector-of-vectors (per-quantity)"
     y::Y
     "Measurement noise scale (scalar, vector, or matrix), or `nothing`"
     σ::S
@@ -53,11 +69,13 @@ struct Experiment{
     u0::U
     "Fixed controls `(idx => ControlParameter)` applied in this experiment (or `nothing`)"
     controls::C
+    "Per-quantity observation time vectors, or `nothing` when `y` is a shared-grid matrix"
+    times::P
 end
 
 function Experiment(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing, controls = nothing)
     @assert length(y) == length(t) "The number of observed values must match the number of time points."
-    return Experiment(t, reshape(y, :, length(t)), σ, u0, controls)
+    return Experiment(t, reshape(y, :, length(t)), σ, u0, controls, nothing)
 end
 
 function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing, controls = nothing)
@@ -69,7 +87,27 @@ function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = not
             @assert size(σ) == size(y) "`σ` must match the size of `y` when given as a matrix."
         end
     end
-    return Experiment(t, y, σ, u0, controls)
+    return Experiment(t, y, σ, u0, controls, nothing)
+end
+
+# Per-quantity observation times: each observed quantity `k` of the layer's observation map is
+# measured at its own time points `times[k]` with values `ys[k]`. The stored `t` is the (sorted)
+# union grid, used e.g. to sample the model in the shooting layer; the per-quantity grid `times`
+# itself distinguishes this form from the shared-grid matrix form (where `times === nothing`). Custom
+# `σ` follows the same shape: a scalar (shared) or a vector-of-vectors `σ[k]` per quantity.
+function Experiment(
+        times::AbstractVector{<:AbstractVector}, ys::AbstractVector{<:AbstractVector};
+        σ = nothing, u0 = nothing, controls = nothing
+    )
+    length(times) == length(ys) || throw(ArgumentError(
+        "The number of per-quantity time vectors must match the number of value vectors."))
+    length(times) >= 1 || throw(ArgumentError("At least one per-quantity time series is required."))
+    for (tk, yk) in zip(times, ys)
+        length(tk) == length(yk) || throw(ArgumentError(
+            "The number of values must match the number of time points for each per-quantity series."))
+    end
+    t_union = sort(unique(vcat(collect.(times)...)))
+    return Experiment(t_union, collect(ys), σ, u0, controls, collect(times))
 end
 
 """
@@ -184,7 +222,11 @@ n_experiments(data::ExperimentData) = length(data.experiments)
 
 Return the total number of scalar observations `(n_obs × n_t)`, summed over all experiments.
 """
-n_observations(data::ExperimentData) = sum(length(e.y) for e in experiments(data))
+n_observations(data::ExperimentData) = sum(_n_observed, experiments(data))
+
+# Number of scalar observations of one experiment: `n_obs × n_t` for the shared-grid matrix
+# form, or the total number of values summed over the per-quantity series.
+_n_observed(e::Experiment) = isnothing(e.times) ? length(e.y) : sum(length, e.y)
 
 """
     observation_times(data::ExperimentData)
@@ -200,6 +242,24 @@ function observation_times(data::ExperimentData)
         map(e -> e.t, experiments(data))
 end
 observation_times(data::ExperimentData, i::Int) = experiments(data)[i].t
+
+"""
+    observation_times_per_quantity(data::ExperimentData, i::Int)
+
+For an experiment with per-quantity observation times return the vector of per-quantity
+observation time vectors; return `nothing` for an experiment using the shared-grid matrix
+form. The `k`-th entry is the time vector at which the `k`-th observed quantity is measured.
+"""
+observation_times_per_quantity(data::ExperimentData, i::Int) = experiments(data)[i].times
+
+"""
+    per_quantity(data::ExperimentData, i::Int)
+
+Return `true` if experiment `i` uses per-quantity observation times (i.e. different observed
+quantities measured at different time points), and `false` if it uses the shared-grid matrix
+form in which every quantity is measured at the same time points.
+"""
+per_quantity(data::ExperimentData, i::Int) = !isnothing(experiments(data)[i].times)
 
 """
     initial_conditions(data::ExperimentData, i::Int)

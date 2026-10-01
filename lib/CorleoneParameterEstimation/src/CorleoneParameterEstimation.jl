@@ -22,7 +22,8 @@ using NonlinearSolve: NonlinearLeastSquaresProblem
 
 include("data.jl")
 export Experiment, ExperimentData, experiments, n_experiments, n_observations,
-    observation_times, initial_conditions, controls, has_controls
+    observation_times, observation_times_per_quantity, per_quantity,
+    initial_conditions, controls, has_controls
 
 include("layer.jl")
 export ParameterEstimationLayer

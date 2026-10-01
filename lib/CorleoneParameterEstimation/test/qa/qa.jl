@@ -21,7 +21,7 @@ const OWN_EXPORTS = (
     :ParameterEstimationLayer, :ParameterEstimationResult, :confidence_interval,
     :controls, :covariance, :estimate_parameters, :experiments, :fitted_parameters,
     :has_controls, :initial_conditions, :model_values, :n_experiments, :n_observations,
-    :observation_times, :problem, :residual, :residuals!, :standard_errors,
+    :observation_times, :observation_times_per_quantity, :per_quantity, :problem, :residual, :residuals!, :standard_errors,
 )
 run_qa(
     CorleoneParameterEstimation;

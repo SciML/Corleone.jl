@@ -73,6 +73,28 @@ a single fit must control the same parameter indices. See
 optimal experimental design problem with CorleoneOED and then estimates the parameters with
 the designed control fixed.
 
+## Per-quantity observation times
+
+Different measured quantities of a model may be sampled at **different time points**. This
+is the second `Experiment` constructor form, taking per-quantity time vectors and value
+vectors:
+
+```julia
+data = ExperimentData(Experiment(
+    [prey_obs_times, predator_obs_times],   # each quantity has its own observation times
+    [prey_data, predator_data],             # values at those times
+; σ = 0.05, u0 = [1.0, ...]))
+```
+
+The `k`-th entry of the two vectors refers to the `k`-th detected quantity of the layer's
+`observed` map, which is measured only at its own time points. This is in contrast to the
+shared-grid matrix form `Experiment(t, y)` (an `n_obs × length(t)` matrix in which every
+quantity is measured at every time point). The two forms can be freely mixed inside a single
+`ExperimentData`. This is particularly useful in an optimal-experimental-design loop, where
+each observable species is sampled at the (generally different) times that the design
+selects (see the example). Use the accessors `per_quantity`, `observation_times`,
+`observation_times_per_quantity` and `n_observations` to introspect the data.
+
 ## Relationship to Optimization.jl
 
 CorleoneParameterEstimation primarily interfaces with **NonlinearSolve.jl**, whose

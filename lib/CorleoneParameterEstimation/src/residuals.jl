@@ -58,15 +58,49 @@ function residuals!(res::AbstractVector, pe::ParameterEstimationLayer, ps, st, a
     offset = 0
     for i in 1:n_exp
         exp_i = experiments(data)[i]
-        Y = model_values(pe, trajs[i], exp_i.t)
-        chunk = view(res, (offset + 1):(offset + length(Y)))
-        if isnothing(exp_i.σ)
-            # Unweighted residuals.
-            _residuals!(chunk, exp_i.y, Y)
+        chunk = view(res, (offset + 1):(offset + _n_observed(exp_i)))
+        if isnothing(exp_i.times)
+            # Shared-grid matrix form: every observed quantity is measured at `exp_i.t`.
+            Y = model_values(pe, trajs[i], exp_i.t)
+            if isnothing(exp_i.σ)
+                _residuals!(chunk, exp_i.y, Y)
+            else
+                _residuals!(chunk, exp_i.y, Y, exp_i.σ)
+            end
         else
-            _residuals!(chunk, exp_i.y, Y, exp_i.σ)
+            # Per-quantity form: quantity `k` is measured at `exp_i.times[k]`.
+            if isnothing(exp_i.σ)
+                _residuals_per_quantity!(chunk, pe, trajs[i], exp_i)
+            else
+                _residuals_per_quantity!(chunk, pe, trajs[i], exp_i, exp_i.σ)
+            end
         end
-        offset += length(Y)
+        offset += _n_observed(exp_i)
+    end
+    return res
+end
+
+# Residuals for the per-quantity form: for each quantity `k`, evaluate the observation map's
+# `k`-th component at `times[k]` and compare against the `k`-th value series.
+function _residuals_per_quantity!(res, pe, traj, exp)
+    k0 = 0
+    for k in eachindex(exp.times)
+        yk = model_values(pe, traj, exp.times[k])[k, :]
+        chunk = view(res, (k0 + 1):(k0 + length(exp.y[k])))
+        copyto!(chunk, exp.y[k] .- yk)
+        k0 += length(exp.y[k])
+    end
+    return res
+end
+
+function _residuals_per_quantity!(res, pe, traj, exp, σ_per_quantity)
+    k0 = 0
+    for k in eachindex(exp.times)
+        yk = model_values(pe, traj, exp.times[k])[k, :]
+        chunk = view(res, (k0 + 1):(k0 + length(exp.y[k])))
+        σk = σ_per_quantity isa AbstractVector ? σ_per_quantity[k] : σ_per_quantity
+        copyto!(chunk, (exp.y[k] .- yk) ./ σk)
+        k0 += length(exp.y[k])
     end
     return res
 end
