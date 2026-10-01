@@ -1,8 +1,9 @@
 """
-    Experiment(t, y; σ = nothing, u0 = nothing)
+    Experiment(t, y; σ = nothing, u0 = nothing, controls = nothing)
 
 The time-series observations of a *single experiment* of a dynamical system, together with
-the measurement noise level and the initial conditions used to simulate this experiment.
+the measurement noise level, the initial conditions used to simulate this experiment and
+optionally the **fixed controls** applied in it.
 
 # Arguments
 - `t`: Observation time points as an `AbstractVector` of reals.
@@ -22,16 +23,25 @@ the measurement noise level and the initial conditions used to simulate this exp
 - `u0`: Initial conditions used to simulate this experiment. Either `nothing` (the initial
   conditions of the differential-equation problem the layer is built from are used) or an
   `AbstractVector` of the same length as the state vector of the problem.
+- `controls`: A tuple of `control_index => ControlParameter` pairs (the same form as the
+  `controls` keyword of `SingleShootingLayer`), specifying the *fixed* piecewise-constant
+  control functions applied in this experiment. Control values are read from the
+  `controls` field of each `ControlParameter` and are **not** estimated: they are treated as
+  fixed inputs of the experiment design (e.g. produced by optimal experimental design).
 
 # Examples
 ```julia
 t = collect(0.0:0.5:5.0)
 y = [0.1, 0.25, 0.6, 1.1, 1.9, 3.0, 4.5, 6.2, 8.1, 10.2, 12.5]
 exp = Experiment(t, y; σ = 0.05, u0 = [1.0])
+
+# An experiment with a fixed control acting on parameter 1
+exp = Experiment(t, y; σ = 0.05, u0 = [1.0],
+    controls = (1 => ControlParameter(collect(0.0:1.0:5.0), controls = ones(5)),))
 ```
 """
 struct Experiment{
-    T<:AbstractVector, Y, S<:Union{Nothing, Number, AbstractVector, AbstractMatrix}, U
+    T<:AbstractVector, Y, S<:Union{Nothing, Number, AbstractVector, AbstractMatrix}, U, C
 }
     "Observation time points"
     t::T
@@ -41,14 +51,16 @@ struct Experiment{
     σ::S
     "Initial conditions of this experiment (or `nothing` to use the problem's initial conditions)"
     u0::U
+    "Fixed controls `(idx => ControlParameter)` applied in this experiment (or `nothing`)"
+    controls::C
 end
 
-function Experiment(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing)
+function Experiment(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing, controls = nothing)
     @assert length(y) == length(t) "The number of observed values must match the number of time points."
-    return Experiment(t, reshape(y, :, length(t)), σ, u0)
+    return Experiment(t, reshape(y, :, length(t)), σ, u0, controls)
 end
 
-function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing)
+function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing, controls = nothing)
     @assert size(y, 2) == length(t) "The number of columns of `y` must match the number of time points."
     if !isnothing(σ)
         if σ isa AbstractVector
@@ -57,7 +69,7 @@ function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = not
             @assert size(σ) == size(y) "`σ` must match the size of `y` when given as a matrix."
         end
     end
-    return Experiment(t, y, σ, u0)
+    return Experiment(t, y, σ, u0, controls)
 end
 
 """
@@ -115,6 +127,10 @@ end
 ExperimentData(exps::Experiment...) = ExperimentData(exps)
 ExperimentData(exps::AbstractVector{<:Experiment}) = ExperimentData(Tuple(exps))
 
+# Disambiguate `ExperimentData(::Experiment...)` from `ExperimentData(::ExperimentData...)`
+# for the empty call, which is invalid (at least one experiment is required).
+ExperimentData() = throw(ArgumentError("ExperimentData requires at least one experiment."))
+
 """
     ExperimentData(datas::ExperimentData...)
 
@@ -126,13 +142,28 @@ function ExperimentData(datas::ExperimentData...)
     return ExperimentData(Tuple(Iterators.flatten(experiments(d) for d in datas)))
 end
 
-function ExperimentData(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing)
-    return ExperimentData((Experiment(t, y; σ = σ, u0 = u0),))
+function ExperimentData(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing, controls = nothing)
+    return ExperimentData((Experiment(t, y; σ = σ, u0 = u0, controls = controls),))
 end
 
-function ExperimentData(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing)
-    return ExperimentData((Experiment(t, y; σ = σ, u0 = u0),))
+function ExperimentData(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing, controls = nothing)
+    return ExperimentData((Experiment(t, y; σ = σ, u0 = u0, controls = controls),))
 end
+
+"""
+    controls(data::ExperimentData, i::Int)
+
+Return the fixed controls (a tuple of `control_index => ControlParameter` pairs) of experiment
+`i`, or `nothing` if that experiment does not prescribe fixed controls.
+"""
+controls(data::ExperimentData, i::Int) = experiments(data)[i].controls
+
+"""
+    has_controls(data::ExperimentData)
+
+Return `true` if **any** experiment of `data` prescribes fixed controls.
+"""
+has_controls(data::ExperimentData) = any(e -> !isnothing(e.controls), experiments(data))
 
 """
     experiments(data::ExperimentData)

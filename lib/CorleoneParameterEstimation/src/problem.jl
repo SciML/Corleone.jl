@@ -38,21 +38,33 @@ struct CorleoneParameterEstimationProblem{L, X, B, P, S, R}
     residual::R
 end
 
-# Split sizes for flattening the layer parameter NamedTuple.
+# Split sizes for flattening the layer parameter NamedTuple. Only the *tunable* fields
+# (initial conditions and model parameters) are degrees of freedom of the estimation; the
+# fixed controls (per-experiment experimental-design inputs) are excluded.
+_free_fields(ps::NamedTuple) =
+    haskey(ps, :controls) ? NamedTuple{(:u0, :p)}((ps.u0, ps.p)) : ps
+
 _flat_sizes(ps::NamedTuple) = map(ps) do v
     length(v)
 end
 
 function _flatten(ps::NamedTuple)
-    return reduce(vcat, collect(values(ps)) .|> vec)
+    return reduce(vcat, collect(values(_free_fields(ps))) .|> vec)
 end
 
 function _unflatten(ps0::NamedTuple, x::AbstractVector)
-    sizes = collect(values(_flat_sizes(ps0)))
+    free = _free_fields(ps0)
+    sizes = collect(values(_flat_sizes(free)))
     cumul = accumulate(+, sizes)
     starts = cumul .- sizes .+ 1
     vals = [x[s:e] for (s, e) in zip(starts, cumul)]
-    return NamedTuple{keys(ps0)}(vals)
+    base = NamedTuple{keys(free)}(vals)
+    if haskey(ps0, :controls)
+        # Controls are fixed design inputs; carry the shared (first-layer) value. They are
+        # overridden per experiment inside the layer callable (`_experiment_ps`).
+        return merge(base, (controls = ps0.controls,))
+    end
+    return base
 end
 
 function CorleoneParameterEstimationProblem(
@@ -60,7 +72,11 @@ function CorleoneParameterEstimationProblem(
         rng::Random.AbstractRNG = Random.default_rng(),
         x0 = nothing,
     )
-    ps0, st = LuxCore.setup(rng, first(get_layer(layer)))
+    # `setup` returns `(ps0, st)` where `st` is a tuple with the shooting-layer state of
+    # each experiment (each experiment has its own layer/state, so experiments may use
+    # different fixed controls independently). `ps0` is shared: it holds the tunable
+    # initial conditions and model parameters that are the optimization variables.
+    ps0, st = LuxCore.setup(rng, layer)
     x0 = isnothing(x0) ? _flatten(ps0) : x0
     lb, ub = _tunable_bounds(layer, ps0)
 
@@ -94,10 +110,7 @@ function _tunable_bounds(layer::ParameterEstimationLayer, ps0::NamedTuple)
         append!(flat_lb, vec(lb.p))
         append!(flat_ub, vec(ub.p))
     end
-    if haskey(ps0, :controls)
-        append!(flat_lb, vec(lb.controls))
-        append!(flat_ub, vec(ub.controls))
-    end
+    # NB: controls are excluded -- they are fixed experimental-design inputs, not fitted.
     return flat_lb, flat_ub
 end
 
