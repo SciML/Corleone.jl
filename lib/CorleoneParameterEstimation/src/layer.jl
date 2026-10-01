@@ -107,16 +107,19 @@ function ParameterEstimationLayer(
         data::ExperimentData; observed = (u, p, t) -> u, kwargs...
     )
     _validate_experiments(prob, data)
-    # Each experiment is simulated with the same model (same problem, shared tunable
-    # parameters and tspan -- the tspan is carried by the shared layer state, so all
-    # experiments must be observed within `prob.tspan`). Each shooting layer is built from
-    # the problem with this experiment's initial conditions and `saveat = t_i`.
+    # Each experiment is simulated with its own `SingleShootingLayer` (and thus its own
+    # layer state) built from the same problem, so each experiment may use its own fixed
+    # controls (grid and values) independently. Experiments that do not specify controls are
+    # simulated with the control-slot parameters held constant at their default value from
+    # `prob.p`. The tunable model parameters (all indices that are not control slots) and
+    # tunable initial conditions are shared optimization variables across experiments.
     layers = ntuple(n_experiments(data)) do i
         t_i = observation_times(data, i)
         prob_i = prob
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
-        SingleShootingLayer(prob_i, alg; saveat = unique(t_i), kwargs...)
+        c_i = _experiment_layer_controls(data, i, prob)
+        SingleShootingLayer(prob_i, alg; saveat = unique(t_i), controls = c_i, kwargs...)
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
@@ -133,15 +136,16 @@ function ParameterEstimationLayer(
         data::ExperimentData, shooting_points::AbstractVector{<:Real}; observed = (u, p, t) -> u, kwargs...
     )
     _validate_experiments(prob, data)
-    # Each experiment is simulated with the same model (same problem, shared tunable
-    # parameters and tspan -- the tspan is carried by the shared layer state, so all
-    # experiments must be observed within `prob.tspan`).
+    # Each experiment has its own `MultipleShootingLayer` (and layer state); controls are
+    # provided per experiment, and experiments without controls keep the control-slot
+    # parameters constant at their `prob.p` default.
     layers = ntuple(n_experiments(data)) do i
         t_i = observation_times(data, i)
         prob_i = prob
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
-        MultipleShootingLayer(prob_i, alg, shooting_points...; saveat = unique(t_i), kwargs...)
+        c_i = _experiment_layer_controls(data, i, prob)
+        MultipleShootingLayer(prob_i, alg, shooting_points...; saveat = unique(t_i), controls = c_i, kwargs...)
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
@@ -168,7 +172,114 @@ function _validate_experiments(prob::SciMLBase.AbstractDEProblem, data::Experime
             " (weighted vs. unweighted residuals cannot be mixed)."
         ))
     end
+    _validate_controls(data)
     return
+end
+
+# Validate fixed-control specifications. The control *indices* are a property of the
+# model (controls replace parameters), so every experiment that specifies controls must
+# control the same parameter indices; experiments without controls are simulated with those
+# control-slot parameters held constant at their `prob.p` default. Each experiment may use
+# its own control grid and values (it gets its own shooting layer and layer state).
+function _validate_controls(data::ExperimentData, tspan = (0.0, 0.0))
+    has_controls(data) || return nothing
+    # Every control entry must be a `control_index => ControlParameter` pair.
+    for i in 1:n_experiments(data)
+        c_i = controls(data, i)
+        isnothing(c_i) && continue
+        for pair in c_i
+            pair isa Pair || throw(ArgumentError(
+                "Fixed controls must be `control_index => ControlParameter` pairs;" *
+                " got an entry of type $(typeof(pair)) in experiment $i."
+            ))
+            last(pair) isa Corleone.ControlParameter || throw(ArgumentError(
+                "Fixed controls must be `control_index => ControlParameter` pairs;" *
+                " got a value of type $(typeof(last(pair))) in experiment $i."
+            ))
+        end
+    end
+    # All experiments with controls must control the same parameter indices.
+    structure = _shared_control_structure(data)
+    for i in 1:n_experiments(data)
+        c_i = controls(data, i)
+        isnothing(c_i) && continue
+        _assert_matching_control_indices(i, c_i, structure)
+    end
+    return
+end
+
+# Return the tuple of `control_index => ControlParameter` pairs defining the model-level
+# control slots, taken from the first experiment that specifies controls, or `nothing` if no
+# experiment does. The discretization grid of this reference is only used as the default for
+# experiments that specify no controls; controlled experiments keep their own grid.
+function _shared_control_structure(data::ExperimentData, tspan = (0.0, 0.0))
+    for i in 1:n_experiments(data)
+        c_i = controls(data, i)
+        isnothing(c_i) || return c_i
+    end
+    return nothing
+end
+
+function _assert_matching_control_indices(i, c_i, structure)
+    length(c_i) == length(structure) || throw(ArgumentError(
+        "Experiment $i specifies $(length(c_i)) fixed control(s) but the model has" *
+        " $(length(structure)) control slot(s); all experiments must control the same" *
+        " parameter indices."
+    ))
+    for (idx, _) in structure
+        any(q -> first(q) == idx, c_i) || throw(ArgumentError(
+            "Experiment $i must specify fixed controls for shared control index $idx."
+        ))
+    end
+    return
+end
+
+# The `controls` tuple used to build the shooting layer of experiment `i`.
+#
+# - If experiment `i` specifies controls, its own `(index => ControlParameter)` pairs (grid
+#   and fixed values) are used.
+# - If experiment `i` specifies no controls but the model has control slots, every control
+#   slot is held at its *default* value from `prob.p`, as a constant piecewise control on the
+#   reference control grid.
+# - If no experiment specifies controls, `nothing` is returned (no controls at all).
+function _experiment_layer_controls(data::ExperimentData, i::Int, prob)
+    structure = _shared_control_structure(data)
+    isnothing(structure) && return ()
+    c_i = controls(data, i)
+    isnothing(c_i) && return _experiment_layer_controls_uncontrolled(structure, prob)
+    # A valued experiment keeps its own grid and values; only the shared control slots are
+    # used (every experiment must control the same parameter indices).
+    tspan = prob.tspan
+    return ntuple(length(structure)) do k
+        idx, ref_cp = structure[k]
+        me = findfirst(q -> first(q) == idx, c_i)
+        isnothing(me) && throw(ArgumentError(
+            "Experiment $i must specify fixed controls for shared control index $idx."
+        ))
+        cp = last(c_i[me])
+        Corleone.control_length(cp; tspan = tspan) == Corleone.control_length(ref_cp; tspan = tspan) ||
+            throw(ArgumentError(
+                "The control discretization of experiment $i on index $idx does not match" *
+                " the reference control grid (control slots must have a common" *
+                " discretization across experiments)."
+            ))
+        idx => cp
+    end
+end
+
+# The `controls` tuple for an experiment that does *not* specify controls but whose model has
+# control slots: each slot held constant at its default value from `prob.p` on the reference
+# grid. (Used when an experiment supplies `controls = nothing` yet other experiments control
+# the same parameter indices.)
+function _experiment_layer_controls_uncontrolled(structure, prob)
+    p_full, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
+    tspan = prob.tspan
+    return ntuple(length(structure)) do k
+        (idx, ref_cp) = structure[k]
+        nlen = Corleone.control_length(ref_cp; tspan = tspan)
+        values = fill(p_full[idx], nlen)
+        idx => Corleone.ControlParameter(ref_cp.t; name = ref_cp.name, controls = values, bounds = ref_cp.bounds)
+    end
 end
 
 function Base.show(io::IO, pe::ParameterEstimationLayer)
@@ -190,14 +301,33 @@ get_observed(pe::ParameterEstimationLayer) = pe.observed
 get_data(pe::ParameterEstimationLayer) = pe.data
 LuxCore.initialparameters(rng::Random.AbstractRNG, pe::ParameterEstimationLayer) =
     LuxCore.initialparameters(rng, first(pe.layer))
-LuxCore.initialstates(rng::Random.AbstractRNG, pe::ParameterEstimationLayer) =
-    LuxCore.initialstates(rng, first(pe.layer))
 LuxCore.parameterlength(pe::ParameterEstimationLayer) = LuxCore.parameterlength(first(pe.layer))
 
-function (pe::ParameterEstimationLayer)(::Any, ps, st, args...)
+# Each experiment gets its *own* shooting-layer state, built from its own layer, so that
+# experiments may use different (or no) controls and grids independently.
+function LuxCore.initialstates(rng::Random.AbstractRNG, pe::ParameterEstimationLayer)
+    return map(l -> LuxCore.initialstates(rng, l), pe.layer)
+end
+
+function (pe::ParameterEstimationLayer)(::Any, ps, st::Tuple, args...)
     layers = pe.layer
-    trajs = ntuple(n_experiments(pe.data)) do i
-        first(layers[i](nothing, ps, st, args...))
+    data = pe.data
+    trajs = ntuple(n_experiments(data)) do i
+        ps_i = _experiment_ps(pe, ps, i)
+        first(layers[i](nothing, ps_i, st[i], args...))
     end
-    return (n_experiments(pe.data) == 1 ? first(trajs) : trajs, st)
+    return (n_experiments(data) == 1 ? first(trajs) : trajs, st)
+end
+
+# Build the parameter NamedTuple used to simulate experiment `i`: the shared tunable
+# initial conditions and model parameters `ps` plus the *fixed* control values of that
+# experiment's own shooting layer. The control values are baked into each layer (from the
+# data, or the parameter default for controlless experiments) and are never part of the
+# fitted optimization variables; we simply pick them up from the layer. When the model has
+# no controls at all, the shared `ps` is returned unchanged (its control vector is empty).
+function _experiment_ps(pe::ParameterEstimationLayer, ps::NamedTuple, i::Int)
+    data = pe.data
+    has_controls(data) || return ps
+    ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i]).controls
+    return merge(ps, (controls = ctrl,))
 end

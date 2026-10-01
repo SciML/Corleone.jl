@@ -1,0 +1,14 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+CorleoneParameterEstimation = "2feaeeb8-b786-4c93-8bb2-52a194c70e7d"
+SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Aqua = "0.8"
+Corleone = "0.0.8, 1"
+CorleoneParameterEstimation = "0.1"
+SciMLTesting = "2.6"
+Test = "1"
+julia = "1.10"

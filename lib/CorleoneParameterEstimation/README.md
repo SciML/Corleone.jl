@@ -43,6 +43,36 @@ res = estimate_parameters(pe, sol)   # point estimate + covariance + CIs
 By default fixed parameters (e.g. via `bounds_p` with coincident lower/upper bounds on the
 wrapped layer) are kept at their values and only the remaining tunable parameters are fitted.
 
+## Fixed controls (from optimal experimental design)
+
+Experiments may prescribe **fixed piecewise-constant controls** as part of their design
+(e.g. produced by optimal experimental design with Corleone). Each experiment supplies its
+controls as a tuple of `control_index => ControlParameter` pairs (the same form as the
+`controls` keyword of `SingleShootingLayer`); an experiment with no controls is left out by
+passing `controls = nothing`.
+
+```julia
+# a controlled experiment: the (fixed) design applies a time-varying fishing rate
+# on parameter 1, driving the model through index 1 rather than a tunable p[1]
+data = ExperimentData(Experiment(t, y; σ = 0.05, u0 = [1.0],
+    controls = (1 => ControlParameter(cgrid, controls = designed_control),)))
+
+pe  = ParameterEstimationLayer(prob, Tsit5(), data)
+sol = solve(problem(pe), GaussNewton())
+est = estimate_parameters(pe, sol)
+```
+
+Control values are **design inputs, never optimization variables**: they are read from each
+`ControlParameter` and held fixed during the fit, while the (non-control) model parameters
+are estimated. A control *replaces* its parameter, so a controlled parameter index is not
+estimated. Experiments may be **mixed**: some with controls, some without (`controls =
+nothing`). When the model has control slots, an experiment without explicit controls is
+simulated with those slots held constant at their `prob.p` default value. All experiments in
+a single fit must control the same parameter indices. See
+`examples/ode_parameter_estimation/main.jl` for an end-to-end workflow that solves an
+optimal experimental design problem with CorleoneOED and then estimates the parameters with
+the designed control fixed.
+
 ## Relationship to Optimization.jl
 
 CorleoneParameterEstimation primarily interfaces with **NonlinearSolve.jl**, whose

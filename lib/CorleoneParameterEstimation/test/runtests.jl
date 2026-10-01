@@ -19,6 +19,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Multi-experiment" begin
                 include("core/multi_experiment.jl")
             end
+            @safetestset "Fixed controls" begin
+                include("core/fixed_controls.jl")
+            end
             #@safetestset "Lotka Volterra" begin
             #    include("core/lotka_volterra.jl")
             #end
