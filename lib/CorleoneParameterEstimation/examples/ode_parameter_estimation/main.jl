@@ -290,27 +290,31 @@ println("Union observation times (n = ", length(measure_pts), "): ", round.(meas
 
 # ### c) Parameter estimation with the designed control fixed
 #
-# Now the same experiment is *actually run*: we apply the designed fishing control and
-# observe both species **only at the times chosen by the OED solution** (the union `measure_pts`),
-# adding Gaussian noise. The designed control is supplied to the experiment through
-# `controls = (1 => ControlParameter(...),)` and is held **fixed** during the fit -- only
-# `p[2], p[3]` are estimated.
+# Now the same experiment is *actually run*: we apply the designed fishing control, and we
+# observe prey and predator **only at their own OED-selected sampling times** (`w1` and `w2`,
+# which differ between the two species), adding Gaussian noise. This is expressed with the
+# *per-quantity observation times* form of `Experiment` (`Experiment([w1, w2], [prey, predator])`),
+# in which each measured quantity is sampled at its own time points instead of a single shared
+# grid. The designed control is supplied through `controls = (1 => ControlParameter(...),)` and
+# is held **fixed** during the fit -- only `p[2], p[3]` are estimated.
 
-function simulate_with_control(cvals, noise_rng, times; σ = 0.02)
+function simulate_species_times(cvals, noise_rng; σ = 0.02)
     c1 = (1 => ControlParameter(fish_grid, controls = cvals, bounds = (0.0, 1.0)),)
-    lay = SingleShootingLayer(prob_fish, Tsit5(); controls = c1, saveat = unique(times))
+    lay = SingleShootingLayer(prob_fish, Tsit5(); controls = c1, saveat = unique(measure_pts))
     ps, st = LuxCore.setup(noise_rng, lay)
     ps = merge(ps, (p = fish_p_true, controls = cvals))
     sol, _ = lay(nothing, ps, st)
-    # use the observed map to pull the two species out of the trajectory at `times`
     dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(times, zeros(2, length(times))); observed = obs_fish)
-    M = CorleoneParameterEstimation.model_values(dummy, sol, times)
-    return M .+ σ .* randn(noise_rng, size(M))
+        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish)
+    M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts)
+    # Prey at w1, predator at w2 (each species measured at its own OED times).
+    prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
+    predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
+    return prey, predator
 end
 
-Y_control = simulate_with_control(designed_control, rng_f, measure_pts)
-data_control = ExperimentData(Experiment(measure_pts, Y_control; σ = 0.02, u0 = fish_u0,
+prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
+data_control = ExperimentData(Experiment([w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
     controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)))
 
 pe_control = ParameterEstimationLayer(prob_fish, Tsit5(), data_control; observed = obs_fish)
@@ -322,15 +326,14 @@ println("With OED control:      std errors = ", round.(est_control.std_errors; d
 
 # ### d) Comparison with the control switched off
 #
-# As a baseline, the same parameters are estimated from a *design without any fishing*: the
-# fishing control is simply zero (its default value, i.e. no fishing), so `p[1]` stays at
-# its model default `0.0`. Here we pass an *explicit all-zero* control slot so that both
-# fits estimate exactly the same two parameters `p[2], p[3]` -- the difference is purely the
-# designed (time-varying) control versus the control set to zero. To make the comparison
-# fair, we observe at the *same* (union) times chosen by OED.
+# As a baseline, the same two parameters are estimated from a *design without fishing*: the
+# fishing control is zero (its default value), so `p[1]` stays at its model default `0.0`.
+# We pass an *explicit all-zero* control slot so that both fits estimate exactly the same two
+# parameters `p[2], p[3]`, and observe at the *same* per-species OED times for a fair
+# comparison -- the only difference is the designed (time-varying) control versus fishing off.
 
-Y_free = simulate_with_control(zeros(length(fish_grid)), rng_f, measure_pts)
-data_free = ExperimentData(Experiment(measure_pts, Y_free; σ = 0.02, u0 = fish_u0,
+prey_free, pred_free = simulate_species_times(zeros(length(fish_grid)), rng_f)
+data_free = ExperimentData(Experiment([w1, w2], [prey_free, pred_free]; σ = 0.02, u0 = fish_u0,
     controls = (1 => ControlParameter(fish_grid, controls = zeros(length(fish_grid)), bounds = (0.0, 1.0)),)))
 
 pe_free = ParameterEstimationLayer(prob_fish, Tsit5(), data_free; observed = obs_fish)
@@ -351,15 +354,15 @@ println("and the p[3] std error by ",
     round(100 * (1 - est_control.std_errors[2] / est_free.std_errors[2]); digits = 1), "%")
 
 # Finally we plot the controlled experiment: the model trajectory under the designed
-# fishing control together with the noisy observations.
+# fishing control together with the noisy per-species observations (at their own times).
 
 f_result = fitted_parameters(pe_control, sol_control).trajectory
 # qualify `Figure`/`Axis` as `ComponentArrays` also exports `Axis`/`axis`
 f3 = CairoMakie.Figure()
 ax3 = CairoMakie.Axis(f3[1, 1], xlabel = "t", ylabel = "population", title = "Fit with OED-designed fishing control")
 plot!(ax3, f_result, idxs = [1, 2])
-scatter!(ax3, measure_pts, Y_control[1, :], markersize = 4, label = "observed prey")
-scatter!(ax3, measure_pts, Y_control[2, :], markersize = 4, label = "observed predator")
+scatter!(ax3, w1, prey_ctrl, markersize = 4, label = "observed prey")
+scatter!(ax3, w2, pred_ctrl, markersize = 4, label = "observed predator")
 axislegend(ax3, position = :rt)
 display(f3)
 
