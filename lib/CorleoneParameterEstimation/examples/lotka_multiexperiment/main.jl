@@ -110,19 +110,24 @@ println("True parameters:        ", p_true)
 println("Standard errors (first experiment): ", est_1.std_errors)
 println("Standard errors (joint fit):        ", est_joint.std_errors)
 
-# The joint fit produces one fitted trajectory per experiment, which we can plot together
-# with the observations of both runs.
+# The joint fit produces one fitted trajectory per experiment. The `CorleoneCairoMakieExtension`
+# recipe turns the whole result into a plot in one call: for each experiment and each observed
+# quantity it overlays the fitted model trajectory (line) with the observations (points),
+# colored per quantity and labeled by experiment.
 
 result_joint = fitted_parameters(pe_joint, sol_joint)
-traj_1, traj_2 = result_joint.trajectory
 
 f = Figure()
 ax = Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Joint fit over two experiments")
-plot!(ax, traj_1, idxs = [1, 2])
-plot!(ax, traj_2, idxs = [1, 2])
-scatter!(ax, tsteps, Y1[1, :], markersize = 4, label = "exp 1: observed x")
-scatter!(ax, tsteps, Y1[2, :], markersize = 4, label = "exp 1: observed y")
-scatter!(ax, tsteps, Y2[1, :], markersize = 4, marker = :diamond, label = "exp 2: observed x")
-scatter!(ax, tsteps, Y2[2, :], markersize = 4, marker = :diamond, label = "exp 2: observed y")
+plot!(ax, result_joint)
 axislegend(ax, position = :rt)
 display(f)
+
+# One can also restrict a fit plot to a subset of the experiments with `experiment_indices`
+# or to a subset of the observed quantities with `idxs` (by index or by variable name):
+
+f2 = Figure()
+ax2 = Axis(f2[1, 1], xlabel = "t", ylabel = "population", title = "Second experiment only")
+plot!(ax2, result_joint; experiment_indices = [2])
+axislegend(ax2)
+display(f2)
