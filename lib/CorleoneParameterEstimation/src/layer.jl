@@ -313,21 +313,45 @@ function (pe::ParameterEstimationLayer)(::Any, ps, st::Tuple, args...)
     layers = pe.layer
     data = pe.data
     trajs = ntuple(n_experiments(data)) do i
-        ps_i = _experiment_ps(pe, ps, i)
+        ps_i = _experiment_ps(pe, layers[i], ps, i)
         first(layers[i](nothing, ps_i, st[i], args...))
     end
     return (n_experiments(data) == 1 ? first(trajs) : trajs, st)
 end
 
-# Build the parameter NamedTuple used to simulate experiment `i`: the shared tunable
-# initial conditions and model parameters `ps` plus the *fixed* control values of that
-# experiment's own shooting layer. The control values are baked into each layer (from the
-# data, or the parameter default for controlless experiments) and are never part of the
-# fitted optimization variables; we simply pick them up from the layer. When the model has
-# no controls at all, the shared `ps` is returned unchanged (its control vector is empty).
-function _experiment_ps(pe::ParameterEstimationLayer, ps::NamedTuple, i::Int)
+# Build the parameter NamedTuple used to simulate experiment `i`, dispatching on the kind
+# of shooting layer wrapped by `pe`.
+#
+# * **Single shooting**: `ps` is the shared `(u0, p, controls)` NamedTuple; the fixed
+#   control values of experiment `i` (from the data, or the parameter default for
+#   controlless experiments) are merged in. When the model has no controls at all the
+#   shared `ps` is returned unchanged (its control vector is empty). The control values
+#   are baked into each layer and are never part of the fitted optimization variables.
+# * **Multiple shooting**: `ps` is either a *tuple* with one `(interval_1, ...)` NamedTuple
+#   per experiment (produced by `_unflatten`), in which case every experiment already
+#   carries its own local shooting states and fixed controls and `ps[i]` is used directly;
+#   or a single shared interval NamedTuple (one experiment, or a caller reusing one `ps`
+#   for all experiments), in which case the shared local states are kept and only the
+#   fixed controls of experiment `i` are swapped in.
+function _experiment_ps(pe::ParameterEstimationLayer, layer, ps, i::Int)
+    if layer isa Corleone.MultipleShootingLayer
+        return _experiment_ps_ms(pe, ps, i)
+    end
     data = pe.data
     has_controls(data) || return ps
     ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i]).controls
     return merge(ps, (controls = ctrl,))
+end
+
+function _experiment_ps_ms(pe::ParameterEstimationLayer, ps::Tuple, i::Int)
+    return ps[i]
+end
+
+function _experiment_ps_ms(pe::ParameterEstimationLayer, ps::NamedTuple, i::Int)
+    ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i])
+    blocks = ntuple(k -> begin
+        cb = ctrl[k]
+        merge(ps[k], (controls = cb.controls,))
+    end, length(ps))
+    return NamedTuple{keys(ps)}(blocks)
 end
