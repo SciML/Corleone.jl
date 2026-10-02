@@ -29,7 +29,7 @@ include("layer.jl")
 export ParameterEstimationLayer
 
 include("residuals.jl")
-export residuals!, residual, model_values
+export residuals!, residual, model_values, n_shooting_constraints
 
 include("problem.jl")
 export CorleoneParameterEstimationProblem, problem

@@ -352,7 +352,7 @@ function __initialstates(
         tspans = collect_tspans(controls...; tspan, subdivide = 100)
     else
         grid = Int[i for i in control_indices]
-        tspans = (problem.tspan,)
+        tspans = (tspan,)
     end
     shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
     if shooting_layer

@@ -77,29 +77,43 @@ A [`ParameterEstimate`](@ref).
 function estimate_parameters(
         problem::CorleoneParameterEstimationProblem, sol; α = 0.05, names = nothing
     )
-    x = vec(collect(sol.u))
-    p = length(x)
-    n = n_observations(get_data(problem.layer))
-    @assert n > p "Need more observations than parameters to estimate uncertainties (got $n observations, $p parameters)."
+    layer = problem.layer
+    x_full = vec(collect(sol.u))
+    p_total = length(x_full)
+    # Number of *model* parameters reported to the user. For a multiple-shooting layer the
+    # flat vector also holds the local shooting initial conditions (nuisance variables), so
+    # only the shared `[u0; p]` block is reported.
+    m = _n_shared(layer, problem.ps0s)
+    x = collect(x_full[1:m])
+    p = m
+    # Degrees of freedom account for *all* residuals: observations plus any multiple-shooting
+    # continuity residuals.
+    n = n_residuals(layer)
+    @assert n > p_total "Need more observations than parameters to estimate uncertainties (got $n observations, $p_total parameters)."
 
     r = collect(vec(sol.resid))
     rss = sum(abs2, r)
-    dof = n - p
+    dof = n - p_total
     σ² = rss / dof
 
     # Jacobian of the (possibly weighted) residuals at the optimum. Allocate the residual
-    # buffer with the element type of `x` (a `Dual` during ForwardDiff) so AD is dual-safe.
-    n_obs = n
+    # buffer with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
     J = ForwardDiff.jacobian(x -> begin
-        rr = similar(x, n_obs)
+        rr = similar(x, n)
         problem.residual(rr, x, nothing)
         rr
-    end, x)
+    end, x_full)
+
+    # Eliminate the local shooting states (nuisance variables) by profiling, then invert the
+    # reduced normal matrix of the model block, `Jred = Jθ - Jλ (JλᵀJλ)⁻¹ Jλᵀ Jθ`. For a
+    # single-shooting layer there are no local states and `Jred = J`.
+    Jred = _profile_reduced_jacobian(J, m)
+
     # Invert the normal matrix. For *weighted* residuals (all experiments specify a known
     # `σ`) the covariance is `(JᵀJ)⁻¹` directly; the `σ̂²` scaling only applies when the
     # residuals are unweighted and the noise level has to be estimated from the residuals.
-    weighted = all(e -> !isnothing(e.σ), experiments(get_data(problem.layer)))
-    Σ = (weighted ? one(eltype(J)) : σ²) .* inv(Matrix(J' * J))
+    weighted = all(e -> !isnothing(e.σ), experiments(get_data(layer)))
+    Σ = (weighted ? one(eltype(J)) : σ²) .* inv(Matrix(Jred' * Jred))
 
     xnames = isnothing(names) ? nothing : collect(Symbol, names)
     se = sqrt.(max.(diag(Σ), zero(eltype(Σ))))
@@ -110,6 +124,18 @@ function estimate_parameters(
     return ParameterEstimate(
         x, xnames, Σ, se, σ², rss, dof, 1 - α, ci, p, n
     )
+end
+
+# For a single-shooting layer the whole Jacobian is kept. For multiple shooting, `m < ncol(J)`
+# and the columns of the local shooting states are profiled out of the information matrix.
+function _profile_reduced_jacobian(J::AbstractMatrix, m::Int)
+    if m == size(J, 2)
+        return J
+    end
+    Jθ = J[:, 1:m]
+    Jλ = J[:, (m + 1):end]
+    proj = Jλ * inv(Matrix(Jλ' * Jλ)) * (Jλ' * Jθ)
+    return Jθ - proj
 end
 
 """
@@ -161,9 +187,9 @@ fitted_parameters(pe::ParameterEstimationLayer, sol; kwargs...) =
     fitted_parameters(CorleoneParameterEstimationProblem(pe), sol; kwargs...)
 
 function _fitted_trajectory(problem::CorleoneParameterEstimationProblem, sol)
-    (; layer, ps0, st) = problem
+    (; layer, ps0s, st) = problem
     x = collect(vec(sol.u))
-    ps = _unflatten(ps0, x)
+    ps = _unflatten(layer, ps0s, x)
     traj, _ = layer(nothing, ps, st)
     return traj
 end

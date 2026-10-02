@@ -25,12 +25,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Per-quantity observation times" begin
                 include("core/per_quantity.jl")
             end
-            #@safetestset "Lotka Volterra" begin
-            #    include("core/lotka_volterra.jl")
-            #end
-            #return @safetestset "Uncertainty" begin
-            #    include("core/uncertainty.jl")
-            #end
+            return @safetestset "Multiple shooting" begin
+                include("core/multiple_shooting.jl")
+            end
         end,
         qa = (; env = joinpath(@__DIR__, "qa"), body = joinpath(@__DIR__, "qa", "qa.jl")),
     )
