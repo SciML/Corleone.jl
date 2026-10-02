@@ -118,7 +118,7 @@ println("Standard errors (joint fit):        ", est_joint.std_errors)
 result_joint = fitted_parameters(pe_joint, sol_joint)
 
 f = Figure()
-ax = Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Joint fit over two experiments")
+ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Joint fit over two experiments")
 plot!(ax, result_joint)
 axislegend(ax, position = :rt)
 display(f)
@@ -127,7 +127,7 @@ display(f)
 # or to a subset of the observed quantities with `idxs` (by index or by variable name):
 
 f2 = Figure()
-ax2 = Axis(f2[1, 1], xlabel = "t", ylabel = "population", title = "Second experiment only")
+ax2 = CairoMakie.Axis(f2[1, 1], xlabel = "t", ylabel = "population", title = "Second experiment only")
 plot!(ax2, result_joint; experiment_indices = [2])
 axislegend(ax2)
 display(f2)
