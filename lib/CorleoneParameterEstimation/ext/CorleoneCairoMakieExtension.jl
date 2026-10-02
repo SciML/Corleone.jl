@@ -47,14 +47,17 @@ function _data_series(exp::Experiment, k::Int)
     return exp.times[k], exp.y[k]             # per-quantity form
 end
 
-# Fitted model values of quantity `k` of experiment `exp`, evaluated at its observation
-# times via the layer's `observed` map, as `(times, values)`.
-function _fitted_series(pe::ParameterEstimationLayer, traj, exp::Experiment, k::Int)
-    if exp.times === nothing
-        return exp.t, vec(model_values(pe, traj, exp.t)[k, :])
-    end
-    return exp.times[k], vec(model_values(pe, traj, exp.times[k])[k, :])
+# Fitted model values of quantity `k`, evaluated over the trajectory's *full* time grid
+# `traj.t`. The layer is built with `saveat = unique(t_i)`, so `traj.t` is a superset of
+# every observation time and spans the whole experiment horizon -- unlike the per-quantity
+# observation times (`exp.times[k]`), which can be sparse. Using `traj.t` keeps the fitted
+# *line* a genuine, continuous curve (starting at `t0`) instead of only drawing through the
+# observed points, which is what happens when per-quantity data is observed sparsely.
+function _fitted_series(pe::ParameterEstimationLayer, traj, k::Int)
+    return traj.t, vec(model_values(pe, traj)[k, :])
 end
+
+
 
 # Resolve the `idxs` argument (integers = observed-quantity indices, or Symbols resolved
 # against the state variable names of `traj`) into a vector of integer quantity indices
@@ -170,7 +173,7 @@ function Makie.convert_arguments(
                 _quantity_label(traj_i, nq, k)
             pref = n_exp > 1 ? "exp $i, " : ""
 
-            tfit, yfit = _fitted_series(pe, traj_i, exp, k)
+            tfit, yfit = _fitted_series(pe, traj_i, k)
             push!(specs, PlotSpec(:Lines, Point2f.(tfit, yfit);
                 color = Cycled(k), linewidth = linewidth, label = pref * base * " (fit)"))
 
