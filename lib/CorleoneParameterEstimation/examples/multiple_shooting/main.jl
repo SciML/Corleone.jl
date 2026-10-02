@@ -41,6 +41,7 @@ using CairoMakie
 using OrdinaryDiffEqTsit5
 using NonlinearSolve
 using Optimization, OptimizationMOI, Ipopt, ComponentArrays
+using LuxCore
 using StableRNGs
 using LinearAlgebra
 using Random
@@ -219,7 +220,7 @@ lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 1); color = (:red,
 lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 2); color = (:red, 0.4), linestyle = :dash)
 # The scaled fit is continuous (solid):
 plot!(ax, f_ms, idxs = [1, 2])
-scatter!(ax, w1, prey_ctrl, markersize = 4, label = "observed prey")
-scatter!(ax, w2, pred_ctrl, markersize = 4, label = "observed predator")
-axislegend(ax, position = :rt)
+scatter!(ax, w1, prey_ctrl, markersize = 8, label = "observed prey")
+scatter!(ax, w2, pred_ctrl, markersize = 8, label = "observed predator")
+axislegend(ax, position = :lt, nbanks=2)
 display(f)
