@@ -292,7 +292,7 @@ function Base.show(io::IO, pe::ParameterEstimationLayer)
         " observations.\n",
     )
     print(io, no_color, "Underlying problem: ")
-    return Base.show(io, "text/plain", first(pe.layer).problem)
+    return Base.show(io, "text/plain", Corleone.get_problem(first(pe.layer)))
 end
 
 "Return the tuple of shooting layers (one per experiment) wrapped by `pe`."
