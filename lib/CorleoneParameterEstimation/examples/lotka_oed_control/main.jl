@@ -165,15 +165,18 @@ println("OED-derived experiment reduces the p[2] std error by ",
 println("and the p[3] std error by ",
     round(100 * (1 - est_control.std_errors[2] / est_free.std_errors[2]); digits = 1), "%")
 
-# Finally we plot the controlled experiment: the model trajectory under the designed
-# fishing control together with the noisy per-species observations (at their own times).
+# Finally we plot the controlled experiment. The `CorleoneCairoMakieExtension` recipe
+# does this in one call -- it reads the per-quantity observation times from the data and
+# overlays the fitted model trajectory (lines) with the noisy per-species observations
+# (points) at their own times.
 
-f_result = fitted_parameters(pe_control, sol_control).trajectory
+result_control = fitted_parameters(pe_control, sol_control)
 # qualify `Figure`/`Axis` as `ComponentArrays` also exports `Axis`/`axis`
 f = CairoMakie.Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Fit with OED-designed fishing control")
-plot!(ax, f_result, idxs = [1, 2])
-scatter!(ax, w1, prey_ctrl, markersize = 4, label = "observed prey")
-scatter!(ax, w2, pred_ctrl, markersize = 4, label = "observed predator")
+#plot!(ax, f_result, idxs = [1, 2])
+#scatter!(ax, w1, prey_ctrl, markersize = 4, label = "observed prey")
+#scatter!(ax, w2, pred_ctrl, markersize = 4, label = "observed predator")
+plot!(ax, result_control)
 axislegend(ax, position = :lt)
 display(f)
