@@ -2,32 +2,38 @@
     CorleoneParameterEstimationProblem <: SciMLBase.AbstractNonlinearProblem
 
 A lightweight container tying a [`ParameterEstimationLayer`](@ref) to a flat vector of
-optimization variables (the tunable parameters, initial conditions and controls of the wrapped
-shooting layer) so that the least-squares residuals can be minimized with any NonlinearSolve
-solver.
+optimization variables (the tunable parameters and initial conditions of the wrapped
+shooting layer) so that the least-squares residuals can be minimized with any
+NonlinearSolve solver.
 
 For a plain parameter-estimation setup (no tunable initial conditions, no controls) the
-optimization variables are exactly the tunable model parameters. Parameters that are fixed on
-the wrapped layer (e.g. provided via `bounds_p` with coincident lower/upper bounds) are not
-part of the optimization variables and are kept at their values.
+optimization variables are exactly the tunable model parameters. Parameters that are fixed
+on the wrapped layer (e.g. provided via `bounds_p` with coincident lower/upper bounds) are
+not part of the optimization variables and are kept at their values.
+
+With a [`MultipleShootingLayer`](@ref) the flat vector additionally contains the *local*
+shooting initial conditions of every experiment (see [`ParameterEstimationLayer`](@ref)),
+which keep the trajectory continuous at the shooting points.
 
 # Fields
 $(FIELDS)
 
 # Constructors
-- `CorleoneParameterEstimationProblem(layer; rng, x0)`
+- `CorleoneParameterEstimationProblem(layer; rng, x0, shooting_scale)`
 
 The low-level `NonlinearSolve.NonlinearLeastSquaresProblem` can be built directly via
 [`problem`](@ref). Most users construct that problem through the convenience constructor
 `NonlinearSolve.NonlinearLeastSquaresProblem(pe::ParameterEstimationLayer; kwargs...)`.
 """
-struct CorleoneParameterEstimationProblem{L, X, B, P, S, R}
+struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R}
     "The wrapped parameter-estimation layer"
     layer::L
-    "Structured initial parameters (NamedTuple `(u0, p, controls)`)"
+    "Structured initial parameters of the first experiment (`(u0, p, controls)` for single shooting, or an `(interval_1, ...)` NamedTuple for multiple shooting)"
     ps0::P
+    "Tuple of the layer parameters of every experiment (used to expand the shared optimization variables per experiment for multiple shooting)"
+    ps0s::S
     "The layer state"
-    st::S
+    st::St
     "Flat vector of optimization variables"
     x0::X
     "Flat lower bounds of the optimization variables (or `nothing`)"
@@ -36,82 +42,230 @@ struct CorleoneParameterEstimationProblem{L, X, B, P, S, R}
     ub::B
     "In-place residual function `(res, x, p) -> res` reconstructing the structured layer parameters from `x`"
     residual::R
+    "Multiplier applied to the appended shooting (continuity) residuals so they can be weighted relative to the observation residuals"
+    shooting_scale::Float64
 end
 
-# Split sizes for flattening the layer parameter NamedTuple. Only the *tunable* fields
-# (initial conditions and model parameters) are degrees of freedom of the estimation; the
-# fixed controls (per-experiment experimental-design inputs) are excluded.
-_free_fields(ps::NamedTuple) =
-    haskey(ps, :controls) ? NamedTuple{(:u0, :p)}((ps.u0, ps.p)) : ps
+# --------------------------------------------------------------------------------------
+# Optimization-variable layout
+# --------------------------------------------------------------------------------------
+#
+# The flat vector `x` of optimization variables is built from the layer parameters of each
+# experiment, dispatching on the kind of shooting layer:
+#
+# * **Single shooting**: `ps = (u0, p, controls)` is shared between all experiments, and
+#   `x = [u0; p]` -- the tunable initial conditions followed by the tunable model
+#   parameters.
+# * **Multiple shooting**: `ps = (interval_1 = ..., ..., interval_K = ...)`, one block per
+#   shooting interval, and `x = [u0; p; λ_1; ...; λ_E]` -- the shared tunable initial
+#   conditions `u0`, the shared tunable model parameters `p` (interval 1), and then, per
+#   experiment `e`, the *local* shooting initial conditions `λ_e` of its intervals `2..K`.
+#
+# The `[u0; p]` block is the *shared model* block that [`estimate_parameters`](@ref)
+# reports; the local shooting states `λ_e` are auxiliary continuity variables used only to
+# keep the trajectory continuous at the shooting points.
 
-_flat_sizes(ps::NamedTuple) = map(ps) do v
-    length(v)
+"True if `pe` wraps `MultipleShootingLayer`s."
+_is_multiple_shooting(pe::ParameterEstimationLayer) =
+    first(get_layer(pe)) isa Corleone.MultipleShootingLayer
+
+# The shared `(u0, p)` model block of the (first) layer parameters `ps0`.
+function _shared_block(::Corleone.SingleShootingLayer, ps0::NamedTuple)
+    return (u0 = ps0.u0, p = ps0.p)
+end
+function _shared_block(::Corleone.MultipleShootingLayer, ps0::NamedTuple)
+    interval_1 = first(values(ps0))
+    return (u0 = interval_1.u0, p = interval_1.p)
 end
 
-function _flatten(ps::NamedTuple)
-    return reduce(vcat, collect(values(_free_fields(ps))) .|> vec)
+# The local shooting initial conditions of one experiment, i.e. the concatenation of the
+# `u0` blocks of its intervals `2..K`. Empty for a single-shooting layer.
+function _local_states(::Corleone.SingleShootingLayer, ps0_i::NamedTuple)
+    return eltype(ps0_i.p)[]
+end
+function _local_states(::Corleone.MultipleShootingLayer, ps0_i::NamedTuple)
+    return reduce(vcat, (vec(b.u0) for b in Iterators.drop(values(ps0_i), 1)))
 end
 
-function _unflatten(ps0::NamedTuple, x::AbstractVector)
-    free = _free_fields(ps0)
-    sizes = collect(values(_flat_sizes(free)))
-    cumul = accumulate(+, sizes)
-    starts = cumul .- sizes .+ 1
-    vals = [x[s:e] for (s, e) in zip(starts, cumul)]
-    base = NamedTuple{keys(free)}(vals)
-    if haskey(ps0, :controls)
-        # Controls are fixed design inputs; carry the shared (first-layer) value. They are
-        # overridden per experiment inside the layer callable (`_experiment_ps`).
-        return merge(base, (controls = ps0.controls,))
+"Flat vector of the optimization variables for the layer parameters `ps0s`."
+function _flatten(pe::ParameterEstimationLayer, ps0s::Tuple)
+    layers = get_layer(pe)
+    shared = _shared_block(layers[1], ps0s[1])
+    x = reduce(vcat, (vec(v) for v in values(shared)))   # [u0; p]
+    for i in eachindex(ps0s)
+        append!(x, _local_states(layers[i], ps0s[i]))
     end
-    return base
+    return x
 end
 
+# Number of entries of `x` belonging to the shared `[u0; p]` model block.
+function _n_shared(layer::ParameterEstimationLayer, ps0s::Tuple)
+    shared = _shared_block(first(get_layer(layer)), ps0s[1])
+    return length(shared.u0) + length(shared.p)
+end
+
+# Reconstruct the structured layer parameters `ps` used by the layer callable (and the
+# residual evaluation) from the flat vector `x`.
+#
+# * Single shooting: a single shared `(u0, p, controls)` NamedTuple (controls picked up
+#   from the first experiment and overridden per experiment with fixed design inputs).
+# * Multiple shooting with one experiment: a single `(interval_1, ..., interval_K)`
+#   NamedTuple carrying that experiment's controls and local states.
+# * Multiple shooting with several experiments: a *tuple* with one such interval NamedTuple
+#   per experiment (each with its own local shooting states and fixed controls, sharing the
+#   model `[u0; p]`).
+function _unflatten(pe::ParameterEstimationLayer, ps0s::Tuple, x::AbstractVector)
+    layers = get_layer(pe)
+    data = get_data(pe)
+    n_exp = n_experiments(data)
+    shared = _shared_block(layers[1], ps0s[1])
+    nu = length(shared.u0)
+    m = nu + length(shared.p)
+    @assert length(x) >= m
+    if !_is_multiple_shooting(pe)
+        return (
+            u0 = collect(x[1:nu]),
+            p = collect(x[(nu + 1):m]),
+            controls = ps0s[1].controls,
+        )
+    end
+    # Split the flat local-states block into per-experiment slices and rebuild the interval
+    # parameters of every experiment. Local states of intervals `2..K` each hold the full
+    # (non-quadrature) state vector, so their size is constant across those intervals.
+    ps = ntuple(n_exp) do i
+        li = _n_local_states(layers[i], ps0s[i])
+        start = m + 1 + (i - 1) * li
+        λi = collect(x[start:(start + li - 1)])
+        _unflatten_ms(ps0s[i], (u0 = collect(x[1:nu]), p = collect(x[(nu + 1):m])), λi)
+    end
+    return n_exp == 1 ? only(ps) : ps
+end
+
+# Number of local shooting-state entries of one experiment (0 for single shooting).
+_n_local_states(::Corleone.SingleShootingLayer, ps0_i::NamedTuple) = 0
+function _n_local_states(::Corleone.MultipleShootingLayer, ps0_i::NamedTuple)
+    return sum(length(b.u0) for b in Iterators.drop(values(ps0_i), 1))
+end
+
+# Rebuild the `(interval_1, ..., interval_K)` NamedTuple of one multiple-shooting layer
+# from the shared model block `(u0, p)` and the flat local states `λ` of its intervals
+# `2..K`. Fixed controls are carried over from the initial layer parameters.
+function _unflatten_ms(ps0_i::NamedTuple, shared, λ::AbstractVector)
+    nint = length(ps0_i)
+    blocks = ntuple(nint) do k
+        base = ps0_i[k]
+        if k == 1
+            (u0 = copy(shared.u0), p = copy(shared.p), controls = base.controls)
+        else
+            s = length(ps0_i[2].u0)
+            # local-state block occupied by interval `k` (intervals `2..K` are concatenated)
+            lo = (k - 2) * s + 1
+            hi = (k - 1) * s
+            (u0 = collect(λ[lo:hi]), p = copy(shared.p), controls = base.controls)
+        end
+    end
+    return NamedTuple{keys(ps0_i)}(blocks)
+end
+
+# --- Bounds ------------------------------------------------------------------------
+function _tunable_bounds(pe::ParameterEstimationLayer, ps0s::Tuple)
+    layers = get_layer(pe)
+    if _is_multiple_shooting(pe)
+        return _ms_bounds(pe, layers, ps0s)
+    end
+    return _ss_bounds(layers[1], ps0s)
+end
+
+# Single shooting: bounds of the shared `[u0; p]` block. The `u0`/`p` bound vectors
+# returned by `Corleone.get_bounds` already match the sizes of `ps0.u0`/`ps0.p` (the
+# initial-condition bounds are restricted to the tunable entries by the layer).
+function _ss_bounds(layer::Corleone.SingleShootingLayer, ps0s::Tuple)
+    ps0 = ps0s[1]
+    lb, ub = Corleone.get_bounds(layer)
+    flat_lb, flat_ub = eltype(ps0.p)[], eltype(ps0.p)[]
+    if !isempty(ps0.u0)
+        append!(flat_lb, vec(lb.u0))
+        append!(flat_ub, vec(ub.u0))
+    end
+    if !isempty(ps0.p)
+        append!(flat_lb, vec(lb.p))
+        append!(flat_ub, vec(ub.p))
+    end
+    return flat_lb, flat_ub
+end
+
+# Multiple shooting: bounds of the shared `[u0; p]` block (from interval 1 of the first
+# experiment) followed by the local shooting-state bounds of every experiment's intervals
+# `2..K`.
+function _ms_bounds(pe::ParameterEstimationLayer, layers::Tuple, ps0s::Tuple)
+    ps0 = ps0s[1]
+    el = eltype(ps0[1].p)
+    flat_lb, flat_ub = el[], el[]
+
+    lb, ub = Corleone.get_bounds(layers[1])
+    if !isempty(ps0[1].u0)
+        append!(flat_lb, vec(lb[1].u0))
+        append!(flat_ub, vec(ub[1].u0))
+    end
+    if !isempty(ps0[1].p)
+        append!(flat_lb, vec(lb[1].p))
+        append!(flat_ub, vec(ub[1].p))
+    end
+
+    for i in eachindex(ps0s)
+        lbi, ubi = Corleone.get_bounds(layers[i])
+        for k in 2:length(lbi)
+            append!(flat_lb, vec(lbi[k].u0))
+            append!(flat_ub, vec(ubi[k].u0))
+        end
+    end
+    return flat_lb, flat_ub
+end
+
+# --------------------------------------------------------------------------------------
+# Problem construction
+# --------------------------------------------------------------------------------------
 function CorleoneParameterEstimationProblem(
         layer::ParameterEstimationLayer;
         rng::Random.AbstractRNG = Random.default_rng(),
         x0 = nothing,
+        shooting_scale::Real = 1.0,
     )
-    # `setup` returns `(ps0, st)` where `st` is a tuple with the shooting-layer state of
-    # each experiment (each experiment has its own layer/state, so experiments may use
-    # different fixed controls independently). `ps0` is shared: it holds the tunable
-    # initial conditions and model parameters that are the optimization variables.
-    ps0, st = LuxCore.setup(rng, layer)
-    x0 = isnothing(x0) ? _flatten(ps0) : x0
-    lb, ub = _tunable_bounds(layer, ps0)
+    # One structured parameter set per experiment (its shooting layer's initial
+    # parameters), plus the tuple of per-experiment layer states. `ps0` (the first
+    # experiment's parameters) is the shared model block used by the accessors.
+    ps0s = ntuple(i -> LuxCore.initialparameters(rng, get_layer(layer)[i]),
+        n_experiments(get_data(layer)))
+    st = ntuple(i -> LuxCore.initialstates(rng, get_layer(layer)[i]),
+        n_experiments(get_data(layer)))
+    x0 = isnothing(x0) ? _flatten(layer, ps0s) : x0
+    lb, ub = _tunable_bounds(layer, ps0s)
 
-    residual = let layer = layer, ps0 = ps0, st = st
+    # Optional weighting of the shooting (continuity) residuals. Observations are
+    # residualized against their noise scale `σ`, so they are `O(1)` at the noise floor,
+    # while the appended shooting residuals are raw state/parameter differences with the
+    # state scale. For multiple shooting the reconstruction is only meaningfully continuous
+    # when the optimizer drives the shooting residuals to (nearly) zero. If the optimal
+    # solution still has a large shooting residual, increase `shooting_scale` and re-solve:
+    # this weighs the continuity residuals more heavily so the optimizer satisfies them.
+    # The first `n_observations` residuals are the (measured) observations, the remaining
+    # `n_shooting_constraints(pe)` are the appended shooting residuals.
+    n_obs = n_observations(get_data(layer))
+    residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs,
+            shooting_scale = Float64(shooting_scale)
         (res, x, p) -> begin
-            ps = _unflatten(ps0, x)
-            return residuals!(res, layer, ps, st)
+            ps = _unflatten(layer, ps0s, x)
+            residuals!(res, layer, ps, st)
+            if shooting_scale != 1.0
+                @views res[(n_obs + 1):end] .*= shooting_scale
+            end
+            return res
         end
     end
 
     return CorleoneParameterEstimationProblem(
-        layer, ps0, st, x0, lb, ub, residual
+        layer, ps0s[1], ps0s, st, x0, lb, ub, residual, Float64(shooting_scale)
     )
-end
-
-# Build flat bounds aligned with the flattened `ps0`. For initial conditions the wrapped layer
-# stores full-size u0 bounds while `ps0.u0` only contains the *tunable* entries, so we index by
-# the tunable initial-condition indices. Parameters and controls are already sized to match the
-# flattened vector by the shooting-layer construction.
-function _tunable_bounds(layer::ParameterEstimationLayer, ps0::NamedTuple)
-    wrapper = first(get_layer(layer))
-    (lb, ub) = Corleone.get_bounds(wrapper)
-    flat_lb, flat_ub = eltype(ps0.p)[], eltype(ps0.p)[]
-
-    if haskey(ps0, :u0) && !isempty(ps0.u0)
-        idx = get_tunable(wrapper)
-        append!(flat_lb, vec(lb.u0[idx]))
-        append!(flat_ub, vec(ub.u0[idx]))
-    end
-    if haskey(ps0, :p)
-        append!(flat_lb, vec(lb.p))
-        append!(flat_ub, vec(ub.p))
-    end
-    # NB: controls are excluded -- they are fixed experimental-design inputs, not fitted.
-    return flat_lb, flat_ub
 end
 
 """
@@ -122,9 +276,10 @@ fit of the layer's tunable parameters.
 """
 function SciMLBase.NonlinearLeastSquaresProblem(problem::CorleoneParameterEstimationProblem)
     (; residual, x0, lb, ub) = problem
-    n_obs = n_observations(get_data(problem.layer))
+    n_obs = n_residuals(problem.layer)
     # Out-of-place residual so NonlinearSolve can accurately infer the residual dimension
-    # (number of observations), which generally differs from the number of fitted parameters.
+    # (number of observations + shooting constraints), which generally differs from the
+    # number of fitted parameters.
     residual_oop = (x, p) -> begin
         r = similar(x, n_obs)
         residual(r, x, p)

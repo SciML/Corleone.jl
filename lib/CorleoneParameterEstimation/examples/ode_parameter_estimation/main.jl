@@ -366,3 +366,77 @@ scatter!(ax3, w2, pred_ctrl, markersize = 4, label = "observed predator")
 axislegend(ax3, position = :rt)
 display(f3)
 
+# ### e) The same experiment with a multiple-shooting layer
+#
+# The same fixed-control experiment (`data_control`) can equally be fitted with a
+# **multiple-shooting** layer. We pass a single shooting point `[6.0]`, which partitions the
+# horizon into `(0, 6)` and `(6, 12)` and introduces a local state at `t = 6`. The designed
+# fishing control still enters in exactly the same way -- a fixed `ControlParameter` in
+# `controls` that is *not* an optimization variable.
+
+println("\n-- Multiple-shooting variant --")
+pe_ms = ParameterEstimationLayer(prob_fish, Tsit5(), data_control, [6.0]; observed = obs_fish)
+
+# The appended shooting residuals now couple the two sub-intervals. With the fishing control
+# **fixed** they are only the state and parameter matchings: `2` state (prey, predator) plus
+# `2` parameter (the estimable `p[2], p[3]`, since `p[1]` is the control slot) and **0**
+# control matchings -- a fixed control is a known input shared by both intervals, not a
+# shooting unknown.
+
+println("MS appended shooting residuals: ", n_shooting_constraints(pe_ms))
+
+# Observations are residualized against their noise scale `σ` (so each is `O(1)` at the noise
+# floor), but the appended shooting residuals are raw state differences and stay on the **state
+# scale** (here `O(1)`, much larger than `σ = 0.02`). With a shooting point at `t = 6` this
+# means the optimizer can stall before it drives the continuity gap down to zero. We first
+# solve with the default weight and *measure* the shooting residual left in the solution.
+
+sol_ms = solve(problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0])), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500)
+est_ms = estimate_parameters(pe_ms, sol_ms)
+println("MS (default weight):  fitted p = ", round.(est_ms.x; digits = 3), "  true = ", fish_p_true)
+println("MS (default weight):  std errors = ", round.(est_ms.std_errors; digits = 5))
+
+# A helper to read off the raw (unweighted) shooting residuals from the flat solution vector:
+# the last `n_shooting_constraints` entries of the residual vector.
+function shooting_residual(pe, x)
+    cp = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
+    ps = CorleoneParameterEstimation._unflatten(pe, cp.ps0s, x)
+    r = CorleoneParameterEstimation.residual(pe, ps, cp.st)
+    return r[(n_observations(pe.data) + 1):end]
+end
+tic_ms = shooting_residual(pe_ms, sol_ms.u)
+println("MS (default weight):  shooting residual = ", round.(tic_ms; digits = 4),
+    "  |x| = ", round(norm(tic_ms); digits = 4))
+
+# The shooting residual left at the optimum is on the **state scale** (a visible discontinuity
+# at `t = 6`), because the shooting constraints are unweighted while the observations are
+# weighted by `1/σ`. [`CorleoneParameterEstimationProblem`](@ref) accepts a `shooting_scale`
+# keyword that multiplies the appended shooting residuals, letting us weight the continuity
+# constraints relative to the data fit. If the optimal solution shows a large shooting
+# residual, we increase `shooting_scale` and re-solve -- a standard continuation on the
+# constraint weight (here `1000` drives the gap to `~1e-4`, negligible next to the `O(1)`
+# state scale).
+
+sol_ms2 = solve(problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0]), shooting_scale = 1000), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 1000)
+est_ms2 = estimate_parameters(pe_ms, sol_ms2)
+tic_ms2 = shooting_residual(pe_ms, sol_ms2.u)
+println("MS (scaled x1000):   fitted p = ", round.(est_ms2.x; digits = 3))
+println("MS (scaled x1000):   shooting residual = ", round.(tic_ms2; digits = 6),
+    "  |x| = ", round(norm(tic_ms2); digits = 6))
+
+# Both solves recover the same parameters, but the `shooting_scale = 1000` solve drives the
+# continuity residual to (near) zero, so the reconstructed multiple-shooting trajectory is
+# (numerically) continuous across the shooting point.
+
+f_ms = fitted_parameters(pe_ms, sol_ms2).trajectory
+f4 = CairoMakie.Figure()
+ax4 = CairoMakie.Axis(f4[1, 1], xlabel = "t", ylabel = "population", title = "Multiple-shooting fit with OED-designed fishing control")
+vlines!(ax4, [6.0]; color = (:gray, 0.5), label = "shooting point t = 6")
+plot!(ax4, f_ms, idxs = [1, 2])
+scatter!(ax4, w1, prey_ctrl, markersize = 4, label = "observed prey")
+scatter!(ax4, w2, pred_ctrl, markersize = 4, label = "observed predator")
+axislegend(ax4, position = :rt)
+display(f4)
+
