@@ -122,3 +122,25 @@ pe_ic = ParameterEstimationLayer(
 )
 println("Optimization variables when the IC is also tunable: ",
     length(problem(pe_ic).u0), " (4 parameters + 2 initial-state components)")
+
+# ## Solving with an Optimization.jl solver (e.g. UnoSolver)
+#
+# Besides the primary NonlinearSolve least-squares interface, `CorleoneParameterEstimation` ships a
+# thin extension (`CorleoneParameterEstimationOptimizationExtension`) that turns a
+# `ParameterEstimationLayer` into an `Optimization.jl` `OptimizationProblem` with the scalar
+# least-squares objective ``0.5 \\sum_i r_i^2``. This lets us run the *same* fit with *any*
+# Optimization.jl / MathOptInterface solver -- here the state-of-the-art `UnoSolver`
+# (FilterSQP). The extension is opt-in and needs `Optimization` and `ComponentArrays` loaded;
+# the MOI optimizer is wired in through `OptimizationMOI`.
+
+using Optimization, OptimizationMOI, UnoSolver, ComponentArrays
+
+optprob = OptimizationProblem(pe)                # scalar 0.5 * Σ rᵢ² objective
+
+solver = UnoSolver.Optimizer()
+sol_uno = solve(optprob, solver)
+println("UnoSolver fitted parameters:     ", sol_uno.u)
+println("GaussNewton fitted parameters:   ", sol.u)
+
+# Both solvers reach the same least-squares optimum: UnoSolver minimizes the scalar
+# `0.5 * Σ rᵢ²`, while GaussNewton descends on the underlying (weighted) residual vector.

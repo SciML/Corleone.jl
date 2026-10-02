@@ -33,7 +33,9 @@ function Optimization.OptimizationProblem(
     end
 
     optf = OptimizationFunction(objective, AD)
-    return OptimizationProblem(optf, x0, st; lb = lb, ub = ub)
+    # The scalar objective already closes over everything it needs (the residuals),
+    # so nothing is passed as the fixed parameters `p` of the OptimizationProblem.
+    return OptimizationProblem(optf, x0, nothing; lb = lb, ub = ub)
 end
 
 end
