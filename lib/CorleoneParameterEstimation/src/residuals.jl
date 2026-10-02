@@ -6,6 +6,12 @@ return the predicted values as a matrix of size `(n_obs, n_t)`. The data time po
 `pe` are expected to be a subset of `traj.t` (the layer is constructed with
 `saveat = data.t` automatically, so this holds by default).
 
+If a trajectory only partially covers the requested `times` (e.g. a shooting sub-interval
+that diverged mid-solve and did not reach every observation time), the uncovered columns
+are returned as `NaN` rather than aborting the calculation, so that a least-squares
+optimizer sees a non-finite objective and can back off. It is only an error when *no*
+requested time is present in the trajectory.
+
 # Keywords
 - `sym`: The `SymbolicIndexingInterface` symbol cache to resolve `traj`. When `nothing`
   the observation map is called directly on the raw state values of the trajectory.
@@ -21,11 +27,24 @@ function model_values(pe::ParameterEstimationLayer, traj, times::AbstractVector)
     # solve may additionally store the end of the shared `tspan`, which is beyond the last
     # observation time of a shorter experiment and is dropped here).
     idx = indexin(times, traj.t)
-    any(isnothing, idx) && throw(ArgumentError(
-        "The observation time points must be a subset of the trajectory's time points.")
-    )
     n_obs = _obs_length(obs, first(traj.u), traj.p, first(traj.t))
     Y = _alloc_obs_matrix(eltype(first(traj.u)), n_obs, length(times))
+    if any(isnothing, idx)
+        # A shooting sub-interval can diverge mid-solve (stiff steps or a blow-up), leaving
+        # a trajectory that does not cover all observation times. Rather than aborting the
+        # whole solve, mark the uncovered columns `NaN` so the least-squares objective is
+        # non-finite and the optimizer backs off (line search) or rejects the step. If every
+        # requested time is missing the calculation is meaningless, so that is still an error.
+        all(isnothing, idx) && throw(ArgumentError(
+            "The observation time points must be a subset of the trajectory's time points.")
+        )
+        fill!(Y, NaN)
+        for (j, k) in enumerate(idx)
+            isnothing(k) && continue
+            _obs_into!(Y, j, obs, traj.u[k], traj.p, traj.t[k])
+        end
+        return Y
+    end
     for (j, k) in enumerate(idx)
         _obs_into!(Y, j, obs, traj.u[k], traj.p, traj.t[k])
     end
@@ -77,6 +96,18 @@ function residuals!(res::AbstractVector, pe::ParameterEstimationLayer, ps, st, a
         end
         offset += _n_observed(exp_i)
     end
+    # Multiple shooting: append the continuity (matching) residuals of every experiment's
+    # shooting layer, so the local interval states are coupled and the reconstructed
+    # trajectory is (approximately) continuous. `Corleone.shooting_constraints!` writes
+    # nothing for a single-shooting trajectory, so this adds nothing when no shooting is
+    # used. The total number of continuity residuals is `n_shooting_constraints(pe)`.
+    for i in 1:n_exp
+        n_shoot = _layer_shooting_constraints(get_layer(pe)[i])
+        Corleone.shooting_constraints!(
+            view(res, (offset + 1):(offset + n_shoot)), trajs[i]
+        )
+        offset += n_shoot
+    end
     return res
 end
 
@@ -105,17 +136,60 @@ function _residuals_per_quantity!(res, pe, traj, exp, σ_per_quantity)
     return res
 end
 
-# Return a copy of the residuals (out-of-place variant).
+# Return a copy of the residuals (out-of-place variant). The element type is taken from
+# the model parameters (`ps.p` for single shooting, or the first interval's `p` for a
+# multiple-shooting layer), falling back to the state element type when the parameter block
+# is empty, so that manual AD through `residual` stays dual-safe.
 """
     residual(pe, ps, st[, alg])
 
 Return the vector of least-squares residuals (a copy of [`residuals!`](@ref)).
 """
 function residual(pe::ParameterEstimationLayer, ps, st, args...)
-    eT = isempty(ps.p) ? eltype(first(get_layer(pe)).problem.u0) : eltype(first(ps.p))
-    buffer = Vector{eT}(undef, n_observations(get_data(pe)))
+    layers = get_layer(pe)
+    mp = _model_params(layers[1], ps)
+    eT = isempty(mp) ? eltype(first(layers[1]).problem.u0) : eltype(mp)
+    buffer = Vector{eT}(undef, n_residuals(pe))
     return residuals!(buffer, pe, ps, st, args...)
 end
+
+# The `p` block of the model parameters in the layer parameters `ps`, for the element type
+# of a residual vector. For single shooting `ps` is the `(u0, p, controls)` NamedTuple; for
+# a multiple-shooting layer it is either the `(interval_1, ...)` NamedTuple (one experiment
+# or shared) or a tuple with one such NamedTuple per experiment.
+_model_params(::Corleone.SingleShootingLayer, ps::NamedTuple) = ps.p
+function _model_params(::Corleone.MultipleShootingLayer, ps::NamedTuple)
+    return isempty(ps) ? () : first(values(ps)).p
+end
+_model_params(::Corleone.MultipleShootingLayer, ps::Tuple) =
+    isempty(ps) ? () : first(ps).p
+
+"""
+    n_shooting_constraints(pe::ParameterEstimationLayer)
+
+Total number of shooting continuity (matching) residuals over all experiments of `pe`,
+computed from each experiment's (multiple-)shooting layer. This is zero when every
+experiment uses a `SingleShootingLayer`.
+"""
+function n_shooting_constraints(pe::ParameterEstimationLayer)
+    return sum(i -> _layer_shooting_constraints(get_layer(pe)[i]), 1:n_experiments(get_data(pe)))
+end
+
+# The number of continuity (matching) constraints generated by one experiment's shooting
+# layer. Single shooting has no matching constraints; a multiple-shooting layer counts
+# state, parameter and control continuity constraints in that order (see `Corleone`).
+_layer_shooting_constraints(::Corleone.SingleShootingLayer) = 0
+_layer_shooting_constraints(layer::Corleone.MultipleShootingLayer) =
+    Corleone.get_number_of_shooting_constraints(layer)
+
+"""
+    n_residuals(pe::ParameterEstimationLayer)
+
+Total number of least-squares residuals for `pe`: the observation residuals over all
+ experiments plus any multiple-shooting continuity residuals.
+"""
+n_residuals(pe::ParameterEstimationLayer) =
+    n_observations(get_data(pe)) + n_shooting_constraints(pe)
 
 function _residuals!(res, y_obs::AbstractMatrix, y_model::AbstractMatrix)
     @assert length(res) == length(y_obs) == length(y_model)
