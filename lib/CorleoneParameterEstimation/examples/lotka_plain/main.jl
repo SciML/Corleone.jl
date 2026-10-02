@@ -98,13 +98,17 @@ println("Confidence intervals: ", est.confidence_intervals)
 # which is convenient for plotting.
 
 result = fitted_parameters(pe, sol)
-traj = result.trajectory
+
+# With `CairoMakie` loaded, the `CorleoneCairoMakieExtension` registers two recipes that
+# plot a fit through the plain Makie `plot!` function:
+#
+#   * `plot!(ax, result)` overlays the fitted model trajectories (lines) with the
+#     observed data (points), one color per observed quantity,
+#   * `plot!(ax, data)` plots only the observed data.
 
 f = Figure()
-ax = Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Lotka-Volterra fit")
-plot!(ax, traj, idxs = [1, 2])
-scatter!(ax, tsteps, Y[1, :], markersize = 4, label = "observed x")
-scatter!(ax, tsteps, Y[2, :], markersize = 4, label = "observed y")
+ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Lotka-Volterra fit")
+plot!(ax, result)      # fitted lines + observed data for both species
 axislegend(ax)
 display(f)
 

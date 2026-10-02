@@ -79,6 +79,30 @@ function _quantity_label(traj, nq::Int, k::Int)
     return "q$(k)"
 end
 
+# Convenience: `plot(result)` / `plot(data)` (no axis) create a Figure with sensible
+# defaults -- a title and an x-label -- and plot the fit into its only axis.
+# Plotting into an *existing* axis is handled by the mutating `plot!(ax, x)` recipes above.
+function Makie.plot(x::ParameterEstimationResult; kwargs...)
+    return plot(Figure(), x; kwargs...)
+end
+function Makie.plot(x::ExperimentData; kwargs...)
+    return plot(Figure(), x; kwargs...)
+end
+
+# Fill in the default title / x-label only when the plot function created the axis itself,
+# i.e. when the user calls `plot(result)` instead of `plot!(ax, result)`. The mutating
+# `plot!` recipes (used with an explicit axis) leave the user's axis untouched.
+function Makie.plot(fig::Figure, x::ParameterEstimationResult; kwargs...)
+    ax = Axis(fig[1, 1]; title = "Parameter estimation result", xlabel = "Time t")
+    plot!(ax, x; kwargs...)
+    return fig
+end
+function Makie.plot(fig::Figure, x::ExperimentData; kwargs...)
+    ax = Axis(fig[1, 1]; title = "Parameter estimation result", xlabel = "Time t")
+    plot!(ax, x; kwargs...)
+    return fig
+end
+
 # --- Recipe: observed data only --------------------------------------------------------
 Makie.plottype(::ExperimentData) = Makie.Scatter
 
