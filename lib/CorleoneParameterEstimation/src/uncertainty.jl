@@ -12,7 +12,9 @@ The covariance is estimated from the residual Jacobian ``J`` at the optimum,
 \\Sigma = \\hat{\\sigma}^2 \\, (J^\\top J)^{-1},
 ```
 where ``\\hat{\\sigma}^2 = \\mathrm{RSS}/(n - p)`` is the unbiased estimate of the residual
-variance, ``n`` the number of observations and ``p`` the number of fitted parameters. When the
+variance, ``\\mathrm{RSS}`` the sum of squared (weighted) *observation* residuals
+(multiple-shooting continuity residuals are excluded), ``n`` the number of observations and
+``p`` the number of fitted parameters (including any nuisance local shooting states). When the
 data specifies measurement noise ``\\sigma``, the residuals (and hence ``J``) are the *weighted*
 ones, so that ``(J^\\top J)^{-1}`` is the weighted least-squares covariance.
 """
@@ -27,9 +29,10 @@ struct ParameterEstimate{T, V, M, C}
     std_errors::V
     "Estimated residual variance `σ̂²`"
     residual_variance::T
-    "Sum of squared (weighted) residuals at the optimum"
+    "Sum of squared (weighted) *observation* residuals at the optimum (multiple-shooting
+    continuity residuals are excluded)"
     residual_norm::T
-    "Degrees of freedom `n - p`"
+    "Degrees of freedom `n - p` (observation residuals minus estimated parameters)"
     degrees_of_freedom::Int
     "Confidence level used for `confidence_intervals`"
     confidence_level::T
@@ -86,20 +89,31 @@ function estimate_parameters(
     m = _n_shared(layer, problem.ps0s)
     x = collect(x_full[1:m])
     p = m
-    # Degrees of freedom account for *all* residuals: observations plus any multiple-shooting
-    # continuity residuals.
-    n = n_residuals(layer)
-    @assert n > p_total "Need more observations than parameters to estimate uncertainties (got $n observations, $p_total parameters)."
-
+    # Residual layout (see `residuals!`): all observation residuals first, then the
+    # multiple-shooting continuity residuals. Only the *data* residuals carry statistical
+    # information — the continuity residuals are consistency constraints that vanish at the
+    # optimum — so RSS, σ̂² and the degrees of freedom are computed from the observation
+    # residuals alone, and every estimated parameter (the shared model block *and* any
+    # nuisance local shooting states) costs one degree of freedom of data.
+    n_obs = n_observations(get_data(layer))
+    n_shoot = n_shooting_constraints(layer)
+    n_obs + n_shoot >= p_total || throw(ArgumentError(
+        "Need at least as many residuals as parameters to estimate uncertainties " *
+        "(got $(n_obs) observation(s) + $(n_shoot) shooting constraint(s) for $(p_total) parameters)."
+    ))
     r = collect(vec(sol.resid))
-    rss = sum(abs2, r)
-    dof = n - p_total
+    rss = sum(abs2, view(r, 1:n_obs))
+    dof = n_obs - p_total
+    dof > 0 || throw(ArgumentError(
+        "Need more observations than estimated parameters to estimate the noise level " *
+        "(got $(n_obs) observation(s) for $(p_total) estimated parameters)."
+    ))
     σ² = rss / dof
 
     # Jacobian of the (possibly weighted) residuals at the optimum. Allocate the residual
     # buffer with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
     J = ForwardDiff.jacobian(x -> begin
-        rr = similar(x, n)
+        rr = similar(x, n_obs + n_shoot)
         problem.residual(rr, x, nothing)
         rr
     end, x_full)
@@ -117,12 +131,12 @@ function estimate_parameters(
 
     xnames = isnothing(names) ? nothing : collect(Symbol, names)
     se = sqrt.(max.(diag(Σ), zero(eltype(Σ))))
-    # Two-sided asymptotic t-quantile (positive upper-tail critical value).
+    # Two-sided Student-t quantile (positive upper-tail critical value).
     tcrit = _t_quantile(dof, 1 - α / 2)
     ci = [(x[i] - tcrit * se[i], x[i] + tcrit * se[i]) for i in eachindex(x)]
 
     return ParameterEstimate(
-        x, xnames, Σ, se, σ², rss, dof, 1 - α, ci, p, n
+        x, xnames, Σ, se, σ², rss, dof, 1 - α, ci, p, n_obs
     )
 end
 
@@ -194,38 +208,16 @@ function _fitted_trajectory(problem::CorleoneParameterEstimationProblem, sol)
     return traj
 end
 
-# Student-t quantile (asymptotic normal surrogate with small-sample correction via t).
-function _t_quantile(dof::Int, q::Real)
-    return _normal_quantile(q) * (1 + (1 + q * q) / (4 * dof))
-end
-
-function _normal_quantile(p::Real)
-    # Rational approximation (Acklam) to the inverse normal CDF.
-    a = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
-        1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
-    b = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
-        6.680131188771972e+01, -1.328068155288572e+01)
-    c = (-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
-        -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00)
-    d = (7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
-        3.754408661907416e+00)
-    plow = 0.02425
-    phigh = 1 - plow
-    q = p
-    if q < plow
-        r = sqrt(-2 * log(q))
-        return (((((c[1] * r + c[2]) * r + c[3]) * r + c[4]) * r + c[5]) * r + c[6]) /
-               ((((d[1] * r + d[2]) * r + d[3]) * r + d[4]) * r + 1)
-    elseif q <= phigh
-        r = q - 0.5
-        r2 = r * r
-        return (((((a[1] * r2 + a[2]) * r2 + a[3]) * r2 + a[4]) * r2 + a[5]) * r2 + a[6]) * r /
-               (((((b[1] * r2 + b[2]) * r2 + b[3]) * r2 + b[4]) * r2 + b[5]) * r2 + 1)
-    else
-        r = sqrt(-2 * log(1 - q))
-        return -(((((c[1] * r + c[2]) * r + c[3]) * r + c[4]) * r + c[5]) * r + c[6]) /
-               ((((d[1] * r + d[2]) * r + d[3]) * r + d[4]) * r + 1)
-    end
+# Two-sided Student-t quantile (positive upper-tail critical value), i.e. the inverse CDF of
+# the Student-t distribution. Delegated to `StatsFuns`, which provides accurate special-function
+# implementations (including the regularized incomplete beta function) rather than a local
+# hand-rolled approximation.
+function _t_quantile(ν::Int, q::Real)
+    ν >= 1 || throw(ArgumentError(
+        "The Student-t distribution needs at least 1 degree of freedom (got $ν)."))
+    0 < q < 1 || throw(ArgumentError(
+        "The quantile level must be in (0, 1) (got $q)."))
+    return tdistinvcdf(ν, q)
 end
 
 function Base.show(io::IO, est::ParameterEstimate)
