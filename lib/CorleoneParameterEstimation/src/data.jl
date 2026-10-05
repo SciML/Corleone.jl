@@ -269,3 +269,59 @@ prescribe its own initial conditions (the initial conditions of the differential
 problem are used instead).
 """
 initial_conditions(data::ExperimentData, i::Int) = experiments(data)[i].u0
+
+# "1 parameter" / "2 parameters", etc. Shared by the `ExperimentData`/`Experiment` printers
+# here and the `ParameterEstimate`/`ParameterEstimationResult` printers in `uncertainty.jl`.
+# Pass an explicit plural for words that do not simply take an "s" (e.g. "quantity").
+_count_label(n::Integer, singular::AbstractString, plural::AbstractString = singular * "s") =
+    "$n $(n == 1 ? singular : plural)"
+
+# Short description of an `Experiment`'s measurement-noise specification.
+_noise_description(::Nothing) = nothing
+_noise_description(σ::Number) = "σ = $σ"
+_noise_description(σ::AbstractVector{<:AbstractVector}) = "σ = per-quantity"
+_noise_description(σ::AbstractMatrix) = "σ = per-observation"
+_noise_description(::AbstractVector) = "σ = per-component"
+
+# One-line description of an `Experiment`, used by both printers.
+function _experiment_description(e::Experiment)
+    if isnothing(e.times)
+        nq = e.y isa AbstractMatrix ? size(e.y, 1) : 1
+        s = _count_label(nq, "quantity", "quantities") * " on a shared grid of " *
+            _count_label(length(e.t), "time point")
+    else
+        s = _count_label(length(e.y), "quantity", "quantities") * " with per-quantity times"
+    end
+    isnothing(e.σ) || (s *= ", " * _noise_description(e.σ))
+    isnothing(e.controls) || (s *= ", " * _count_label(length(e.controls), "fixed control"))
+    isnothing(e.u0) || (s *= ", u0 = " * string(e.u0))
+    return s
+end
+
+function Base.show(io::IO, e::Experiment)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+    return print(io, type_color, "Experiment", no_color, " with ", _experiment_description(e))
+end
+
+function Base.show(io::IO, data::ExperimentData)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+    exps = experiments(data)
+    print(io, type_color, "ExperimentData", no_color, " with ")
+    print(io, _count_label(length(exps), "experiment"), " and ")
+    print(io, _count_label(n_observations(data), "observation"))
+    n_ctrl = count(e -> !isnothing(e.controls), exps)
+    n_ctrl > 0 && print(io, " (", _count_label(n_ctrl, "experiment"), " with fixed controls)")
+    # For multiple experiments, list a one-line description of each (capped to avoid a
+    # pathologically long print for large ensembles).
+    if length(exps) > 1
+        limit = 8
+        for (i, e) in enumerate(exps)
+            if i > limit
+                print(io, "\n  … ", _count_label(length(exps) - limit, "more experiment"))
+                break
+            end
+            print(io, "\n  [", i, "] ", _experiment_description(e))
+        end
+    end
+    return
+end

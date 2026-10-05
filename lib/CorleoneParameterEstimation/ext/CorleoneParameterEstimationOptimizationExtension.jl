@@ -19,7 +19,7 @@ function Optimization.OptimizationProblem(
         u0::Union{Nothing, AbstractVector} = nothing,
         kwargs...
     )
-    prob = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
+    prob = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe; kwargs...)
     (; x0, lb, ub, residual) = prob
     x0 = isnothing(u0) ? x0 : u0
     n_res = CorleoneParameterEstimation.n_residuals(pe)
