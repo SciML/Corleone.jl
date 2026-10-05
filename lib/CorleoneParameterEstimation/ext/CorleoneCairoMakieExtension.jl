@@ -75,9 +75,9 @@ end
 # the identity on the state (so quantity `k` is state `k`), otherwise `"q$k"`.
 function _quantity_label(traj, nq::Int, k::Int)
     if !isnothing(traj)
-        vars = traj.sys.variables
-        name = findfirst(v -> v == k, vars)   # the Symbol whose value is `k`
-        name === nothing || return string(name)
+        for (name, idx) in traj.sys.variables
+            idx == k && return string(name)
+        end
     end
     return "q$(k)"
 end

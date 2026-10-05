@@ -25,10 +25,26 @@ withenv("GROUP" => GROUP) do
             @safetestset "Per-quantity observation times" begin
                 include("core/per_quantity.jl")
             end
+            @safetestset "Diagnostics" begin
+                include("core/diagnostics.jl")
+            end
             return @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
             end
         end,
+        groups = Dict(
+            "Extensions" => (;
+                body = function ()
+                    @safetestset "CairoMakie plotting" begin
+                        include("core/plotting.jl")
+                    end
+                    return @safetestset "Optimization extension" begin
+                        include("core/optimization_extension.jl")
+                    end
+                end,
+            ),
+        ),
+        all = ["Core", "Extensions"],
         qa = (; env = joinpath(@__DIR__, "qa"), body = joinpath(@__DIR__, "qa", "qa.jl")),
     )
 end

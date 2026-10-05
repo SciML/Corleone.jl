@@ -32,5 +32,6 @@ export CorleoneParameterEstimationProblem, problem
 include("uncertainty.jl")
 export ParameterEstimate, ParameterEstimationResult
 export estimate_parameters, covariance, standard_errors, confidence_interval, fitted_parameters
+export r_squared, adjusted_r_squared, correlation, condition_number
 
 end
