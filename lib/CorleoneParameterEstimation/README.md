@@ -69,9 +69,10 @@ estimated. Experiments may be **mixed**: some with controls, some without (`cont
 nothing`). When the model has control slots, an experiment without explicit controls is
 simulated with those slots held constant at their `prob.p` default value. All experiments in
 a single fit must control the same parameter indices. See
-`examples/ode_parameter_estimation/main.jl` for an end-to-end workflow that solves an
+`examples/lotka_oed_control/main.jl` for an end-to-end workflow that solves an
 optimal experimental design problem with CorleoneOED and then estimates the parameters with
-the designed control fixed.
+the designed control fixed, and `examples/multiple_shooting/main.jl` for the
+multiple-shooting variant of that fit.
 
 ## Per-quantity observation times
 
@@ -104,4 +105,8 @@ toolchain for this task. Optimization.jl, which Corleone uses for optimal contro
 ship Gauss–Newton/Levenberg–Marquardt-style optimizers, so it is not the natural backend here.
 For completeness, a thin extension (`CorleoneParameterEstimationOptimizationExtension`) exposes
 an `OptimizationProblem` with the scalar `0.5 * Σ rᵢ²` objective, so scalar optimizers such as
-`BFGS`/`LBFGS` can also be used if desired.
+`BFGS`/`LBFGS` -- or any MathOptInterface (MOI) optimizer such as `UnoSolver.Optimizer(preset =
+"filtersqp")` via `OptimizationMOI` -- can also be used if desired. The extension is opt-in and
+activates once both `Optimization` and `ComponentArrays` are loaded; see the final section of
+`examples/lotka_plain/main.jl` for a worked example solving the same Lotka-Volterra fit with
+`UnoSolver`.

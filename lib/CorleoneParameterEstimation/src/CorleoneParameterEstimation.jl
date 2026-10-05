@@ -6,7 +6,6 @@ using DocStringExtensions
 using LuxCore
 using Random
 using LinearAlgebra
-using SparseArrays
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
@@ -14,11 +13,7 @@ using ForwardDiff
 
 using NonlinearSolve
 using NonlinearSolve: NonlinearLeastSquaresProblem
-
-# Re-export the least-squares solver algorithms so users get the standard
-# SciML GN/LM interface without an extra `using NonlinearSolve`.
-@reexport using NonlinearSolve: GaussNewton, LevenbergMarquardt,
-    BoundedLevenbergMarquardt, TrustRegion, Dogbox, TrustRegionDogleg, NewtonRaphson
+using StatsFuns: tdistinvcdf
 
 include("data.jl")
 export Experiment, ExperimentData, experiments, n_experiments, n_observations,
