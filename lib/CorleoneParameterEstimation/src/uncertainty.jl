@@ -343,10 +343,9 @@ function _t_quantile(ν::Int, q::Real)
     return tdistinvcdf(ν, q)
 end
 
-function Base.show(io::IO, est::ParameterEstimate)
-    type_color, no_color = SciMLBase.get_colorizers(io)
-    print(io, type_color, "ParameterEstimate", no_color, " with ")
-    print(io, est.n_parameters, " parameters (", est.n_observations, " observations):\n")
+# Shared parameter table used by the `ParameterEstimate` and `ParameterEstimationResult`
+# printers: one line per parameter with its standard error and confidence interval.
+function _print_parameter_table(io::IO, est::ParameterEstimate)
     pct = round(Int, 100 * est.confidence_level)
     for i in eachindex(est.x)
         name = isnothing(est.names) ? "x[$i]" : string(est.names[i])
@@ -356,5 +355,33 @@ function Base.show(io::IO, est::ParameterEstimate)
             "  ($(pct)% CI: [", lo, ", ", hi, "])"
         )
     end
+    return
+end
+
+# Header shared by both printers: "<Type> with p parameters (n observations):".
+function _print_estimate_header(io::IO, name::AbstractString, est::ParameterEstimate)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+    print(io, type_color, name, no_color, " with ")
+    print(io, _count_label(est.n_parameters, "parameter"), " (")
+    return print(io, _count_label(est.n_observations, "observation"), "):\n")
+end
+
+function Base.show(io::IO, est::ParameterEstimate)
+    _print_estimate_header(io, "ParameterEstimate", est)
+    _print_parameter_table(io, est)
     return print(io, "residual variance σ̂² = ", est.residual_variance)
+end
+
+# One-line description of the stored trajectory: `nothing` (not kept), a tuple of
+# trajectories (one per experiment) or a single trajectory.
+_trajectory_description(::Nothing) = "not stored"
+_trajectory_description(trajectory::Tuple) = _count_label(length(trajectory), "experiment")
+_trajectory_description(::Any) = "single experiment"
+
+function Base.show(io::IO, result::ParameterEstimationResult)
+    est = result.estimate
+    _print_estimate_header(io, "ParameterEstimationResult", est)
+    _print_parameter_table(io, est)
+    print(io, "residual variance σ̂² = ", est.residual_variance)
+    return print(io, "\nfitted trajectory: ", _trajectory_description(result.trajectory))
 end

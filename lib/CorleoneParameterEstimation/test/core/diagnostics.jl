@@ -70,3 +70,36 @@ end
     @test occursin("90% CI", s90)
     @test !occursin("95% CI", s90)
 end
+
+@testset "ParameterEstimationResult printing" begin
+    result = fitted_parameters(pe, sol)
+    s = sprint(show, result)
+    @test startswith(s, "ParameterEstimationResult with ")
+    @test occursin("residual variance", s)
+    @test occursin("fitted trajectory: single experiment", s)
+    # A concise summary, not the raw struct/type dump.
+    @test !occursin("ParameterEstimationLayer{", s)
+    @test !occursin("Trajectory{", s)
+end
+
+@testset "Experiment / ExperimentData printing" begin
+    shared = ExperimentData(tdata, ydata; σ = σ)
+    @test startswith(
+        sprint(show, shared),
+        "ExperimentData with 1 experiment and 21 observations"
+    )
+    se = sprint(show, first(experiments(shared)))
+    @test startswith(se, "Experiment with 1 quantity on a shared grid of 21 time points")
+    @test occursin("σ = 0.01", se)
+
+    multi = ExperimentData(
+        Experiment(tdata, ydata; σ = σ, u0 = [1.0]),
+        Experiment(tdata, ydata; σ = σ, u0 = [2.0]),
+    )
+    sm = sprint(show, multi)
+    @test startswith(sm, "ExperimentData with 2 experiments and 42 observations")
+    @test occursin("[1]", sm) && occursin("[2]", sm)
+
+    pq = Experiment([tdata[1:3], tdata[1:5]], [ydata[1:3], ydata[1:5]]; σ = σ)
+    @test occursin("2 quantities with per-quantity times", sprint(show, pq))
+end
