@@ -1,20 +1,18 @@
 """
-    model_values(pe::ParameterEstimationLayer, traj; sym = :default)
+    model_values(pe::ParameterEstimationLayer, traj)
+    model_values(pe::ParameterEstimationLayer, traj, times)
 
 Evaluate the observation map of `pe` at every time point of the trajectory `traj` and
 return the predicted values as a matrix of size `(n_obs, n_t)`. The data time points of
 `pe` are expected to be a subset of `traj.t` (the layer is constructed with
-`saveat = data.t` automatically, so this holds by default).
+`saveat = data.t` automatically, so this holds by default). The three-argument variant
+evaluates the observation map at the given `times` instead of all of `traj.t`.
 
 If a trajectory only partially covers the requested `times` (e.g. a shooting sub-interval
 that diverged mid-solve and did not reach every observation time), the uncovered columns
 are returned as `NaN` rather than aborting the calculation, so that a least-squares
 optimizer sees a non-finite objective and can back off. It is only an error when *no*
 requested time is present in the trajectory.
-
-# Keywords
-- `sym`: The `SymbolicIndexingInterface` symbol cache to resolve `traj`. When `nothing`
-  the observation map is called directly on the raw state values of the trajectory.
 """
 function model_values(pe::ParameterEstimationLayer, traj)
     return model_values(pe, traj, traj.t)

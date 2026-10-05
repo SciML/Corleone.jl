@@ -181,7 +181,7 @@ end
 # control the same parameter indices; experiments without controls are simulated with those
 # control-slot parameters held constant at their `prob.p` default. Each experiment may use
 # its own control grid and values (it gets its own shooting layer and layer state).
-function _validate_controls(data::ExperimentData, tspan = (0.0, 0.0))
+function _validate_controls(data::ExperimentData)
     has_controls(data) || return nothing
     # Every control entry must be a `control_index => ControlParameter` pair.
     for i in 1:n_experiments(data)
@@ -212,7 +212,7 @@ end
 # control slots, taken from the first experiment that specifies controls, or `nothing` if no
 # experiment does. The discretization grid of this reference is only used as the default for
 # experiments that specify no controls; controlled experiments keep their own grid.
-function _shared_control_structure(data::ExperimentData, tspan = (0.0, 0.0))
+function _shared_control_structure(data::ExperimentData)
     for i in 1:n_experiments(data)
         c_i = controls(data, i)
         isnothing(c_i) || return c_i
@@ -299,9 +299,24 @@ end
 get_layer(pe::ParameterEstimationLayer) = pe.layer
 get_observed(pe::ParameterEstimationLayer) = pe.observed
 get_data(pe::ParameterEstimationLayer) = pe.data
-LuxCore.initialparameters(rng::Random.AbstractRNG, pe::ParameterEstimationLayer) =
-    LuxCore.initialparameters(rng, first(pe.layer))
-LuxCore.parameterlength(pe::ParameterEstimationLayer) = LuxCore.parameterlength(first(pe.layer))
+# The shared layer parameters. For a single-shooting layer (or a multiple-shooting layer
+# with a single experiment) the shared `(u0, p, controls)` / interval parameters are
+# returned. For multiple shooting with several experiments every experiment has its own
+# local shooting states, so a tuple with one parameter set per experiment is returned; this
+# matches the tuple accepted by the layer callable (`_experiment_ps_ms`).
+function LuxCore.initialparameters(rng::Random.AbstractRNG, pe::ParameterEstimationLayer)
+    if _is_multiple_shooting(pe) && n_experiments(pe.data) > 1
+        return map(l -> LuxCore.initialparameters(rng, l), pe.layer)
+    end
+    return LuxCore.initialparameters(rng, first(pe.layer))
+end
+
+function LuxCore.parameterlength(pe::ParameterEstimationLayer)
+    if _is_multiple_shooting(pe) && n_experiments(pe.data) > 1
+        return sum(l -> LuxCore.parameterlength(l), pe.layer)
+    end
+    return LuxCore.parameterlength(first(pe.layer))
+end
 
 # Each experiment gets its *own* shooting-layer state, built from its own layer, so that
 # experiments may use different (or no) controls and grids independently.
