@@ -18,11 +18,12 @@ const SOLVERS_REEXPORTS = (
 )
 const OWN_EXPORTS = (
     :CorleoneParameterEstimationProblem, :Experiment, :ExperimentData, :ParameterEstimate,
-    :ParameterEstimationLayer, :ParameterEstimationResult, :confidence_interval,
-    :controls, :covariance, :estimate_parameters, :experiments, :fitted_parameters,
+    :ParameterEstimationLayer, :ParameterEstimationResult, :adjusted_r_squared,
+    :condition_number, :confidence_interval, :controls, :correlation, :covariance,
+    :estimate_parameters, :experiments, :fitted_parameters,
     :has_controls, :initial_conditions, :model_values, :n_experiments, :n_observations,
     :n_shooting_constraints,
-    :observation_times, :observation_times_per_quantity, :per_quantity, :problem, :residual, :residuals!, :standard_errors,
+    :observation_times, :observation_times_per_quantity, :per_quantity, :problem, :r_squared, :residual, :residuals!, :standard_errors,
 )
 run_qa(
     CorleoneParameterEstimation;
@@ -33,11 +34,12 @@ run_qa(
     ei_kwargs = (;
         # Names still not declared public in their owning modules, reached through
         # `Corleone.*`/`SciMLBase.*`/`ForwardDiff.*`: Corleone internals (`control_length`,
-        # `get_bounds`, `get_number_of_shooting_constraints`, `shooting_constraints!`),
-        # SciMLBase internals (`get_colorizers`) and ForwardDiff's `jacobian`.
+        # `get_bounds`, `get_number_of_shooting_constraints`, `get_problem`,
+        # `shooting_constraints!`), SciMLBase internals (`get_colorizers`) and ForwardDiff's
+        # `jacobian`.
         all_qualified_accesses_are_public = (;
             ignore = (
-                :control_length, :get_bounds, :get_colorizers, :jacobian,
+                :control_length, :get_bounds, :get_colorizers, :get_problem, :jacobian,
                 :get_number_of_shooting_constraints, :shooting_constraints!,
             ),
         ),
