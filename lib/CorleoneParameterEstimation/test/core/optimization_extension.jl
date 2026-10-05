@@ -32,6 +32,10 @@ pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = (u, p, t) -> u[1:1
     # A custom initial guess is forwarded.
     optprob2 = OptimizationProblem(pe; u0 = [p_true])
     @test optprob2.u0 == [p_true]
+
+    # Problem-construction keywords are forwarded to the least-squares problem.
+    optprob3 = OptimizationProblem(pe; shooting_scale = 2.0)
+    @test optprob3.u0 == problem(pe; shooting_scale = 2.0).u0
 end
 
 @testset "Optimization extension: Ipopt recovers the parameter" begin

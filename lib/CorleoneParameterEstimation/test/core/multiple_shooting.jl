@@ -105,4 +105,5 @@ end
     ft = fitted_parameters(pe, sol)
     @test ft.trajectory isa Tuple             # one reconstructed trajectory per experiment
     @test length(ft.trajectory) == 2
+    @test occursin("fitted trajectory: 2 experiments", sprint(show, ft))
 end
