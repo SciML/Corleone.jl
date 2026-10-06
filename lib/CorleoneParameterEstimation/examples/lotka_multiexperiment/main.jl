@@ -121,7 +121,7 @@ f = Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Joint fit over two experiments")
 plot!(ax, result_joint)
 axislegend(ax, position = :rt)
-display(f)
+f
 
 # One can also restrict a fit plot to a subset of the experiments with `experiment_indices`
 # or to a subset of the observed quantities with `idxs` (by index or by variable name):
@@ -130,4 +130,4 @@ f2 = Figure()
 ax2 = CairoMakie.Axis(f2[1, 1], xlabel = "t", ylabel = "population", title = "Second experiment only")
 plot!(ax2, result_joint; experiment_indices = [2])
 axislegend(ax2)
-display(f2)
+f2
