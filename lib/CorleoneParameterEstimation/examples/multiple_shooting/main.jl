@@ -1,5 +1,5 @@
 #src ---
-#src title: Multiple Shooting Parameter Estimation with an OED-Designed Control
+#src title: Multiple Shooting Parameter Estimation with controls
 #src description: Estimate the Lotka-Volterra fishing parameters from a multiple-shooting fit under a fixed OED-designed fishing control, showing that a default shooting weight yields a discontinuous solution and a stronger penalty on the continuity conditions is needed
 #src tags:
 #src   - Lotka Volterra
@@ -68,7 +68,7 @@ fish_grid = collect(0.0:0.2:11.8)                      # control grid (piecewise
 measure_times = collect(0.0:0.25:11.75)                # candidate observation times
 obs_fish = (u, p, t) -> u[1:2]                         # both species are measurable
 
-# ## a) Solve the optimal experimental design problem
+# ## Solve the optimal experimental design problem
 #
 # We wrap the model in an [`CorleoneOED.OEDLayer`](@ref) with the tunable parameters
 # `params = [2, 3]`, the fishing control on index `1` and two sampling controls (one per
@@ -107,7 +107,7 @@ println("Fishing control starts at:   ", round.(designed_control[1:5]; digits = 
 println("Species-1 measurement times: ", round.(w1; digits = 2))
 println("Species-2 measurement times: ", round.(w2; digits = 2))
 
-# ## b) Simulate the designed experiment
+# ## Simulate the designed experiment
 #
 # We apply the designed fishing control and observe prey and predator **only at their own
 # OED-selected sampling times** (`w1` and `w2`, which differ between the two species), adding
@@ -131,7 +131,7 @@ prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
 data_control = ExperimentData(Experiment([w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
     controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)))
 
-# ## c) Build the multiple-shooting layer
+# ## Build the `MultipleShootingLayer`
 #
 # We pass a *single* shooting point `sp = [6.0]`, which partitions the horizon into `(0, 6)`
 # and `(6, 12)` and introduces a local state at `t = 6`. The designed fishing control still
@@ -155,7 +155,7 @@ println("Observation residuals:      ", n_obs)
 println("Appended shooting residuals:", n_shoot)
 println("Total residuals:            ", n_obs + n_shoot)
 
-# ## d) Fit with the default shooting weight: a discontinuous solution
+# ## Fit with the default shooting weight: discontinuous solution
 #
 # The observations are residualized against their noise scale `σ` (so each is `O(1)` at the
 # noise floor), but the appended shooting residuals are raw state differences on the **state
@@ -190,7 +190,7 @@ println("MS (default weight):  shooting residual = ", round.(tic_ms; digits = 4)
 # sub-interval. The two sub-interval trajectories do **not** meet at `t = 6`:
 traj_default = fitted_parameters(pe_ms, sol_ms).trajectory
 
-# ## e) Retry with a higher penalty on the shooting conditions
+# ## Retry with a higher penalty on the shooting conditions
 #
 # [`CorleoneParameterEstimationProblem`](@ref) accepts a `shooting_scale` keyword that
 # multiplies the appended shooting residuals, letting us weight the continuity constraints
@@ -224,4 +224,4 @@ lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 2); color = (:red,
 #scatter!(ax, w2, pred_ctrl, markersize = 8, label = "observed predator")
 plot!(ax, result_ms)
 axislegend(ax, position = :lt, nbanks=2)
-display(f)
+f

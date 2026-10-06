@@ -7,10 +7,11 @@ Pkg.develop(
         PackageSpec(path = joinpath(@__DIR__, "..")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneParameterEstimation")),
     ]
 )
 
-using Documenter, Corleone, CorleoneOED, OptimalControlBenchmarks
+using Documenter, Corleone, CorleoneOED, CorleoneParameterEstimation, OptimalControlBenchmarks
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
@@ -46,14 +47,21 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Getting Started" => "examples/the_linear_quadratic_regulator.md",
-        "Tutorials" => [
+        "Corleone" => [
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
+        ], #"tutorials.md",
+        "CorleoneOED" => [
             "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
             "Discrete measurements" => "examples/compartmental_oed_problem.md",
             "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
-            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
-        ], #"tutorials.md",
+        ],
+        "CorleoneParameterEstimation" => [
+            "SIR parameter estimation" => "examples/joint_parameter_estimation_for_an_sir_epidemic_across_two_regions.md",
+            "OED + Parameter estimation" => "examples/parameter_estimation_with_fixed_controls_from_optimal_experimental_design.md",
+            "Multiple shooting" => "examples/multiple_shooting_parameter_estimation_with_controls.md"
+        ],
         "References" => "references.md",
         "API" => "api.md",
         #tutorials,

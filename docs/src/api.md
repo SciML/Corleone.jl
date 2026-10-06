@@ -55,6 +55,9 @@ CorleoneOED.FisherECriterion
 CorleoneOED.FisherDCriterion
 ```
 
+## CorleoneParameterEstimation
+
+
 ## OptimalControlBenchmarks
 
 ```@docs

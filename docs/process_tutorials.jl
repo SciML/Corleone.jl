@@ -71,6 +71,11 @@ tutorials = map(
         abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
         abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
         abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl"),
+        #abspath("lib/CorleoneParameterEstimation/examples/lotka_multiexperiment/main.jl"),
+        #abspath("lib/CorleoneParameterEstimation/examples/lotka_plain/main.jl"),
+        abspath("lib/CorleoneParameterEstimation/examples/lotka_oed_control/main.jl"),
+        abspath("lib/CorleoneParameterEstimation/examples/multiple_shooting/main.jl"),
+        abspath("lib/CorleoneParameterEstimation/examples/sir_multicity/main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
