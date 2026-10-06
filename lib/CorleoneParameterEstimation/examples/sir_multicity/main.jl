@@ -215,7 +215,7 @@ f = CairoMakie.Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "Day", ylabel = "count", title = "SIR fit across two regions (R0 ≈ 2.5)")
 plot!(ax, result; labels = ["new infections", "recovered"])
 axislegend(ax, position = :lt)
-display(f)
+f
 
 # ## Bonus: fitting an unknown initial infection count (tunable IC)
 #

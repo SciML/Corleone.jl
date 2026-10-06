@@ -34,7 +34,7 @@ using NonlinearSolve
 using Optimization, OptimizationMOI, Ipopt, ComponentArrays
 using StableRNGs
 
-# ## a) Model dynamics and problem
+# ## Model dynamics and problem
 
 function fishing_lotka!(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
@@ -54,7 +54,7 @@ fish_grid = collect(0.0:0.2:11.8)                      # control grid (piecewise
 measure_times = collect(0.0:0.25:11.75)                # candidate observation times
 obs_fish = (u, p, t) -> u[1:2]                         # both species are measurable
 
-# ## b) Solve the optimal experimental design problem
+# ## Solve the optimal experimental design problem
 #
 # We wrap the model in an [`CorleoneOED.OEDLayer`](@ref) with the tunable parameters
 # `params = [2, 3]`, the fishing control on index `1` and two sampling controls (one per
@@ -100,7 +100,7 @@ println("Species-1 measurement times: ", round.(w1; digits = 2))
 println("Species-2 measurement times: ", round.(w2; digits = 2))
 println("Union observation times (n = ", length(measure_pts), "): ", round.(measure_pts; digits = 2))
 
-# ## c) Parameter estimation with the designed control fixed
+# ## Parameter estimation with the designed control fixed
 #
 # Now the same experiment is *actually run*: we apply the designed fishing control, and we
 # observe prey and predator **only at their own OED-selected sampling times** (`w1` and `w2`,
@@ -118,8 +118,7 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
     sol, _ = lay(nothing, ps, st)
     dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
         lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish)
-    M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts)
-    # Prey at w1, predator at w2 (each species measured at its own OED times).
+    M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts) # Prey at w1, predator at w2 (each species measured at its own OED times).
     prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
     predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
     return prey, predator
@@ -136,7 +135,7 @@ est_control = estimate_parameters(pe_control, sol_control)
 println("With OED control:      fitted p = ", round.(sol_control.u; digits = 3), "  true = ", fish_p_true)
 println("With OED control:      std errors = ", round.(est_control.std_errors; digits = 5))
 
-# ## d) Comparison with the control switched off
+# ## Comparison with the control switched off
 #
 # As a baseline, the same two parameters are estimated from a *design without fishing*: the
 # fishing control is zero (its default value), so `p[1]` stays at its model default `0.0`.
@@ -179,4 +178,4 @@ ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Fit 
 #scatter!(ax, w2, pred_ctrl, markersize = 4, label = "observed predator")
 plot!(ax, result_control)
 axislegend(ax, position = :lt)
-display(f)
+f
