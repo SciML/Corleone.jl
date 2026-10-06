@@ -1,5 +1,5 @@
 #src ---
-#src title: Parameter Estimation for the Lotka-Volterra ODE
+#src title: Parameter Estimation for the Lotka Volterra ODE
 #src description: Fit the Lotka-Volterra model parameters (with uncertainties) from a single noisy time-series experiment using a Gauss-Newton least-squares fit
 #src tags:
 #src   - Lotka Volterra
@@ -110,7 +110,7 @@ f = Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Lotka-Volterra fit")
 plot!(ax, result)      # fitted lines + observed data for both species
 axislegend(ax)
-display(f)
+f
 
 # ## Profile-likelihood confidence intervals
 #
@@ -143,7 +143,7 @@ println("Asymptotic CIs:  ", pl.asymptotic_intervals)
 # title spans the full top row.
 
 fpl = plot(pl)
-display(fpl)
+fpl
 
 # ## Fitting an unknown initial condition
 #
@@ -160,24 +160,23 @@ pe_ic = ParameterEstimationLayer(
 println("Optimization variables when the IC is also tunable: ",
     length(problem(pe_ic).u0), " (4 parameters + 2 initial-state components)")
 
-# ## Solving with an Optimization.jl solver (e.g. UnoSolver)
+# ## Solving with an Optimization.jl solver (e.g. Ipopt)
 #
 # Besides the primary NonlinearSolve least-squares interface, `CorleoneParameterEstimation` ships a
 # thin extension (`CorleoneParameterEstimationOptimizationExtension`) that turns a
 # `ParameterEstimationLayer` into an `Optimization.jl` `OptimizationProblem` with the scalar
 # least-squares objective ``0.5 \\sum_i r_i^2``. This lets us run the *same* fit with *any*
-# Optimization.jl / MathOptInterface solver -- here the state-of-the-art `UnoSolver`
-# (FilterSQP). The extension is opt-in and needs `Optimization` and `ComponentArrays` loaded;
+# Optimization.jl / MathOptInterface solver -- here the interior-point optimizer `Ipopt`.
+# The extension is opt-in and needs `Optimization` and `ComponentArrays` loaded;
 # the MOI optimizer is wired in through `OptimizationMOI`.
 
-using Optimization, OptimizationMOI, UnoSolver, ComponentArrays
+using Optimization, OptimizationMOI, Ipopt, ComponentArrays
 
 optprob = OptimizationProblem(pe)                # scalar 0.5 * Σ rᵢ² objective
 
-solver = UnoSolver.Optimizer()
-sol_uno = solve(optprob, solver)
-println("UnoSolver fitted parameters:     ", sol_uno.u)
+sol_ipopt = solve(optprob, Ipopt.Optimizer(); tol = 1.0e-8)
+println("Ipopt fitted parameters:         ", sol_ipopt.u)
 println("GaussNewton fitted parameters:   ", sol.u)
 
-# Both solvers reach the same least-squares optimum: UnoSolver minimizes the scalar
+# Both solvers reach the same least-squares optimum: Ipopt minimizes the scalar
 # `0.5 * Σ rᵢ²`, while GaussNewton descends on the underlying (weighted) residual vector.
