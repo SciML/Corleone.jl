@@ -185,4 +185,107 @@ function Makie.convert_arguments(
     return specs
 end
 
+# --------------------------------------------------------------------------------------
+# Profile-likelihood confidence intervals
+# --------------------------------------------------------------------------------------
+#
+# `plot(est)` / `plot!(ax, est)` for a `ProfileLikelihoodEstimate`: one axis per profiled
+# parameter (rows of a `Figure` when several are selected), each showing the minimized
+# residual-sum-of-squares profile as a function of the parameter value, together with
+#
+#   * the likelihood-ratio threshold (dashed black line) whose crossing defines the CI,
+#   * the point estimate and its profile CI endpoints (band + vertical lines),
+#   * the asymptotic CI endpoints for cross-checking (dotted lines) when they are finite.
+#
+# Keyword arguments:
+#   * `idxs = nothing`: parameter indices (integers) or names (Symbols) to plot; `nothing`
+#     plots every parameter,
+#   * `fig_title = "Profile likelihood"`, `axis_label = ...`: axis texts,
+#   * `threshold_color/linestyle`, `markersize = 4`, `linewidth = 2.0`: styling.
+# --------------------------------------------------------------------------------------
+
+Makie.plottype(::ProfileLikelihoodEstimate) = Makie.Lines
+
+# One subplot (axis) for one parameter's profile.
+function _profile_axis(fig::Figure, idx::Tuple{Int,Int}, est::ProfileLikelihoodEstimate,
+        k::Integer; idxcol = 1, linewidth = 2.0, markersize = 4.0, alpha = 0.15,
+        threshold_color = :black, threshold_linestyle = :dash,
+        asymptotic_linestyle = :dot, axis_label = ("Parameter value", "Residual sum of squares"),
+    )
+    ax = Axis(fig[idx...])
+    curve = est.profiles[k]
+    name = isnothing(curve.name) ? string("x[", k, "]") : curve.name
+    ax.title = string("Profile of ", name)
+    isnothing(axis_label) || (ax.xlabel = axis_label[1]; ax.ylabel = axis_label[2])
+
+    # A concrete color (from Makie's default Wong palette) rather than `Cycled`, because
+    # filled `band!`s need a resolved RGB(A) and cannot consume a `Cycled` attribute.
+    col = Makie.wong_colors()[idxcol]
+
+    lines!(ax, Point2f.(curve.values, curve.rss);
+        color = col, linewidth = linewidth, label = "profile")
+    hlines!(ax, [curve.threshold];
+        color = threshold_color, linestyle = threshold_linestyle, label = "threshold")
+
+    # finite CI endpoints -> shading band + vertical lines
+    lo, hi = curve.lower, curve.upper
+    if isfinite(lo) && isfinite(hi) && lo != hi
+        band!(ax, [lo, hi], [curve.min_rss, curve.min_rss],
+            [curve.threshold, curve.threshold]; color = (col, alpha))
+        vlines!(ax, [lo, hi]; color = (col, 0.5), linestyle = :solid)
+    end
+    scatter!(ax, [curve.values[argmin(curve.rss)]], [curve.min_rss];
+        color = col, markersize = markersize, label = "optimum")
+
+    # asymptotic CI endpoints for cross-checking (dotted), when finite and nondegenerate
+    aci = est.asymptotic_intervals[k]
+    if isfinite(aci[1]) && isfinite(aci[2]) && aci[1] != aci[2]
+        vlines!(ax, [aci[1], aci[2]]; color = :gray, linestyle = asymptotic_linestyle,
+            label = "asymptotic CI")
+    end
+    return ax
+end
+
+# `plot(est)` without a user axis: build a Figure with sensible defaults and one axis per
+# selected parameter, laid out in a single column.
+function Makie.plot(x::ProfileLikelihoodEstimate; kwargs...)
+    return plot(Figure(), x; kwargs...)
+end
+
+function Makie.plot(fig::Figure, est::ProfileLikelihoodEstimate; idxs = nothing,
+        fig_title = "Profile likelihood", kwargs...)
+    p = length(est.profiles)
+    ks = _resolve_profile_idxs(idxs, est, p)
+    ncol = min(3, length(ks))
+    nrow = cld(length(ks), ncol)
+    # One axis per profiled parameter, laid out in rows 1:(nrow) so that the top row
+    # (row 0) is free for the figure title and the bottom row for the shared legend.
+    axes = [(i, j) for i in 1:nrow, j in 1:ncol]
+    first_ax = nothing
+    for (q, k) in enumerate(ks)
+        ax = _profile_axis(fig, axes[q], est, k; kwargs...)
+        q == 1 && (first_ax = ax)
+    end
+    # Title spans the full top row once every axis is in place (so `fig[0, :]` is
+    # meaningful after layout settles).
+    isnothing(fig_title) || Label(fig[0, :], fig_title; fontsize = 18)
+    # A single, shared legend below all axes (all profiled parameters use the same set of
+    # labeled elements, so the first axis' legend entries describe the whole figure). This
+    # keeps the legend out of the subplots, unlike an `axislegend` inside one axis.
+    Legend(fig[nrow + 1, :], first_ax; orientation = :horizontal, framevisible = false,
+        title = "Shared legend")
+    resize_to_layout!(fig)
+    return fig
+end
+
+# Resolve `idxs` (integers or parameter-name Symbols) into integer parameter indices.
+function _resolve_profile_idxs(idxs, est::ProfileLikelihoodEstimate, p::Int)
+    isnothing(idxs) && return collect(1:p)
+    all(i -> i isa Integer, idxs) && return collect(Int, idxs)
+    names = est.names
+    isnothing(names) && error(
+        "Symbolic `idxs` require parameter `names` (pass integer parameter indices).")
+    return [findfirst(==(Symbol(n)), names) for n in idxs]
+end
+
 end
