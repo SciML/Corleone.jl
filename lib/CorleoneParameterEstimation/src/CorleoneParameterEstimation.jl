@@ -13,7 +13,7 @@ using ForwardDiff
 
 using NonlinearSolve
 using NonlinearSolve: NonlinearLeastSquaresProblem
-using StatsFuns: tdistinvcdf
+using StatsFuns: tdistinvcdf, chisqinvcdf
 
 include("data.jl")
 export Experiment, ExperimentData, experiments, n_experiments, n_observations,
@@ -33,5 +33,9 @@ include("uncertainty.jl")
 export ParameterEstimate, ParameterEstimationResult
 export estimate_parameters, covariance, standard_errors, confidence_interval, fitted_parameters
 export r_squared, adjusted_r_squared, correlation, condition_number
+
+include("profile_likelihood.jl")
+export ProfileCurve, ProfileLikelihoodEstimate
+export profile_likelihood, profiles
 
 end

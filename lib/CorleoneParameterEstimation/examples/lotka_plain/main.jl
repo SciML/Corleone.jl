@@ -68,7 +68,7 @@ data = ExperimentData(tsteps, Y; σ = 0.05)
 # from the same problem and solved with `saveat = data.t[i]` automatically, so the model is
 # sampled exactly at the observation times.
 
-pe = ParameterEstimationLayer(prob, Tsit5(), data)
+pe = ParameterEstimationLayer(remake(prob, p=p_true .+ 0.05 * randn(rng, 4)), Tsit5(), data)
 
 # By default only the model parameters are treated as tunable degrees of freedom
 # (the initial conditions and controls are held fixed). Constructing the
@@ -111,6 +111,39 @@ ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Lotk
 plot!(ax, result)      # fitted lines + observed data for both species
 axislegend(ax)
 display(f)
+
+# ## Profile-likelihood confidence intervals
+#
+# The asymptotic intervals above come from a first-order (Jacobian-based) expansion and are
+# exact only in the linear least-squares limit. For a genuinely nonlinear model they
+# approximate the true confidence set, and they say nothing about the *shape* of the
+# likelihood (a skewed profile) or about flat valleys that signal non-identifiability.
+#
+# [`profile_likelihood`](@ref) is the gold-standard cross-check: it re-fits the model with
+# one parameter held fixed at a grid of values (all the others re-optimized) and records
+# the minimized weighted RSS, then reads off where that profile crosses a likelihood-ratio
+# threshold. The result is a `ProfileLikelihoodEstimate` carrying one `ProfileCurve` per
+# parameter together with the profile confidence intervals and the asymptotic intervals
+# side-by-side.
+
+pl = profile_likelihood(pe, sol; names = [:α, :β, :δ, :γ], n_points = 25)
+println("Profile CIs:     ", pl.confidence_intervals)
+println("Asymptotic CIs:  ", pl.asymptotic_intervals)
+
+# Since the data are weighted (a known `σ = 0.05`), the profile threshold uses the
+# chi-square quantile `χ²_{1-α}(1)`, and in the near-linear limit the profile intervals
+# collapse onto the asymptotic ones -- so the two agreeing here is exactly the cross-check
+# we want. A profile that *never* rises above the threshold (a completely flat valley) is
+# reported as an unbounded `(-Inf, Inf)` interval, flagging that parameter as not
+# identifiable from this data.
+
+# A single plot recipe draws every parameter's profile with the likelihood-ratio threshold
+# as a horizontal dashed line, the shaded confidence band, and (dotted) the asymptotic
+# interval for direct visual comparison. The shared legend sits below all subplots; the
+# title spans the full top row.
+
+fpl = plot(pl)
+display(fpl)
 
 # ## Fitting an unknown initial condition
 #

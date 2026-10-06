@@ -67,3 +67,18 @@ end
     fig2 = plot(result2; experiment_indices = [2])
     @test fig2 isa Figure
 end
+
+@testset "CairoMakie plotting extension: profile likelihood" begin
+    # Fit the Lotka-Volterra model and build a profile-likelihood estimate.
+    est = profile_likelihood(pe, sol; names = [:r1, :r2], n_points = 25)
+
+    # One axis per profiled parameter.
+    fig = plot(est)
+    @test fig isa Figure
+
+    # Selecting a single parameter by index / by name still yields a Figure.
+    fig2 = plot(est; idxs = [1])
+    @test fig2 isa Figure
+    fig3 = plot(est; idxs = [:r2])
+    @test fig3 isa Figure
+end
