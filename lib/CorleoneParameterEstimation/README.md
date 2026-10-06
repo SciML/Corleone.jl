@@ -43,6 +43,44 @@ res = estimate_parameters(pe, sol)   # point estimate + covariance + CIs
 By default fixed parameters (e.g. via `bounds_p` with coincident lower/upper bounds on the
 wrapped layer) are kept at their values and only the remaining tunable parameters are fitted.
 
+## Fit diagnostics
+
+`estimate_parameters` also reports standard goodness-of-fit and identifiability diagnostics,
+available both as fields of the returned `ParameterEstimate` and through accessors:
+
+```julia
+r_squared(est)          # weighted coefficient of determination
+adjusted_r_squared(est) # R² penalized for the number of fitted parameters
+correlation(est)        # parameter correlation matrix (from the covariance)
+condition_number(est)   # cond(J) of the reduced residual Jacobian
+```
+
+`correlation` and `condition_number` are the quickest way to spot non-identifiability: a
+near-±1 off-diagonal correlation, or a large condition number, means some parameter
+combination is poorly constrained. Inversion of the normal matrix is guarded (a Cholesky
+factorization with a pseudo-inverse fallback), and a warning is emitted when the reduced
+Jacobian is ill-conditioned, so a rank-deficient design does not abort the fit.
+
+## Profile-likelihood confidence intervals
+
+The asymptotic intervals of `estimate_parameters` are a first-order (Jacobian-based)
+approximation, exact only in the linear least-squares limit. As a gold-standard cross-check
+and a direct probe of non-identifiability, `profile_likelihood` re-fits the model
+with one parameter held fixed at a grid of values (all the others re-optimized) and reads
+the `(1-α)`-level profile-likelihood interval off the minimized-RSS curve:
+
+```julia
+pl = profile_likelihood(pe, sol; names = [:p], n_points = 41)
+confidence_interval(pl)   # profile intervals
+profiles(pl)              # per-parameter curves
+pl.asymptotic_intervals   # the Jacobian-based intervals, for side-by-side cross-checking
+```
+
+With `CairoMakie` loaded, `plot(pl)` draws every parameter's profile with the likelihood-ratio
+threshold, the shaded confidence band and the asymptotic interval as a dotted reference. A
+parameter whose profile never rises above the threshold (a flat valley) is reported with an
+unbounded `(-Inf, Inf)` interval, flagging it as non-identifiable from the data.
+
 ## Fixed controls (from optimal experimental design)
 
 Experiments may prescribe **fixed piecewise-constant controls** as part of their design
