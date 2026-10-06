@@ -28,6 +28,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Diagnostics" begin
                 include("core/diagnostics.jl")
             end
+            @safetestset "Profile likelihood" begin
+                include("core/profile_likelihood.jl")
+            end
             return @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
             end

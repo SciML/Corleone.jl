@@ -24,6 +24,7 @@ const OWN_EXPORTS = (
     :has_controls, :initial_conditions, :model_values, :n_experiments, :n_observations,
     :n_shooting_constraints,
     :observation_times, :observation_times_per_quantity, :per_quantity, :problem, :r_squared, :residual, :residuals!, :standard_errors,
+    :ProfileCurve, :ProfileLikelihoodEstimate, :profile_likelihood, :profiles,
 )
 run_qa(
     CorleoneParameterEstimation;
