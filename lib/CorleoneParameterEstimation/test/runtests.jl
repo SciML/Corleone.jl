@@ -31,6 +31,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Profile likelihood" begin
                 include("core/profile_likelihood.jl")
             end
+            @safetestset "Type stability" begin
+                include("core/type_stability.jl")
+            end
             return @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
             end
@@ -45,6 +48,13 @@ withenv("GROUP" => GROUP) do
                         include("core/optimization_extension.jl")
                     end
                 end,
+            ),
+            # Reverse-mode AD through the out-of-place residual needs Zygote and
+            # SciMLSensitivity, kept in a dedicated environment so they never enter the
+            # light main test target (which also runs on Julia pre-release).
+            "AD" => (;
+                env = joinpath(@__DIR__, "ad"),
+                body = joinpath(@__DIR__, "ad", "reverse_mode.jl"),
             ),
         ),
         all = ["Core", "Extensions"],

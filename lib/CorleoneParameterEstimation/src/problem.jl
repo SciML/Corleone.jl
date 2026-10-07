@@ -25,7 +25,7 @@ The low-level `NonlinearSolve.NonlinearLeastSquaresProblem` can be built directl
 [`problem`](@ref). Most users construct that problem through the convenience constructor
 `NonlinearSolve.NonlinearLeastSquaresProblem(pe::ParameterEstimationLayer; kwargs...)`.
 """
-struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R}
+struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2}
     "The wrapped parameter-estimation layer"
     layer::L
     "Structured initial parameters of the first experiment (`(u0, p, controls)` for single shooting, or an `(interval_1, ...)` NamedTuple for multiple shooting)"
@@ -42,8 +42,14 @@ struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R}
     ub::B
     "In-place residual function `(res, x, p) -> res` reconstructing the structured layer parameters from `x`"
     residual::R
+    "Out-of-place residual function `(x, p) -> r` (reverse-mode-AD compatible), see [`residual`](@ref)"
+    residual_oop::R2
     "Multiplier applied to the appended shooting (continuity) residuals so they can be weighted relative to the observation residuals"
     shooting_scale::Float64
+    "Total number of residuals (observations plus multiple-shooting continuity constraints)"
+    n_residuals::Int
+    "Number of multiple-shooting continuity residuals (the last `n_shooting_constraints` entries of the residual vector)"
+    n_shooting_constraints::Int
 end
 
 # --------------------------------------------------------------------------------------
@@ -234,10 +240,9 @@ function CorleoneParameterEstimationProblem(
     # One structured parameter set per experiment (its shooting layer's initial
     # parameters), plus the tuple of per-experiment layer states. `ps0` (the first
     # experiment's parameters) is the shared model block used by the accessors.
-    ps0s = ntuple(i -> LuxCore.initialparameters(rng, get_layer(layer)[i]),
-        n_experiments(get_data(layer)))
-    st = ntuple(i -> LuxCore.initialstates(rng, get_layer(layer)[i]),
-        n_experiments(get_data(layer)))
+    n_exp = n_experiments(get_data(layer))
+    ps0s = ntuple(i -> LuxCore.initialparameters(rng, get_layer(layer)[i]), n_exp)
+    st = ntuple(i -> LuxCore.initialstates(rng, get_layer(layer)[i]), n_exp)
     x0 = isnothing(x0) ? _flatten(layer, ps0s) : x0
     lb, ub = _tunable_bounds(layer, ps0s)
 
@@ -248,9 +253,16 @@ function CorleoneParameterEstimationProblem(
     # when the optimizer drives the shooting residuals to (nearly) zero. If the optimal
     # solution still has a large shooting residual, increase `shooting_scale` and re-solve:
     # this weighs the continuity residuals more heavily so the optimizer satisfies them.
-    # The first `n_observations` residuals are the (measured) observations, the remaining
-    # `n_shooting_constraints(pe)` are the appended shooting residuals.
-    n_obs = n_observations(get_data(layer))
+    # The first `n_obs` residuals are the (measured) observations, the remaining
+    # `n_shooting_constraints` are the appended shooting residuals. Both counts are computed
+    # once here (reusing the already-constructed layer states, which is type-stable) and
+    # stored as concrete `Int` fields so downstream code does not have to recompute them
+    # from the layer (which would call the not-type-stable `initialstates`).
+    n_obs::Int = n_observations(get_data(layer))
+    n_shoot::Int = sum(
+        i -> _layer_shooting_constraints(get_layer(layer)[i], ps0s[i], st[i]), 1:n_exp
+    )
+    n_res = n_obs + n_shoot
     residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs,
             shooting_scale = Float64(shooting_scale)
         (res, x, p) -> begin
@@ -262,9 +274,24 @@ function CorleoneParameterEstimationProblem(
             return res
         end
     end
+    # Out-of-place counterpart of `residual` used by the solvers when reverse-mode AD is
+    # requested (see `residual` in `residuals.jl`). It reuses the functional residual path and
+    # applies the same `shooting_scale` weighting without mutating in place.
+    residual_oop = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
+            shooting_scale = Float64(shooting_scale)
+        (x, p) -> begin
+            ps = _unflatten(layer, ps0s, x)
+            r = CorleoneParameterEstimation.residual(layer, ps, st)
+            if shooting_scale == 1.0
+                return r
+            end
+            return vcat(r[1:n_obs], r[(n_obs + 1):(n_obs + n_shoot)] .* shooting_scale)
+        end
+    end
 
     return CorleoneParameterEstimationProblem(
-        layer, ps0s[1], ps0s, st, x0, lb, ub, residual, Float64(shooting_scale)
+        layer, ps0s[1], ps0s, st, x0, lb, ub, residual, residual_oop,
+        Float64(shooting_scale), n_res, n_shoot
     )
 end
 
@@ -275,16 +302,11 @@ Build the `NonlinearLeastSquaresProblem` (with optional `lb`/`ub`) driving the l
 fit of the layer's tunable parameters.
 """
 function SciMLBase.NonlinearLeastSquaresProblem(problem::CorleoneParameterEstimationProblem)
-    (; residual, x0, lb, ub) = problem
-    n_obs = n_residuals(problem.layer)
-    # Out-of-place residual so NonlinearSolve can accurately infer the residual dimension
-    # (number of observations + shooting constraints), which generally differs from the
-    # number of fitted parameters.
-    residual_oop = (x, p) -> begin
-        r = similar(x, n_obs)
-        residual(r, x, p)
-        return r
-    end
+    # Use the stored out-of-place residual so NonlinearSolve can accurately infer the
+    # residual dimension (number of observations + shooting constraints), which generally
+    # differs from the number of fitted parameters. Being fully functional, it also allows
+    # reverse-mode AD backends (e.g. `AutoZygote`) to differentiate the residual.
+    (; residual_oop, x0, lb, ub) = problem
     return NonlinearLeastSquaresProblem(
         NonlinearFunction{false}(residual_oop), x0; lb = lb, ub = ub
     )
