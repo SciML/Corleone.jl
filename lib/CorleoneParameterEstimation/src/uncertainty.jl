@@ -104,7 +104,7 @@ function estimate_parameters(
     # residuals alone, and every estimated parameter (the shared model block *and* any
     # nuisance local shooting states) costs one degree of freedom of data.
     n_obs = n_observations(get_data(layer))
-    n_shoot = n_shooting_constraints(layer)
+    n_shoot = problem.n_shooting_constraints
     n_obs + n_shoot >= p_total || throw(ArgumentError(
         "Need at least as many residuals as parameters to estimate uncertainties " *
         "(got $(n_obs) observation(s) + $(n_shoot) shooting constraint(s) for $(p_total) parameters)."
@@ -120,11 +120,7 @@ function estimate_parameters(
 
     # Jacobian of the (possibly weighted) residuals at the optimum. Allocate the residual
     # buffer with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
-    J = ForwardDiff.jacobian(x -> begin
-        rr = similar(x, n_obs + n_shoot)
-        problem.residual(rr, x, nothing)
-        rr
-    end, x_full)
+    J = _residual_jacobian(problem, x_full, n_obs + n_shoot)
 
     # Eliminate the local shooting states (nuisance variables) by profiling, then invert the
     # reduced normal matrix of the model block, `Jred = Jθ - Jλ (JλᵀJλ)⁻¹ Jλᵀ Jθ`. For a
@@ -160,6 +156,20 @@ function estimate_parameters(
         x, xnames, Σ, se, σ², rss, dof, 1 - α, ci, p, n_obs,
         r2, adj_r2, corr, condJ
     )
+end
+
+# Jacobian of the in-place residual `problem.residual` with respect to the full flat vector
+# `x_full`. `ForwardDiff.jacobian` is not type-inferrable (inference sees a `Union` of a
+# `Matrix` of the input element type and a `Matrix` of `Dual`s), so the concrete result type
+# is asserted to keep `estimate_parameters` type-stable. The residual buffer is allocated
+# with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
+function _residual_jacobian(problem::CorleoneParameterEstimationProblem, x_full::AbstractVector{T}, n_res::Int) where {T}
+    J = ForwardDiff.jacobian(x -> begin
+        rr = similar(x, n_res)
+        problem.residual(rr, x, nothing)
+        rr
+    end, x_full)
+    return J::Matrix{T}
 end
 
 # For a single-shooting layer the whole Jacobian is kept. For multiple shooting, `m < ncol(J)`

@@ -134,33 +134,138 @@ function _residuals_per_quantity!(res, pe, traj, exp, σ_per_quantity)
     return res
 end
 
-# Return a copy of the residuals (out-of-place variant). The element type is taken from
-# the model parameters (`ps.p` for single shooting, or the first interval's `p` for a
-# multiple-shooting layer), falling back to the state element type when the parameter block
-# is empty, so that manual AD through `residual` stays dual-safe.
-"""
-    residual(pe, ps, st[, alg])
+# --------------------------------------------------------------------------------------
+# Out-of-place residual path
+# --------------------------------------------------------------------------------------
+#
+# The in-place `residuals!` above is the fast path used for forward-mode AD and the
+# NonlinearSolve/Optimization interfaces. Reverse-mode AD (e.g. `Zygote.jl`, and hence
+# `AutoZygote`/`AutoReverseDiff` through an ODE solve) cannot differentiate through the
+# mutating buffer writes (`copyto!`, `view(...) .= ...`) or through the in-place
+# `Corleone.shooting_constraints!`. The functions below rebuild the same residual vector
+# using only functional array operations (broadcasting, `vcat`, `reduce(hcat, ...)`) so it
+# can be differentiated by reverse-mode AD. The residual layout is identical to
+# `residuals!`: all observation residuals first (experiment by experiment), then the
+# multiple-shooting continuity residuals (experiment by experiment).
 
-Return the vector of least-squares residuals (a copy of [`residuals!`](@ref)).
-"""
-function residual(pe::ParameterEstimationLayer, ps, st, args...)
-    layers = get_layer(pe)
-    mp = _model_params(layers[1], ps)
-    eT = isempty(mp) ? eltype(first(layers[1]).problem.u0) : eltype(mp)
-    buffer = Vector{eT}(undef, n_residuals(pe))
-    return residuals!(buffer, pe, ps, st, args...)
+# Functional counterpart of `model_values`: build the `(n_obs, n_t)` observation matrix
+# without mutating a preallocated buffer. The element type follows the trajectory state so
+# that forward-mode `Dual` numbers are preserved (matching `model_values`).
+function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVector)
+    obs = get_observed(pe)
+    # `findfirst` (rather than `indexin`) keeps this branch free of array mutation, which
+    # reverse-mode AD (Zygote) cannot differentiate through.
+    idx = map(t -> findfirst(isequal(t), traj.t), times)
+    nT = eltype(first(traj.u))
+    n_obs = _obs_length(obs, first(traj.u), traj.p, first(traj.t))
+    if any(isnothing, idx)
+        # A shooting sub-interval can diverge mid-solve, leaving a trajectory that does not
+        # cover every observation time; mark the uncovered columns `NaN` (see `model_values`).
+        all(isnothing, idx) && throw(ArgumentError(
+            "The observation time points must be a subset of the trajectory's time points."))
+        cols = map(idx) do k
+            isnothing(k) ? fill(nT(NaN), n_obs) : collect(obs(traj.u[k], traj.p, traj.t[k]))
+        end
+        return reduce(hcat, cols)
+    end
+    cols = map(idx) do k
+        collect(obs(traj.u[k], traj.p, traj.t[k]))
+    end
+    return reduce(hcat, cols)
 end
 
-# The `p` block of the model parameters in the layer parameters `ps`, for the element type
-# of a residual vector. For single shooting `ps` is the `(u0, p, controls)` NamedTuple; for
-# a multiple-shooting layer it is either the `(interval_1, ...)` NamedTuple (one experiment
-# or shared) or a tuple with one such NamedTuple per experiment.
+# Functional residual for one experiment (shared-grid and per-quantity forms), without the
+# multiple-shooting continuity constraints.
+function _experiment_obs_residual(pe::ParameterEstimationLayer, traj, exp::Experiment)
+    if isnothing(exp.times)
+        Y = _model_values_oop(pe, traj, exp.t)
+        return _obs_residual_oop(exp.y, Y, exp.σ)
+    end
+    # Per-quantity form: quantity `k` is measured at `exp.times[k]`.
+    blocks = map(eachindex(exp.times)) do k
+        yk = _model_values_oop(pe, traj, exp.times[k])[k, :]
+        σk = exp.σ isa AbstractVector ? exp.σ[k] : exp.σ
+        _obs_residual_oop(exp.y[k], yk, σk)
+    end
+    return reduce(vcat, blocks)
+end
+
+# Functional weighted/unweighted residual of a shared-grid experiment.
+function _obs_residual_oop(y_obs::AbstractMatrix, y_model::AbstractMatrix, σ)
+    R = if isnothing(σ)
+        y_obs .- y_model
+    elseif σ isa AbstractVector
+        (y_obs .- y_model) ./ reshape(σ, :, 1)
+    else
+        (y_obs .- y_model) ./ σ
+    end
+    return vec(R)
+end
+
+# Functional residual of one observed quantity (per-quantity form): `σ` is a scalar or a
+# vector matching `y_obs`.
+function _obs_residual_oop(y_obs::AbstractVector, y_model::AbstractVector, σ)
+    R = isnothing(σ) ? (y_obs .- y_model) : (y_obs .- y_model) ./ σ
+    return vec(R)
+end
+
+# Normalize the return value of a `ParameterEstimationLayer` call (a single `Trajectory`
+# for one experiment, a tuple of trajectories for several) to a tuple, dispatching on the
+# concrete return type rather than branching on the runtime experiment count (which would
+# make the result type a `Union` and defeat inference in the out-of-place `residual`).
+_layer_trajectories(traj) = (traj,)
+_layer_trajectories(trajs::Tuple) = trajs
+
+# The `p` block of the model parameters in the layer parameters `ps`. For a single
+# experiment `ps` is the layer's parameter NamedTuple (single shooting: `(u0, p, controls)`;
+# multiple shooting: the interval NamedTuples), while for several experiments it is a tuple
+# with one entry per experiment; unwrap the tuple recursively.
+_model_params(layer, ps::Tuple) = isempty(ps) ? () : _model_params(layer, first(ps))
 _model_params(::Corleone.SingleShootingLayer, ps::NamedTuple) = ps.p
 function _model_params(::Corleone.MultipleShootingLayer, ps::NamedTuple)
     return isempty(ps) ? () : first(values(ps)).p
 end
-_model_params(::Corleone.MultipleShootingLayer, ps::Tuple) =
-    isempty(ps) ? () : first(ps).p
+
+# Element type of the residual vector. Taken from the model parameters so that manual AD
+# through `residual` stays dual-safe, falling back to the state element type when the model
+# has no parameter block.
+function _residual_eltype(pe::ParameterEstimationLayer, ps)
+    layers = get_layer(pe)
+    mp = _model_params(layers[1], ps)
+    return isempty(mp) ? eltype(Corleone.get_problem(layers[1]).u0) : eltype(mp)
+end
+
+"""
+    residual(pe, ps, st[, alg])
+
+Return the vector of least-squares residuals as a new array (the out-of-place counterpart of
+[`residuals!`](@ref)). It uses only functional array operations, so -- unlike `residuals!` --
+it can be differentiated with reverse-mode automatic differentiation (e.g. `Zygote.jl`).
+The residual layout is identical to `residuals!`: all observation residuals first, then the
+multiple-shooting continuity residuals.
+"""
+function residual(pe::ParameterEstimationLayer, ps, st, args...)
+    out, _ = pe(nothing, ps, st, args...)
+    data = get_data(pe)
+    trajs = _layer_trajectories(out)
+    obs_blocks = map((traj, exp) -> _experiment_obs_residual(pe, traj, exp), trajs, experiments(data))
+    shoot_blocks = map(traj -> Corleone.shooting_constraints(traj), trajs)
+    r = vcat(reduce(vcat, obs_blocks), reduce(vcat, shoot_blocks))
+    return _concretize_residual(pe, ps, r)
+end
+
+# Single-shooting residuals are already inferred as a concrete `Vector`. A
+# `MultipleShootingLayer`'s trajectory type is not fully inferred (its `shootings` NamedTuple
+# is built by splatting a `Vector`), so the blocks above infer as `Any`; assert the concrete
+# element type (taken from the model parameters, hence dual-safe) for multiple shooting only.
+# Leaving single shooting untouched keeps non-standard number types (e.g.
+# `ReverseDiff.TrackedReal`) working, whose tape parameter need not match the parameters'.
+_concretize_residual(::ParameterEstimationLayer, ps, r) = r
+function _concretize_residual(
+        pe::ParameterEstimationLayer{<:Tuple{<:Corleone.MultipleShootingLayer, Vararg}}, ps, r
+    )
+    return r::Vector{_residual_eltype(pe, ps)}
+end
 
 """
     n_shooting_constraints(pe::ParameterEstimationLayer)
@@ -168,6 +273,11 @@ _model_params(::Corleone.MultipleShootingLayer, ps::Tuple) =
 Total number of shooting continuity (matching) residuals over all experiments of `pe`,
 computed from each experiment's (multiple-)shooting layer. This is zero when every
 experiment uses a `SingleShootingLayer`.
+
+!!! note
+    This convenience method recomputes the layer states from the layer, which is not
+type-stable for `MultipleShootingLayer`s. Prefer the `n_shooting_constraints` field of a
+[`CorleoneParameterEstimationProblem`](@ref), which is computed once at construction.
 """
 function n_shooting_constraints(pe::ParameterEstimationLayer)
     return sum(i -> _layer_shooting_constraints(get_layer(pe)[i]), 1:n_experiments(get_data(pe)))
@@ -179,6 +289,12 @@ end
 _layer_shooting_constraints(::Corleone.SingleShootingLayer) = 0
 _layer_shooting_constraints(layer::Corleone.MultipleShootingLayer) =
     Corleone.get_number_of_shooting_constraints(layer)
+
+# Type-stable variant that reuses already-computed layer parameters and states instead of
+# recomputing them from the layer (which would call the not-type-stable `initialstates`).
+_layer_shooting_constraints(::Corleone.SingleShootingLayer, ps, st) = 0
+_layer_shooting_constraints(layer::Corleone.MultipleShootingLayer, ps, st) =
+    Corleone.get_number_of_shooting_constraints(layer, ps, st)
 
 """
     n_residuals(pe::ParameterEstimationLayer)
