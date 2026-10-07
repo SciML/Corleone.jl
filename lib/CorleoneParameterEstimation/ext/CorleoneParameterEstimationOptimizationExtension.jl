@@ -20,16 +20,13 @@ function Optimization.OptimizationProblem(
         kwargs...
     )
     prob = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe; kwargs...)
-    (; x0, lb, ub, residual) = prob
+    (; x0, lb, ub, residual_oop) = prob
     x0 = isnothing(u0) ? x0 : u0
-    n_res = CorleoneParameterEstimation.n_residuals(pe)
 
-    objective = let residual = residual, n_res = n_res
-        (x, p) -> begin
-            r = similar(x, n_res)
-            residual(r, x, p)
-            return 0.5 * sum(abs2, r)
-        end
+    # Use the out-of-place residual so the objective is compatible with reverse-mode AD
+    # backends (`AutoZygote`, ...) as well as forward-mode ones (`AutoForwardDiff`).
+    objective = let residual_oop = residual_oop
+        (x, p) -> 0.5 * sum(abs2, residual_oop(x, p))
     end
 
     optf = OptimizationFunction(objective, AD)
