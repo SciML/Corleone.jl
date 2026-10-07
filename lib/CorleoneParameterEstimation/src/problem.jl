@@ -300,6 +300,13 @@ end
 
 Build the `NonlinearLeastSquaresProblem` (with optional `lb`/`ub`) driving the least-squares
 fit of the layer's tunable parameters.
+
+Trivial bounds (all entries `-Inf`/`Inf`) are omitted so that the resulting problem can be
+solved with an unbounded solver such as `GaussNewton`/`LevenbergMarquardt`. This matters for
+reverse-mode AD: passing any `lb`/`ub` (even trivial ones) makes NonlinearSolve wrap the
+residual in a mutating bounds transformation that `AutoZygote` cannot differentiate. When
+finite bounds are present, solve the returned problem with a `Bounded*` solver (e.g.
+`BoundedGaussNewton`) so that reverse-mode AD keeps working.
 """
 function SciMLBase.NonlinearLeastSquaresProblem(problem::CorleoneParameterEstimationProblem)
     # Use the stored out-of-place residual so NonlinearSolve can accurately infer the
@@ -307,10 +314,16 @@ function SciMLBase.NonlinearLeastSquaresProblem(problem::CorleoneParameterEstima
     # differs from the number of fitted parameters. Being fully functional, it also allows
     # reverse-mode AD backends (e.g. `AutoZygote`) to differentiate the residual.
     (; residual_oop, x0, lb, ub) = problem
-    return NonlinearLeastSquaresProblem(
-        NonlinearFunction{false}(residual_oop), x0; lb = lb, ub = ub
-    )
+    fn = NonlinearFunction{false}(residual_oop)
+    if _has_finite_bounds(lb) || _has_finite_bounds(ub)
+        return NonlinearLeastSquaresProblem(fn, x0; lb = lb, ub = ub)
+    end
+    return NonlinearLeastSquaresProblem(fn, x0)
 end
+
+# Whether any bound is finite; `nothing` (no bounds) is treated as trivial.
+_has_finite_bounds(::Nothing) = false
+_has_finite_bounds(bounds) = any(isfinite, bounds)
 
 """
     NonlinearSolve.NonlinearLeastSquaresProblem(pe::ParameterEstimationLayer; kwargs...)
