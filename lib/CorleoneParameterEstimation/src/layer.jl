@@ -19,7 +19,7 @@ residuals. The least-squares residuals of all experiments are concatenated into 
 residual vector.
 
 Like the underlying `SingleShootingLayer`/`MultipleShootingLayer`, this layer is a callable
-Lux layer: [`LuxCore.setup`](@ref) produces the initial parameters and states (shared by all
+Lux layer: `LuxCore.setup` produces the initial parameters and states (shared by all
 experiments), and calling the layer with `(nothing, ps, st)` integrates the problem for every
 experiment. A single-experiment layer returns one `Trajectory`; a multi-experiment layer
 returns a tuple with one `Trajectory` per experiment. The observed quantities at the data

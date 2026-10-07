@@ -170,12 +170,8 @@ println("and the p[3] std error by ",
 # (points) at their own times.
 
 result_control = fitted_parameters(pe_control, sol_control)
-# qualify `Figure`/`Axis` as `ComponentArrays` also exports `Axis`/`axis`
 f = CairoMakie.Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Fit with OED-designed fishing control")
-#plot!(ax, f_result, idxs = [1, 2])
-#scatter!(ax, w1, prey_ctrl, markersize = 4, label = "observed prey")
-#scatter!(ax, w2, pred_ctrl, markersize = 4, label = "observed predator")
 plot!(ax, result_control)
 axislegend(ax, position = :lt)
 f
