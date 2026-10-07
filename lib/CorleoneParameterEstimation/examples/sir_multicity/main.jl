@@ -186,6 +186,38 @@ se_R0 = sqrt(grad' * est.covariance * grad)
 println("R0 = ", round(R0_hat; digits = 3), " ± ", round(se_R0; digits = 3),
     "   true R0 = ", round(β_true / γ_true; digits = 3))
 
+# ## Profile-likelihood confidence intervals
+#
+# The Jacobian-based intervals of `estimate_parameters` are exact only in the *linear*
+# least-squares limit: for genuinely nonlinear models they are a first-order approximation
+# that can under- or over-cover, and they tell you nothing about the *shape* of the
+# likelihood (an asymmetric profile, or a flat valley that would signal a
+# non-identifiable parameter).
+#
+# `profile_likelihood` is the gold-standard cross-check. It re-fits the model with **one
+# parameter held fixed** at a grid of values (all the others re-optimized) and reads the
+# `(1-α)`-level interval off the resulting profile of minimized residual sum of squares.
+# Because the profile follows the *true nonlinear* likelihood — rather than a linearization
+# at the optimum — it exposes exactly how much information this experiment design carries
+# about each parameter. Here the data prescribes a known noise level `σ`, so the residuals
+# are weighted and the threshold is the likelihood-ratio one (a `χ²` quantile), exactly the
+# same `σ` that drives the covariance of `estimate_parameters`.
+
+pl = profile_likelihood(pe, sol; names = [:β, :γ], n_points = 41)
+println(pl)
+
+# Side by side with the asymptotic intervals from `estimate_parameters`, the profile
+# confirms the same picture while being the more reliable statement about identifiability:
+# for this design the profile CIs are in fact *narrower* than the t-based asymptotic ones,
+# which can only underestimate---never overestimate---how sharply the likelihood peaks.
+
+# Visualize the profiles: each panel shows the minimized RSS as a function of the parameter
+# value, with the likelihood-ratio threshold, the shaded profile confidence band and the
+# asymptotic interval drawn as dotted reference lines.
+
+fpl = plot(pl)
+fpl
+
 # ## Comparing the joint fit against a single-region fit
 #
 # To illustrate the value of pooling data, fit region A alone and compare the uncertainty on
