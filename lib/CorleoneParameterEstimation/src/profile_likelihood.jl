@@ -252,7 +252,7 @@ end
 Compute profile-likelihood confidence intervals for every fitted parameter of a solved
 `CorleoneParameterEstimationProblem`.
 
-For each fitted parameter the model is re-fit (with [`NonlinearSolve`](@ref)) holding that
+For each fitted parameter the model is re-fit (with `NonlinearSolve`) holding that
 parameter fixed at `n_points` values sweeping a range around its optimum, while the remaining
 parameters (and, for multiple shooting, the local shooting states) are re-optimized. The
 resulting profile of minimized (weighted) residual sum of squares is compared against the

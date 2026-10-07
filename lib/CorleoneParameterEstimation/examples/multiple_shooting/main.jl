@@ -211,17 +211,11 @@ println("MS (scaled x1000):   shooting residual = ", round.(tic_ms2; digits = 6)
 # (numerically) continuous across the shooting point.
 
 result_ms = fitted_parameters(pe_ms, sol_ms2)
-# qualify `Figure`/`Axis` as `ComponentArrays` also exports `Axis`/`axis`
 f = CairoMakie.Figure()
 ax = CairoMakie.Axis(f[1, 1], xlabel = "t", ylabel = "population", title = "Multiple-shooting fit with OED-designed fishing control")
 vlines!(ax, [6.0]; color = (:gray, 0.5), label = "shooting point t = 6")
-# The default-weight solution is discontinuous at the shooting point (semi-transparent dashed):
 lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 1); color = (:red, 0.4), linestyle = :dash, label = "default weight (discontinuous)")
 lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 2); color = (:red, 0.4), linestyle = :dash)
-# The scaled fit is continuous (solid); the recipe overlays its fitted lines with the observed data:
-#plot!(ax, f_ms, idxs = [1, 2])
-#scatter!(ax, w1, prey_ctrl, markersize = 8, label = "observed prey")
-#scatter!(ax, w2, pred_ctrl, markersize = 8, label = "observed predator")
 plot!(ax, result_ms)
 axislegend(ax, position = :lt, nbanks=2)
 f
