@@ -132,7 +132,7 @@ end
 function _observation_rss(problem::CorleoneParameterEstimationProblem, xfull::AbstractVector)
     layer = problem.layer
     n_obs = n_observations(get_data(layer))
-    n_shoot = n_shooting_constraints(layer)
+    n_shoot = problem.n_shooting_constraints
     r = similar(xfull, n_obs + n_shoot)
     problem.residual(r, xfull, nothing)
     return sum(abs2, view(r, 1:n_obs))
@@ -143,7 +143,7 @@ end
 function _profile_threshold(problem::CorleoneParameterEstimationProblem, x_full::AbstractVector, α)
     layer = problem.layer
     n_obs = n_observations(get_data(layer))
-    n_shoot = n_shooting_constraints(layer)
+    n_shoot = problem.n_shooting_constraints
     p_total = length(x_full)
     dof = n_obs - p_total
     dof > 0 || throw(ArgumentError(
@@ -189,7 +189,7 @@ function _profile_problem(
     # point's solution) to warm-start the re-fit for smooth, robust continuation.
     x0 = isnothing(x0red) ? xfull[mask] : vec(collect(x0red))
     resid_full = problem.residual
-    n_res = n_residuals(problem.layer)
+    n_res = problem.n_residuals
     oop = (xred, p) -> begin
         xf = _insert_at(vec(xred), i, θ, n)
         r = similar(xred, n_res)
@@ -305,7 +305,7 @@ function profile_likelihood(
     span = span isa AbstractVector ? collect(Float64, span) : fill(Float64(span), p)
 
     xnames = isnothing(names) ? nothing : collect(Symbol, names)
-    profiles_i = Vector{ProfileCurve}(undef, p)
+    profiles_i = Vector{ProfileCurve{Vector{Float64}, Float64}}(undef, p)
     cis = Vector{Tuple{Float64, Float64}}(undef, p)
     for i in 1:p
         se_i = se[i]
