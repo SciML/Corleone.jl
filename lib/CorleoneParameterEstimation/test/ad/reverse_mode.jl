@@ -7,6 +7,7 @@ using ReverseDiff
 using SciMLSensitivity
 using SciMLBase
 using Optimization, OptimizationLBFGSB
+using NonlinearSolve
 using ComponentArrays
 using Test
 using Random
@@ -31,12 +32,12 @@ tdata = collect(0.0:0.25:5.0)
 ydata = exp.(-p_true .* tdata)
 data = ExperimentData(tdata, ydata; σ = 0.01)
 pe = ParameterEstimationLayer(prob, Tsit5(), data)
-problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
+pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
 
 @testset "out-of-place residual is reverse-mode differentiable" begin
-    loss(x) = 0.5 * sum(abs2, problem.residual_oop(x, nothing))
-    g_zygote = Zygote.gradient(loss, problem.x0)[1]
-    g_forward = ForwardDiff.gradient(loss, problem.x0)
+    loss(x) = 0.5 * sum(abs2, pe_problem.residual_oop(x, nothing))
+    g_zygote = Zygote.gradient(loss, pe_problem.x0)[1]
+    g_forward = ForwardDiff.gradient(loss, pe_problem.x0)
     @test g_zygote ≈ g_forward rtol = 1e-6
 end
 
@@ -70,4 +71,31 @@ end
     sol = solve(optprob, LBFGSB())
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.u[1], p_true; atol = 0.05)
+end
+
+@testset "NonlinearSolve with AutoZygote" begin
+    # `problem(pe)` drops trivial (`±Inf`) bounds, so the unbounded solvers can be used
+    # with reverse-mode AD. Passing any `lb`/`ub` (even trivial ones) makes NonlinearSolve
+    # wrap the residual in a mutating bounds transform that Zygote cannot differentiate.
+    nlls = problem(pe)
+    @test isnothing(nlls.lb) && isnothing(nlls.ub)
+
+    sol = solve(nlls, GaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8)
+    @test SciMLBase.successful_retcode(sol)
+    @test isapprox(sol.u[1], p_true; atol = 0.05)
+
+    # Finite bounds are kept; solve with a `Bounded*` solver, which handles bounds natively
+    # (no mutating transform) and therefore stays reverse-mode differentiable.
+    layer_b = SingleShootingLayer(
+        prob, Tsit5(); saveat = unique(tdata), bounds_p = ([0.0], [2.0])
+    )
+    pe_b = ParameterEstimationLayer(layer_b, data)
+    nlls_b = problem(pe_b)
+    @test nlls_b.lb == [0.0] && nlls_b.ub == [2.0]
+
+    sol_b = solve(
+        nlls_b, BoundedGaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8
+    )
+    @test SciMLBase.successful_retcode(sol_b)
+    @test isapprox(sol_b.u[1], p_true; atol = 0.05)
 end
