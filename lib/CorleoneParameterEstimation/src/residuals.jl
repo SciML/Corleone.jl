@@ -240,9 +240,11 @@ end
 
 Return the vector of least-squares residuals as a new array (the out-of-place counterpart of
 [`residuals!`](@ref)). It uses only functional array operations, so -- unlike `residuals!` --
-it can be differentiated with reverse-mode automatic differentiation (e.g. `Zygote.jl`).
-The residual layout is identical to `residuals!`: all observation residuals first, then the
-multiple-shooting continuity residuals.
+it can be differentiated with reverse-mode automatic differentiation. Single shooting works
+with both `Zygote.jl` and `ReverseDiff.jl`; multiple shooting works with `ReverseDiff.jl`
+(the root package's multiple-shooting trajectory assembly mutates, so it is not
+`Zygote`-differentiable). The residual layout is identical to `residuals!`: all observation
+residuals first, then the multiple-shooting continuity residuals.
 """
 function residual(pe::ParameterEstimationLayer, ps, st, args...)
     out, _ = pe(nothing, ps, st, args...)
@@ -257,15 +259,19 @@ end
 # Single-shooting residuals are already inferred as a concrete `Vector`. A
 # `MultipleShootingLayer`'s trajectory type is not fully inferred (its `shootings` NamedTuple
 # is built by splatting a `Vector`), so the blocks above infer as `Any`; assert the concrete
-# element type (taken from the model parameters, hence dual-safe) for multiple shooting only.
-# Leaving single shooting untouched keeps non-standard number types (e.g.
-# `ReverseDiff.TrackedReal`) working, whose tape parameter need not match the parameters'.
+# element type for the plain floating-point case so the residual stays stable. Other number
+# types are left untouched: `ForwardDiff.Dual` does not need the hint, and for
+# `ReverseDiff.TrackedReal` the residual's tape parameter need not match the parameters'
+# (the assertion would wrongly reject it).
 _concretize_residual(::ParameterEstimationLayer, ps, r) = r
 function _concretize_residual(
         pe::ParameterEstimationLayer{<:Tuple{<:Corleone.MultipleShootingLayer, Vararg}}, ps, r
     )
-    return r::Vector{_residual_eltype(pe, ps)}
+    return _assert_residual_eltype(_residual_eltype(pe, ps), r)
 end
+
+_assert_residual_eltype(::Type{El}, r) where {El <: AbstractFloat} = r::Vector{El}
+_assert_residual_eltype(::Type, r) = r
 
 """
     n_shooting_constraints(pe::ParameterEstimationLayer)

@@ -73,6 +73,31 @@ end
     @test isapprox(sol.u[1], p_true; atol = 0.05)
 end
 
+@testset "Optimization extension with AutoReverseDiff and multiple shooting" begin
+    # Multiple shooting under reverse mode. The out-of-place residual is used by the
+    # extension; unlike Zygote, ReverseDiff's operator-overloading tape tolerates the
+    # mutation in the root package's multiple-shooting trajectory assembly, so no extra
+    # `_concretize_residual` type assertion is required (it is skipped for non-
+    # `AbstractFloat` element types such as `ReverseDiff.TrackedReal`).
+    prob_rd = ODEProblem(f, [1.0], (0.0, 5.0), [0.3]; sensealg = SciMLBase.NoAD())
+    shooting_points = collect(0.0:1.0:5.0)
+    pe_ms = ParameterEstimationLayer(
+        prob_rd, Tsit5(), data, shooting_points; observed = (u, p, t) -> u[1:1]
+    )
+    pe_problem_ms = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe_ms)
+
+    loss_ms(x) = 0.5 * sum(abs2, pe_problem_ms.residual_oop(x, nothing))
+    g_reverse = ReverseDiff.gradient(loss_ms, pe_problem_ms.x0)
+    g_forward = ForwardDiff.gradient(loss_ms, pe_problem_ms.x0)
+    @test g_reverse ≈ g_forward rtol = 1e-6
+
+    optprob = OptimizationProblem(pe_ms; AD = AutoReverseDiff())
+    sol = solve(optprob, LBFGSB())
+    @test SciMLBase.successful_retcode(sol)
+    # The first optimization variable is the shared model parameter.
+    @test isapprox(sol.u[1], p_true; atol = 0.05)
+end
+
 @testset "NonlinearSolve with AutoZygote" begin
     # `problem(pe)` drops trivial (`±Inf`) bounds, so the unbounded solvers can be used
     # with reverse-mode AD. Passing any `lb`/`ub` (even trivial ones) makes NonlinearSolve
