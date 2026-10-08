@@ -1,0 +1,16 @@
+name = "CorleoneBase"
+uuid = "6f54492f-12d6-41e4-ab82-b1e7b758f1e1"
+version = "0.1.0"
+authors = ["Carl Julius Martensen <julius.martensen@gmail.com>"]
+
+[deps]
+CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+
+[compat]
+CommonSolve = "0.2.14"
+DocStringExtensions = "0.9.5"
+Random = "1.11.0"
+SciMLBase = "3.57.0"
