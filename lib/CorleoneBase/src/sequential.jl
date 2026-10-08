@@ -25,11 +25,11 @@ transition(x::SequentialProblem, sol, i) = x.transition(sol, i)
 terminal(x::SequentialProblem, sol, i) = x.terminal(sol, i)
 
 function SequentialProblem(
-    problem::SciMLBase.AbstractSciMLProblem;
-    transition = (sol, i) -> nothing,
-    terminal = (sol, i) -> i >= 1,
-)
-    SequentialProblem{typeof(problem), typeof(transition), typeof(terminal)}(
+        problem::SciMLBase.AbstractSciMLProblem;
+        transition = (sol, i) -> nothing,
+        terminal = (sol, i) -> i >= 1,
+    )
+    return SequentialProblem{typeof(problem), typeof(transition), typeof(terminal)}(
         problem, transition, terminal
     )
 end

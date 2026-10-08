@@ -30,7 +30,8 @@ end
 @testset "Initialization, stepping, and identity" begin
     template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
     calls = Int[]
-    problem = SequentialProblem(template;
+    problem = SequentialProblem(
+        template;
         transition = (sol, i) -> begin
             push!(calls, i)
             remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
@@ -88,7 +89,8 @@ SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
         SequentialProblem(StageProblem(false)), nothing
     )
     for preallocate in (false, true), fail_at in (0, 2, 3)
-        problem = SequentialProblem(StageProblem(true);
+        problem = SequentialProblem(
+            StageProblem(true);
             transition = (sol, i) -> StageProblem(i != fail_at),
             terminal = (sol, i) -> i >= 3,
         )

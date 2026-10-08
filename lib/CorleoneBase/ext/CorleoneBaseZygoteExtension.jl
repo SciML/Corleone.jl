@@ -29,9 +29,11 @@ function initial_stage(problem, algorithm, options)
     solve_kwargs = Base.structdiff(options, initial_kwargs)
     inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
     solution = solve(inner_problem, algorithm; solve_kwargs...)
-    SciMLBase.successful_retcode(solution) || throw(ErrorException(
-        "The initial call to solve failed with returncode $(solution.retcode)"
-    ))
+    SciMLBase.successful_retcode(solution) || throw(
+        ErrorException(
+            "The initial call to solve failed with returncode $(solution.retcode)"
+        )
+    )
     return SequentialProblemIterator(
         inner_problem, (sol, i) -> transition(problem, sol, i), (sol, i) -> terminal(problem, sol, i),
         algorithm, solve_kwargs, make_buffer(problem, solution), 1
@@ -39,9 +41,9 @@ function initial_stage(problem, algorithm, options)
 end
 
 Zygote.@adjoint function Core.kwcall(
-    options::NamedTuple, ::typeof(CommonSolve.init),
-    problem::AbstractSequentialProblem, algorithm
-)
+        options::NamedTuple, ::typeof(CommonSolve.init),
+        problem::AbstractSequentialProblem, algorithm
+    )
     it, back = Zygote.pullback(initial_stage, problem, algorithm, options)
     function init_pullback(delta)
         gradients = back(delta)
@@ -55,9 +57,9 @@ end
 # Zygote's default mutable constructor also reads its identity-based gradient
 # cache. A structural constructor rule avoids counting solve!'s tangent twice.
 function ChainRulesCore.rrule(
-    ::Type{SequentialProblemIterator}, problem, transition, terminal,
-    algorithm, solve_kwargs, buffer, state
-)
+        ::Type{SequentialProblemIterator}, problem, transition, terminal,
+        algorithm, solve_kwargs, buffer, state
+    )
     it = SequentialProblemIterator(
         problem, transition, terminal, algorithm, solve_kwargs, buffer, state
     )
@@ -65,11 +67,11 @@ function ChainRulesCore.rrule(
         delta = unthunk(delta)
         delta isa AbstractZero && return (
             NoTangent(), ZeroTangent(), ZeroTangent(), ZeroTangent(),
-            ZeroTangent(), ZeroTangent(), ZeroTangent(), NoTangent()
+            ZeroTangent(), ZeroTangent(), ZeroTangent(), NoTangent(),
         )
         return (
             NoTangent(), delta.problem, delta.transition, delta.terminal,
-            delta.algorithm, delta.solve_kwargs, delta.buffer, NoTangent()
+            delta.algorithm, delta.solve_kwargs, delta.buffer, NoTangent(),
         )
     end
     return it, iterator_pullback
@@ -81,7 +83,7 @@ function solution_cotangent(delta, solution)
     delta = unthunk(delta)
     state_array = delta isa AbstractArray && hasproperty(delta, :u)
     if solution isa SciMLBase.AbstractSciMLSolution &&
-        (state_array || delta isa Tangent || delta isa NamedTuple)
+            (state_array || delta isa Tangent || delta isa NamedTuple)
         fields = fieldnames(typeof(solution))
         values = map(fields) do field
             if state_array
@@ -129,9 +131,9 @@ function finish_stages(buffer, state, transition, terminal, algorithm, solve_kwa
 end
 
 function ChainRulesCore.rrule(
-    config::RuleConfig{>:HasReverseMode}, ::typeof(CommonSolve.solve!),
-    it::SequentialProblemIterator
-)
+        config::RuleConfig{>:HasReverseMode}, ::typeof(CommonSolve.solve!),
+        it::SequentialProblemIterator
+    )
     (buffer, state), back = rrule_via_ad(
         config, finish_stages, copy(it.buffer), it.state,
         it.transition, it.terminal, it.algorithm, it.solve_kwargs
@@ -152,13 +154,13 @@ function ChainRulesCore.rrule(
         _, buffer_bar, _, transition_bar, terminal_bar, algorithm_bar, kwargs_bar =
             back((unthunk(delta.buffer), NoTangent()))
         return NoTangent(), Tangent{typeof(it)}(;
-            problem = unthunk(delta.problem),
-            transition = add!!(transition_bar, unthunk(delta.transition)),
-            terminal = add!!(terminal_bar, unthunk(delta.terminal)),
-            algorithm = add!!(algorithm_bar, unthunk(delta.algorithm)),
-            solve_kwargs = add!!(kwargs_bar, unthunk(delta.solve_kwargs)),
-            buffer = buffer_bar, state = NoTangent()
-        )
+                problem = unthunk(delta.problem),
+                transition = add!!(transition_bar, unthunk(delta.transition)),
+                terminal = add!!(terminal_bar, unthunk(delta.terminal)),
+                algorithm = add!!(algorithm_bar, unthunk(delta.algorithm)),
+                solve_kwargs = add!!(kwargs_bar, unthunk(delta.solve_kwargs)),
+                buffer = buffer_bar, state = NoTangent()
+            )
     end
     return it, solve_pullback
 end

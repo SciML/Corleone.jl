@@ -39,8 +39,8 @@ end
     @test Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension) !== nothing
     x = [1.2, 0.4]
     for preallocate in (false, true), (terminal_at, fail_at, stages) in (
-        (1, 0, 1), (2, 0, 2), (3, 0, 3), (3, 2, 1), (3, 3, 2)
-    )
+                (1, 0, 1), (2, 0, 2), (3, 0, 3), (3, 2, 1), (3, 3, 2),
+            )
         options = (; terminal_at, fail_at, preallocate)
         it = iterator(x; options...)
         original_buffer = it.buffer

@@ -9,7 +9,8 @@ using ChainRulesCore
 using Zygote
 @test Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension) !== nothing
 
-run_qa(CorleoneBase;
+run_qa(
+    CorleoneBase;
     # This sublibrary has no standalone manual; retain docstring checks.
     api_docs_kwargs = (; rendered = false),
     ei_kwargs = (;
@@ -25,8 +26,10 @@ run_qa(CorleoneBase;
         # These private parent-package hooks implement the optional AD rules;
         # making them public merely for the extension would expand the API.
         all_explicit_imports_are_public = (;
-            ignore = (:AbstractSequentialProblem, :SequentialProblemIterator,
-                :get_problem, :make_buffer, :prepare_stage_problem, :terminal, :transition),
+            ignore = (
+                :AbstractSequentialProblem, :SequentialProblemIterator,
+                :get_problem, :make_buffer, :prepare_stage_problem, :terminal, :transition,
+            ),
         ),
     ),
 )
