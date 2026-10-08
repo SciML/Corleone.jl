@@ -173,7 +173,7 @@ println("MS (default weight):  std errors = ", round.(est_ms.std_errors; digits 
 # the last `n_shooting_constraints` entries of the residual vector.
 function shooting_residual(pe, x)
     cp = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
-    ps = CorleoneParameterEstimation._unflatten(pe, cp.ps0s, x)
+    ps = CorleoneParameterEstimation._unflatten(pe, cp.ps0s, x, cp.transforms)
     r = CorleoneParameterEstimation.residual(pe, ps, cp.st)
     return r[(n_observations(pe.data) + 1):end]
 end
