@@ -57,6 +57,58 @@ CorleoneOED.FisherDCriterion
 
 ## CorleoneParameterEstimation
 
+### Data
+
+```@docs
+CorleoneParameterEstimation.Experiment
+CorleoneParameterEstimation.ExperimentData
+CorleoneParameterEstimation.experiments
+CorleoneParameterEstimation.n_experiments
+CorleoneParameterEstimation.n_observations
+CorleoneParameterEstimation.observation_times
+CorleoneParameterEstimation.observation_times_per_quantity
+CorleoneParameterEstimation.per_quantity
+CorleoneParameterEstimation.initial_conditions
+CorleoneParameterEstimation.controls
+CorleoneParameterEstimation.has_controls
+```
+
+### Parameter-estimation layer and problem
+
+```@docs
+CorleoneParameterEstimation.ParameterEstimationLayer
+CorleoneParameterEstimation.CorleoneParameterEstimationProblem
+CorleoneParameterEstimation.problem
+CorleoneParameterEstimation.residuals!
+CorleoneParameterEstimation.residual
+CorleoneParameterEstimation.model_values
+CorleoneParameterEstimation.n_shooting_constraints
+```
+
+### Estimates, uncertainties and diagnostics
+
+```@docs
+CorleoneParameterEstimation.ParameterEstimate
+CorleoneParameterEstimation.ParameterEstimationResult
+CorleoneParameterEstimation.estimate_parameters
+CorleoneParameterEstimation.fitted_parameters
+CorleoneParameterEstimation.covariance
+CorleoneParameterEstimation.standard_errors
+CorleoneParameterEstimation.confidence_interval
+CorleoneParameterEstimation.r_squared
+CorleoneParameterEstimation.adjusted_r_squared
+CorleoneParameterEstimation.correlation
+CorleoneParameterEstimation.condition_number
+```
+
+### Profile likelihood
+
+```@docs
+CorleoneParameterEstimation.profile_likelihood
+CorleoneParameterEstimation.ProfileCurve
+CorleoneParameterEstimation.ProfileLikelihoodEstimate
+CorleoneParameterEstimation.profiles
+```
 
 ## OptimalControlBenchmarks
 
