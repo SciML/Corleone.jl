@@ -11,12 +11,27 @@ OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [compat]
 CommonSolve = "0.2.14"
 ConcreteStructs = "0.2.8"
+DifferentiationInterface = "0.7"
 DocStringExtensions = "0.9.5"
+FiniteDiff = "2"
+ForwardDiff = "1"
 OrdinaryDiffEqTsit5 = "2.1.5"
 Random = "1.11.0"
 Reexport = "1.2.2"
 SciMLBase = "3.57.0"
+SymbolicIndexingInterface = "0.3.55"
+Test = "1"
+
+[extras]
+DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
+FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["DifferentiationInterface", "FiniteDiff", "ForwardDiff", "Test"]

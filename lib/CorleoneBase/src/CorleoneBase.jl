@@ -3,6 +3,8 @@ module CorleoneBase
 using SciMLBase
 using CommonSolve
 
+using SymbolicIndexingInterface
+
 using DocStringExtensions
 
 using Random
