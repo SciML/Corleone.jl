@@ -138,6 +138,6 @@ report = (
     optimizer_retcode = optimum.retcode,
     ode_tolerances = (abstol = ode_abstol, reltol = ode_reltol),
     optimizer_tolerance = 1.0e-6,
-    bound_tolerance = bound_tolerance
+    bound_tolerance = bound_tolerance,
 )
 report

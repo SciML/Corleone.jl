@@ -39,7 +39,7 @@ using .FishingReproduction: fishing_stages, fishing_objective, optimized_control
     delta = 1.0e-5
     difference = (
         fishing_objective(starting_control .+ delta .* direction, nothing) -
-        fishing_objective(starting_control .- delta .* direction, nothing)
+            fishing_objective(starting_control .- delta .* direction, nothing)
     ) / (2delta)
     @test all(isfinite, gradient)
     @test isapprox(sum(gradient .* direction), difference; atol = 1.0e-5, rtol = 1.0e-4)
