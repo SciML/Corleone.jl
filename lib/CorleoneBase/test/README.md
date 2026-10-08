@@ -56,6 +56,17 @@ the existing tutorials retain their original rendering flavor.
 The same strict page render, doctests, and executed Literate tutorial also pass
 on Julia 1.10.12 in a fresh environment developed against the checked-out source.
 
+The full shared `docs/make.jl` build also passes with the latest guide, API, and
+tutorial, all six existing tutorials executed, doctests enabled, exported API
+coverage checked, and link checking enabled. HTTP verification of the full
+manual checks five pages and 171 navigation/anchor links, including home/API
+discovery, the latest stage-termination doctest, and the numerical report.
+The termination doctest passes on Julia 1.10.12 and 1.12.7: a successful
+`ReturnCode.Terminated` stage does not itself stop the sequence. Existing
+bibliography/navbar/deployment warnings are non-fatal and left unrepaired;
+local deployment is correctly skipped. Literate edit metadata is pinned to the
+locally confirmed `origin/HEAD` (`main`) to avoid network branch discovery.
+
 ## Dependency placement
 
 - Runtime: ArrayInterface converts AD array representations with `aos_to_soa`;
