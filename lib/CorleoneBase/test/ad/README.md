@@ -2,7 +2,8 @@
 
 Run the registered backends with `Pkg.test("CorleoneBase")` in this package's
 environment. The registered backends are ForwardDiff, uncompiled ReverseDiff,
-and a finite-difference baseline. SciMLSensitivity is loaded, and ReverseDiff uses
+Zygote, and a finite-difference baseline. SciMLSensitivity is loaded, and
+ReverseDiff uses
 `SciMLSensitivity.SensitivityADPassThrough()` to trace the inner solves while
 retaining full solution metadata for transitions and return-code checks. The
 default ReverseDiff adjoint rule returns only a tracked state array, not a full
@@ -12,6 +13,20 @@ For out-of-place ODE stages, the driver normalizes state and parameter arrays
 with `ArrayInterface.aos_to_soa` before solving. This keeps tracked states and
 broadcast derivatives in the same array representation without changing the
 model's in-place/out-of-place form.
+
+Zygote uses the `CorleoneBaseZygoteExtension` pullback for `solve!`, with
+SciMLSensitivity's default inner-solve rules. The pullback differentiates
+functional stage accumulation, including transitions and saved endpoints, while
+preserving the primal iterator and buffer identity. Discrete stage indices and
+return-code decisions carry no derivative. Extension-local identity pullbacks
+normalize SciML state cotangents to structural solution cotangents so saved
+endpoints and transition metadata can both contribute gradients. Supplemental
+rule tests cover early
+termination, failed stages, preallocated buffers, zero cotangents, and direct
+iterator metadata gradients. Structural field-access and iterator-constructor
+pullbacks avoid double accumulation through Zygote's mutable-object gradient
+cache. The initialization pullback filters keyword names without array mutation;
+keyword values remain differentiable.
 
 The reusable suite accepts any DifferentiationInterface backend:
 
