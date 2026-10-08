@@ -2,7 +2,8 @@
 
 Run the registered backends with `Pkg.test("CorleoneBase")` in this package's
 environment. The registered backends are ForwardDiff, uncompiled ReverseDiff,
-Zygote, and a finite-difference baseline. SciMLSensitivity is loaded, and
+Zygote, Mooncake reverse mode, Mooncake forward mode, and a finite-difference
+baseline. SciMLSensitivity is loaded, and
 ReverseDiff uses
 `SciMLSensitivity.SensitivityADPassThrough()` to trace the inner solves while
 retaining full solution metadata for transitions and return-code checks. The
@@ -16,13 +17,15 @@ model's in-place/out-of-place form.
 
 Zygote uses the `CorleoneBaseZygoteExtension` pullback for `solve!`, with
 SciMLSensitivity's default inner-solve rules. The pullback differentiates
-functional stage accumulation, including transitions and saved endpoints, while
-preserving the primal iterator and buffer identity. Discrete stage indices and
-return-code decisions carry no derivative. Extension-local identity pullbacks
-normalize SciML state cotangents to structural solution cotangents so saved
-endpoints and transition metadata can both contribute gradients. Supplemental
-rule tests cover early
-termination, failed stages, preallocated buffers, zero cotangents, and direct
+stage accumulation through an internal `Zygote.Buffer`, including transitions
+and saved endpoints, while preserving the primal iterator and buffer identity.
+Discrete stage indices and return-code decisions carry no derivative. The internal buffer is initialized
+from the existing solutions and frozen with `copy` only after solving finishes.
+Extension-local identity pullbacks normalize SciML state cotangents to
+structural solution cotangents with the full solution field set, so Buffer can
+accumulate saved-endpoint and transition-metadata gradients. Supplemental
+rule tests cover early termination, failed stages, preallocated buffers, zero
+cotangents, and direct
 iterator metadata gradients. Structural field-access and iterator-constructor
 pullbacks avoid double accumulation through Zygote's mutable-object gradient
 cache. The initialization pullback filters keyword names without array mutation;
