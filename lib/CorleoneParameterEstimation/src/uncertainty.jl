@@ -84,6 +84,12 @@ Compute the parameter estimates and their (asymptotic) uncertainties from the so
 
 # Returns
 A [`ParameterEstimate`](@ref).
+
+The problem's [`AbstractParameterTransform`](@ref)s (if any) are applied automatically: the
+reported `x`, `std_errors` and `confidence_intervals` are in *natural* units, the covariance
+is propagated with the delta method and confidence intervals are formed by back-transforming
+the internal endpoints (so e.g. a `Log`-transformed parameter gets a strictly positive,
+asymmetric interval).
 """
 function estimate_parameters(
         problem::CorleoneParameterEstimationProblem, sol; α = 0.05, names = nothing
@@ -93,9 +99,12 @@ function estimate_parameters(
     p_total = length(x_full)
     # Number of *model* parameters reported to the user. For a multiple-shooting layer the
     # flat vector also holds the local shooting initial conditions (nuisance variables), so
-    # only the shared `[u0; p]` block is reported.
+    # only the shared `[u0; p]` block is reported. `xφ` is in the internal (transformed)
+    # space the optimizer works in; `x` are the corresponding natural parameter values.
     m = _n_shared(layer, problem.ps0s)
-    x = collect(x_full[1:m])
+    transforms = problem.transforms
+    xφ = collect(x_full[1:m])
+    x = [from_internal(transforms[i], xφ[i]) for i in 1:m]
     p = m
     # Residual layout (see `residuals!`): all observation residuals first, then the
     # multiple-shooting continuity residuals. Only the *data* residuals carry statistical
@@ -131,13 +140,27 @@ function estimate_parameters(
     # `σ`) the covariance is `(JᵀJ)⁻¹` directly; the `σ̂²` scaling only applies when the
     # residuals are unweighted and the noise level has to be estimated from the residuals.
     weighted = all(e -> !isnothing(e.σ), experiments(get_data(layer)))
-    Σ = (weighted ? one(eltype(J)) : σ²) .* _safe_inverse(Jred' * Jred)
+    Σφ = (weighted ? one(eltype(J)) : σ²) .* _safe_inverse(Jred' * Jred)
+
+    # Transform the internal covariance to natural units with the delta method,
+    # `Σ_θ = D Σ_φ Dᵀ` where `D = diag(dθ/dφ)`. The internal standard errors `seφ` are the
+    # ones that are back-transformed to form the (generally asymmetric) confidence interval;
+    # for `Identity`/`Affine` this is exactly the symmetric interval around `x`.
+    d = [dθ_dφ(transforms[i], xφ[i]) for i in 1:m]
+    D = Diagonal(d)
+    Σ = D * Σφ * D'
 
     xnames = isnothing(names) ? nothing : collect(Symbol, names)
+    seφ = sqrt.(max.(diag(Σφ), zero(eltype(Σφ))))
     se = sqrt.(max.(diag(Σ), zero(eltype(Σ))))
     # Two-sided Student-t quantile (positive upper-tail critical value).
     tcrit = _t_quantile(dof, 1 - α / 2)
-    ci = [(x[i] - tcrit * se[i], x[i] + tcrit * se[i]) for i in eachindex(x)]
+    ci = [
+        (
+            from_internal(transforms[i], xφ[i] - tcrit * seφ[i]),
+            from_internal(transforms[i], xφ[i] + tcrit * seφ[i]),
+        ) for i in 1:m
+    ]
 
     # Goodness-of-fit diagnostics. R² uses the *weighted* total sum of squares so that it is
     # consistent with the weighted RSS above.
@@ -145,7 +168,9 @@ function estimate_parameters(
     r2 = _r_squared(rss, y_obs, w_obs)
     adj_r2 = isnan(r2) ? r2 : 1 - (1 - r2) * (n_obs - 1) / dof
     corr = _correlation_from_cov(Σ, se)
-    condJ = cond(Jred)
+    # Condition number in the *natural* parameterization (`∂r/∂θ = Jred · diag(1/d)`), so
+    # that the non-identifiability diagnostic is meaningful for the reported parameters.
+    condJ = cond(Jred * Diagonal(inv.(d)))
     if condJ > 1.0e8
         @warn "The residual Jacobian is ill-conditioned (condition number $(condJ)); " *
               "some parameters may be non-identifiable. Treat the reported uncertainties " *
@@ -262,9 +287,15 @@ end
 Convenience variant that constructs the [`CorleoneParameterEstimationProblem`](@ref) from
 `pe` (with default options) and calls [`estimate_parameters`](@ref). To control problem
 construction (e.g. a custom `x0` or `shooting_scale`), build the problem explicitly first.
+
+The `transforms` keyword attaches [`AbstractParameterTransform`](@ref)s to the shared `[u0; p]`
+block; it must match the transforms the solution was computed with. When the problem is built
+explicitly this keyword is not needed, since the problem already carries them.
 """
-function estimate_parameters(pe::ParameterEstimationLayer, sol; α = 0.05, names = nothing)
-    prob = CorleoneParameterEstimationProblem(pe)
+function estimate_parameters(
+        pe::ParameterEstimationLayer, sol; α = 0.05, names = nothing, transforms = nothing
+    )
+    prob = CorleoneParameterEstimationProblem(pe; transforms = transforms)
     return estimate_parameters(prob, sol; α = α, names = names)
 end
 
@@ -322,7 +353,8 @@ condition_number(est::ParameterEstimate) = est.condition_number
     fitted_parameters(problem, sol; kwargs...)
 
 Like [`estimate_parameters`](@ref), but returns a [`ParameterEstimationResult`](@ref) that
-also carries the layer and the fitted trajectory.
+also carries the layer and the fitted trajectory. The `transforms` keyword behaves as for
+[`estimate_parameters`](@ref).
 """
 function fitted_parameters(problem::CorleoneParameterEstimationProblem, sol; kwargs...)
     est = estimate_parameters(problem, sol; kwargs...)
@@ -330,13 +362,15 @@ function fitted_parameters(problem::CorleoneParameterEstimationProblem, sol; kwa
     return ParameterEstimationResult(est, problem.layer, traj)
 end
 
-fitted_parameters(pe::ParameterEstimationLayer, sol; kwargs...) =
-    fitted_parameters(CorleoneParameterEstimationProblem(pe), sol; kwargs...)
+function fitted_parameters(pe::ParameterEstimationLayer, sol; transforms = nothing, kwargs...)
+    prob = CorleoneParameterEstimationProblem(pe; transforms = transforms)
+    return fitted_parameters(prob, sol; kwargs...)
+end
 
 function _fitted_trajectory(problem::CorleoneParameterEstimationProblem, sol)
-    (; layer, ps0s, st) = problem
+    (; layer, ps0s, st, transforms) = problem
     x = collect(vec(sol.u))
-    ps = _unflatten(layer, ps0s, x)
+    ps = _unflatten(layer, ps0s, x, transforms)
     traj, _ = layer(nothing, ps, st)
     return traj
 end

@@ -98,6 +98,34 @@ end
     @test isapprox(sol.u[1], p_true; atol = 0.05)
 end
 
+@testset "Parameter transforms under reverse mode" begin
+    # A `Log` transform makes the internal problem unconstrained, so `problem(pe; transforms)`
+    # drops the bounds and reverse-mode AD through NonlinearSolve keeps working. The
+    # out-of-place residual (now `exp`-based) is still reverse-mode differentiable.
+    #
+    # ReverseDiff traces the solve itself, so it needs the `NoAD` sensealg (as above).
+    prob_rd = ODEProblem(f, [1.0], (0.0, 5.0), [0.3]; sensealg = SciMLBase.NoAD())
+    pe_rd = ParameterEstimationLayer(prob_rd, Tsit5(), data)
+    pe_rd_log_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
+        pe_rd; transforms = [Log()]
+    )
+    loss_log(x) = 0.5 * sum(abs2, pe_rd_log_problem.residual_oop(x, nothing))
+    g_reverse = ReverseDiff.gradient(loss_log, pe_rd_log_problem.x0)
+    g_forward = ForwardDiff.gradient(loss_log, pe_rd_log_problem.x0)
+    # The internal `Log` reparameterization scales the gradient by `θ` (and the residuals by
+    # `1/σ`), so a slightly looser relative tolerance is used than for the O(1) gradients above.
+    @test g_reverse ≈ g_forward rtol = 1e-5
+
+    nlls_log = problem(pe; transforms = [Log()])
+    @test isnothing(nlls_log.lb) && isnothing(nlls_log.ub)
+    sol_log = solve(
+        nlls_log, GaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8
+    )
+    @test SciMLBase.successful_retcode(sol_log)
+    # The optimizer works in log space; map back to the natural parameter.
+    @test isapprox(exp(sol_log.u[1]), p_true; atol = 0.05)
+end
+
 @testset "NonlinearSolve with AutoZygote" begin
     # `problem(pe)` drops trivial (`±Inf`) bounds, so the unbounded solvers can be used
     # with reverse-mode AD. Passing any `lb`/`ub` (even trivial ones) makes NonlinearSolve
