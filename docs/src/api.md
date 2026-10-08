@@ -17,6 +17,14 @@ Corleone.hybrid_initialization
 Corleone.CorleoneDynamicOptProblem
 ```
 
+## CorleoneBase
+
+See [Sequential problems](@ref corleonebase) for callback conventions, solver
+keywords, stepping, and failure handling, and [manual single shooting](@ref base_fishing)
+for explicit objective and bound construction without shooting layers.
+
+See [CorleoneBase API](@ref base_api).
+
 ### Developer interface
 
 These hooks are the contract used by CorleoneOED and by extensions that add new

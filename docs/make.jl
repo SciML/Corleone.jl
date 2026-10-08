@@ -5,12 +5,13 @@ using Pkg
 Pkg.develop(
     [
         PackageSpec(path = joinpath(@__DIR__, "..")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneBase")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
     ]
 )
 
-using Documenter, Corleone, CorleoneOED, OptimalControlBenchmarks
+using Documenter, Corleone, CorleoneBase, CorleoneOED, OptimalControlBenchmarks
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
@@ -28,7 +29,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib
 makedocs(
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
+    modules = [Corleone, CorleoneBase, CorleoneOED, OptimalControlBenchmarks],
     format = Documenter.HTML(
         assets = ["assets/favicon.ico"],
         canonical = "https://docs.sciml.ai/Corleone/stable/",
@@ -46,9 +47,11 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Getting Started" => "examples/the_linear_quadratic_regulator.md",
+        "Sequential problems (CorleoneBase)" => "corleonebase.md",
         "Tutorials" => [
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+            "Manual single shooting (CorleoneBase)" => "examples/manual_single_shooting_with_corleonebase.md",
             "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
             "Discrete measurements" => "examples/compartmental_oed_problem.md",
             "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
@@ -56,6 +59,7 @@ makedocs(
         ], #"tutorials.md",
         "References" => "references.md",
         "API" => "api.md",
+        "CorleoneBase API" => "corleonebase_api.md",
         #tutorials,
         #"Examples" => [#"Optimal Control" => "./examples/lotka.md",
         #"Multiple Shooting" => "./examples/multiple_shooting.md",
