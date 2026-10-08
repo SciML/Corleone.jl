@@ -1,7 +1,11 @@
 # Sequential AD compatibility
 
-Run the registered backends with `Pkg.test("CorleoneBase")` in this package's
-environment. The registered backends are ForwardDiff, uncompiled ReverseDiff,
+Run the registered backends with
+`CORLEONE_TEST_GROUP=AD julia --project=lib/CorleoneBase -e 'using Pkg; Pkg.test()'`
+from the repository root. The AD group resolves its isolated `test/ad` environment
+against the checked-out package. Default `Pkg.test()` runs only lightweight Core;
+`CORLEONE_TEST_GROUP=QA` selects the isolated QA environment.
+The registered backends are ForwardDiff, uncompiled ReverseDiff,
 Zygote, Mooncake reverse mode, Mooncake forward mode, and a finite-difference
 baseline. SciMLSensitivity is loaded, and
 ReverseDiff uses

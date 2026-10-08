@@ -1,3 +1,14 @@
+"""
+    SequentialProblem(problem; transition = (sol, i) -> nothing,
+                      terminal = (sol, i) -> i >= 1)
+
+Solve a sequence of SciML problems with `CommonSolve.init`/`solve` and an algorithm.
+The terminal predicate receives the current solution and stage index. If it is
+false, `transition(solution, next_index)` supplies the next problem. The completed
+iterator stores stage solutions in `buffer` and the current index in `state`.
+Initial `u0`, `p`, and `tspan` solve keywords remake only the first problem;
+remaining keywords are forwarded to every stage.
+"""
 struct SequentialProblem{P, T, R} <: AbstractSequentialProblem
     "The initial problem to solve (first stage)"
     problem::P

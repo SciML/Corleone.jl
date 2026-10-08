@@ -1,2 +1,10 @@
 [Core]
 versions = ["1"]
+
+[AD]
+versions = ["1"]
+in_all = false
+
+[QA]
+versions = ["1"]
+in_all = false

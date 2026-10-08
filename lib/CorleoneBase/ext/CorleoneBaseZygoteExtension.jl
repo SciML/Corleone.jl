@@ -1,9 +1,9 @@
 module CorleoneBaseZygoteExtension
 
-using CorleoneBase
-using CommonSolve
-using SciMLBase
-using ChainRulesCore
+using CommonSolve: CommonSolve, solve
+using SciMLBase: SciMLBase, remake
+using ChainRulesCore: ChainRulesCore, AbstractZero, HasReverseMode, NoTangent,
+    RuleConfig, Tangent, ZeroTangent, @non_differentiable, add!!, rrule_via_ad, unthunk
 import Zygote
 import CorleoneBase: SequentialProblemIterator, prepare_stage_problem
 import CorleoneBase: AbstractSequentialProblem, get_problem, make_buffer, transition, terminal
@@ -33,7 +33,7 @@ function initial_stage(problem, algorithm, options)
         "The initial call to solve failed with returncode $(solution.retcode)"
     ))
     return SequentialProblemIterator(
-        inner_problem, Base.Fix1(transition, problem), Base.Fix1(terminal, problem),
+        inner_problem, (sol, i) -> transition(problem, sol, i), (sol, i) -> terminal(problem, sol, i),
         algorithm, solve_kwargs, make_buffer(problem, solution), 1
     )
 end

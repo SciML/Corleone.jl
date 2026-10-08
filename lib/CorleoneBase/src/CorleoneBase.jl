@@ -1,14 +1,8 @@
 module CorleoneBase
 
-using SciMLBase
-using CommonSolve
+using SciMLBase: SciMLBase, remake
+using CommonSolve: CommonSolve, solve
 import ArrayInterface
-
-using SymbolicIndexingInterface
-
-using DocStringExtensions
-
-using Random
 
 include("abstractproblem.jl")
 

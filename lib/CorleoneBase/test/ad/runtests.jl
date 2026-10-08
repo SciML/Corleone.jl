@@ -1,3 +1,6 @@
+using Test
+using CorleoneBase
+@test realpath(pkgdir(CorleoneBase)) == realpath(joinpath(@__DIR__, "../.."))
 using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff, AutoReverseDiff, AutoZygote,
     AutoMooncake, AutoMooncakeForward, check_available
 using FiniteDiff
@@ -10,6 +13,7 @@ using Zygote
 include("suite.jl")
 using .SequentialADTests: test_sequential_ad
 
+@test check_available(AutoForwardDiff())
 test_sequential_ad(AutoForwardDiff())
 @test check_available(AutoReverseDiff())
 # Keep full solutions (including transition metadata) while ReverseDiff traces
@@ -26,4 +30,5 @@ test_sequential_ad(AutoMooncake())
 @test check_available(AutoMooncakeForward())
 test_sequential_ad(AutoMooncakeForward())
 # Numerical differentiation is a baseline, not an AD implementation.
+@test check_available(AutoFiniteDiff())
 test_sequential_ad(AutoFiniteDiff(); gradient_atol = 1.0e-5, gradient_rtol = 1.0e-5)

@@ -58,10 +58,11 @@ function CommonSolve.init(
         )
     )
     buffer = make_buffer(problem, sol)
+    # Fix1 accepts only one remaining argument on Julia 1.10/1.11.
     return SequentialProblemIterator(
         inner_problem,
-        Base.Fix1(transition, problem),
-        Base.Fix1(terminal, problem),
+        (sol, i) -> transition(problem, sol, i),
+        (sol, i) -> terminal(problem, sol, i),
         algorithm,
         solve_kwargs,
         buffer,
