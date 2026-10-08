@@ -5,12 +5,18 @@ authors = ["Carl Julius Martensen <julius.martensen@gmail.com>"]
 
 [deps]
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [compat]
 CommonSolve = "0.2.14"
+ConcreteStructs = "0.2.8"
 DocStringExtensions = "0.9.5"
+OrdinaryDiffEqTsit5 = "2.1.5"
 Random = "1.11.0"
+Reexport = "1.2.2"
 SciMLBase = "3.57.0"
