@@ -6,6 +6,17 @@ function transition(::AbstractSequentialProblem, sol, i) end
 
 function terminal(::AbstractSequentialProblem, sol, i) end
 
+# Out-of-place solvers require the state and derivative to use the same array
+# representation. AD broadcasts may return a struct-of-arrays representation.
+prepare_stage_problem(problem) = problem
+function prepare_stage_problem(problem::SciMLBase.AbstractODEProblem)
+    SciMLBase.isinplace(problem) && return problem
+    u0 = ArrayInterface.aos_to_soa(problem.u0)
+    p = ArrayInterface.aos_to_soa(problem.p)
+    u0 === problem.u0 && p === problem.p && return problem
+    return remake(problem; u0, p)
+end
+
 function make_buffer(::AbstractSequentialProblem, sol::T) where {T}
     return T[sol]
 end
@@ -39,7 +50,7 @@ function CommonSolve.init(
         )...,
     )
     solve_kwargs = Base.structdiff((; kwargs...), initial_kwargs)
-    inner_problem = remake(get_problem(problem); initial_kwargs...)
+    inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
     sol = solve(inner_problem, algorithm; solve_kwargs...)
     SciMLBase.successful_retcode(sol) || throw(
         ErrorException(
@@ -65,7 +76,7 @@ end
 
 function CommonSolve.step!(it::SequentialProblemIterator)
     (; algorithm, solve_kwargs, transition, buffer, state) = it
-    current_problem = transition(buffer[state], state + 1)
+    current_problem = prepare_stage_problem(transition(buffer[state], state + 1))
     current_solution = solve(current_problem, algorithm; solve_kwargs...)
     SciMLBase.successful_retcode(current_solution) || return false
     if length(buffer) >= state + 1

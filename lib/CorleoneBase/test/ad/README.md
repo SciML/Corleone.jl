@@ -1,8 +1,17 @@
 # Sequential AD compatibility
 
 Run the registered backends with `Pkg.test("CorleoneBase")` in this package's
-environment. The initial registrations are ForwardDiff and a finite-difference
-baseline; this does not claim reverse-mode compatibility of the mutable driver.
+environment. The registered backends are ForwardDiff, uncompiled ReverseDiff,
+and a finite-difference baseline. SciMLSensitivity is loaded, and ReverseDiff uses
+`SciMLSensitivity.SensitivityADPassThrough()` to trace the inner solves while
+retaining full solution metadata for transitions and return-code checks. The
+default ReverseDiff adjoint rule returns only a tracked state array, not a full
+solution. Compiled ReverseDiff tapes are outside this suite's scope.
+
+For out-of-place ODE stages, the driver normalizes state and parameter arrays
+with `ArrayInterface.aos_to_soa` before solving. This keeps tracked states and
+broadcast derivatives in the same array representation without changing the
+model's in-place/out-of-place form.
 
 The reusable suite accepts any DifferentiationInterface backend:
 

@@ -2,6 +2,7 @@ module CorleoneBase
 
 using SciMLBase
 using CommonSolve
+import ArrayInterface
 
 using SymbolicIndexingInterface
 

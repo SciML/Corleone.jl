@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Carl Julius Martensen <julius.martensen@gmail.com>"]
 
 [deps]
+ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -14,6 +15,7 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [compat]
+ArrayInterface = "7"
 CommonSolve = "0.2.14"
 ConcreteStructs = "0.2.8"
 DifferentiationInterface = "0.7"
@@ -23,7 +25,9 @@ ForwardDiff = "1"
 OrdinaryDiffEqTsit5 = "2.1.5"
 Random = "1.11.0"
 Reexport = "1.2.2"
+ReverseDiff = "1"
 SciMLBase = "3.57.0"
+SciMLSensitivity = "7"
 SymbolicIndexingInterface = "0.3.55"
 Test = "1"
 
@@ -31,7 +35,9 @@ Test = "1"
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
+SciMLSensitivity = "1ed8b502-d754-442c-8d5d-10ac956f44a1"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["DifferentiationInterface", "FiniteDiff", "ForwardDiff", "Test"]
+test = ["DifferentiationInterface", "FiniteDiff", "ForwardDiff", "ReverseDiff", "SciMLSensitivity", "Test"]
