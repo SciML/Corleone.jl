@@ -218,6 +218,43 @@ println(pl)
 fpl = plot(pl)
 fpl
 
+# ## Fitting on the log scale (parameter transforms)
+#
+# Above we kept the rates positive with `bounds_p`. Bounds guarantee *feasibility*, but they
+# leave two problems: the optimizer still works in the natural (unscaled) parameterization,
+# and the asymptotic confidence interval is built in that same space, so a rate that is only a
+# few standard errors from zero can get a *negative* lower endpoint.
+#
+# A [`Log`](@ref) transform fixes both at once. It fits an unconstrained internal variable
+# ``\phi`` with ``\theta = e^{\phi}``, so positivity is encoded in the *geometry* rather than in
+# a bound, and the interval is obtained by back-transforming the endpoints of the internal
+# interval — yielding a correctly asymmetric, strictly positive result. Transforms are attached
+# to the problem via the `transforms` keyword; a non-`Identity` transform drops the natural
+# bounds of that variable. (Besides [`Log`](@ref) there is [`Logit`](@ref) for a box constraint
+# `lb < θ < ub` and [`Affine`](@ref) for pure rescaling.)
+
+pe_log = ParameterEstimationLayer(prob_guess, Tsit5(), data; observed = obs_sir)
+pe_log_problem = CorleoneParameterEstimationProblem(pe_log; transforms = [Log(), Log()])
+
+# The flat optimization variables now live in the internal, unconstrained space:
+
+nlls_log = NonlinearLeastSquaresProblem(pe_log_problem)
+println("Internal variables (log β, log γ) starting at: ", nlls_log.u0)
+
+sol_log = solve(nlls_log, LevenbergMarquardt(); abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 200)
+est_log = estimate_parameters(pe_log_problem, sol_log)
+
+# `est_log.x` is reported in *natural* units again (the internal values are mapped back with
+# `from_internal`), and the covariance is propagated with the delta method. Notice that both
+# confidence intervals are strictly positive and asymmetric:
+
+println("β = ", round(est_log.x[1]; digits = 4), "   95% CI = ",
+    round.(est_log.confidence_intervals[1]; digits = 4))
+println("γ = ", round(est_log.x[2]; digits = 4), "   95% CI = ",
+    round.(est_log.confidence_intervals[2]; digits = 4))
+println("Natural-space lower endpoints: ",
+    [ci[1] for ci in est_log.confidence_intervals], "  (both > 0)")
+
 # ## Comparing the joint fit against a single-region fit
 #
 # To illustrate the value of pooling data, fit region A alone and compare the uncertainty on
