@@ -8,3 +8,7 @@ in_all = false
 [QA]
 versions = ["1"]
 in_all = false
+
+[Docs]
+versions = ["1"]
+in_all = false

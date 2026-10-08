@@ -52,11 +52,6 @@ function CommonSolve.init(
     solve_kwargs = Base.structdiff((; kwargs...), initial_kwargs)
     inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
     sol = solve(inner_problem, algorithm; solve_kwargs...)
-    SciMLBase.successful_retcode(sol) || throw(
-        ErrorException(
-            "The initial call to solve failed with returncode $(sol.retcode)"
-        )
-    )
     buffer = make_buffer(problem, sol)
     # Fix1 accepts only one remaining argument on Julia 1.10/1.11.
     return SequentialProblemIterator(
@@ -79,13 +74,13 @@ function CommonSolve.step!(it::SequentialProblemIterator)
     (; algorithm, solve_kwargs, transition, buffer, state) = it
     current_problem = prepare_stage_problem(transition(buffer[state], state + 1))
     current_solution = solve(current_problem, algorithm; solve_kwargs...)
-    SciMLBase.successful_retcode(current_solution) || return false
     if length(buffer) >= state + 1
         buffer[state + 1] = current_solution
     else
         push!(buffer, current_solution)
     end
     increment!(it)
+    SciMLBase.successful_retcode(current_solution) || return false
     return true
 end
 
@@ -95,9 +90,14 @@ end
 
 
 function CommonSolve.solve!(it::SequentialProblemIterator)
-    Base.isdone(it) && return it
+    # Gate the loop on the last retained stage's success so an unsuccessful first
+    # stage (already in the buffer from init) never transitions or solves again.
+    # Later failures are caught by step!'s `|| break`.
+    if !SciMLBase.successful_retcode(it.buffer[it.state])
+        return SolutionWrapper(it.buffer, it.state)
+    end
     while !Base.isdone(it)
         CommonSolve.step!(it) || break
     end
-    return it
+    return SolutionWrapper(it.buffer, it.state)
 end

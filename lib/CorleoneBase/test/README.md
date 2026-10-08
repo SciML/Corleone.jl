@@ -6,6 +6,56 @@ selectable through `CORLEONE_TEST_GROUP`, falling back to `GROUP`. Bare
 named groups. `test_groups.toml` supplies all three centralized sublibrary CI
 lanes. No workflow changes are needed.
 
+`Docs` is an additional opt-in isolated lane (`CorleoneBase_Docs` through the
+root dispatcher). It strictly renders the CorleoneBase pages from the shared
+manual, runs their doctests against the checked-out source, executes the Literate
+fishing tutorial, and independently reproduces the optimization with stage,
+bound, continuity, objective-improvement, and directional-gradient checks.
+It does not add documentation, optimization, plotting, or solver packages to
+runtime dependencies, or change the default Core-only `All` selection.
+
+```sh
+CORLEONE_TEST_GROUP=Docs JULIA_PKG_PRECOMPILE_AUTO=0 julia --startup-file=no -e 'using Pkg; Pkg.activate(mktempdir("/tmp/opencode")); Pkg.develop(path=abspath("lib/CorleoneBase")); Pkg.test("CorleoneBase"; julia_args=["--startup-file=no"])'
+```
+
+For a browsable persistent focused build, run the setup command in
+`docs/check_corleonebase.jl` with `CORLEONEBASE_DOCS_OUTPUT` set to an absolute
+output directory. The full shared manual uses `docs/make.jl`. See
+`docs/src/corleonebase.md` for standalone tutorial setup and numerical criteria.
+
+The documentation change was regression-tested on Julia 1.12.7: Core passed
+302 checks, AD 2,143, QA 23, and root Core 61. A fresh base-only environment
+also verified that documentation, optimization, plotting, solver, AD-backend,
+and QA packages were absent, and the optional Zygote extension was unloaded.
+The standalone tutorial passed on Julia 1.10.12 against checked-out sources:
+24 successful stages, starting cost 7.21591176555, optimized cost 1.34750999922,
+and control extrema (1.36484e-7, 0.999998273). Optimizer retcode was `Success`
+with requested tolerance 1e-6; ODE absolute and relative tolerances were 1e-9.
+Reevaluation at 1e-11 gave cost 1.34750999927. These are observed numerical
+results for a local relaxed 24-control optimization, not a global certificate.
+
+The initial Docs attempt exposed a Literate prose comment inside a function;
+it is now a `##` code comment so the function remains one executable chunk.
+Subsequent doctests exposed the need to explicitly import `successful_retcode`
+and the solver's rejection of Boolean `verbose`. The failure example now uses
+the standard logger to silence its intentional warning, retaining the exact
+return-code and no-transition checks. No assertions or strict doctest checks
+were removed to accommodate these failures.
+
+The final focused HTML build and checked-source doctests pass without warnings.
+The Docs lane passes 112 checks through root `GROUP=CorleoneBase_Docs` routing,
+including independent source execution, repeated objectives, all stage endpoints
+and controls, continuity, and a ForwardDiff directional-gradient comparison to
+central differences (atol 1e-5, rtol 1e-4). On Julia 1.12.7 the independent run
+gave starting cost 7.21591176555, optimized cost 1.34750999944, tightened cost
+1.34750999949, and successful ODE and optimizer return codes. HTTP checks also
+verified 68 local navigation/anchor links across the rendered guide, API, and
+tutorial pages. The focused build includes a working landing page and uses
+Documenter-flavored Literate output so the tutorial's reference anchor survives;
+the existing tutorials retain their original rendering flavor.
+The same strict page render, doctests, and executed Literate tutorial also pass
+on Julia 1.10.12 in a fresh environment developed against the checked-out source.
+
 ## Dependency placement
 
 - Runtime: ArrayInterface converts AD array representations with `aos_to_soa`;
@@ -103,7 +153,14 @@ precompile workload (4), layer interface (8), and multiple shooting (29).
 Root `GROUP=CorleoneBase` routing also passes the 233-check sublibrary Core suite.
 These were rerun after the callback compatibility fix. The isolated Core body
 and base-only dependency assertions pass. Julia 1.10.12 Core passes 233 checks.
-AD execution is still in progress; no complete AD result is claimed yet.
+The final AD run passes all 2,143 checks, with no skips or broken tests, including
+ForwardDiff, ReverseDiff, Zygote, Mooncake reverse/forward, finite differences,
+and supplemental Zygote rule contracts. It resolves DifferentiationInterface
+0.7.21, ForwardDiff 1.4.6, ReverseDiff 1.18.4, Zygote 0.7.13, Mooncake 0.5.63,
+FiniteDiff 2.33.0, ChainRulesCore 1.26.1, and SciMLSensitivity 7.119.12 against
+the checked-out CorleoneBase 0.1.0. Common runtime/test versions are ArrayInterface
+7.30.2, CommonSolve 0.2.14, SciMLBase 3.57.0, OrdinaryDiffEqTsit5 2.1.5,
+SafeTestsets 0.1.0, SciMLTesting 2.13.2, and Aqua 0.8.18.
 
 The final combined All/Core/routing run also appended a root Core run inside the
 same driver, after the routing block:

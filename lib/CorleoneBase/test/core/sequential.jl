@@ -1,4 +1,5 @@
 using CorleoneBase
+using CorleoneBase: retcode
 using CommonSolve: CommonSolve, init, solve, solve!, step!
 using OrdinaryDiffEqTsit5: Tsit5
 using SciMLBase: SciMLBase, ODEProblem, isinplace, remake, successful_retcode
@@ -53,19 +54,27 @@ end
     @test step!(it)
     @test it.state == 2
     @test calls == [2]
-    @test solve!(it) === it
+    w = solve!(it)
+    @test w isa SolutionWrapper
+    @test w.buffer === buffer
     @test it.buffer === buffer
     @test calls == [2, 3]
     @test Base.isdone(it)
     @test it.state == 3
-    @test it.buffer[end].u[end][1] ≈ 1.2 * exp(-1.2)
-    @test solve!(it) === it
+    @test length(w) == 3
+    @test w[3].u[end][1] ≈ 1.2 * exp(-1.2)
+    @test retcode(w) == SciMLBase.ReturnCode.Success
+    @test successful_retcode(w)
+    w2 = solve!(it)
+    @test w2 isa SolutionWrapper
+    @test length(w2) == 3
     @test calls == [2, 3]
 
     single = solve(SequentialProblem(template), Tsit5(); SOLVE_KWARGS...)
-    @test single.state == 1
-    @test length(single.buffer) == 1
-    @test Base.isdone(single)
+    @test single isa SolutionWrapper
+    @test length(single) == 1
+    @test retcode(single) == SciMLBase.ReturnCode.Success
+    @test successful_retcode(single)
 end
 
 # Controlled return codes exercise failures without relying on a solver's
@@ -84,10 +93,16 @@ SciMLBase.remake(p::StageProblem; kwargs...) = p
 CommonSolve.solve(p::StageProblem, ::Nothing; kwargs...) = StageSolution(p.succeeds)
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
 
-@testset "Return codes and preallocated buffers" begin
-    @test_throws "The initial call to solve failed with returncode MaxIters" init(
-        SequentialProblem(StageProblem(false)), nothing
-    )
+@testset "Return codes, failures, and preallocated buffers" begin
+    # An unsuccessful first stage produces a one-element failure result instead
+    # of the earlier initialization exception, and never advances.
+    w = solve(SequentialProblem(StageProblem(false)), nothing)
+    @test w isa SolutionWrapper
+    @test length(w) == 1
+    @test retcode(w) == SciMLBase.ReturnCode.MaxIters
+    @test !successful_retcode(w)
+    @test w[1].retcode == SciMLBase.ReturnCode.MaxIters
+
     for preallocate in (false, true), fail_at in (0, 2, 3)
         problem = SequentialProblem(
             StageProblem(true);
@@ -99,10 +114,88 @@ SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
             append!(it.buffer, [StageSolution(false), StageSolution(false)])
         end
         buffer = it.buffer
-        @test solve!(it) === it
-        @test it.buffer === buffer
-        @test it.state == (fail_at == 0 ? 3 : fail_at - 1)
-        @test length(it.buffer) == (preallocate ? 3 : it.state)
-        @test all(sol.succeeds for sol in it.buffer[1:it.state])
+        w = solve!(it)
+        @test w isa SolutionWrapper
+        @test w.buffer === buffer
+        expected_state = fail_at == 0 ? 3 : fail_at
+        @test it.state == expected_state
+        @test length(w) == expected_state
+        # Preallocated, unused slots are hidden from the wrapper.
+        @test length(w.buffer) == (preallocate ? 3 : expected_state)
+        for i in 1:(expected_state - (fail_at == 0 ? 0 : 1))
+            @test w[i].succeeds
+        end
+        if fail_at != 0
+            @test !w[expected_state].succeeds
+            @test retcode(w) == SciMLBase.ReturnCode.MaxIters
+            @test !successful_retcode(w)
+            # No further stages were attempted after the failure.
+        else
+            @test successful_retcode(w)
+            @test retcode(w) == SciMLBase.ReturnCode.Success
+        end
+        @test_throws BoundsError w[expected_state + 1]
     end
+end
+
+@testset "SolutionWrapper array interface" begin
+    problem = SequentialProblem(
+        StageProblem(true);
+        transition = (sol, i) -> StageProblem(true),
+        terminal = (sol, i) -> i >= 3,
+    )
+    it = init(problem, nothing)
+    append!(it.buffer, [StageSolution(false), StageSolution(false)])
+    w = solve!(it)
+    @test w isa CorleoneBase.SolutionWrapper
+    @test w isa AbstractVector
+    @test length(w) == 3
+    @test size(w) == (3,)
+    @test firstindex(w) == 1
+    @test lastindex(w) == 3
+    @test eltype(w) == StageSolution
+    @test Base.IndexStyle(typeof(w)) == IndexLinear()
+    @test collect(w) == w.buffer[1:3]
+    @test [s for s in w] == w.buffer[1:3]
+    @test w[2].succeeds
+    @test w[end].succeeds
+    # Read-only: assignment through the array interface errors without mutating.
+    @test_throws Exception (w[1] = StageSolution(true))
+    @test w[1].succeeds
+    # A wrapper over a manually advanced (non-full) state only exposes solved stages.
+    problem2 = SequentialProblem(
+        StageProblem(true);
+        transition = (sol, i) -> StageProblem(true),
+        terminal = (sol, i) -> i >= 2,
+    )
+    it2 = init(problem2, nothing)
+    append!(it2.buffer, [StageSolution(false), StageSolution(false)])
+    w2 = solve!(it2)
+    @test length(w2) == 2
+    @test w2[1].succeeds && w2[2].succeeds
+    @test_throws BoundsError w2[3]
+    @test retcode(w2) == SciMLBase.ReturnCode.Success
+end
+
+@testset "No advancement after failure" begin
+    attempts = Int[]
+    problem = SequentialProblem(
+        StageProblem(true);
+        transition = (sol, i) -> begin
+            push!(attempts, i)
+            StageProblem(i != 2)
+        end,
+        terminal = (sol, i) -> i >= 5,
+    )
+    it = init(problem, nothing)
+    w = solve!(it)
+    @test attempts == [2]      # stage 2 fails; stage 3 is never attempted
+    @test it.state == 2
+    @test length(w) == 2
+    @test retcode(w) == SciMLBase.ReturnCode.MaxIters
+    # Re-solve! must not advance a failed state either.
+    w2 = solve!(it)
+    @test attempts == [2]
+    @test it.state == 2
+    @test length(w2) == 2
 end

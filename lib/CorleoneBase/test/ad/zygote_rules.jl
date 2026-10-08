@@ -31,21 +31,21 @@ function iterator(x; terminal_at = 3, fail_at = 0, preallocate = false)
 end
 
 function loss(x; kwargs...)
-    it = solve!(iterator(x; kwargs...))
-    return sum(it.buffer[i].value for i in 1:it.state)
+    w = solve!(iterator(x; kwargs...))
+    return sum(w[i].value for i in eachindex(w))
 end
 
 @testset "Zygote solve! rule contracts" begin
     @test Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension) !== nothing
     x = [1.2, 0.4]
     for preallocate in (false, true), (terminal_at, fail_at, stages) in (
-                (1, 0, 1), (2, 0, 2), (3, 0, 3), (3, 2, 1), (3, 3, 2),
+                (1, 0, 1), (2, 0, 2), (3, 0, 3), (3, 2, 2), (3, 3, 3),
             )
         options = (; terminal_at, fail_at, preallocate)
         it = iterator(x; options...)
         original_buffer = it.buffer
         result, back = Zygote.pullback(solve!, it)
-        @test result === it
+        @test result isa CorleoneBase.SolutionWrapper
         @test result.buffer === original_buffer
         @test result.state == stages
         @test length(result.buffer) == (preallocate ? 3 : stages)
@@ -60,7 +60,7 @@ end
         @test value ≈ expected_value
         @test only(gradient) ≈ expected_gradient
     end
-    @test only(Zygote.gradient(x -> solve!(iterator(x)).problem.value, x)) ≈ [1.0, 0.0]
+    @test only(Zygote.gradient(x -> solve!(iterator(x))[1].value, x)) ≈ [1.0, 0.0]
 end
 
 end # module ZygoteRuleTests

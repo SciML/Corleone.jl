@@ -6,9 +6,11 @@ import ArrayInterface
 
 include("abstractproblem.jl")
 
+include("solution.jl")
+
 include("sequential.jl")
 # Re-export types for user convenience
-export SequentialProblem
+export SequentialProblem, SolutionWrapper
 
 
 end # module CorleoneBase

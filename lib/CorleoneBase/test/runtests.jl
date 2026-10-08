@@ -5,7 +5,7 @@ const REQUESTED_GROUP = get(ENV, "CORLEONE_TEST_GROUP", get(ENV, "GROUP", "All")
 const GROUP = REQUESTED_GROUP == "CorleoneBase" ? "Core" :
     startswith(REQUESTED_GROUP, "CorleoneBase_") ? REQUESTED_GROUP[14:end] : REQUESTED_GROUP
 
-GROUP in ("All", "Core", "AD", "QA", "Everything") ||
+GROUP in ("All", "Core", "AD", "QA", "Docs", "Everything") ||
     error("Unknown CorleoneBase test group: $GROUP")
 
 withenv("GROUP" => GROUP) do
@@ -16,6 +16,14 @@ withenv("GROUP" => GROUP) do
             end
         end,
         groups = Dict(
+            "Docs" => (;
+                env = joinpath(@__DIR__, "docs"),
+                body = function ()
+                    return @safetestset "Shared manual and fishing tutorial" begin
+                        include("docs/runtests.jl")
+                    end
+                end,
+            ),
             "AD" => (;
                 env = joinpath(@__DIR__, "ad"),
                 body = function ()

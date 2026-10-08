@@ -51,9 +51,7 @@ function sequential_solutions(case, x; solve_kwargs = (;))
     end
     problem = SequentialProblem(template; transition, terminal = (sol, i) -> i >= 3)
     options = merge(SOLVE_KWARGS, solve_kwargs)
-    result = CommonSolve.solve(problem, Tsit5(); options..., u0 = [x[1]], p = [x[2]])
-    # The current full solve returns the completed iterator, which owns the buffer.
-    return result.buffer
+    return CommonSolve.solve(problem, Tsit5(); options..., u0 = [x[1]], p = [x[2]])
 end
 
 endpoint_loss(y) = sum(WEIGHTS[i] * (y[i] - TARGETS[i])^2 for i in 1:3) / 2

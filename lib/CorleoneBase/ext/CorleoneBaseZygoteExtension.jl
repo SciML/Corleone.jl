@@ -3,9 +3,9 @@ module CorleoneBaseZygoteExtension
 using CommonSolve: CommonSolve, solve
 using SciMLBase: SciMLBase, remake
 using ChainRulesCore: ChainRulesCore, AbstractZero, HasReverseMode, NoTangent,
-    RuleConfig, Tangent, ZeroTangent, @non_differentiable, add!!, rrule_via_ad, unthunk
+    RuleConfig, Tangent, ZeroTangent, @non_differentiable, rrule_via_ad, unthunk
 import Zygote
-import CorleoneBase: SequentialProblemIterator, prepare_stage_problem
+import CorleoneBase: SequentialProblemIterator, SolutionWrapper, prepare_stage_problem
 import CorleoneBase: AbstractSequentialProblem, get_problem, make_buffer, transition, terminal
 
 # Repeated reads of a mutable iterator must return independent structural
@@ -29,11 +29,6 @@ function initial_stage(problem, algorithm, options)
     solve_kwargs = Base.structdiff(options, initial_kwargs)
     inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
     solution = solve(inner_problem, algorithm; solve_kwargs...)
-    SciMLBase.successful_retcode(solution) || throw(
-        ErrorException(
-            "The initial call to solve failed with returncode $(solution.retcode)"
-        )
-    )
     return SequentialProblemIterator(
         inner_problem, (sol, i) -> transition(problem, sol, i), (sol, i) -> terminal(problem, sol, i),
         algorithm, solve_kwargs, make_buffer(problem, solution), 1
@@ -111,23 +106,26 @@ function ChainRulesCore.rrule(::typeof(saved_buffer), buffer)
     return buffer, buffer_pullback
 end
 
-# Buffer mutations have Zygote pullbacks. Initialize all existing entries and
-# freeze only after the final stage, retaining any preallocated suffix.
+# Buffer mutations have Zygote pullbacks. Retain every attempted stage, including
+# the first unsuccessful one, and stop without transitioning or solving further.
+# Only solved stages are returned, so preallocated slots never leak into the
+# returned wrapper's gradient space.
 function finish_stages(buffer, state, transition, terminal, algorithm, solve_kwargs)
     scratch = Zygote.Buffer(buffer)
     copyto!(scratch, buffer)
-    while !terminal(stage_solution(scratch[state]), state)
+    while SciMLBase.successful_retcode(stage_solution(scratch[state])) &&
+            !terminal(stage_solution(scratch[state]), state)
         problem = prepare_stage_problem(transition(stage_solution(scratch[state]), state + 1))
         solution = solve(problem, algorithm; solve_kwargs...)
-        SciMLBase.successful_retcode(solution) || break
         if length(scratch) >= state + 1
             scratch[state + 1] = solution
         else
             push!(scratch, solution)
         end
         state += 1
+        SciMLBase.successful_retcode(solution) || break
     end
-    return saved_buffer(copy(scratch)), state
+    return saved_buffer(copy(scratch)[1:state]), state
 end
 
 function ChainRulesCore.rrule(
@@ -138,9 +136,9 @@ function ChainRulesCore.rrule(
         config, finish_stages, copy(it.buffer), it.state,
         it.transition, it.terminal, it.algorithm, it.solve_kwargs
     )
-    # Preserve solve!'s return identity and mutate the original buffer only
-    # outside AD. The pullback owns the unmodified input buffer snapshot.
-    for i in eachindex(buffer)
+    # Preserve solve!'s buffer identity: write the finished solved stages back
+    # into the original buffer, leaving any preallocated suffix untouched.
+    for i in 1:state
         if i <= length(it.buffer)
             it.buffer[i] = buffer[i]
         else
@@ -148,21 +146,44 @@ function ChainRulesCore.rrule(
         end
     end
     it.state = state
+    wrapper = SolutionWrapper(it.buffer, it.state)
     function solve_pullback(delta)
         delta = unthunk(delta)
         delta isa AbstractZero && return NoTangent(), ZeroTangent()
-        _, buffer_bar, _, transition_bar, terminal_bar, algorithm_bar, kwargs_bar =
-            back((unthunk(delta.buffer), NoTangent()))
+        buffer_bar = unthunk(getproperty(delta, :buffer))
+        _, buffer_bar_out, _, transition_bar, terminal_bar, algorithm_bar, kwargs_bar =
+            back((buffer_bar, NoTangent()))
+        # The wrapper exposes only its buffer, so downstream gradients reach the
+        # iterator solely through the buffer; the other iterator fields pick up
+        # their gradients from `finish_stages`'s args instead of delta.
         return NoTangent(), Tangent{typeof(it)}(;
-                problem = unthunk(delta.problem),
-                transition = add!!(transition_bar, unthunk(delta.transition)),
-                terminal = add!!(terminal_bar, unthunk(delta.terminal)),
-                algorithm = add!!(algorithm_bar, unthunk(delta.algorithm)),
-                solve_kwargs = add!!(kwargs_bar, unthunk(delta.solve_kwargs)),
-                buffer = buffer_bar, state = NoTangent()
+                problem = ZeroTangent(),
+                transition = transition_bar,
+                terminal = terminal_bar,
+                algorithm = algorithm_bar,
+                solve_kwargs = kwargs_bar,
+                buffer = buffer_bar_out, state = NoTangent()
             )
     end
-    return it, solve_pullback
+    return wrapper, solve_pullback
+end
+
+# Read-only indexing into a SolutionWrapper: the underlying buffer is read, and
+# the buffer cotangent is accumulated in the wrapper's `1:length` index space.
+# Each element's cotangent is a solution-struct tangent, so the buffer cotangent
+# is an untyped vector holding those per-slot tangents.
+function ChainRulesCore.rrule(::typeof(getindex), w::SolutionWrapper, i::Int)
+    value = w[i]
+    function wrapper_index_pullback(delta)
+        delta = unthunk(delta)
+        delta isa AbstractZero && return NoTangent(), ZeroTangent(), NoTangent()
+        buffer_cot = Vector{Any}(undef, length(w))
+        fill!(buffer_cot, ZeroTangent())
+        buffer_cot[i] = delta
+        return NoTangent(),
+            Tangent{typeof(w)}(buffer = buffer_cot, state = NoTangent()), NoTangent()
+    end
+    return value, wrapper_index_pullback
 end
 
 end # module CorleoneBaseZygoteExtension
