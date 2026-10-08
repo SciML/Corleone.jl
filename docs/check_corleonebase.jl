@@ -10,13 +10,15 @@ mkpath(joinpath(output, "src", "examples"))
 for page in ("corleonebase.md", "corleonebase_api.md")
     cp(joinpath(@__DIR__, "src", page), joinpath(output, "src", page); force = true)
 end
-write(joinpath(output, "src", "index.md"), """
-# CorleoneBase shared-manual preview
+write(
+    joinpath(output, "src", "index.md"), """
+    # CorleoneBase shared-manual preview
 
-This focused build renders the repository's shared CorleoneBase documentation:
-[sequential workflow](@ref corleonebase),
-[manual single shooting](@ref base_fishing), and [API](@ref base_api).
-""")
+    This focused build renders the repository's shared CorleoneBase documentation:
+    [sequential workflow](@ref corleonebase),
+    [manual single shooting](@ref base_fishing), and [API](@ref base_api).
+    """
+)
 Literate.markdown(
     joinpath(repository, "lib", "CorleoneBase", "examples", "lotka_fishing", "main.jl"),
     joinpath(output, "src", "examples");
