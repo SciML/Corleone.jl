@@ -34,6 +34,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Type stability" begin
                 include("core/type_stability.jl")
             end
+            @safetestset "Parameter transforms" begin
+                include("core/transforms.jl")
+            end
             return @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
             end

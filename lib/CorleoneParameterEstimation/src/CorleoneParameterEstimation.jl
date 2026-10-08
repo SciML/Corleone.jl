@@ -23,6 +23,9 @@ export Experiment, ExperimentData, experiments, n_experiments, n_observations,
 include("layer.jl")
 export ParameterEstimationLayer
 
+include("transforms.jl")
+export AbstractParameterTransform, Identity, Affine, Log, Logit
+
 include("residuals.jl")
 export residuals!, residual, model_values, n_shooting_constraints
 

@@ -289,14 +289,19 @@ function profile_likelihood(
     layer = problem.layer
     x_full = collect(vec(sol.u))
     m = _n_shared(layer, problem.ps0s)
-    x = collect(x_full[1:m])
+    transforms = problem.transforms
+    # The shared block is profiled in the *internal* (transformed) space; the natural values
+    # and the natural-scale interval are obtained by back-transforming the curve at the end.
+    xφ = collect(x_full[1:m])
     p = m
     n_obs = n_observations(get_data(layer))
 
-    # Asymptotic estimate (for the grid span and for cross-checking the intervals).
+    # Asymptotic estimate (natural values and natural intervals, for cross-checking).
     est0 = estimate_parameters(problem, sol; α = α, names = names)
-    se = est0.std_errors
     asymp_ci = est0.confidence_intervals
+    # Internal standard errors for the grid span. The delta method gives `se_θ = |dθ/dφ| se_φ`,
+    # so the internal standard errors follow by dividing by the (non-zero) derivative.
+    seφ = [est0.std_errors[i] / abs(dθ_dφ(transforms[i], xφ[i])) for i in 1:p]
 
     # Threshold for the profile RSS (also `σ̂² · t²` / `χ²`, see file header).
     rss_min, σ², dof, tcrit2 = _profile_threshold(problem, x_full, α)
@@ -308,10 +313,10 @@ function profile_likelihood(
     profiles_i = Vector{ProfileCurve{Vector{Float64}, Float64}}(undef, p)
     cis = Vector{Tuple{Float64, Float64}}(undef, p)
     for i in 1:p
-        se_i = se[i]
-        base = (isfinite(se_i) && se_i > 0) ? se_i : abs(x[i]) * 0.1 + 1.0e-3
-        lo = x[i] - span[i] * base
-        hi = x[i] + span[i] * base
+        se_i = seφ[i]
+        base = (isfinite(se_i) && se_i > 0) ? se_i : abs(xφ[i]) * 0.1 + 1.0e-3
+        lo = xφ[i] - span[i] * base
+        hi = xφ[i] + span[i] * base
         # Free variables of the global optimum (all flat indices except `i`): warm start for
         # the bracket check and for the first grid point.
         xfree0 = vec(collect(x_full[[k for k in eachindex(x_full) if k != i]]))
@@ -325,14 +330,20 @@ function profile_likelihood(
             vals[k] = θ
             rss_vals[k], xwarm = _profile_rss_at(problem, i, θ, solver, xwarm; kwargs...)
         end
-        lower, upper = _profile_ci_endpoints(vals, rss_vals, threshold, x[i])
+        lowerφ, upperφ = _profile_ci_endpoints(vals, rss_vals, threshold, xφ[i])
+        # Back-transform the curve and the interval endpoints to natural units. This is what
+        # makes a `Log`/`Logit` profile interval correctly asymmetric and confined to the
+        # transform's range (e.g. `(-Inf, Inf)` in log space becomes `(0, Inf)` naturally).
+        values = [from_internal(transforms[i], v) for v in vals]
+        lower = from_internal(transforms[i], lowerφ)
+        upper = from_internal(transforms[i], upperφ)
         name = isnothing(xnames) ? nothing : string(xnames[i])
-        profiles_i[i] = ProfileCurve(i, name, vals, rss_vals, rss_min, threshold, lower, upper)
+        profiles_i[i] = ProfileCurve(i, name, values, rss_vals, rss_min, threshold, lower, upper)
         cis[i] = (lower, upper)
     end
 
     return ProfileLikelihoodEstimate(
-        x, xnames, 1 - α, cis, profiles_i, asymp_ci, p, n_obs, dof
+        est0.x, xnames, 1 - α, cis, profiles_i, asymp_ci, p, n_obs, dof
     )
 end
 
@@ -340,10 +351,13 @@ end
     profile_likelihood(pe::ParameterEstimationLayer, sol; kwargs...)
 
 Convenience variant that constructs the [`CorleoneParameterEstimationProblem`](@ref) from
-the layer `pe` (with default options) and calls [`profile_likelihood`](@ref).
+the layer `pe` (with default options) and calls [`profile_likelihood`](@ref). The `transforms`
+keyword attaches [`AbstractParameterTransform`](@ref)s to the shared `[u0; p]` block and must
+match the transforms the solution was computed with; when the problem is built explicitly it
+already carries them.
 """
-function profile_likelihood(pe::ParameterEstimationLayer, sol; kwargs...)
-    prob = CorleoneParameterEstimationProblem(pe)
+function profile_likelihood(pe::ParameterEstimationLayer, sol; transforms = nothing, kwargs...)
+    prob = CorleoneParameterEstimationProblem(pe; transforms = transforms)
     return profile_likelihood(prob, sol; kwargs...)
 end
 

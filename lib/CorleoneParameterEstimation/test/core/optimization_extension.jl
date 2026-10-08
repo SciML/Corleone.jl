@@ -21,8 +21,8 @@ pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = (u, p, t) -> u[1:1
     optprob = OptimizationProblem(pe)
     @test optprob isa Optimization.OptimizationProblem
     @test length(optprob.u0) == 1
-    @test optprob.lb == problem(pe).lb
-    @test optprob.ub == problem(pe).ub
+    @test optprob.lb == [-Inf]
+    @test optprob.ub == [Inf]
 
     # The scalar objective is `0.5 * Σ rᵢ²`, evaluated at the initial guess.
     obj0 = optprob.f(optprob.u0, nothing)

@@ -15,17 +15,34 @@ With a [`MultipleShootingLayer`](@ref) the flat vector additionally contains the
 shooting initial conditions of every experiment (see [`ParameterEstimationLayer`](@ref)),
 which keep the trajectory continuous at the shooting points.
 
+# Parameter transforms
+
+By default the optimizer works directly on the natural parameters. The `transforms` keyword
+instead fits a *reparameterized* internal variable ``\\phi`` for every entry of the shared
+`[u0; p]` block (local shooting states are never transformed), with the natural value
+recovered as ``\\theta = \\mathrm{from\\_internal}(t, \\phi)`` (see
+[`AbstractParameterTransform`](@ref)). A transform other than [`Identity`](@ref) replaces
+the natural bounds of that variable with an unconstrained internal variable (for [`Log`](@ref)
+and [`Logit`](@ref) the constraint is encoded in the transform's range). The flat vector
+`x0` (and every other flat vector accepted or returned by this problem) is always expressed
+in the *internal* space.
+
+`transforms` accepts `nothing` (the default, all [`Identity`](@ref)), a single
+[`AbstractParameterTransform`](@ref) applied to every shared entry, or a vector/tuple with
+exactly one transform per shared entry (useful when tunable initial conditions and model
+parameters need different transforms).
+
 # Fields
 $(FIELDS)
 
 # Constructors
-- `CorleoneParameterEstimationProblem(layer; rng, x0, shooting_scale)`
+- `CorleoneParameterEstimationProblem(layer; rng, x0, shooting_scale, transforms)`
 
 The low-level `NonlinearSolve.NonlinearLeastSquaresProblem` can be built directly via
 [`problem`](@ref). Most users construct that problem through the convenience constructor
 `NonlinearSolve.NonlinearLeastSquaresProblem(pe::ParameterEstimationLayer; kwargs...)`.
 """
-struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2}
+struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2, TR}
     "The wrapped parameter-estimation layer"
     layer::L
     "Structured initial parameters of the first experiment (`(u0, p, controls)` for single shooting, or an `(interval_1, ...)` NamedTuple for multiple shooting)"
@@ -34,12 +51,14 @@ struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2}
     ps0s::S
     "The layer state"
     st::St
-    "Flat vector of optimization variables"
+    "Flat vector of optimization variables (in the internal, transformed space)"
     x0::X
-    "Flat lower bounds of the optimization variables (or `nothing`)"
+    "Flat lower bounds of the optimization variables (in the internal space, or `nothing`)"
     lb::B
-    "Flat upper bounds of the optimization variables (or `nothing`)"
+    "Flat upper bounds of the optimization variables (in the internal space, or `nothing`)"
     ub::B
+    "One [`AbstractParameterTransform`](@ref) per entry of the shared `[u0; p]` block (local shooting states are always `Identity`)"
+    transforms::TR
     "In-place residual function `(res, x, p) -> res` reconstructing the structured layer parameters from `x`"
     residual::R
     "Out-of-place residual function `(x, p) -> r` (reverse-mode-AD compatible), see [`residual`](@ref)"
@@ -110,8 +129,43 @@ function _n_shared(layer::ParameterEstimationLayer, ps0s::Tuple)
     return length(shared.u0) + length(shared.p)
 end
 
+# Map the shared `[u0; p]` block of a flat *internal* vector `x` back to natural parameter
+# values using `transforms` (one transform per shared entry). The remaining entries (the
+# multiple-shooting local states) are never transformed.
+function _natural_shared(x::AbstractVector, transforms::Tuple, nu::Int, np::Int)
+    u0 = [from_internal(transforms[i], x[i]) for i in 1:nu]
+    p = [from_internal(transforms[nu + j], x[nu + j]) for j in 1:np]
+    return u0, p
+end
+
+# Map the shared `[u0; p]` block of a flat *natural* vector to internal values, leaving the
+# local-state entries (beyond the first `m`) untouched. The default initial parameter values
+# must lie in the domain of their transform; a non-finite or out-of-domain start is reported
+# as a clear error rather than an obscure `DomainError`.
+function _to_internal_shared(natural::AbstractVector, transforms::Tuple, m::Int)
+    shared = map(1:m) do i
+        θ = natural[i]
+        φ = try
+            to_internal(transforms[i], θ)
+        catch
+            throw(ArgumentError(
+                "The initial value $(θ) of shared optimization variable $i is not in the " *
+                "domain of transform $(transforms[i]). Provide a feasible initial parameter " *
+                "value or an explicit `x0` (in the internal space)."
+            ))
+        end
+        isfinite(φ) || throw(ArgumentError(
+            "The initial value $(θ) of shared optimization variable $i maps to the " *
+            "non-finite internal value $φ under transform $(transforms[i])."
+        ))
+        return φ
+    end
+    return vcat(shared, natural[(m + 1):end])
+end
+
 # Reconstruct the structured layer parameters `ps` used by the layer callable (and the
-# residual evaluation) from the flat vector `x`.
+# residual evaluation) from the flat internal vector `x`. The shared `[u0; p]` block is
+# mapped back to natural units with `transforms`.
 #
 # * Single shooting: a single shared `(u0, p, controls)` NamedTuple (controls picked up
 #   from the first experiment and overridden per experiment with fixed design inputs).
@@ -120,20 +174,18 @@ end
 # * Multiple shooting with several experiments: a *tuple* with one such interval NamedTuple
 #   per experiment (each with its own local shooting states and fixed controls, sharing the
 #   model `[u0; p]`).
-function _unflatten(pe::ParameterEstimationLayer, ps0s::Tuple, x::AbstractVector)
+function _unflatten(pe::ParameterEstimationLayer, ps0s::Tuple, x::AbstractVector, transforms)
     layers = get_layer(pe)
     data = get_data(pe)
     n_exp = n_experiments(data)
     shared = _shared_block(layers[1], ps0s[1])
     nu = length(shared.u0)
-    m = nu + length(shared.p)
+    np = length(shared.p)
+    m = nu + np
     @assert length(x) >= m
+    u0, p = _natural_shared(x, transforms, nu, np)
     if !_is_multiple_shooting(pe)
-        return (
-            u0 = collect(x[1:nu]),
-            p = collect(x[(nu + 1):m]),
-            controls = ps0s[1].controls,
-        )
+        return (u0 = u0, p = p, controls = ps0s[1].controls)
     end
     # Split the flat local-states block into per-experiment slices and rebuild the interval
     # parameters of every experiment. Local states of intervals `2..K` each hold the full
@@ -142,7 +194,7 @@ function _unflatten(pe::ParameterEstimationLayer, ps0s::Tuple, x::AbstractVector
         li = _n_local_states(layers[i], ps0s[i])
         start = m + 1 + (i - 1) * li
         λi = collect(x[start:(start + li - 1)])
-        _unflatten_ms(ps0s[i], (u0 = collect(x[1:nu]), p = collect(x[(nu + 1):m])), λi)
+        _unflatten_ms(ps0s[i], (u0 = u0, p = p), λi)
     end
     return n_exp == 1 ? only(ps) : ps
 end
@@ -171,6 +223,47 @@ function _unflatten_ms(ps0_i::NamedTuple, shared, λ::AbstractVector)
         end
     end
     return NamedTuple{keys(ps0_i)}(blocks)
+end
+
+# --- Transforms --------------------------------------------------------------------
+# Normalize the user-facing `transforms` keyword into a `Tuple` with one transform per entry
+# of the shared `[u0; p]` block (`m` entries). Accepts `nothing` (all `Identity`), a single
+# transform (applied to every shared entry), or a vector/tuple of exactly `m` transforms.
+# A `Tuple` is used so that even a *mixed* choice keeps a concrete element type per slot and
+# the transform application stays type-stable (`Vector{AbstractParameterTransform}` would not).
+function _resolve_transforms(transforms, m::Int)
+    transforms === nothing && return ntuple(_ -> Identity(), m)
+    transforms isa AbstractParameterTransform && return ntuple(_ -> transforms, m)
+    if transforms isa Union{AbstractVector, Tuple}
+        length(transforms) == m || throw(ArgumentError(
+            "Got $(length(transforms)) transform(s) for the shared `[u0; p]` block of " *
+            "length $m. Provide exactly one transform per shared optimization variable."
+        ))
+        all(t -> t isa AbstractParameterTransform, transforms) || throw(ArgumentError(
+            "Every entry of `transforms` must be an `AbstractParameterTransform`."))
+        return Tuple(transforms)
+    end
+    throw(ArgumentError(
+        "`transforms` must be `nothing`, an `AbstractParameterTransform`, or a " *
+        "vector/tuple of them (got $(typeof(transforms)))."
+    ))
+end
+
+# Flat internal bounds implied by the transforms. The shared block uses each transform's
+# internal bounds (natural bounds for `Identity`, unconstrained for the others); the local
+# shooting states keep their natural bounds.
+function _transformed_bounds(transforms::Tuple, lb, ub, m::Int)
+    T = promote_type(eltype(lb), Float64)
+    out_lb = Vector{T}(undef, length(lb))
+    out_ub = Vector{T}(undef, length(ub))
+    for i in 1:m
+        out_lb[i], out_ub[i] = _internal_bounds(transforms[i], lb[i], ub[i])
+    end
+    for i in (m + 1):length(lb)
+        out_lb[i] = lb[i]
+        out_ub[i] = ub[i]
+    end
+    return out_lb, out_ub
 end
 
 # --- Bounds ------------------------------------------------------------------------
@@ -236,6 +329,7 @@ function CorleoneParameterEstimationProblem(
         rng::Random.AbstractRNG = Random.default_rng(),
         x0 = nothing,
         shooting_scale::Real = 1.0,
+        transforms = nothing,
     )
     # One structured parameter set per experiment (its shooting layer's initial
     # parameters), plus the tuple of per-experiment layer states. `ps0` (the first
@@ -243,8 +337,13 @@ function CorleoneParameterEstimationProblem(
     n_exp = n_experiments(get_data(layer))
     ps0s = ntuple(i -> LuxCore.initialparameters(rng, get_layer(layer)[i]), n_exp)
     st = ntuple(i -> LuxCore.initialstates(rng, get_layer(layer)[i]), n_exp)
-    x0 = isnothing(x0) ? _flatten(layer, ps0s) : x0
-    lb, ub = _tunable_bounds(layer, ps0s)
+    # One transform per shared `[u0; p]` entry. The default `x0` is built from the natural
+    # initial parameters and mapped to internal space; an explicitly supplied `x0` is taken
+    # to be already internal (matching the space the optimizer works in).
+    m = _n_shared(layer, ps0s)
+    transforms = _resolve_transforms(transforms, m)
+    x0 = isnothing(x0) ? _to_internal_shared(_flatten(layer, ps0s), transforms, m) : x0
+    lb, ub = _transformed_bounds(transforms, _tunable_bounds(layer, ps0s)..., m)
 
     # Optional weighting of the shooting (continuity) residuals. Observations are
     # residualized against their noise scale `σ`, so they are `O(1)` at the noise floor,
@@ -264,9 +363,9 @@ function CorleoneParameterEstimationProblem(
     )
     n_res = n_obs + n_shoot
     residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs,
-            shooting_scale = Float64(shooting_scale)
+            transforms = transforms, shooting_scale = Float64(shooting_scale)
         (res, x, p) -> begin
-            ps = _unflatten(layer, ps0s, x)
+            ps = _unflatten(layer, ps0s, x, transforms)
             residuals!(res, layer, ps, st)
             if shooting_scale != 1.0
                 @views res[(n_obs + 1):end] .*= shooting_scale
@@ -278,9 +377,9 @@ function CorleoneParameterEstimationProblem(
     # requested (see `residual` in `residuals.jl`). It reuses the functional residual path and
     # applies the same `shooting_scale` weighting without mutating in place.
     residual_oop = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
-            shooting_scale = Float64(shooting_scale)
+            transforms = transforms, shooting_scale = Float64(shooting_scale)
         (x, p) -> begin
-            ps = _unflatten(layer, ps0s, x)
+            ps = _unflatten(layer, ps0s, x, transforms)
             r = CorleoneParameterEstimation.residual(layer, ps, st)
             if shooting_scale == 1.0
                 return r
@@ -290,7 +389,7 @@ function CorleoneParameterEstimationProblem(
     end
 
     return CorleoneParameterEstimationProblem(
-        layer, ps0s[1], ps0s, st, x0, lb, ub, residual, residual_oop,
+        layer, ps0s[1], ps0s, st, x0, lb, ub, transforms, residual, residual_oop,
         Float64(shooting_scale), n_res, n_shoot
     )
 end
