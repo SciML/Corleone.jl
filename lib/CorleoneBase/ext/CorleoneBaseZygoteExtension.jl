@@ -76,40 +76,56 @@ function ChainRulesCore.rrule(
 end
 
 # SciML's state access pullbacks use a DiffEqArray, whereas problem metadata
-# uses a structural tangent. Normalize both paths locally before accumulation.
-function solution_cotangent(delta)
+# uses a structural tangent. Buffer accumulation also requires matching keys.
+function solution_cotangent(delta, solution)
     delta = unthunk(delta)
-    if delta isa AbstractArray && hasproperty(delta, :u)
-        return Tangent{Any}(; u = delta.u)
+    state_array = delta isa AbstractArray && hasproperty(delta, :u)
+    if solution isa SciMLBase.AbstractSciMLSolution &&
+        (state_array || delta isa Tangent || delta isa NamedTuple)
+        fields = fieldnames(typeof(solution))
+        values = map(fields) do field
+            if state_array
+                field === :u ? delta.u : ZeroTangent()
+            else
+                hasproperty(delta, field) ? getproperty(delta, field) : ZeroTangent()
+            end
+        end
+        return Tangent{Any}(; NamedTuple{fields}(values)...)
     end
     return delta
 end
 
 stage_solution(solution) = solution
 function ChainRulesCore.rrule(::typeof(stage_solution), solution)
-    return solution, delta -> (NoTangent(), solution_cotangent(delta))
+    return solution, delta -> (NoTangent(), solution_cotangent(delta, solution))
 end
 
 saved_buffer(buffer) = buffer
 function ChainRulesCore.rrule(::typeof(saved_buffer), buffer)
     function buffer_pullback(delta)
         delta = unthunk(delta)
-        return NoTangent(), delta isa AbstractZero ? delta : map(solution_cotangent, delta)
+        return NoTangent(), delta isa AbstractZero ? delta : map(solution_cotangent, delta, buffer)
     end
     return buffer, buffer_pullback
 end
 
-# Differentiate stage accumulation without differentiating buffer or index
-# mutation. Keep all saved solutions, including any preallocated suffix.
+# Buffer mutations have Zygote pullbacks. Initialize all existing entries and
+# freeze only after the final stage, retaining any preallocated suffix.
 function finish_stages(buffer, state, transition, terminal, algorithm, solve_kwargs)
-    terminal(buffer[state], state) && return saved_buffer(buffer), state
-    problem = prepare_stage_problem(transition(stage_solution(buffer[state]), state + 1))
-    solution = solve(problem, algorithm; solve_kwargs...)
-    SciMLBase.successful_retcode(solution) || return saved_buffer(buffer), state
-    next_buffer = [buffer[1:state]; [solution]; buffer[(state + 2):end]]
-    return finish_stages(
-        next_buffer, state + 1, transition, terminal, algorithm, solve_kwargs
-    )
+    scratch = Zygote.Buffer(buffer)
+    copyto!(scratch, buffer)
+    while !terminal(stage_solution(scratch[state]), state)
+        problem = prepare_stage_problem(transition(stage_solution(scratch[state]), state + 1))
+        solution = solve(problem, algorithm; solve_kwargs...)
+        SciMLBase.successful_retcode(solution) || break
+        if length(scratch) >= state + 1
+            scratch[state + 1] = solution
+        else
+            push!(scratch, solution)
+        end
+        state += 1
+    end
+    return saved_buffer(copy(scratch)), state
 end
 
 function ChainRulesCore.rrule(

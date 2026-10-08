@@ -1,6 +1,8 @@
-using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff, AutoReverseDiff, AutoZygote, check_available
+using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff, AutoReverseDiff, AutoZygote,
+    AutoMooncake, AutoMooncakeForward, check_available
 using FiniteDiff
 using ForwardDiff
+using Mooncake
 using ReverseDiff
 using SciMLSensitivity
 using Zygote
@@ -19,5 +21,9 @@ test_sequential_ad(
 @test check_available(AutoZygote())
 test_sequential_ad(AutoZygote())
 include("zygote_rules.jl")
+@test check_available(AutoMooncake())
+test_sequential_ad(AutoMooncake())
+@test check_available(AutoMooncakeForward())
+test_sequential_ad(AutoMooncakeForward())
 # Numerical differentiation is a baseline, not an AD implementation.
 test_sequential_ad(AutoFiniteDiff(); gradient_atol = 1.0e-5, gradient_rtol = 1.0e-5)
