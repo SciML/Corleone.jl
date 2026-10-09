@@ -7,11 +7,10 @@ Pkg.develop(
         PackageSpec(path = joinpath(@__DIR__, "..")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneBase")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
-        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
     ]
 )
 
-using Documenter, Corleone, CorleoneBase, CorleoneOED, OptimalControlBenchmarks
+using Documenter, Corleone, CorleoneBase, CorleoneOED 
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
@@ -29,7 +28,7 @@ bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib
 makedocs(
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneBase, CorleoneOED, OptimalControlBenchmarks],
+    modules = [Corleone, CorleoneBase, CorleoneOED,],
     format = Documenter.HTML(
         assets = ["assets/favicon.ico"],
         canonical = "https://docs.sciml.ai/Corleone/stable/",
