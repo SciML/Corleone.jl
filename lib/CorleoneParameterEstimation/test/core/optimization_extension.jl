@@ -21,8 +21,10 @@ pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = (u, p, t) -> u[1:1
     optprob = OptimizationProblem(pe)
     @test optprob isa Optimization.OptimizationProblem
     @test length(optprob.u0) == 1
-    @test optprob.lb == [-Inf]
-    @test optprob.ub == [Inf]
+    # Trivial (`±Inf`) bounds are omitted so that unconstrained solvers such as `Adam`
+    # (which reject box constraints) can be used through the extension.
+    @test isnothing(optprob.lb)
+    @test isnothing(optprob.ub)
 
     # The scalar objective is `0.5 * Σ rᵢ²`, evaluated at the initial guess.
     obj0 = optprob.f(optprob.u0, nothing)
@@ -36,6 +38,16 @@ pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = (u, p, t) -> u[1:1
     # Problem-construction keywords are forwarded to the least-squares problem.
     optprob3 = OptimizationProblem(pe; shooting_scale = 2.0)
     @test optprob3.u0 == problem(pe; shooting_scale = 2.0).u0
+
+    # Finite bounds (here from `bounds_p`) are kept so that bounded solvers still enforce
+    # them.
+    layer_b = SingleShootingLayer(
+        prob, Tsit5(); saveat = unique(tdata), bounds_p = ([0.0], [2.0])
+    )
+    pe_b = ParameterEstimationLayer(layer_b, data; observed = (u, p, t) -> u[1:1])
+    optprob_b = OptimizationProblem(pe_b)
+    @test optprob_b.lb == [0.0]
+    @test optprob_b.ub == [2.0]
 end
 
 @testset "Optimization extension: Ipopt recovers the parameter" begin
