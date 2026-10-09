@@ -44,6 +44,14 @@ binding `problem`; `ctx` is a `SciMLBase.EnsembleContext`.
 """
 function prob_func(::AbstractParallelProblem, template, ctx) end
 
+@static if VERSION >= v"1.12"
+    fix_me(f, x) = Base.Fix1(f, x)
+else
+    fix_me(f, x) = let f = f, x = x 
+        (args...) -> f(x, args...)
+    end
+end
+
 """
     solve(problem::AbstractParallelProblem, alg::SciMLBase.AbstractSciMLAlgorithm,
           ensemblealg::SciMLBase.EnsembleAlgorithm; trajectories, kwargs...)
@@ -82,7 +90,7 @@ meaning. Under the default `output_func` the result is a
 
     ensemble_problem = SciMLBase.EnsembleProblem(;
         prob = get_problem(problem),
-        prob_func = Base.Fix1(prob_func, problem),
+        prob_func = fix_me(prob_func, problem),
         ensemblekwargs...
     )
 
