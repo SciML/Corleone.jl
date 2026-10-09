@@ -1,4 +1,4 @@
-struct ParallelProblem{P,F} <: AbstractParallelProblem
+struct ParallelProblem{P, F} <: AbstractParallelProblem
     problem::P
     prob_func::F
 end

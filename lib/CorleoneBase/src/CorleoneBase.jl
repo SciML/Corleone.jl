@@ -12,7 +12,7 @@ include("solution.jl")
 include("sequential.jl")
 include("parallel.jl")
 # Re-export types for user convenience
-export SequentialProblem 
+export SequentialProblem
 export ParallelProblem
 export SolutionWrapper
 

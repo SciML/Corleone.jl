@@ -27,27 +27,27 @@ end
 @generated function _split_problem_kwargs(::P, nt_kwargs::NamedTuple{K}) where {P <: SciMLBase.AbstractSciMLProblem, K}
     # These execute during compilation:
     valid_keys = fieldnames(P)
-    prob_keys  = Tuple(k for k in K if k in valid_keys)
+    prob_keys = Tuple(k for k in K if k in valid_keys)
     solve_keys = Tuple(k for k in K if !(k in valid_keys))
-    
+
     # This generates the exact type-stable slicing code for the specific kwargs passed
     return quote
-        prob_kwargs  = map(ArrayInterface.aos_to_soa, NamedTuple{$prob_keys}(nt_kwargs))
+        prob_kwargs = map(ArrayInterface.aos_to_soa, NamedTuple{$prob_keys}(nt_kwargs))
         solve_kwargs = NamedTuple{$solve_keys}(nt_kwargs)
         return prob_kwargs, solve_kwargs
     end
 end
 
-@generated function _prepare_problem(x::P) where P
+@generated function _prepare_problem(x::P) where {P}
     f_names = fieldnames(P)
     kw_exprs = [
         Expr(:kw, f, :(ArrayInterface.aos_to_soa(getfield(x, $(QuoteNode(f))))))
-        for f in f_names
+            for f in f_names
     ]
     return Expr(:call, :remake, Expr(:parameters, kw_exprs...), :x)
 end
 
-@inline prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem) = _prepare_problem(x) 
+@inline prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem) = _prepare_problem(x)
 
 # 2. Your frontend function simply converts the kwargs to a NamedTuple and forwards it
 @inline function split_problem_kwargs(prob::SciMLBase.AbstractSciMLProblem, kwargs)
@@ -64,7 +64,7 @@ are supplied by the transition, not remade with the initial overrides.
 @inline function CommonSolve.init(
         problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm;
         kwargs...
-    ) where T <: SciMLBase.AbstractSciMLProblem
+    ) where {T <: SciMLBase.AbstractSciMLProblem}
 
     prob = get_problem(problem)
     initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
