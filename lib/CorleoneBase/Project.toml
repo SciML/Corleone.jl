@@ -1,0 +1,37 @@
+name = "CorleoneBase"
+uuid = "6f54492f-12d6-41e4-ab82-b1e7b758f1e1"
+version = "0.1.0"
+authors = ["Carl Julius Martensen <julius.martensen@gmail.com>"]
+
+[deps]
+ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
+CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+
+[weakdeps]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[extensions]
+CorleoneBaseZygoteExtension = ["ChainRulesCore", "Zygote"]
+
+[compat]
+ArrayInterface = "7"
+ChainRulesCore = "1"
+CommonSolve = "0.2.14"
+OrdinaryDiffEqTsit5 = "2.1.5"
+SafeTestsets = "0.1"
+SciMLBase = "3.57.0"
+SciMLTesting = "2.6"
+Test = "1"
+Zygote = "0.7"
+julia = "1.10"
+
+[extras]
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["OrdinaryDiffEqTsit5", "SafeTestsets", "SciMLTesting", "Test"]

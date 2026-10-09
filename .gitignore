@@ -11,3 +11,12 @@ docs/src/examples
 /newdocs/build/
 /newdocs/Manifest.toml
 .vscode/
+lib/CorleoneBase/.issues/01-package-and-test-harness.md
+lib/CorleoneBase/.issues/02-problem-and-callable-contracts.md
+lib/CorleoneBase/.issues/03-lazy-state-and-single-stage.md
+lib/CorleoneBase/.issues/04-lazy-transitions-and-stable-types.md
+lib/CorleoneBase/.issues/05-permanent-failure-and-retcodes.md
+lib/CorleoneBase/.issues/06-destructive-iterator.md
+lib/CorleoneBase/.issues/07-full-solve-stage-vector.md
+lib/CorleoneBase/.issues/08-qa-and-julia-compatibility.md
+lib/CorleoneBase/.issues/09-document-and-final-regression.md
