@@ -187,6 +187,34 @@ julia> (length(failed), isempty(transitions), successful_retcode(failed),
 (1, true, false, true)
 ```
 
+## Parallel problems
+
+`ParallelProblem` wraps a problem — typically a `SequentialProblem` — so SciML's
+ensemble machinery can solve it across `trajectories` ensemble members. The
+wrapped problem is the template; the `prob_func` hook builds each trajectory
+from the template and a `SciMLBase.EnsembleContext` (`ctx.sim_id`, `ctx.repeat`,
+`ctx.rng`, `ctx.sim_seed`, `ctx.master_rng`).
+
+```julia
+using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5, SciMLBase
+
+problem = ParallelProblem(sequence; prob_func = (problem, template, ctx) ->
+    SequentialProblem(remake(template.problem; u0 = rand(ctx.rng, 1));
+                      transition = template.transition, terminal = template.terminal))
+
+trajectories = solve(problem, Tsit5(), EnsembleSerial(); trajectories = 8,
+                     seed = 1)
+length(trajectories.u)  # 8
+```
+
+`output_func`, `reduction`, `u_init`, and `safetycopy` are forwarded to the
+underlying `SciMLBase.EnsembleProblem`; all other keywords (`rng`, `seed`,
+`abstol`, `maxiters`, ...) reach the ensemble and inner solves. `trajectories`
+is required. On the declared Julia 1.10 minimum the default hook binding cannot
+forward the ensemble context, so the parallel entry point requires Julia 1.12 or
+later; the Core test suite records that limitation as a version-gated
+regression check.
+
 ## Running and checking the tutorial
 
 From the repository root, run the standalone Literate source with its own

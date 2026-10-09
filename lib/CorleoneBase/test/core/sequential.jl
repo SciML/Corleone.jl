@@ -4,6 +4,7 @@ using CommonSolve: CommonSolve, init, solve, solve!, step!
 using OrdinaryDiffEqTsit5: Tsit5
 using SciMLBase: SciMLBase, ODEProblem, isinplace, remake, successful_retcode
 using Test
+import ArrayInterface
 
 @test realpath(pkgdir(CorleoneBase)) == realpath(joinpath(@__DIR__, "../.."))
 @test Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension) === nothing
@@ -201,4 +202,117 @@ end
     @test attempts == [2]
     @test it.state == 2
     @test length(w2) == 2
+end
+
+# Regression coverage for the unpushed CorleoneBase API changes: the abstract
+# problem is now a SciML problem, `init` dispatches on a SciML algorithm, and
+# keywords are partitioned by the wrapped problem's field names.
+@testset "AbstractSequentialProblem is a SciML problem" begin
+    @test CorleoneBase.AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem
+    @test SequentialProblem <: SciMLBase.AbstractSciMLProblem
+end
+
+@testset "init dispatch requires a SciML algorithm" begin
+    problem = SequentialProblem(StageProblem(true))
+    @test_throws MethodError init(problem, nothing)
+    @test_throws MethodError init(problem, :not_an_algorithm)
+end
+
+@testset "Keyword partitioning by problem fields" begin
+    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
+    solve_kwargs = (; abstol = 1.0e-9, reltol = 1.0e-9, save_everystep = false)
+    it = init(
+        SequentialProblem(template), Tsit5();
+        solve_kwargs..., u0 = [1.2], p = 0.4, tspan = (2.0, 3.0)
+    )
+    @test it.problem.u0 == [1.2]
+    @test it.problem.p == 0.4
+    @test it.problem.tspan == (2.0, 3.0)
+    @test it.solve_kwargs == solve_kwargs
+    @test !haskey(it.solve_kwargs, :u0)
+    @test !haskey(it.solve_kwargs, :p)
+    @test !haskey(it.solve_kwargs, :tspan)
+    @test template.u0 == [9.0] && template.p == 4.0 && template.tspan == (0.0, 1.0)
+
+    # An ODEProblem field that is not u0/p/tspan is routed to remake, not solve.
+    problem_kwargs, remainder = CorleoneBase.split_problem_kwargs(
+        template, (f = template.f, abstol = 1.0e-6, save_everystep = false)
+    )
+    @test haskey(problem_kwargs, :f)
+    @test remainder == (; abstol = 1.0e-6, save_everystep = false)
+
+    # The empty keyword collection partitions into two empty NamedTuples.
+    empty_problem, empty_solve = CorleoneBase.split_problem_kwargs(template, (;))
+    @test isempty(empty_problem) && isempty(empty_solve)
+end
+
+# Fixtures owned by this test module for field-based keyword routing.
+struct KwProblem <: SciMLBase.AbstractSciMLProblem
+    tag::Symbol
+end
+struct KwSolution
+    tag::Symbol
+    retcode::SciMLBase.ReturnCode.T
+end
+SciMLBase.remake(p::KwProblem; tag = p.tag) = KwProblem(tag)
+CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) =
+    KwSolution(p.tag, SciMLBase.ReturnCode.Success)
+SciMLBase.successful_retcode(::KwSolution) = true
+
+@testset "Field-named keywords remake only the first problem" begin
+    problem = SequentialProblem(KwProblem(:a); terminal = (sol, i) -> true)
+    it = init(problem, NoSolve(); tag = :b, abstol = 1.0e-6, extra = 2)
+    @test it.problem isa KwProblem
+    @test it.problem.tag == :b
+    @test it.solve_kwargs == (; abstol = 1.0e-6, extra = 2)
+    @test it.buffer[1].tag == :b
+end
+
+# Every field of any SciML problem is passed through ArrayInterface.aos_to_soa,
+# not only ODE u0/p as in the previous ODEProblem special case.
+struct AoSMarker end
+struct SoAMarker end
+struct MarkerProblem <: SciMLBase.AbstractSciMLProblem
+    data
+end
+struct MarkerSolution
+    data
+    retcode::SciMLBase.ReturnCode.T
+end
+ArrayInterface.aos_to_soa(::AoSMarker) = SoAMarker()
+SciMLBase.remake(p::MarkerProblem; data = p.data) = MarkerProblem(data)
+CommonSolve.solve(p::MarkerProblem, ::NoSolve; kwargs...) =
+    MarkerSolution(p.data, SciMLBase.ReturnCode.Success)
+SciMLBase.successful_retcode(::MarkerSolution) = true
+
+@testset "prepare_stage_problem converts every problem field" begin
+    prepared = CorleoneBase.prepare_stage_problem(MarkerProblem(AoSMarker()))
+    @test prepared isa MarkerProblem
+    @test prepared.data isa SoAMarker
+
+    problem_kwargs, remainder = CorleoneBase.split_problem_kwargs(
+        MarkerProblem(AoSMarker()), (data = AoSMarker(), extra = 1)
+    )
+    @test problem_kwargs.data isa SoAMarker
+    @test remainder == (; extra = 1)
+
+    # Ordinary ODE problems are accepted by the generic method and unchanged.
+    ode = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), [2.0])
+    prepared_ode = CorleoneBase.prepare_stage_problem(ode)
+    @test typeof(prepared_ode) === typeof(ode)
+    @test prepared_ode.u0 == ode.u0
+    @test prepared_ode.p == ode.p
+    @test prepared_ode.tspan == ode.tspan
+    # The generic method always remakes, unlike the earlier ODE method's early
+    # return when u0/p were unchanged. This changed contract is flagged in
+    # REGRESSION_FINDINGS.md (a repeatable per-stage allocation).
+    @test prepared_ode !== ode
+
+    # In-place problems are supported too; plain arrays are unchanged.
+    inplace = ODEProblem((du, u, p, t) -> (du .= -p .* u; nothing), [1.0], (0.0, 1.0), [2.0])
+    prepared_inplace = CorleoneBase.prepare_stage_problem(inplace)
+    @test isinplace(prepared_inplace)
+    @test prepared_inplace.u0 == inplace.u0
+    @test prepared_inplace.p == inplace.p
+    @test prepared_inplace !== inplace
 end

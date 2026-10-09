@@ -11,8 +11,11 @@ GROUP in ("All", "Core", "AD", "QA", "Docs", "Everything") ||
 withenv("GROUP" => GROUP) do
     run_tests(;
         core = function ()
-            return @safetestset "Sequential Core contracts" begin
+            @safetestset "Sequential Core contracts" begin
                 include("core/sequential.jl")
+            end
+            return @safetestset "Parallel Core contracts" begin
+                include("core/parallel.jl")
             end
         end,
         groups = Dict(

@@ -2,7 +2,10 @@ module CorleoneBase
 
 using SciMLBase: SciMLBase, remake
 using CommonSolve: CommonSolve, solve
-using ArrayInterface
+# `import` (not `using`) so the module name is bound explicitly; every use is
+# qualified as `ArrayInterface.aos_to_soa`, and ExplicitImports rejects the
+# implicit module-name import that `using ArrayInterface` introduces.
+import ArrayInterface
 
 include("abstractsequential.jl")
 include("abstractparallel.jl")
