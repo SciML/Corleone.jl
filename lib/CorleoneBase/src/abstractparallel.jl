@@ -47,7 +47,7 @@ function prob_func(::AbstractParallelProblem, template, ctx) end
 @static if VERSION >= v"1.12"
     fix_me(f, x) = Base.Fix1(f, x)
 else
-    fix_me(f, x) = let f = f, x = x 
+    fix_me(f, x) = let f = f, x = x
         (args...) -> f(x, args...)
     end
 end
