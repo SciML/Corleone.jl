@@ -32,7 +32,16 @@ function Optimization.OptimizationProblem(
     optf = OptimizationFunction(objective, AD)
     # The scalar objective already closes over everything it needs (the residuals),
     # so nothing is passed as the fixed parameters `p` of the OptimizationProblem.
-    return OptimizationProblem(optf, x0, nothing; lb = lb, ub = ub)
+    #
+    # Trivial (`±Inf`) bounds are omitted so that unconstrained solvers such as `Adam`
+    # (which reject box constraints) can be used. This mirrors the behaviour of the
+    # `NonlinearLeastSquaresProblem` constructor, which also drops trivial bounds. Finite
+    # bounds are kept, so bounded solvers (e.g. `LBFGSB`, `Ipopt`) still enforce them.
+    finite_bounds = any(CorleoneParameterEstimation._has_finite_bounds, (lb, ub))
+    if finite_bounds
+        return OptimizationProblem(optf, x0, nothing; lb = lb, ub = ub)
+    end
+    return OptimizationProblem(optf, x0, nothing)
 end
 
 end

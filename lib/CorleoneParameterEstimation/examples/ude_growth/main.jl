@@ -1,10 +1,11 @@
 #src ---
 #src title: Universal Differential Equation with a Lux Network
-#src description: Embed a Lux.Chain of Dense layers in the right-hand side of an ODE to replace an unknown term, then train it with Adam followed by L-BFGS-B through the CorleoneParameterEstimation Optimization extension
+#src description: Embed a Lux.Chain of Dense layers in the right-hand side of an ODE to replace an unknown term. Fit one experiment, see the extrapolation, then add a second experiment and fit both jointly with Adam followed by L-BFGS-B through the CorleoneParameterEstimation Optimization extension
 #src tags:
 #src   - Universal Differential Equation
 #src   - Neural Network
 #src   - Parameter Estimation
+#src   - Multi-experiment
 #src   - Lux
 #src icon: 🧠
 #src ---
@@ -17,7 +18,7 @@
 # ```math
 # \dot u = f(u, t) + \mathrm{NN}_\theta(u),
 # ```
-# where `\mathrm{NN}_\theta` is a small neural network whose parameters `\theta` are fitted
+# where ``\mathrm{NN}_\theta`` is a small neural network whose parameters ``\theta`` are fitted
 # jointly with the ODE. Because the network enters the *right-hand side*, it is trained
 # through the ODE solver, not on a pre-computed derivative.
 #
@@ -28,15 +29,11 @@
 # and we only tell the model the linear decay `-0.5u`; the network has to discover `g` from
 # noisy observations of `u(t)`.
 #
-# The example shows the two ingredients that make a UDE fit work in practice:
-#
-# 1. **Embedding a `Lux` network in the ODE parameters.** The network parameters are stored
-#    inside the problem parameters `p` as a `ComponentArray` field, so Corleone's shooting
-#    layer flattens and optimizes them like any other model parameter.
-# 2. **A two-stage training schedule.** A short **Adam** phase finds a good basin of the
-#    non-convex network landscape, and a quasi-Newton **L-BFGS-B** phase then polishes the
-#    solution to high accuracy. Both stages are driven through the
-#    `CorleoneParameterEstimation` Optimization extension.
+# We proceed in two steps. First we fit a **single experiment** and plot the recovered term:
+# the network is only constrained where the trajectory has visited, and it extrapolates
+# everywhere else. Then we add a **second experiment** from a different initial condition
+# that visits the unobserved region and fit both experiments **jointly**, which pins the
+# network down on the previously extrapolated part.
 
 # ## Setup
 
@@ -48,11 +45,12 @@ using Optimization, OptimizationOptimisers, OptimizationLBFGSB
 using CairoMakie
 using StableRNGs
 
-# ## Ground truth and noisy observations
+# ## Ground truth and the first experiment
 
-# We define the true right-hand side, integrate it on a fine grid, and add Gaussian
-# measurement noise. The noise scale `σ` is stored in the data so that the fit uses
-# *weighted* least-squares residuals `(y_obs - y_model) / σ`.
+# We define the true right-hand side and integrate it from `u₀ = 2.0`. The trajectory decays
+# through the upper half of state space. Observations are corrupted with Gaussian
+# measurement noise `σ = 0.01`, stored in the data so that the fit uses *weighted*
+# least-squares residuals `(y_obs - y_model) / σ`.
 
 g_true(u) = 0.5 * sin(u)
 
@@ -61,15 +59,15 @@ function true_rhs!(du, u, p, t)
     return
 end
 
-u0 = [2.0]
+u0_1 = [2.0]
 tspan = (0.0, 10.0)
-prob_true = ODEProblem(true_rhs!, u0, tspan, Float64[])
 tdata = collect(0.0:0.2:10.0)
+σ_obs = 0.01
 
 rng = StableRNG(1)
-traj_true = solve(prob_true, Tsit5(); saveat = tdata)
-ydata = reduce(hcat, traj_true.u) .+ 0.01 .* randn(rng, 1, length(tdata))
-data = ExperimentData(tdata, ydata; σ = 0.01)
+traj_true1 = solve(ODEProblem(true_rhs!, u0_1, tspan, Float64[]), Tsit5(); saveat = tdata)
+y1 = reduce(hcat, traj_true1.u) .+ σ_obs .* randn(rng, 1, length(tdata))
+data_1 = ExperimentData(tdata, y1; σ = σ_obs)
 
 # ## The neural network
 #
@@ -108,114 +106,235 @@ function ude_rhs!(du, u, p, t)
     return
 end
 
-prob = ODEProblem(ude_rhs!, u0, tspan, p0)
+prob = ODEProblem(ude_rhs!, u0_1, tspan, p0)
 
-# ## The parameter-estimation layer
+# ## Fitting the first experiment
 #
 # `ParameterEstimationLayer` wraps the ODE problem and the data. The resulting
 # `OptimizationProblem` exposes a flat vector of all tunable parameters — here the 217
 # weights and biases of the network — together with the scalar objective
 # ``\tfrac12 \sum_i r_i^2`` over the weighted residuals.
-
-pe = ParameterEstimationLayer(prob, Tsit5(), data)
-optprob = OptimizationProblem(pe)
-println("Number of tunable parameters: ", length(optprob.u0))
-
-# ## Two-stage training
 #
-# ### Stage 1 — Adam
-#
-# Adam is a robust first-order method for the rough, non-convex landscape of a randomly
-# connected network. We run a fixed budget of iterations and keep the result as the starting
-# point for the second stage.
+# Training uses two stages: a short **Adam** phase to find a good basin of the non-convex
+# network landscape, followed by a quasi-Newton **L-BFGS-B** phase that polishes the
+# solution. Both are driven through the `CorleoneParameterEstimation` Optimization
+# extension.
 
-sol_adam = solve(optprob, Adam(0.01); maxiters = 500)
-println("Adam objective: ", sol_adam.objective)
+pe_1 = ParameterEstimationLayer(prob, Tsit5(), data_1)
+opt_1 = OptimizationProblem(pe_1)
+println("Number of tunable parameters: ", length(opt_1.u0))
 
-# ### Stage 2 — L-BFGS-B
-#
-# Starting from the Adam iterate, a limited-memory BFGS solver converges quickly to a
-# high-accuracy least-squares solution.
+sol_adam_1 = solve(opt_1, Adam(0.01); maxiters = 500)
+println("Adam objective (experiment 1): ", sol_adam_1.objective)
 
-sol = solve(optprob, LBFGSB(); u0 = sol_adam.u, maxiters = 500)
-println("L-BFGS-B objective: ", sol.objective)
-println("Converged: ", SciMLBase.successful_retcode(sol))
+sol_1 = solve(opt_1, LBFGSB(); u0 = sol_adam_1.u, maxiters = 500)
+println("L-BFGS-B objective (experiment 1): ", sol_1.objective)
 
-# ## Reconstructing the fitted trajectory
-#
 # The optimization variables are exactly the flattened parameter vector (the model has no
 # tunable initial condition), so we can rebuild the fitted `ComponentArray` from the
-# solution and re-integrate the UDE. We then measure the weighted coefficient of
-# determination ``R^2``.
+# solution.
 
-p_fit = ComponentArray(sol.u, getaxes(p0))
-traj_fit = solve(remake(prob; p = p_fit), Tsit5(); saveat = tdata)
-yfit = reduce(hcat, traj_fit.u)
+p_1 = ComponentArray(sol_1.u, getaxes(p0))
 
-r2 = 1 - sum(abs2, ydata .- yfit) / sum(abs2, ydata .- sum(ydata) / length(ydata))
-println("Weighted R² = ", r2)
-
-# ## What did the network learn?
+# ## The first fit extrapolates
 #
-# The most informative check for a UDE is not the trajectory fit but the *learned term*
-# itself. We evaluate the network on a grid of states and compare it against the true
-# `g(u)`. A neural network is only constrained where it has seen data, so the shaded region
-# in the right-hand plot marks the states visited by the trajectory; outside it the network
-# is extrapolating and we should not trust its output.
+# We simulate the fitted model and evaluate its learned term on a grid of states. The
+# shaded region marks the states the trajectory never visits: there the network is
+# extrapolating. The fit is excellent on the visited range but the recovered term departs
+# from `g(u)` below `u ≈ 0.74`.
+
+function ude_traj(p; u0 = u0_1)
+    return solve(remake(prob; p = p, u0 = u0), Tsit5(); saveat = tdata)
+end
+
+single_1 = reduce(hcat, ude_traj(p_1).u)
 
 ugrid = collect(0.0:0.05:2.0)
-g_hat = [nn([u], p_fit.net, st_nn)[1][1] for u in ugrid]
-u_obs = vec(ydata)
-u_lo, u_hi = extrema(u_obs)
-println("states visited by the data: [", round(u_lo; digits = 3), ", ",
-    round(u_hi; digits = 3), "]")
-println("max |ĝ(u) - g(u)| on the data range = ",
-    maximum(abs.(g_hat[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))))
+g_single = [nn([u], p_1.net, st_nn)[1][1] for u in ugrid]
 
-# ## Plotting
+u_obs_1 = vec(y1)
+u_lo_1, u_hi_1 = extrema(u_obs_1)
+println("States visited by experiment 1: [", round(u_lo_1; digits = 3), ", ",
+    round(u_hi_1; digits = 3), "]")
 
-function plot_ude(tdata, ydata, traj_true, yfit, ugrid, g_hat)
+function plot_experiment_1(tdata, y1, traj_true1, yfit1, ugrid, g_fit)
     f = Figure(size = (1100, 420))
-    u_obs = vec(ydata)
-    u_lo, u_hi = extrema(u_obs)
 
     ax_traj = CairoMakie.Axis(
         f[1, 1];
         xlabel = "time t",
         ylabel = "state u",
-        title = "Trajectory fit (weighted R² = $(round(r2; digits = 4)))",
+        title = "Experiment 1 (u₀ = 2.0)",
     )
-    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true.u)); linestyle = :dash,
+    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
         color = :black, label = "true")
-    scatter!(ax_traj, tdata, vec(ydata); color = (:steelblue, 0.6), markersize = 6,
+    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 5,
         label = "observations")
-    lines!(ax_traj, tdata, vec(yfit); linewidth = 2.5, color = :crimson,
-        label = "UDE fit")
+    lines!(ax_traj, tdata, vec(yfit1); linewidth = 2.5, color = :crimson,
+        label = "experiment-1 fit")
     axislegend(ax_traj; position = :rt)
 
     ax_term = CairoMakie.Axis(
         f[1, 2];
         xlabel = "state u",
         ylabel = "unknown term",
-        title = "Recovered term",
+        title = "Recovered reaction term",
     )
+    u_obs = vec(y1)
+    u_lo, u_hi = extrema(u_obs)
 
     lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
         label = "g(u) = 0.5 sin(u)")
-    lines!(ax_term, ugrid, g_hat; linewidth = 2.5, color = :crimson,
-        label = "network ĝ(u)")
-    scatter!(ax_term, u_obs, g_true.(u_obs); color = (:steelblue, 0.75), marker=:x, markersize = 10,
-        label = "training data")
-    extrapolation = false
+    lines!(ax_term, ugrid, g_fit; linewidth = 2.5, color = :crimson,
+        label = "experiment-1 fit ĝ(u)")
+    scatter!(ax_term, u_obs, g_true.(u_obs); color = (:steelblue, 0.45), markersize = 8, marker = :x,
+        label = "visited states")
+    extrapolate = false
     if u_lo > minimum(ugrid)
-        extrapolation = true
+        extrapolate = true
         vspan!(ax_term, minimum(ugrid), u_lo; color = (:gray, 0.18), label = "extrapolation")
     end
     if u_hi < maximum(ugrid)
-        vspan!(ax_term, u_hi, maximum(ugrid); color = (:gray, 0.18), label = extrapolation ? nothing : "extrapolation")
+        vspan!(ax_term, u_hi, maximum(ugrid); color = (:gray, 0.18), label = extrapolate ? nothing : "extrapolation")
     end
     axislegend(ax_term; position = :rb)
+
     return f
 end
 
-plot_ude(tdata, ydata, traj_true, yfit, ugrid, g_hat)
+plot_experiment_1(tdata, y1, traj_true1, single_1, ugrid, g_single)
+
+# ## A second experiment
+#
+# To constrain the network where it was extrapolating, we run a second experiment from
+# `u₀ = 0.3`, which stays in the low-state region experiment 1 never visited. The two
+# experiments share the *same* network parameters but have their own initial conditions.
+# Stacking the two `ExperimentData` objects builds the joint dataset.
+
+u0_2 = [0.3]
+
+traj_true2 = solve(ODEProblem(true_rhs!, u0_2, tspan, Float64[]), Tsit5(); saveat = tdata)
+y2 = reduce(hcat, traj_true2.u) .+ σ_obs .* randn(rng, 1, length(tdata))
+
+data_2 = ExperimentData(tdata, y2; σ = σ_obs, u0 = u0_2)
+data_joint = ExperimentData(data_1, data_2)
+
+println("Number of experiments: ", n_experiments(data_joint))
+println("Total number of observations: ", n_observations(data_joint))
+
+# ## Joint fit over both experiments
+#
+# The joint layer concatenates the residuals of both experiments and optimizes the *shared*
+# network parameters. We warm-start from the first-experiment solution, so the second
+# Adam/L-BFGS-B pass only has to correct the part of the network that experiment 1 could
+# not identify.
+
+pe_joint = ParameterEstimationLayer(prob, Tsit5(), data_joint)
+opt_joint = OptimizationProblem(pe_joint)
+
+sol_adam_joint = solve(opt_joint, Adam(0.01); u0 = sol_1.u, maxiters = 500)
+println("Adam objective (joint): ", sol_adam_joint.objective)
+
+sol_joint = solve(opt_joint, LBFGSB(); u0 = sol_adam_joint.u, maxiters = 500)
+println("L-BFGS-B objective (joint): ", sol_joint.objective)
+
+p_joint = ComponentArray(sol_joint.u, getaxes(p0))
+
+# ## Evaluating both fits
+#
+# We simulate both experiments under each fit. The first-experiment fit drifts away on the
+# second experiment, while the joint fit tracks both.
+
+single_2 = reduce(hcat, ude_traj(p_1; u0 = u0_2).u)
+joint_1 = reduce(hcat, ude_traj(p_joint).u)
+joint_2 = reduce(hcat, ude_traj(p_joint; u0 = u0_2).u)
+
+weighted_r2(yobs, ypred) = 1 - sum(abs2, yobs .- ypred) /
+    sum(abs2, yobs .- sum(yobs) / length(yobs))
+nrmse(yobs, ypred) = sqrt(sum(abs2, (yobs .- ypred) ./ σ_obs) / length(yobs))
+
+println("Weighted R² (experiment 1): experiment-1 fit = ", weighted_r2(y1, single_1),
+    ", joint fit = ", weighted_r2(y1, joint_1))
+println("RMSE/σ (experiment 2):      experiment-1 fit = ", nrmse(y2, single_2),
+    ", joint fit = ", nrmse(y2, joint_2))
+
+# ## What did the joint fit learn?
+#
+# The joint fit recovers the term on the region visited by the second experiment, which the
+# first-experiment fit had to extrapolate. Only the states below `u ≈ 0.29` remain
+# unobserved and are still shaded.
+
+g_joint = [nn([u], p_joint.net, st_nn)[1][1] for u in ugrid]
+
+u_obs_all = vcat(vec(y1), vec(y2))
+u_lo, u_hi = extrema(u_obs_all)
+println("States visited by the joint data: [", round(u_lo; digits = 3), ", ",
+    round(u_hi; digits = 3), "]")
+println("Max |ĝ(u) - g(u)| on the joint data range: experiment-1 fit = ",
+    maximum(abs.(g_single[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))),
+    ", joint fit = ",
+    maximum(abs.(g_joint[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))))
+
+# The left panel shows both experiments together: the experiment-1 fit (crimson) matches
+# experiment 1 but leaves the second experiment, while the joint fit (dark green) follows
+# both. The right panel compares the recovered terms.
+
+function plot_joint_fit(tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
+        ugrid, g_single, g_joint)
+    f = Figure(size = (1200, 440))
+
+    ax_traj = CairoMakie.Axis(
+        f[1, 1];
+        xlabel = "time t",
+        ylabel = "state u",
+        title = "Both experiments",
+    )
+    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
+        color = :black, label = "true")
+    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker =:x,
+        label = "observations (exp 1)")
+    lines!(ax_traj, tdata, vec(joint_1); linewidth = 2, color = :darkgreen,
+        label = "joint fit")
+    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true2.u)); linestyle = :dash,
+        color = :black)
+    scatter!(ax_traj, tdata, vec(y2); color = (:orange, 0.5), markersize = 8, marker =:x,
+        label = "observations (exp 2)")
+    lines!(ax_traj, tdata, vec(joint_2); linewidth = 2, color = :darkgreen)
+    axislegend(ax_traj; position = :rt)
+
+    ax_term = CairoMakie.Axis(
+        f[1, 2];
+        xlabel = "state u",
+        ylabel = "unknown term",
+        title = "Recovered reaction term",
+    )
+    u_obs = vcat(vec(y1), vec(y2))
+    u_lo, u_hi = extrema(u_obs)
+    
+    lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
+        label = "g(u) = 0.5 sin(u)")
+    lines!(ax_term, ugrid, g_single; linewidth = 2, color = :crimson,
+        label = "experiment-1 fit ĝ(u)")
+    lines!(ax_term, ugrid, g_joint; linewidth = 2, color = :darkgreen,
+        label = "joint fit ĝ(u)")
+    scatter!(ax_term, vec(y1), g_true.(vec(y1)); color = (:steelblue, 0.35), markersize = 8, marker =:x,
+        label = "visited (exp 1)")
+    scatter!(ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker =:x,
+        label = "visited (exp 2)")
+    extrapolate = false
+    if u_lo > minimum(ugrid)
+        extrapolate = true
+        vspan!(ax_term, minimum(ugrid), u_lo; color = (:gray, 0.18), label = "extrapolation")
+    end
+    if u_hi < maximum(ugrid)
+        vspan!(ax_term, u_hi, maximum(ugrid); color = (:gray, 0.18), label = extrapolate ? nothing : "extrapolation")
+    end
+    axislegend(ax_term; position = :rb)
+
+    return f
+end
+
+plot_joint_fit(
+    tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
+    ugrid, g_single, g_joint,
+)
