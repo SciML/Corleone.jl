@@ -6,6 +6,7 @@ optimization problem explicitly.
 
 ```@docs
 CorleoneBase.SequentialProblem
+CorleoneBase.ParallelProblem
 CorleoneBase.SolutionWrapper
 CorleoneBase.retcode
 ```
