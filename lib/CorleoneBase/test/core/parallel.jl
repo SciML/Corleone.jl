@@ -19,18 +19,9 @@ using Test
     @test CorleoneBase.get_problems isa Function
 end
 
-# The ensemble hook is bound with `Base.Fix1(prob_func, problem)` and SciMLBase
-# then calls it with two arguments. `Base.Fix1` only forwards multiple remaining
-# arguments on Julia >= 1.12, so the parallel entry point cannot dispatch on the
-# declared 1.10/1.11 minimum. Record the limitation as a regression check rather
-# than silently skipping the API on older Julia.
-if VERSION < v"1.12"
-    @testset "Parallel solve is unsupported before Julia 1.12" begin
-        template = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), 0.5)
-        parallel = ParallelProblem(SequentialProblem(template))
-        @test_throws MethodError solve(parallel, Tsit5(), EnsembleSerial(); trajectories = 1)
-    end
-else
+# The implementation now supplies a multi-argument closure on Julia 1.10/1.11.
+# Require the same successful ensemble behavior on every supported version.
+@testset "Parallel supported-version contracts" begin
     @testset "Parallel ensemble workflow" begin
         template = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), 0.5)
         sequential = SequentialProblem(template)  # default terminal solves one stage

@@ -30,8 +30,11 @@ withenv("GROUP" => GROUP) do
             "AD" => (;
                 env = joinpath(@__DIR__, "ad"),
                 body = function ()
-                    return @safetestset "Sequential AD" begin
+                    @safetestset "Sequential AD" begin
                         include("ad/runtests.jl")
+                    end
+                    return @safetestset "Parallel AD" begin
+                        include("ad/parallel.jl")
                     end
                 end,
             ),

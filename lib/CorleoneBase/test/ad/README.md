@@ -1,4 +1,4 @@
-# Sequential AD compatibility
+# AD compatibility
 
 Run the registered backends with
 `CORLEONE_TEST_GROUP=AD julia --project=lib/CorleoneBase -e 'using Pkg; Pkg.test()'`
@@ -64,3 +64,53 @@ The weighted squared-error loss uses every stage endpoint. Closed-form endpoints
 and hand-derived Jacobians provide independent gradient references for both
 `du/dt = -p*u` and `du/dt = -p*u²`. Prepared evaluations alternate inputs and
 repeat the first input to expose stale tapes or leaked mutable state.
+
+## Parallel ForwardDiff contracts
+
+The AD group also registers `parallel.jl`, backed by the reusable
+`ParallelADTests.test_parallel_ad(backend, modes; solve_kwargs, gradient_atol,
+gradient_rtol)` in `parallel_suite.jl`. Only ForwardDiff is registered for
+parallel AD; the other existing backends remain sequential-only. Additional
+parallel backends can use the same harness after loading their packages on the
+driver and workers. Availability and differentiation failures are assertions or
+errors, never skips.
+
+The harness crosses direct `ODEProblem` and wrapped three-stage
+`SequentialProblem` templates with linear/nonlinear and in-place/out-of-place
+dynamics under `EnsembleSerial`, `EnsembleThreads`, and `EnsembleDistributed`.
+Three trajectories use `zᵢ = (1 + i/10)x + i/20`, giving distinct initial states
+and parameters. Direct templates differentiate `[u₁, p₁]`; sequential templates
+differentiate `[u₁, p₁, p₂, u₃]`. Every differentiated coordinate contributes to
+the scalar, trajectory-weighted endpoint loss. References reuse the sequential
+suite's closed-form endpoints and hand-derived Jacobians, applying the affine
+trajectory chain rule analytically, without AD or numerical differentiation.
+
+Primal checks cover every trajectory and stage, return codes, in-place flags,
+times, initial states, parameters, endpoints, and aggregate loss. Unprepared
+and prepared gradients cover two distinct inputs and a repeated first input,
+shape, finiteness, analytic agreement, and unchanged inputs (including
+preparation). Tolerances are unchanged from the sequential ForwardDiff suite:
+ODE `abstol = reltol = 1e-11`, value/endpoint `atol = rtol = 1e-9`, and gradient
+`atol = 1e-7`, `rtol = 1e-6`.
+
+The driver starts two local workers with two threads each and cleans up only
+those workers in `finally`. Execution-location probes assert that threaded
+work uses multiple thread IDs and distributed work uses multiple non-driver
+process IDs. A single-threaded AD entry point launches a four-threaded
+subprocess instead of skipping threaded tests. The fixture module is loaded
+under the same `Main.ParallelADTests` identity on driver and workers, including
+when the registered group runs inside SafeTestsets.
+
+For a fresh, recorded environment, run from the repository root:
+
+```sh
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.10 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.11.7~x64 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.12 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl
+```
+
+The script copies the AD group's declarations into a persistent scratch project
+under `/tmp/opencode`, develops the checked-out CorleoneBase, records the full
+resolved manifest, Julia version, thread counts, worker IDs, and execution
+locations, then runs the parallel contracts. It does not edit repository
+metadata. See `PARALLEL_RESULTS.md` for observed results and regression commands.
