@@ -1,4 +1,4 @@
-abstract type AbstractSequentialProblem end
+abstract type AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem end
 
 function get_problem(::AbstractSequentialProblem) end
 
@@ -6,16 +6,6 @@ function transition(::AbstractSequentialProblem, sol, i) end
 
 function terminal(::AbstractSequentialProblem, sol, i) end
 
-# Out-of-place solvers require the state and derivative to use the same array
-# representation. AD broadcasts may return a struct-of-arrays representation.
-prepare_stage_problem(problem) = problem
-function prepare_stage_problem(problem::SciMLBase.AbstractODEProblem)
-    SciMLBase.isinplace(problem) && return problem
-    u0 = ArrayInterface.aos_to_soa(problem.u0)
-    p = ArrayInterface.aos_to_soa(problem.p)
-    u0 === problem.u0 && p === problem.p && return problem
-    return remake(problem; u0, p)
-end
 
 function make_buffer(::AbstractSequentialProblem, sol::T) where {T}
     return T[sol]
@@ -32,6 +22,38 @@ mutable struct SequentialProblemIterator{P, N, T, A, K, B, S}
     state::S
 end
 
+
+# 1. The generated function does the tuple intersection at compile-time
+@generated function _split_problem_kwargs(::P, nt_kwargs::NamedTuple{K}) where {P <: SciMLBase.AbstractSciMLProblem, K}
+    # These execute during compilation:
+    valid_keys = fieldnames(P)
+    prob_keys  = Tuple(k for k in K if k in valid_keys)
+    solve_keys = Tuple(k for k in K if !(k in valid_keys))
+    
+    # This generates the exact type-stable slicing code for the specific kwargs passed
+    return quote
+        prob_kwargs  = map(ArrayInterface.aos_to_soa, NamedTuple{$prob_keys}(nt_kwargs))
+        solve_kwargs = NamedTuple{$solve_keys}(nt_kwargs)
+        return prob_kwargs, solve_kwargs
+    end
+end
+
+@generated function _prepare_problem(x::P) where P
+    f_names = fieldnames(P)
+    kw_exprs = [
+        Expr(:kw, f, :(ArrayInterface.aos_to_soa(getfield(x, $(QuoteNode(f))))))
+        for f in f_names
+    ]
+    return Expr(:call, :remake, Expr(:parameters, kw_exprs...), :x)
+end
+
+@inline prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem) = _prepare_problem(x) 
+
+# 2. Your frontend function simply converts the kwargs to a NamedTuple and forwards it
+@inline function split_problem_kwargs(prob::SciMLBase.AbstractSciMLProblem, kwargs)
+    return _split_problem_kwargs(prob, NamedTuple(kwargs))
+end
+
 """
     init(problem::AbstractSequentialProblem, algorithm; kwargs...)
 
@@ -39,18 +61,14 @@ Remake the initial problem with any supplied `u0`, `p`, and `tspan` keywords.
 Forward all remaining keywords to every stage's solve. Later stage problems
 are supplied by the transition, not remade with the initial overrides.
 """
-function CommonSolve.init(
-        problem::AbstractSequentialProblem, algorithm;
+@inline function CommonSolve.init(
+        problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm;
         kwargs...
-    )
-    initial_kwargs = (;
-        (
-            key => value for (key, value) in kwargs
-                if key in (:u0, :p, :tspan)
-        )...,
-    )
-    solve_kwargs = Base.structdiff((; kwargs...), initial_kwargs)
-    inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
+    ) where T <: SciMLBase.AbstractSciMLProblem
+
+    prob = get_problem(problem)
+    initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
+    inner_problem = remake(prob; initial_kwargs...)
     sol = solve(inner_problem, algorithm; solve_kwargs...)
     buffer = make_buffer(problem, sol)
     # Fix1 accepts only one remaining argument on Julia 1.10/1.11.

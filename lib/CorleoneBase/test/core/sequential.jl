@@ -89,14 +89,18 @@ end
 StageSolution(succeeds::Bool) = StageSolution(
     succeeds, succeeds ? SciMLBase.ReturnCode.Success : SciMLBase.ReturnCode.MaxIters
 )
+struct NoSolve <: SciMLBase.AbstractSciMLAlgorithm end
+
 SciMLBase.remake(p::StageProblem; kwargs...) = p
-CommonSolve.solve(p::StageProblem, ::Nothing; kwargs...) = StageSolution(p.succeeds)
+CommonSolve.solve(p::StageProblem, ::NoSolve; kwargs...) = StageSolution(p.succeeds)
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
+
+
 
 @testset "Return codes, failures, and preallocated buffers" begin
     # An unsuccessful first stage produces a one-element failure result instead
     # of the earlier initialization exception, and never advances.
-    w = solve(SequentialProblem(StageProblem(false)), nothing)
+    w = solve(SequentialProblem(StageProblem(false)), NoSolve())
     @test w isa SolutionWrapper
     @test length(w) == 1
     @test retcode(w) == SciMLBase.ReturnCode.MaxIters
@@ -109,7 +113,7 @@ SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
             transition = (sol, i) -> StageProblem(i != fail_at),
             terminal = (sol, i) -> i >= 3,
         )
-        it = init(problem, nothing)
+        it = init(problem, NoSolve())
         if preallocate
             append!(it.buffer, [StageSolution(false), StageSolution(false)])
         end
@@ -144,7 +148,7 @@ end
         transition = (sol, i) -> StageProblem(true),
         terminal = (sol, i) -> i >= 3,
     )
-    it = init(problem, nothing)
+    it = init(problem, NoSolve())
     append!(it.buffer, [StageSolution(false), StageSolution(false)])
     w = solve!(it)
     @test w isa CorleoneBase.SolutionWrapper
@@ -168,7 +172,7 @@ end
         transition = (sol, i) -> StageProblem(true),
         terminal = (sol, i) -> i >= 2,
     )
-    it2 = init(problem2, nothing)
+    it2 = init(problem2, NoSolve())
     append!(it2.buffer, [StageSolution(false), StageSolution(false)])
     w2 = solve!(it2)
     @test length(w2) == 2
@@ -187,7 +191,7 @@ end
         end,
         terminal = (sol, i) -> i >= 5,
     )
-    it = init(problem, nothing)
+    it = init(problem, NoSolve())
     w = solve!(it)
     @test attempts == [2]      # stage 2 fails; stage 3 is never attempted
     @test it.state == 2
