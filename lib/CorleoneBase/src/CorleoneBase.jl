@@ -4,7 +4,8 @@ using SciMLBase: SciMLBase, remake
 using CommonSolve: CommonSolve, solve
 import ArrayInterface
 
-include("abstractproblem.jl")
+include("abstractsequential.jl")
+include("abstractparallel.jl")
 
 include("solution.jl")
 
