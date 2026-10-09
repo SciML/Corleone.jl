@@ -96,7 +96,6 @@ CommonSolve.solve(p::StageProblem, ::NoSolve; kwargs...) = StageSolution(p.succe
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
 
 
-
 @testset "Return codes, failures, and preallocated buffers" begin
     # An unsuccessful first stage produces a one-element failure result instead
     # of the earlier initialization exception, and never advances.
