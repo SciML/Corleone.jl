@@ -29,10 +29,11 @@ Core stays green on 1.10 while the limitation remains visible.
 The sequential lane adds regression coverage for the same commits: the abstract
 problem now subtypes `SciMLBase.AbstractSciMLProblem`, `init` dispatches only on
 `SciMLBase.AbstractSciMLAlgorithm`, and `init`/`solve` keywords are partitioned
-by `fieldnames(typeof(problem))` (with `ArrayInterface.aos_to_soa` applied)
-instead of the previous hard-coded `u0`/`p`/`tspan` set. `prepare_stage_problem`
-now covers every `SciMLBase.AbstractSciMLProblem` field rather than only
-`ODEProblem` `u0`/`p`. See `REGRESSION_FINDINGS.md` for the type-inference and
+by `fieldnames(typeof(problem))` instead of the previous hard-coded
+`u0`/`p`/`tspan` set. `prepare_stage_problem` now covers every
+`SciMLBase.AbstractSciMLProblem` field rather than only `ODEProblem` `u0`/`p`,
+returns in-place problems unchanged, and returns the input itself when no field
+needs conversion. See `REGRESSION_FINDINGS.md` for the type-inference and
 performance comparison against the upstream baseline `b261940`.
 
 ```sh
@@ -215,12 +216,7 @@ On Julia 1.12.7, Core passes 334 sequential checks and 20 parallel checks; root
 passes 61. QA passes 23, and Docs passes 112 on both Julia 1.12.7 and 1.10.12.
 On Julia 1.10.12, Core passes 334
 sequential checks and 6 parallel checks (the parallel lane asserts the
-documented `MethodError`). The AD group fails only at the `AutoReverseDiff`
-backend in the in-place gradient cases (264 pass / 4 error); ForwardDiff,
-Zygote, Mooncake, MooncakeForward, and FiniteDiff each pass 344. A focused
-comparison shows upstream `b261940` passes the same ReverseDiff run while
-pristine HEAD and HEAD with this change both fail. Type inference on the changed `init`/`solve` paths is concrete
-and `@inferred`-passing, whereas the upstream baseline was not, and
-`prepare_stage_problem` now allocates one 48-byte problem per call where the
-baseline allocated none. All findings, evidence, and coverage limitations are in
+documented `MethodError`). Type inference on the changed `init`/`solve` paths
+is concrete and `@inferred`-passing, whereas the upstream baseline was not.
+All findings, evidence, and coverage limitations are in
 `REGRESSION_FINDINGS.md`.

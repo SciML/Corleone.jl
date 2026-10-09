@@ -76,8 +76,9 @@ end
 
 Generated implementation of [`split_problem_kwargs`](@ref). The partition is
 resolved at compile time from `fieldnames(typeof(problem))`, so the returned
-`NamedTuple`s keep concrete key sets; `ArrayInterface.aos_to_soa` is applied to
-each value routed to `prob_kwargs`.
+`NamedTuple`s keep concrete key sets. Values are forwarded unchanged; the
+stage problem's representation is normalized afterwards by
+`prepare_stage_problem`.
 """
 @generated function _split_problem_kwargs(::P, nt_kwargs::NamedTuple{K}) where {P <: SciMLBase.AbstractSciMLProblem, K}
     # These execute during compilation:
@@ -87,7 +88,7 @@ each value routed to `prob_kwargs`.
 
     # This generates the exact type-stable slicing code for the specific kwargs passed
     return quote
-        prob_kwargs = map(ArrayInterface.aos_to_soa, NamedTuple{$prob_keys}(nt_kwargs))
+        prob_kwargs = NamedTuple{$prob_keys}(nt_kwargs)
         solve_kwargs = NamedTuple{$solve_keys}(nt_kwargs)
         return prob_kwargs, solve_kwargs
     end
@@ -96,43 +97,77 @@ end
 """
     _prepare_problem(problem) -> problem′
 
-Generated helper for [`prepare_stage_problem`](@ref): rebuild `problem` through
-`SciMLBase.remake` with `ArrayInterface.aos_to_soa` applied to every field.
+Generated helper for `prepare_stage_problem`: apply
+`ArrayInterface.aos_to_soa` to every field. Return `problem` unchanged when
+every converted field is identical (`===`) to the original; otherwise rebuild
+it through `SciMLBase.remake` with the converted fields.
 """
 @generated function _prepare_problem(x::P) where {P}
     f_names = fieldnames(P)
-    kw_exprs = [
-        Expr(:kw, f, :(ArrayInterface.aos_to_soa(getfield(x, $(QuoteNode(f))))))
+    isempty(f_names) && return :(x)
+    conv_exprs = [
+        :($(Symbol(:conv_, f)) = ArrayInterface.aos_to_soa(getfield(x, $(QuoteNode(f)))))
             for f in f_names
     ]
-    return Expr(:call, :remake, Expr(:parameters, kw_exprs...), :x)
+    comparisons = [
+        :(getfield(x, $(QuoteNode(f))) === $(Symbol(:conv_, f))) for f in f_names
+    ]
+    unchanged = reduce((acc, c) -> :($acc && $c), comparisons)
+    kw_exprs = [Expr(:kw, f, Symbol(:conv_, f)) for f in f_names]
+    return quote
+        $(conv_exprs...)
+        $unchanged && return x
+        return remake($(Expr(:parameters, kw_exprs...)), x)
+    end
+end
+
+# Trait query: SciMLBase.isinplace is an empty-body fallback on
+# AbstractSciMLProblem (returns `nothing`) and returns a Bool for problem types
+# that implement the convention, so `=== true` treats unimplemented traits as
+# out-of-place.
+@inline function _is_inplace(x::SciMLBase.AbstractSciMLProblem)
+    return SciMLBase.isinplace(x) === true
 end
 
 """
     prepare_stage_problem(problem::SciMLBase.AbstractSciMLProblem) -> problem′
 
-Return `problem` rebuilt through `SciMLBase.remake` with
-`ArrayInterface.aos_to_soa` applied to every field. Out-of-place solvers require
-the state and derivative to share one array representation; AD broadcasts may
-leave a struct-of-arrays representation, which this normalizes before solving.
-Fields that are already contiguous (plain vectors, scalars, functions) are
-returned unchanged. Unlike the earlier ODE-only special case, this method
-accepts any `SciMLBase.AbstractSciMLProblem`, and it always remakes rather than
-returning the argument when no field changed.
+Return `problem` ready to be solved as one stage. Every field is passed through
+`ArrayInterface.aos_to_soa`: out-of-place solvers require the state and
+derivative to share one array representation, and AD broadcasts may leave a
+struct-of-arrays representation, which this normalizes before solving.
+In-place problems are returned unchanged: their dynamics write into buffers
+the solver derives from the problem's own arrays, so converting tracked state
+or parameter arrays (for example a `Vector` of ReverseDiff tracked reals into
+a tracked array) would hand the dynamics a buffer that does not support
+`setindex!`. When every converted field is identical (`===`) to the original —
+plain vectors, scalars, and functions are already contiguous — `problem` is
+returned as-is without a remake. Unlike the earlier ODE-only special case,
+this method accepts any `SciMLBase.AbstractSciMLProblem` field set.
+
+Stage problems that are not `SciMLBase.AbstractSciMLProblem`s are returned
+unchanged by a fallback method: there is no `SciMLBase.remake` contract to
+honor for them, and the traced re-implementation of `step!` in the Zygote
+extension relies on it for its custom fixtures.
 """
-@inline prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem) = _prepare_problem(x)
+@inline function prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem)
+    _is_inplace(x) && return x
+    return _prepare_problem(x)
+end
+
+@inline prepare_stage_problem(problem) = problem
 
 # 2. Your frontend function simply converts the kwargs to a NamedTuple and forwards it
 """
     split_problem_kwargs(problem, kwargs) -> (prob_kwargs, solve_kwargs)
 
 Partition a keyword collection for `CommonSolve.init` using `problem`'s field
-names. Keywords whose name is a field of `typeof(problem)` become `prob_kwargs`,
-with `ArrayInterface.aos_to_soa` applied to their values, and are passed to
-`SciMLBase.remake`; every other keyword becomes `solve_kwargs` and is forwarded
-unchanged to each stage's solve. For an `ODEProblem` the problem fields are
-`f`, `u0`, `tspan`, `p`, `kwargs`, and `problem_type`. The partition is decided
-at compile time.
+names. Keywords whose name is a field of `typeof(problem)` become `prob_kwargs`
+and are passed to `SciMLBase.remake`; every other keyword becomes
+`solve_kwargs` and is forwarded unchanged to each stage's solve. For an
+`ODEProblem` the problem fields are `f`, `u0`, `tspan`, `p`, `kwargs`, and
+`problem_type`. The partition is decided at compile time; representation
+conversion happens in `prepare_stage_problem`, not here.
 """
 @inline function split_problem_kwargs(prob::SciMLBase.AbstractSciMLProblem, kwargs)
     return _split_problem_kwargs(prob, NamedTuple(kwargs))
@@ -145,8 +180,9 @@ Initialize `problem` and immediately solve its first stage.
 
 Keywords whose name is a field of the wrapped SciML problem (for an
 `ODEProblem`: `u0`, `p`, `tspan`, `f`, `kwargs`, `problem_type`) are passed to
-`SciMLBase.remake` to build the first stage, with `ArrayInterface.aos_to_soa`
-applied to their values. All remaining keywords are stored and forwarded
+`SciMLBase.remake` to build the first stage, which is then normalized by
+`prepare_stage_problem` (`ArrayInterface.aos_to_soa` on fields whose
+representation must change). All remaining keywords are stored and forwarded
 unchanged to every stage's solve. Later stages come from the transition; the
 initial overrides are not reapplied.
 
@@ -162,7 +198,7 @@ are rejected by dispatch.
 
     prob = get_problem(problem)
     initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
-    inner_problem = remake(prob; initial_kwargs...)
+    inner_problem = prepare_stage_problem(remake(prob; initial_kwargs...))
     sol = solve(inner_problem, algorithm; solve_kwargs...)
     buffer = make_buffer(problem, sol)
     # Fix1 accepts only one remaining argument on Julia 1.10/1.11.

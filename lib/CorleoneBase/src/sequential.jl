@@ -25,7 +25,7 @@ iterator stores stage solutions in `buffer` and the current index in `state`.
 stage's exact return code; `CommonSolve.init` returns the iterator itself.
 Initial keywords that name a field of the initial problem (for an `ODEProblem`:
 `u0`, `p`, `tspan`, `f`, `kwargs`, `problem_type`) remake only the first stage,
-with `ArrayInterface.aos_to_soa` applied to their values; remaining keywords are
+which `prepare_stage_problem` then normalizes; remaining keywords are
 forwarded unchanged to every stage. Keep endpoint saving enabled when propagating
 `sol.u[end]`. `maxiters` limits each stage's solver, not the total number of
 stages.

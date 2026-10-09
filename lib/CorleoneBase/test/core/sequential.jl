@@ -269,7 +269,8 @@ SciMLBase.successful_retcode(::KwSolution) = true
 end
 
 # Every field of any SciML problem is passed through ArrayInterface.aos_to_soa,
-# not only ODE u0/p as in the previous ODEProblem special case.
+# not only ODE u0/p as in the previous ODEProblem special case. Representation
+# conversion happens in prepare_stage_problem; split_problem_kwargs only routes.
 struct AoSMarker end
 struct SoAMarker end
 struct MarkerProblem <: SciMLBase.AbstractSciMLProblem
@@ -285,34 +286,46 @@ CommonSolve.solve(p::MarkerProblem, ::NoSolve; kwargs...) =
     MarkerSolution(p.data, SciMLBase.ReturnCode.Success)
 SciMLBase.successful_retcode(::MarkerSolution) = true
 
+# A state representation that aos_to_soa normalizes, usable as an ODEProblem u0.
+struct AoSVector <: AbstractVector{Float64}
+    n::Int
+end
+Base.size(v::AoSVector) = (v.n,)
+Base.getindex(::AoSVector, i::Int) = 0.0
+ArrayInterface.aos_to_soa(v::AoSVector) = zeros(Float64, v.n)
+
 @testset "prepare_stage_problem converts every problem field" begin
     prepared = CorleoneBase.prepare_stage_problem(MarkerProblem(AoSMarker()))
     @test prepared isa MarkerProblem
     @test prepared.data isa SoAMarker
 
+    # split_problem_kwargs routes by field names without converting values; the
+    # routed values are normalized by prepare_stage_problem during init.
     problem_kwargs, remainder = CorleoneBase.split_problem_kwargs(
         MarkerProblem(AoSMarker()), (data = AoSMarker(), extra = 1)
     )
-    @test problem_kwargs.data isa SoAMarker
+    @test problem_kwargs == (data = AoSMarker(),)
     @test remainder == (; extra = 1)
 
-    # Ordinary ODE problems are accepted by the generic method and unchanged.
+    # A state that needs normalization is converted and the problem remade.
+    converting = ODEProblem((u, p, t) -> -p .* u, AoSVector(1), (0.0, 1.0), [2.0])
+    prepared_converting = CorleoneBase.prepare_stage_problem(converting)
+    @test prepared_converting !== converting
+    @test prepared_converting.u0 isa Vector{Float64}
+    @test prepared_converting.p === converting.p
+    @test prepared_converting.tspan == converting.tspan
+
+    # Plain arrays, scalars, and functions need no conversion: the problem is
+    # returned as-is without a remake (no per-stage allocation).
     ode = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), [2.0])
     prepared_ode = CorleoneBase.prepare_stage_problem(ode)
-    @test typeof(prepared_ode) === typeof(ode)
-    @test prepared_ode.u0 == ode.u0
-    @test prepared_ode.p == ode.p
-    @test prepared_ode.tspan == ode.tspan
-    # The generic method always remakes, unlike the earlier ODE method's early
-    # return when u0/p were unchanged. This changed contract is flagged in
-    # REGRESSION_FINDINGS.md (a repeatable per-stage allocation).
-    @test prepared_ode !== ode
+    @test prepared_ode === ode
 
-    # In-place problems are supported too; plain arrays are unchanged.
+    # In-place problems are returned unchanged: their dynamics write into
+    # buffers the solver derives from the problem's own arrays, so converting
+    # e.g. tracked state arrays would make those buffers unwritable.
     inplace = ODEProblem((du, u, p, t) -> (du .= -p .* u; nothing), [1.0], (0.0, 1.0), [2.0])
     prepared_inplace = CorleoneBase.prepare_stage_problem(inplace)
     @test isinplace(prepared_inplace)
-    @test prepared_inplace.u0 == inplace.u0
-    @test prepared_inplace.p == inplace.p
-    @test prepared_inplace !== inplace
+    @test prepared_inplace === inplace
 end
