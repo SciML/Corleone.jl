@@ -65,19 +65,33 @@ and hand-derived Jacobians provide independent gradient references for both
 `du/dt = -p*u` and `du/dt = -p*u²`. Prepared evaluations alternate inputs and
 repeat the first input to expose stale tapes or leaked mutable state.
 
-## Parallel ForwardDiff contracts
+## Parallel ForwardDiff and ReverseDiff contracts
 
 The AD group also registers `parallel.jl`, backed by the reusable
 `ParallelADTests.test_parallel_ad(backend, modes; solve_kwargs, gradient_atol,
-gradient_rtol)` in `parallel_suite.jl`. Only ForwardDiff is registered for
-parallel AD; the other existing backends remain sequential-only. Additional
-parallel backends can use the same harness after loading their packages on the
-driver and workers. Availability and differentiation failures are assertions or
-errors, never skips.
+gradient_rtol)` in `parallel_suite.jl`. ForwardDiff (all three ensemble modes)
+and uncompiled ReverseDiff (serial and threaded modes, with
+`SciMLSensitivity.SensitivityADPassThrough()` and `safetycopy = false` supplied
+via `solve_kwargs`) are registered for parallel AD; the other existing backends
+remain sequential-only. The pass-through matches the sequential suite, and
+skipping SciMLBase's default per-simulation template deepcopy keeps ReverseDiff's
+tape-bound template from overflowing the stack inside `deepcopy` on Julia 1.10
+and 1.11 (the harness does not need the copy: `prob_func` builds fresh problems
+and nothing mutates the template). ReverseDiff is not registered for
+`EnsembleDistributed`: a `ReverseDiff.GradientTape` cannot survive Distributed's
+pmap serialization (gradients come back zero and the orphaned tape structures
+segfault the workers); see `PARALLEL_RESULTS.md` for the reproducer and unblock
+path. Additional parallel backends can use the same harness after loading their
+packages on the driver and workers. Availability and differentiation failures
+are assertions or errors, never skips.
 
 The harness crosses direct `ODEProblem` and wrapped three-stage
 `SequentialProblem` templates with linear/nonlinear and in-place/out-of-place
-dynamics under `EnsembleSerial`, `EnsembleThreads`, and `EnsembleDistributed`.
+dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff)
+`EnsembleDistributed`. Out-of-place direct-template problems are normalized
+with `CorleoneBase.prepare_stage_problem` before the ensemble machinery solves
+them, mirroring the sequential driver; it is a no-op for untraced inputs, so
+ForwardDiff coverage is unaffected.
 Three trajectories use `zᵢ = (1 + i/10)x + i/20`, giving distinct initial states
 and parameters. Direct templates differentiate `[u₁, p₁]`; sequential templates
 differentiate `[u₁, p₁, p₂, u₃]`. Every differentiated coordinate contributes to

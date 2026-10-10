@@ -21,7 +21,12 @@ end
 
 function trajectory_problem(case, x, wrapped)
     ode = ODEProblem(dynamics(case), [x[1]], (0.0, 1.0), [x[2]])
-    wrapped || return ode
+    # Out-of-place problems solved directly by the ensemble machinery need the
+    # state and derivative to share one array representation, like the
+    # per-stage preparation the sequential solve applies internally. Plain
+    # vectors, scalars, and functions pass through unchanged, so this is a
+    # no-op for untraced inputs and leaves ForwardDiff coverage unaffected.
+    wrapped || return CorleoneBase.prepare_stage_problem(ode)
     transition = (sol, stage) -> stage == 2 ?
         remake(sol.prob; u0 = sol.u[end], p = [x[3]], tspan = (1.0, 2.0)) :
         remake(sol.prob; u0 = [x[4]], tspan = (2.0, 3.0))
@@ -73,7 +78,13 @@ end
 
 Reusable ensemble AD contracts. Only explicitly supplied backends are exercised;
 an unavailable backend or any differentiation failure is an error, not a skip.
-Workers must load this module and the backend before distributed evaluation.
+Workers must load this module, the backend, and any sensitivity configuration
+before distributed evaluation. Tape-based reverse-mode backends such as
+AutoReverseDiff trace the inner solves directly and require the pass-through
+sensitivity algorithm and `safetycopy = false` (like the sequential suite's
+pass-through; SciMLBase's default per-simulation template deepcopy recurses
+through the ReverseDiff tape graph until the stack overflows on Julia 1.10 and
+1.11) via `solve_kwargs`; compiled tapes stay out of scope.
 """
 function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1e-7, gradient_rtol = 1e-6)
     @test DI.check_available(backend)

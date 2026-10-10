@@ -1,7 +1,9 @@
 using Distributed
 using SciMLBase: EnsembleSerial, EnsembleThreads, EnsembleDistributed
-using DifferentiationInterface: AutoForwardDiff
+using DifferentiationInterface: AutoForwardDiff, AutoReverseDiff
 using ForwardDiff
+using ReverseDiff
+using SciMLSensitivity: SensitivityADPassThrough
 using CorleoneBase
 using Test
 
@@ -19,6 +21,8 @@ else
         suite_path = joinpath(@__DIR__, "parallel_suite.jl")
         @everywhere added_workers begin
             using ForwardDiff
+            using ReverseDiff
+            using SciMLSensitivity
             include($suite_path)
         end
         # Stable module identity on driver and workers, also inside SafeTestsets.
@@ -41,6 +45,20 @@ else
         end
         Main.ParallelADTests.test_parallel_ad(AutoForwardDiff(),
             (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed()))
+        # ReverseDiff traces the inner solves directly, matching the sequential
+        # suite's SensitivityADPassThrough configuration; compiled tapes stay
+        # out of scope. safetycopy = false skips SciMLBase's default
+        # per-simulation deepcopy of the template problem: with traced inputs
+        # that deepcopy recurses through the ReverseDiff tape graph until the
+        # stack overflows on Julia 1.10/1.11, and the harness does not need it
+        # (prob_func builds fresh problems and nothing mutates the template).
+        # Distributed coverage is not claimed: a GradientTape cannot survive
+        # Distributed's pmap serialization (gradients come back zero and the
+        # orphaned tape structures segfault the workers); see PARALLEL_RESULTS.md
+        # for the reproducer and unblock path.
+        Main.ParallelADTests.test_parallel_ad(AutoReverseDiff(),
+            (EnsembleSerial(), EnsembleThreads());
+            solve_kwargs = (; sensealg = SensitivityADPassThrough(), safetycopy = false))
     finally
         rmprocs(added_workers)
     end
