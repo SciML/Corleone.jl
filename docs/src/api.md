@@ -55,6 +55,17 @@ CorleoneOED.FisherECriterion
 CorleoneOED.FisherDCriterion
 ```
 
+### SymbolicUtils-owned names re-exported via Symbolics
+
+`CorleoneOED` builds its facade with `@reexport using Symbolics`. The following
+names are owned by SymbolicUtils and only reach CorleoneOED because Symbolics
+re-exports them; CorleoneOED does not define them.
+
+- [`SymbolicUtils.Unknown`](@extref)
+- [`SymbolicUtils.shape`](@extref)
+- `scalarize`
+- `unwrap`
+
 ## OptimalControlBenchmarks
 
 ```@docs
