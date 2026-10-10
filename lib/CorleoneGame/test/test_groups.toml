@@ -2,5 +2,8 @@
 [Core]
 versions = ["1", "pre"]
 
-[QA]
-versions = ["1"]
+[Utils]
+versions = ["1", "pre"]
+
+[Library]
+versions = ["1", "pre"]
