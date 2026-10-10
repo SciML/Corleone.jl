@@ -23,6 +23,9 @@ Zygote uses the `CorleoneBaseZygoteExtension` pullback for `solve!`, with
 SciMLSensitivity's default inner-solve rules. The pullback differentiates
 stage accumulation through an internal `Zygote.Buffer`, including transitions
 and saved endpoints, while preserving the primal iterator and buffer identity.
+The same extension also adjoins the parallel
+`CommonSolve.solve(::AbstractParallelProblem, ...)` ensemble solve across all
+ensemble modes (see "Parallel ForwardDiff, ReverseDiff, and Zygote contracts").
 Discrete stage indices and return-code decisions carry no derivative. The internal buffer is initialized
 from the existing solutions and frozen with `copy` only after solving finishes.
 Extension-local identity pullbacks normalize SciML state cotangents to
@@ -65,25 +68,44 @@ and hand-derived Jacobians provide independent gradient references for both
 `du/dt = -p*u` and `du/dt = -p*u²`. Prepared evaluations alternate inputs and
 repeat the first input to expose stale tapes or leaked mutable state.
 
-## Parallel ForwardDiff and ReverseDiff contracts
+## Parallel ForwardDiff, ReverseDiff, and Zygote contracts
 
 The AD group also registers `parallel.jl`, backed by the reusable
 `ParallelADTests.test_parallel_ad(backend, modes; solve_kwargs, gradient_atol,
-gradient_rtol)` in `parallel_suite.jl`. ForwardDiff (all three ensemble modes)
-and uncompiled ReverseDiff (serial and threaded modes, with
+gradient_rtol)` in `parallel_suite.jl`. ForwardDiff (all three ensemble modes),
+uncompiled ReverseDiff (serial and threaded modes, with
 `SciMLSensitivity.SensitivityADPassThrough()` and `safetycopy = false` supplied
-via `solve_kwargs`) are registered for parallel AD; the other existing backends
-remain sequential-only. The pass-through matches the sequential suite, and
-skipping SciMLBase's default per-simulation template deepcopy keeps ReverseDiff's
-tape-bound template from overflowing the stack inside `deepcopy` on Julia 1.10
-and 1.11 (the harness does not need the copy: `prob_func` builds fresh problems
-and nothing mutates the template). ReverseDiff is not registered for
-`EnsembleDistributed`: a `ReverseDiff.GradientTape` cannot survive Distributed's
-pmap serialization (gradients come back zero and the orphaned tape structures
-segfault the workers); see `PARALLEL_RESULTS.md` for the reproducer and unblock
-path. Additional parallel backends can use the same harness after loading their
+via `solve_kwargs`), and Zygote (all three ensemble modes) are registered for
+parallel AD; the remaining existing backends stay sequential-only. The
+pass-through matches the sequential suite, and skipping SciMLBase's default
+per-simulation template deepcopy keeps ReverseDiff's tape-bound template from
+overflowing the stack inside `deepcopy` on Julia 1.10 and 1.11 (the harness does
+not need the copy: `prob_func` builds fresh problems and nothing mutates the
+template). ReverseDiff is not registered for `EnsembleDistributed`: a
+`ReverseDiff.GradientTape` cannot survive Distributed's pmap serialization
+(gradients come back zero and the orphaned tape structures segfault the
+workers); see `PARALLEL_RESULTS.md` for the reproducer and unblock path.
+Additional parallel backends can use the same harness after loading their
 packages on the driver and workers. Availability and differentiation failures
 are assertions or errors, never skips.
+
+Zygote's parallel coverage spans the full matrix (all three ensemble modes,
+direct `ODEProblem` and wrapped `SequentialProblem` templates). Zygote's reverse
+pass is not thread-safe and its shadow structures cannot cross Distributed's
+pmap serialization, so registering the native trace would nondeterministically
+race under `EnsembleThreads` (wrapped templates returned wrong gradients) and
+crash workers under `EnsembleDistributed`. The `CorleoneBaseZygoteExtension`
+therefore adjoins the real ensemble solve directly: its `rrule` for
+`CommonSolve.solve(::AbstractParallelProblem, ...)` runs the requested-mode solve
+as an opaque forward (so threaded/distributed execution is genuine and the
+execution-location probes still observe it) and re-differentiates the actual
+trajectory problems serially in the pullback via `rrule_via_ad`. Ensemble
+solutions are mode-independent, so the adjoint reproduces the forward's primal
+values while computing every trajectory's real trajectory-specific gradient
+without racing or serializing a Zygote tape. Zygote needs no solver-time
+`sensealg` and no `solve_kwargs`: the pullback re-solves with the extension's
+sequential rules (wrapped templates) and SciMLSensitivity's `solve` rules (direct
+templates).
 
 The harness crosses direct `ODEProblem` and wrapped three-stage
 `SequentialProblem` templates with linear/nonlinear and in-place/out-of-place

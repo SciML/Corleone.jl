@@ -1,9 +1,10 @@
 using Distributed
 using SciMLBase: EnsembleSerial, EnsembleThreads, EnsembleDistributed
-using DifferentiationInterface: AutoForwardDiff, AutoReverseDiff
+using DifferentiationInterface: AutoForwardDiff, AutoReverseDiff, AutoZygote
 using ForwardDiff
 using ReverseDiff
 using SciMLSensitivity: SensitivityADPassThrough
+using Zygote
 using CorleoneBase
 using Test
 
@@ -22,6 +23,7 @@ else
         @everywhere added_workers begin
             using ForwardDiff
             using ReverseDiff
+            using Zygote
             using SciMLSensitivity
             include($suite_path)
         end
@@ -59,6 +61,16 @@ else
         Main.ParallelADTests.test_parallel_ad(AutoReverseDiff(),
             (EnsembleSerial(), EnsembleThreads());
             solve_kwargs = (; sensealg = SensitivityADPassThrough(), safetycopy = false))
+        # Zygote registers across the full ensemble matrix. It adjoins the actual
+        # ensemble solve: the CorleoneBaseZygoteExtension runs the real (threaded
+        # or distributed) solve as an opaque forward and re-differentiates the
+        # trajectory problems serially in the pullback, so threaded wrapped
+        # trajectories do not race Zygote's recorder and distributed workers do
+        # not serialize a tape. Ensemble solutions are mode-independent, so the
+        # adjoint has the same primal values as the forward that the
+        # execution-location probes observe.
+        Main.ParallelADTests.test_parallel_ad(AutoZygote(),
+            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed()))
     finally
         rmprocs(added_workers)
     end

@@ -7,6 +7,59 @@ using ChainRulesCore: ChainRulesCore, AbstractZero, HasReverseMode, NoTangent,
 import Zygote
 import CorleoneBase: SequentialProblemIterator, SolutionWrapper, prepare_stage_problem
 import CorleoneBase: AbstractSequentialProblem, get_problem, make_buffer, transition, terminal
+import CorleoneBase: AbstractParallelProblem, prob_func, fix_me
+
+# The parallel ensemble fans out across a SciML EnsembleProblem and, under
+# EnsembleThreads or EnsembleDistributed, across threads or worker processes.
+# Zygote's reverse pass is not thread-safe (the wrapped SequentialProblem
+# trajectories nondeterministically returned wrong gradients under
+# EnsembleThreads), and its shadow/pullback structures cannot survive
+# Distributed's pmap serialization (EnsembleDistributed workers crashed). Solve
+# the real ensemble as an opaque forward and re-differentiate the actual
+# trajectory problems serially in the pullback. The forward genuinely executes
+# on threads/workers (so execution-location probes hold), ensemble solutions do
+# not depend on the mode, and the adjoint recomputes every trajectory's true
+# trajectory-specific gradient without racing or serializing a Zygote tape.
+function parallel_ensemble_serial_solve(problem, algorithm, kwargs)
+    # kwargs is the full NamedTuple forwarded to CommonSolve.solve: split into
+    # EnsembleProblem options, the required trajectories count, and solver kwargs.
+    ensemble_keys = (:output_func, :reduction, :u_init, :safetycopy)
+    ensemble_kwargs = Base.structdiff(kwargs, Base.structdiff(kwargs, NamedTuple{ensemble_keys}))
+    solve_kwargs = Base.structdiff(kwargs, ensemble_kwargs)
+    trajectories = solve_kwargs[:trajectories]
+    solver_kwargs = Base.structdiff(solve_kwargs, NamedTuple{(:trajectories,)})
+    ensemble_problem = SciMLBase.EnsembleProblem(;
+        prob = get_problem(problem),
+        prob_func = fix_me(prob_func, problem),
+        ensemble_kwargs...
+    )
+    return SciMLBase.solve(ensemble_problem, algorithm, SciMLBase.EnsembleSerial();
+        trajectories = trajectories, solver_kwargs...)
+end
+
+function ChainRulesCore.rrule(
+        config::RuleConfig{>:HasReverseMode}, ::typeof(CommonSolve.solve),
+        problem::AbstractParallelProblem, algorithm, ensemblealg;
+        kwargs...
+    )
+    nt = NamedTuple(kwargs)
+    # Opaque forward: the real ensemble solve under the requested mode. Because
+    # this body runs outside Zygote's recorder, threaded/distributed execution
+    # neither races Zygote's reverse pass nor serializes a tape to workers.
+    ensemble = CommonSolve.solve(problem, algorithm, ensemblealg; nt...)
+    _, back = rrule_via_ad(
+        config, parallel_ensemble_serial_solve, problem, algorithm, nt
+    )
+    function ensemble_pullback(delta)
+        gradients = back(delta)
+        gradients === nothing && return (
+            NoTangent(), NoTangent(), NoTangent(), NoTangent()
+        )
+        _, problem_bar, algorithm_bar, _ = gradients
+        return NoTangent(), problem_bar, algorithm_bar, NoTangent()
+    end
+    return ensemble, ensemble_pullback
+end
 
 # Repeated reads of a mutable iterator must return independent structural
 # cotangents, not aliases of Zygote's mutable-object gradient cache.
