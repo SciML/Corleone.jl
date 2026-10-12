@@ -24,11 +24,16 @@ run_qa(
             ignore = (:structdiff, Symbol("@adjoint"), :Buffer, :kwcall),
         ),
         # These private parent-package hooks implement the optional AD rules;
-        # making them public merely for the extension would expand the API.
+        # making them public merely for the extension would expand the API. The
+        # EnsembleProblem/keyword-routing helpers are shared implementation
+        # detail across the parent and its extension.
         all_explicit_imports_are_public = (;
             ignore = (
-                :AbstractSequentialProblem, :SequentialProblemIterator,
+                :AbstractParallelProblem, :AbstractSequentialProblem,
+                :SequentialProblemIterator, :ENSEMBLE_KEYS,
+                :ensemble_problem, :select_keys, :split_problem_kwargs,
                 :get_problem, :make_buffer, :prepare_stage_problem, :terminal, :transition,
+                :prob_func, :fix_me,
             ),
         ),
     ),

@@ -101,9 +101,12 @@ locally confirmed `origin/HEAD` (`main`) to avoid network branch discovery.
   also declared in the AD environment, which tests real ODE gradients.
 - ChainRulesCore and Zygote remain weakdeps and joint extension triggers. The
   AD and QA environments declare them directly to exercise the extension.
-- DifferentiationInterface, FiniteDiff, ForwardDiff, ReverseDiff, Mooncake, and
-  SciMLSensitivity live only in `ad/Project.toml`. Existing backend and analytic
-  gradient coverage is retained, including prepared/repeated evaluations.
+- DifferentiationInterface, FiniteDiff, ForwardDiff, ReverseDiff, and
+  SciMLSensitivity live only in `ad/Project.toml`; Mooncake is additionally a
+  weakdep with the registered `CorleoneBaseMooncakeExtension`, so the AD rules
+  load whenever CorleoneBase and Mooncake are co-loaded, in any environment.
+  Existing backend and analytic gradient coverage is retained, including
+  prepared/repeated evaluations.
 - Aqua is declared only in `qa/Project.toml`. SafeTestsets and SciMLTesting are
   test-harness dependencies, never runtime dependencies. SciMLTesting itself
   depends on Aqua/ExplicitImports, so ordinary `Pkg.test` installs those tools
@@ -158,8 +161,12 @@ QA asserts the extension is absent before its triggers load, still absent with
 only ChainRulesCore, and present after Zygote loads. It runs SciMLTesting.run_qa
 with Aqua enabled and no Aqua exceptions. ExplicitImports exceptions are limited
 to the documented Zygote reexport/unmarked API, the existing keyword dispatch
-hook, Base's NamedTuple key subtraction, and private parent-extension hooks;
-see `qa/qa.jl`. Docstrings are checked, but rendering is not: this sublibrary has
+hook, parent-package private hooks imported by the extensions
+(`AbstractSequentialProblem`, `AbstractParallelProblem`, `get_problem`,
+`make_buffer`, `prepare_stage_problem`, `terminal`, `transition`, `prob_func`,
+`fix_me`, and the shared `ENSEMBLE_KEYS`/`ensemble_problem`/`select_keys`/
+`split_problem_kwargs` routing helpers), Base's NamedTuple key subtraction, and
+private parent-extension hooks; see `qa/qa.jl`. Docstrings are checked, but rendering is not: this sublibrary has
 no standalone manual. JET is not configured, matching root QA.
 
 The first QA attempt exposed the import/API ownership exceptions above; the

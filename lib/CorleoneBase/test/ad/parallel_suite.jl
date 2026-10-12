@@ -92,8 +92,9 @@ sensitivity algorithm and `safetycopy = false` (like the sequential suite's
 pass-through; SciMLBase's default per-simulation template deepcopy recurses
 through the ReverseDiff tape graph until the stack overflows on Julia 1.10 and
 1.11) via `solve_kwargs`; compiled tapes stay out of scope.
-AutoMooncake uses the explicitly loaded CorleoneBaseMooncakeExtension and
-`safetycopy = false`. Its rule runs the requested-mode primal ensemble, then
+AutoMooncake uses the registered CorleoneBaseMooncakeExtension (loaded with
+CorleoneBase and Mooncake together) and `safetycopy = false`. Its rule runs the
+requested-mode primal ensemble, then
 recomputes and differentiates the actual deterministic trajectory solves in
 serial; it does not differentiate scheduler, RNG, or progress infrastructure.
 AutoMooncakeForward shares that extension: its frule runs the genuine

@@ -1,6 +1,7 @@
 using Test
 using CorleoneBase
 @test realpath(pkgdir(CorleoneBase)) == realpath(joinpath(@__DIR__, "../.."))
+
 using DifferentiationInterface: AutoFiniteDiff, AutoForwardDiff, AutoReverseDiff, AutoZygote,
     AutoMooncake, AutoMooncakeForward, check_available
 using FiniteDiff
@@ -9,6 +10,10 @@ using Mooncake
 using ReverseDiff
 using SciMLSensitivity
 using Zygote
+
+# The Mooncake rules load as the registered weakdep extension once both
+# CorleoneBase and Mooncake are loaded.
+@test Base.get_extension(CorleoneBase, :CorleoneBaseMooncakeExtension) !== nothing
 
 include("suite.jl")
 using .SequentialADTests: test_sequential_ad

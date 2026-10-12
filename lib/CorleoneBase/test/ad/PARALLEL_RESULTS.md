@@ -6,9 +6,11 @@ Only test files and the `CorleoneBaseZygoteExtension` were changed; no `src`
 or package-metadata change was needed. Pre-existing unrelated changes were left
 untouched.
 
-The statement above describes the earlier phases. The Mooncake phase additionally
-uses an explicitly test-loaded `CorleoneBaseMooncakeExtension`; see the appended
-Mooncake section. No package metadata or `src` changes are permitted in that phase.
+The statement above describes the earlier phases. The Mooncake phase initially
+used an explicitly test-loaded `CorleoneBaseMooncakeExtension`; see the appended
+Mooncake section. It is now registered in the package metadata (`Mooncake`
+weakdep + extension entry + `Mooncake = "0.5"` compat), so the rules load
+automatically whenever CorleoneBase and Mooncake are co-loaded.
 
 This document grew by phase: first ForwardDiff, then uncompiled ReverseDiff, then
 Zygote. Each phase's results stand on its own; counts below are per phase.

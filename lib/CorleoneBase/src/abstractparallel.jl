@@ -28,14 +28,6 @@ on for every trajectory.
 function get_problem(::AbstractParallelProblem) end
 
 """
-    get_problems(problem::AbstractParallelProblem)
-
-Reserved interface hook for problem collections. No CorleoneBase implementation
-calls it yet, so concrete parallel-problem types may leave it undefined.
-"""
-function get_problems end
-
-"""
     prob_func(problem::AbstractParallelProblem, template, ctx)
 
 Return the trajectory problem built from `template` and the ensemble context
@@ -44,12 +36,50 @@ binding `problem`; `ctx` is a `SciMLBase.EnsembleContext`.
 """
 function prob_func(::AbstractParallelProblem, template, ctx) end
 
+# Keywords that configure a `SciMLBase.EnsembleProblem` rather than its solve.
+const ENSEMBLE_KEYS = (:output_func, :reduction, :u_init, :safetycopy)
+
+"""
+    fix_me(f, x) -> callable
+
+EnsembleProblem convenience wrapper: turn a CorleoneBase three-argument hook
+`f(problem, template, ctx)` into the two-argument `prob_func(prob, i|ctx)`
+callable a `SciMLBase.EnsembleProblem` expects, bound with `x`. On Julia >= 1.12
+this is `Base.Fix1(f, x)`; on 1.10/1.11 `Base.Fix1` only forwards one remaining
+argument, so an equivalent multi-argument closure is used instead.
+"""
 @static if VERSION >= v"1.12"
     fix_me(f, x) = Base.Fix1(f, x)
 else
     fix_me(f, x) = let f = f, x = x
         (args...) -> f(x, args...)
     end
+end
+
+"""
+    select_keys(nt::NamedTuple, keys) -> NamedTuple
+
+Return the members of `keys` that occur in `nt`, as a NamedTuple carrying
+exactly the selected keys (in `keys` order). A type-stable replacement for the
+double `Base.structdiff` select.
+"""
+function select_keys(nt::NamedTuple, keys::Tuple{Vararg{Symbol}})
+    return Base.structdiff(nt, Base.structdiff(nt, NamedTuple{keys}))
+end
+
+"""
+    ensemble_problem(problem::AbstractParallelProblem; kwargs...) -> SciMLBase.EnsembleProblem
+
+Build the `SciMLBase.EnsembleProblem` for a parallel problem: the template from
+`get_problem`, the problem's `prob_func` hook bound with `fix_me`, plus any
+ensemble keywords (`output_func`, `reduction`, `u_init`, `safetycopy`).
+"""
+function ensemble_problem(problem::AbstractParallelProblem; kwargs...)
+    return SciMLBase.EnsembleProblem(;
+        prob = get_problem(problem),
+        prob_func = fix_me(prob_func, problem),
+        kwargs...
+    )
 end
 
 """
@@ -76,23 +106,11 @@ meaning. Under the default `output_func` the result is a
     # Convert kwargs to a NamedTuple (type-stable)
     nt_kwargs = NamedTuple(kwargs)
 
-    # Allowed keys as a static tuple of Symbols
-    ensemble_keys = (:output_func, :reduction, :u_init, :safetycopy)
+    # Keywords named for the EnsembleProblem configure it; the rest reach solve.
+    ensemble_kwargs = select_keys(nt_kwargs, ENSEMBLE_KEYS)
+    solve_kwargs = Base.structdiff(nt_kwargs, ensemble_kwargs)
 
-    # Keep only keys that actually exist in kwargs (Type-Stable via Base.structdiff)
-    ensemblekwargs = Base.structdiff(nt_kwargs, Base.structdiff(nt_kwargs, NamedTuple{ensemble_keys}))
+    ensembles = ensemble_problem(problem; ensemble_kwargs...)
 
-    # Or cleaner: extract ensemblekwargs directly using pure NamedTuple selection
-    # ensemblekwargs = NamedTuple{intersect(keys(nt_kwargs), ensemble_keys)}(nt_kwargs)
-
-    # solve_kwargs is simply the inverse diff
-    solve_kwargs = Base.structdiff(nt_kwargs, ensemblekwargs)
-
-    ensemble_problem = SciMLBase.EnsembleProblem(;
-        prob = get_problem(problem),
-        prob_func = fix_me(prob_func, problem),
-        ensemblekwargs...
-    )
-
-    return solve(ensemble_problem, alg, ensemblealg; trajectories, solve_kwargs...)
+    return solve(ensembles, alg, ensemblealg; trajectories, solve_kwargs...)
 end

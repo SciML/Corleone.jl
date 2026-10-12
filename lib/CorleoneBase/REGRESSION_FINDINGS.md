@@ -53,7 +53,7 @@ BenchmarkTools 1.8.0.
   field changes; a fallback returns non-SciML stage problems unchanged
   (this fix; see Findings 1 and 2).
 - New `AbstractParallelProblem` / `ParallelProblem` ensemble API with
-  `get_problem`, `get_problems`, `prob_func`, and an ensemble `CommonSolve.solve`
+  `get_problem`, `prob_func`, and an ensemble `CommonSolve.solve`
   that routes `output_func`/`reduction`/`u_init`/`safetycopy` to
   `SciMLBase.EnsembleProblem` and all other keywords to `SciMLBase.solve`.
 
@@ -242,7 +242,7 @@ rather than as a speedup claim.
 ## New APIs without a comparable baseline
 
 `ParallelProblem` and its `solve`, `AbstractParallelProblem`, `prob_func`,
-`get_problems`, `split_problem_kwargs`, `_split_problem_kwargs`, and
+`split_problem_kwargs`, `_split_problem_kwargs`, and
 `_prepare_problem` do not exist at `b261940`, so no head-vs-baseline runtime or
 allocation comparison applies. Their inference is assessed above; only the
 `parallel_solve` path is measured for correctness, not compared for performance.

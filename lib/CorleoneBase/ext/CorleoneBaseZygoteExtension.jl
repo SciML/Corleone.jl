@@ -3,11 +3,14 @@ module CorleoneBaseZygoteExtension
 using CommonSolve: CommonSolve, solve
 using SciMLBase: SciMLBase, remake
 using ChainRulesCore: ChainRulesCore, AbstractZero, HasReverseMode, NoTangent,
-    RuleConfig, Tangent, ZeroTangent, @non_differentiable, rrule_via_ad, unthunk
+    RuleConfig, Tangent, ZeroTangent, rrule_via_ad, unthunk
 import Zygote
 import CorleoneBase: SequentialProblemIterator, SolutionWrapper, prepare_stage_problem
 import CorleoneBase: AbstractSequentialProblem, get_problem, make_buffer, transition, terminal
-import CorleoneBase: AbstractParallelProblem, prob_func, fix_me
+import CorleoneBase: AbstractParallelProblem
+# Shared EnsembleProblem/keyword helpers defined by the parent package; they are
+# implementation detail shared with the extensions, not public API.
+import CorleoneBase: ENSEMBLE_KEYS, ensemble_problem, select_keys, split_problem_kwargs
 
 # The parallel ensemble fans out across a SciML EnsembleProblem and, under
 # EnsembleThreads or EnsembleDistributed, across threads or worker processes.
@@ -23,18 +26,13 @@ import CorleoneBase: AbstractParallelProblem, prob_func, fix_me
 function parallel_ensemble_serial_solve(problem, algorithm, kwargs)
     # kwargs is the full NamedTuple forwarded to CommonSolve.solve: split into
     # EnsembleProblem options, the required trajectories count, and solver kwargs.
-    ensemble_keys = (:output_func, :reduction, :u_init, :safetycopy)
-    ensemble_kwargs = Base.structdiff(kwargs, Base.structdiff(kwargs, NamedTuple{ensemble_keys}))
+    ensemble_kwargs = select_keys(kwargs, ENSEMBLE_KEYS)
     solve_kwargs = Base.structdiff(kwargs, ensemble_kwargs)
-    trajectories = solve_kwargs[:trajectories]
-    solver_kwargs = Base.structdiff(solve_kwargs, NamedTuple{(:trajectories,)})
-    ensemble_problem = SciMLBase.EnsembleProblem(;
-        prob = get_problem(problem),
-        prob_func = fix_me(prob_func, problem),
-        ensemble_kwargs...
-    )
+    trajectories = solve_kwargs.trajectories
+    solver_kwargs = Base.structdiff(solve_kwargs, (; trajectories = nothing))
+    replay_problem = ensemble_problem(problem; ensemble_kwargs...)
     return SciMLBase.solve(
-        ensemble_problem, algorithm, SciMLBase.EnsembleSerial();
+        replay_problem, algorithm, SciMLBase.EnsembleSerial();
         trajectories = trajectories, solver_kwargs...
     )
 end
@@ -74,15 +72,14 @@ function ChainRulesCore.rrule(::typeof(getproperty), it::SequentialProblemIterat
     return value, property_pullback
 end
 
-initial_keyword_names(options) = Tuple(
-    key for key in keys(options) if key in (:u0, :p, :tspan)
-)
-@non_differentiable initial_keyword_names(::Any)
-
 function initial_stage(problem, algorithm, options)
-    initial_kwargs = NamedTuple{initial_keyword_names(options)}(options)
-    solve_kwargs = Base.structdiff(options, initial_kwargs)
-    inner_problem = prepare_stage_problem(remake(get_problem(problem); initial_kwargs...))
+    # Route by the wrapped problem's field names, exactly like the primal
+    # CommonSolve.init does: field-named keywords (for an ODEProblem, the
+    # non-(u0,p,tspan) fields `f`, `kwargs`, and `problem_type` included) are
+    # remade into the first stage, the remainder reach every stage's solve.
+    template = get_problem(problem)
+    initial_kwargs, solve_kwargs = split_problem_kwargs(template, options)
+    inner_problem = prepare_stage_problem(remake(template; initial_kwargs...))
     solution = solve(inner_problem, algorithm; solve_kwargs...)
     return SequentialProblemIterator(
         inner_problem, (sol, i) -> transition(problem, sol, i), (sol, i) -> terminal(problem, sol, i),

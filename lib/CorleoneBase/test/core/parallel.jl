@@ -16,7 +16,6 @@ using Test
     @test CorleoneBase.get_problem(parallel) === sequential
     # The default hook ignores the ensemble context and returns the template.
     @test CorleoneBase.prob_func(parallel, sequential, nothing) === sequential
-    @test CorleoneBase.get_problems isa Function
 end
 
 # The implementation now supplies a multi-argument closure on Julia 1.10/1.11.

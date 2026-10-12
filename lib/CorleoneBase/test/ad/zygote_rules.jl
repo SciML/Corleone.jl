@@ -19,6 +19,21 @@ end
 CommonSolve.solve(p::StageProblem, ::Nothing; kwargs...) = StageSolution(p.value, p.succeeds)
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
 
+# A problem whose field is not named u0/p/tspan: the init rule must route the
+# field-named keyword through remake exactly like the primal
+# CommonSolve.init does via the shared split_problem_kwargs.
+struct KwProblem{V} <: SciMLBase.AbstractSciMLProblem
+    value::V
+    tag::Symbol
+    retcode::SciMLBase.ReturnCode.T
+end
+KwProblem(value, tag) = KwProblem(value, tag, SciMLBase.ReturnCode.Success)
+SciMLBase.remake(p::KwProblem; value = p.value, tag = p.tag) = KwProblem(value, tag)
+
+struct NoSolve <: SciMLBase.AbstractSciMLAlgorithm end
+CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) = p
+SciMLBase.successful_retcode(p::KwProblem) = true
+
 function iterator(x; terminal_at = 3, fail_at = 0, preallocate = false)
     problem = StageProblem(x[1], true)
     initial = solve(problem, nothing)
@@ -33,6 +48,33 @@ end
 function loss(x; kwargs...)
     w = solve!(iterator(x; kwargs...))
     return sum(w[i].value for i in eachindex(w))
+end
+
+@testset "Zygote init keyword routing matches the primal" begin
+    # `tag` is a field of the staged problem, so it must reach remake, not the
+    # stage solve; a non-field keyword stays in solve_kwargs. The primal init
+    # and the Zygote-adjoined rule share CorleoneBase.split_problem_kwargs, so
+    # both route identically, and the value keyword keeps its gradient.
+    primal_loss(x) = solve!(
+        init(
+            SequentialProblem(KwProblem(0.5, :a); terminal = (sol, i) -> true),
+            NoSolve();
+            value = x[1], tag = :b, extra = 1
+        )
+    )[1].value
+    @testset "routing" begin
+        template = SequentialProblem(KwProblem(0.5, :a); terminal = (sol, i) -> true)
+        it = init(template, NoSolve(); value = 1.3, tag = :b, extra = 1)
+        @test it.problem isa KwProblem
+        @test it.problem.tag == :b
+        @test it.problem.value == 1.3
+        @test it.solve_kwargs == (; extra = 1)
+    end
+    x = [1.7]
+    primal_value = primal_loss(x)
+    zygote_value, zygote_gradient = Zygote.withgradient(primal_loss, x)
+    @test zygote_value == primal_value
+    @test only(zygote_gradient) ≈ [1.0]
 end
 
 @testset "Zygote solve! rule contracts" begin

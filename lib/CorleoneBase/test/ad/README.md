@@ -110,10 +110,10 @@ without racing or serializing a Zygote tape. Zygote needs no solver-time
 sequential rules (wrapped templates) and SciMLSensitivity's `solve` rules (direct
 templates).
 
-Mooncake uses `ext/CorleoneBaseMooncakeExtension.jl`, explicitly included under
-the same `Main` module on driver and workers after loading Mooncake and
-SciMLSensitivity. This is test-driven extension loading, not automatic package
-extension registration: package metadata is intentionally unchanged. The driver
+Mooncake uses the registered `CorleoneBaseMooncakeExtension`: the package
+metadata declares the `Mooncake` weakdep and extension, so the rules load
+automatically on driver and workers as soon as CorleoneBase and Mooncake are
+co-loaded, inside the same `Main`/precompiled module. The driver
 also checks that the upstream SciMLBase and SciMLSensitivity Mooncake extensions
 are loaded on every process.
 

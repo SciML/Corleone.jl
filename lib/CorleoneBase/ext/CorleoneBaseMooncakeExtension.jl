@@ -6,9 +6,10 @@ import SciMLBase
 import Mooncake
 using Mooncake: CoDual, Dual, primal, tangent, zero_dual, zero_fcodual, NoRData
 
-# Loaded explicitly by the AD tests: adding a package weakdep/extension entry is
-# deliberately outside this change's scope. Only deterministic, mode-independent,
-# default-output/default-reduction ensembles with read-only hooks are supported.
+# Loaded automatically as the registered `CorleoneBaseMooncakeExtension`
+# weakdep extension when CorleoneBase and Mooncake are both loaded. Only
+# deterministic, mode-independent, default-output/default-reduction ensembles
+# with read-only hooks are supported.
 function serial_trajectories(problem, algorithm, options, forward)
     solver_options = Base.structdiff(options, NamedTuple{(:trajectories, :safetycopy)})
     template = CorleoneBase.get_problem(problem)

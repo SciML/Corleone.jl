@@ -10,15 +10,18 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [weakdeps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [extensions]
 CorleoneBaseZygoteExtension = ["ChainRulesCore", "Zygote"]
+CorleoneBaseMooncakeExtension = "Mooncake"
 
 [compat]
 ArrayInterface = "7"
 ChainRulesCore = "1"
 CommonSolve = "0.2.14"
+Mooncake = "0.5"
 OrdinaryDiffEqTsit5 = "2.1.5"
 SafeTestsets = "0.1"
 SciMLBase = "3.57.0"

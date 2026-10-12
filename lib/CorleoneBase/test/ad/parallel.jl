@@ -10,6 +10,10 @@ using Zygote
 using CorleoneBase
 using Test
 
+# The Mooncake rules load as the registered weakdep extension, on the driver and
+# on every worker.
+@test Base.get_extension(CorleoneBase, :CorleoneBaseMooncakeExtension) !== nothing
+
 if Threads.nthreads() == 1
     # Pkg.test and CI may start a single-threaded driver. Run the real contracts
     # in a multithreaded subprocess rather than skipping threaded coverage.
@@ -22,19 +26,16 @@ else
     try
         @test length(added_workers) == 2
         suite_path = joinpath(@__DIR__, "parallel_suite.jl")
-        mooncake_rules = abspath(joinpath(@__DIR__, "../../ext/CorleoneBaseMooncakeExtension.jl"))
         @everywhere added_workers begin
             using ForwardDiff
             using Mooncake
             using ReverseDiff
             using Zygote
             using SciMLSensitivity
-            include($mooncake_rules)
             include($suite_path)
         end
         # Stable module identity on driver and workers, also inside SafeTestsets.
         Base.include(Main, suite_path)
-        Base.include(Main, mooncake_rules)
         for (package, extension) in (
                 (SciMLBase, :SciMLBaseMooncakeExt),
                 (SciMLSensitivity, :SciMLSensitivityMooncakeExt),
@@ -51,6 +52,13 @@ else
             " workers=", added_workers, " source=", pkgdir(CorleoneBase)
         )
         flush(stdout)
+        @test Base.get_extension(CorleoneBase, :CorleoneBaseMooncakeExtension) !== nothing
+        @test all(
+            pid -> remotecall_fetch(
+                Base.get_extension, pid, CorleoneBase, :CorleoneBaseMooncakeExtension
+            ) !== nothing,
+            added_workers
+        )
         # Check where ensemble work actually runs, not just available resources.
         for mode in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
             locations = Main.ParallelADTests.execution_locations(mode)
