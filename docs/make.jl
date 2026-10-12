@@ -7,10 +7,11 @@ Pkg.develop(
         PackageSpec(path = joinpath(@__DIR__, "..")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneBase")),
         PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
     ]
 )
 
-using Documenter, Corleone, CorleoneBase, CorleoneOED
+using Documenter, Corleone, CorleoneBase, CorleoneOED, OptimalControlBenchmarks
 using DocumenterInterLinks
 using DocumenterCitations
 using Literate
