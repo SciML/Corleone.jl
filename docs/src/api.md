@@ -62,12 +62,3 @@ CorleoneOED.FisherACriterion
 CorleoneOED.FisherECriterion
 CorleoneOED.FisherDCriterion
 ```
-
-## OptimalControlBenchmarks
-
-```@docs
-OptimalControlBenchmarks.load_benchmarks
-OptimalControlBenchmarks.run_all
-OptimalControlBenchmarks.OptimalControlBenchmark
-OptimalControlBenchmarks.BenchmarkGrids
-```
