@@ -9,15 +9,22 @@ optimization problems, or plots. Those belong in your application. See
 ## Callback contract and propagation
 
 Construct `SequentialProblem(first_problem; transition, terminal)`. With defaults,
-only the first problem is solved. To continue, supply both callbacks:
+only the first problem is solved. To continue, supply both callbacks. Both are
+called with the sequence itself as their first argument, so they can read the
+optional sequence-wide fields `seq.parameters` and `seq.states` (`nothing` by
+default):
 
-* `terminal(sol, i)` receives the solution and **current** stage index (first is
-  1). Returning `true` stops before constructing another stage.
-* `transition(sol, i)` receives the previous solution and **next** stage index
-  (first call is 2). Return a SciML problem compatible with the same algorithm
-  and stored solution buffer type.
+* `terminal(seq, sol, i)` receives the sequence, the solution, and the
+  **current** stage index (first is 1). Returning `true` stops before
+  constructing another stage.
+* `transition(seq, sol, i)` receives the sequence, the previous solution, and
+  the **next** stage index (first call is 2). Return a SciML problem compatible
+  with the same algorithm and stored solution buffer type. Stored two-argument
+  `(sol, i)` callables are not supported: both hooks must accept the sequence.
 
-There is no automatic propagation of state, parameters, or time intervals.
+There is no automatic propagation of state, parameters, or time intervals —
+neither from `seq.parameters`/`seq.states` into any stage problem, whose
+construction stays explicit.
 Typically `remake(sol.prob; u0 = sol.u[end], p = ..., tspan = ...)` carries the
 endpoint to the next stage. Copy or replace state explicitly if the next stage
 must reset it. You must ensure an eventual terminal condition; there is no outer
@@ -33,12 +40,12 @@ julia> calls = Int[];
 julia> first_problem = ODEProblem((u, p, t) -> p .* u, [1.0], (0.0, 1.0), 0.0);
 
 julia> sequence = SequentialProblem(first_problem;
-           transition = (sol, i) -> begin
+           transition = (seq, sol, i) -> begin
                push!(calls, i)
                remake(sol.prob; u0 = sol.u[end], p = 0.0,
                       tspan = (Float64(i - 1), Float64(i)))
            end,
-           terminal = (sol, i) -> i >= 3);
+           terminal = (seq, sol, i) -> i >= 3);
 
 julia> stages = solve(sequence, Tsit5(); abstol = 1e-9, reltol = 1e-9,
                      save_everystep = false);
@@ -54,6 +61,45 @@ julia> (stages isa SolutionWrapper, CorleoneBase.retcode(stages) == ReturnCode.S
 (true, true, true)
 ```
 
+## Sequence-wide parameters and states
+
+`parameters` and `states` are optional sequence-wide fields the callbacks can
+read as `seq.parameters` and `seq.states`. They are plain data: neither field is
+applied to a stage problem automatically, and the first stage's state,
+parameters, and time span come exclusively from its explicit construction.
+A new sequence with either field replaced is built with
+`SciMLBase.remake(sequence; parameters = ..., states = ...)` — any sequence
+field (`problem`, `transition`, `terminal`, `parameters`, `states`) can be
+replaced and the others are carried over; the input is never mutated.
+
+```jldoctest sequence-remake
+julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
+
+julia> using SciMLBase: ODEProblem, remake
+
+julia> skeleton = SequentialProblem(
+           ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 0.0);
+           transition = (seq, sol, i) ->
+               remake(sol.prob; u0 = sol.u[end], p = seq.parameters[i],
+                      tspan = (sol.t[end], sol.t[end] + 1.0)),
+           terminal = (seq, sol, i) -> i >= 3);
+
+julia> (skeleton.parameters, skeleton.states)
+(nothing, nothing)
+
+julia> remade = remake(skeleton; parameters = [0.0, 0.0]);
+
+julia> (skeleton.parameters, remade.parameters, remade.transition === skeleton.transition)
+(nothing, [0.0, 0.0], true)
+
+julia> stages = solve(skeleton, Tsit5(); parameters = [1.2, 0.4, 0.4],
+                      abstol = 1e-9, reltol = 1e-9, save_everystep = false,
+                      save_start = true, save_end = true);
+
+julia> (skeleton.parameters, [sol.prob.p for sol in stages])
+(nothing, [0.0, 0.4, 0.4])
+```
+
 ## CommonSolve workflow and keywords
 
 `solve(sequence, algorithm; kwargs...)` initializes and completes the sequence.
@@ -62,7 +108,10 @@ julia> (stages isa SolutionWrapper, CorleoneBase.retcode(stages) == ReturnCode.S
 keywords. It is a CommonSolve state object, not a Julia iteration protocol for
 streaming stage solves: use `step!`, `Base.isdone`, and `solve!` as below.
 
-`u0`, `p`, and `tspan` keywords remake **only the initial problem**. They are
+Keywords naming a sequence field (`parameters`, `states`, or any other
+`SequentialProblem` field) remake the sequence the callbacks observe, as
+described above. `u0`, `p`, and `tspan` keywords remake **only the initial
+problem**. They are
 removed from the stored solve keywords. All other keywords (for example
 `abstol`, `reltol`, `save_everystep`, `save_start`, `save_end`, `maxiters`) are
 forwarded unchanged to **each** stage solver, whose own semantics apply.
@@ -138,9 +187,9 @@ julia> using SciMLBase: ODEProblem, remake, ReturnCode, successful_retcode,
 
 julia> stopped_sequence = SequentialProblem(
            ODEProblem((u, p, t) -> zero(u), [1.0], (0.0, 1.0));
-           transition = (sol, i) -> remake(sol.prob; u0 = sol.u[end],
+           transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end],
                tspan = (sol.t[end], sol.t[end] + 1.0)),
-           terminal = (sol, i) -> i >= 2);
+           terminal = (seq, sol, i) -> i >= 2);
 
 julia> stop_stage = DiscreteCallback((u, t, integrator) -> true, terminate!);
 
@@ -175,8 +224,8 @@ julia> transitions = Int[];
 
 julia> failing = SequentialProblem(
            ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0));
-           transition = (sol, i) -> (push!(transitions, i); sol.prob),
-           terminal = (sol, i) -> i >= 3);
+           transition = (seq, sol, i) -> (push!(transitions, i); sol.prob),
+           terminal = (seq, sol, i) -> i >= 3);
 
 julia> failed = with_logger(NullLogger()) do
            solve(failing, Tsit5(); maxiters = 0)
@@ -200,7 +249,8 @@ using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5, SciMLBase
 
 problem = ParallelProblem(sequence; prob_func = (problem, template, ctx) ->
     SequentialProblem(remake(template.problem; u0 = rand(ctx.rng, 1));
-                      transition = template.transition, terminal = template.terminal))
+                      transition = template.transition, terminal = template.terminal,
+                      parameters = template.parameters, states = template.states))
 
 trajectories = solve(problem, Tsit5(), EnsembleSerial(); trajectories = 8,
                      seed = 1)

@@ -34,11 +34,11 @@ end
     calls = Int[]
     problem = SequentialProblem(
         template;
-        transition = (sol, i) -> begin
+        transition = (seq, sol, i) -> begin
             push!(calls, i)
             remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
         end,
-        terminal = (sol, i) -> i >= 3,
+        terminal = (seq, sol, i) -> i >= 3,
     )
     it = init(problem, Tsit5(); SOLVE_KWARGS..., u0 = [1.2], p = 0.4, tspan = (2.0, 3.0))
     @test isempty(calls)
@@ -110,8 +110,8 @@ SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
     for preallocate in (false, true), fail_at in (0, 2, 3)
         problem = SequentialProblem(
             StageProblem(true);
-            transition = (sol, i) -> StageProblem(i != fail_at),
-            terminal = (sol, i) -> i >= 3,
+            transition = (seq, sol, i) -> StageProblem(i != fail_at),
+            terminal = (seq, sol, i) -> i >= 3,
         )
         it = init(problem, NoSolve())
         if preallocate
@@ -145,8 +145,8 @@ end
 @testset "SolutionWrapper array interface" begin
     problem = SequentialProblem(
         StageProblem(true);
-        transition = (sol, i) -> StageProblem(true),
-        terminal = (sol, i) -> i >= 3,
+        transition = (seq, sol, i) -> StageProblem(true),
+        terminal = (seq, sol, i) -> i >= 3,
     )
     it = init(problem, NoSolve())
     append!(it.buffer, [StageSolution(false), StageSolution(false)])
@@ -169,8 +169,8 @@ end
     # A wrapper over a manually advanced (non-full) state only exposes solved stages.
     problem2 = SequentialProblem(
         StageProblem(true);
-        transition = (sol, i) -> StageProblem(true),
-        terminal = (sol, i) -> i >= 2,
+        transition = (seq, sol, i) -> StageProblem(true),
+        terminal = (seq, sol, i) -> i >= 2,
     )
     it2 = init(problem2, NoSolve())
     append!(it2.buffer, [StageSolution(false), StageSolution(false)])
@@ -185,11 +185,11 @@ end
     attempts = Int[]
     problem = SequentialProblem(
         StageProblem(true);
-        transition = (sol, i) -> begin
+        transition = (seq, sol, i) -> begin
             push!(attempts, i)
             StageProblem(i != 2)
         end,
-        terminal = (sol, i) -> i >= 5,
+        terminal = (seq, sol, i) -> i >= 5,
     )
     it = init(problem, NoSolve())
     w = solve!(it)
@@ -260,12 +260,126 @@ CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) =
 SciMLBase.successful_retcode(::KwSolution) = true
 
 @testset "Field-named keywords remake only the first problem" begin
-    problem = SequentialProblem(KwProblem(:a); terminal = (sol, i) -> true)
+    problem = SequentialProblem(KwProblem(:a); terminal = (seq, sol, i) -> true)
     it = init(problem, NoSolve(); tag = :b, abstol = 1.0e-6, extra = 2)
     @test it.problem isa KwProblem
     @test it.problem.tag == :b
     @test it.solve_kwargs == (; abstol = 1.0e-6, extra = 2)
     @test it.buffer[1].tag == :b
+end
+
+@testset "Sequence-wide parameters and states" begin
+    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
+
+    # Both sequence-wide fields default to nothing.
+    plain = SequentialProblem(template)
+    @test plain.parameters === nothing
+    @test plain.states === nothing
+
+    # Callbacks receive the sequence first and can read the sequence-wide
+    # fields; the first stage's construction is untouched by them.
+    observed = []
+    problem = SequentialProblem(
+        template;
+        transition = (seq, sol, i) -> begin
+            push!(observed, (kind = :transition, index = i, parameters = seq.parameters, states = seq.states))
+            remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
+        end,
+        terminal = (seq, sol, i) -> (push!(observed, (kind = :terminal, index = i, parameters = seq.parameters, states = seq.states)); i >= 3),
+        parameters = (rate = 0.4,),
+        states = (offset = 2.0,),
+    )
+    w = solve(problem, Tsit5(); SOLVE_KWARGS...)
+    @test length(w) == 3
+    @test all(
+        entry.parameters == (rate = 0.4,) && entry.states == (offset = 2.0,) for entry in observed
+    )
+    # Stage problems never saw the sequence-wide parameters: stage 1 keeps its
+    # own p, later stages keep the p carried by the explicit transition remake.
+    @test w[1].prob.p == 4.0
+    @test w[2].prob.p == 4.0
+    @test w[1].prob.tspan == (0.0, 1.0)
+
+    # remake replaces the named fields, carries the others over, and never
+    # mutates the input sequence.
+    remade = SciMLBase.remake(problem; parameters = (rate = 0.8,))
+    @test remade !== problem
+    @test remade.parameters == (rate = 0.8,)
+    @test remade.states === problem.states
+    @test remade.transition === problem.transition
+    @test remade.terminal === problem.terminal
+    @test remade.problem === problem.problem
+    @test problem.parameters == (rate = 0.4,)
+    remade2 = SciMLBase.remake(problem; states = [1.0, 2.0])
+    @test remade2.states == [1.0, 2.0]
+    @test remade2.parameters === problem.parameters
+    @test SciMLBase.remake(problem).problem === problem.problem
+
+    # init/solve keywords naming a sequence field override it for the callbacks
+    # without mutating the original sequence or leaking into the solve keywords.
+    seen = Ref{Any}(nothing)
+    overridden = SequentialProblem(
+        template;
+        transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1)),
+        terminal = (seq, sol, i) -> (seen[] = (i, seq.parameters, seq.states); i >= 2),
+    )
+    it = init(
+        overridden, Tsit5();
+        SOLVE_KWARGS..., parameters = (rate = 0.9,), states = (offset = 5.0,), u0 = [1.2]
+    )
+    @test overridden.parameters === nothing && overridden.states === nothing
+    @test it.solve_kwargs == SOLVE_KWARGS
+    @test !haskey(it.solve_kwargs, :parameters)
+    @test !haskey(it.solve_kwargs, :states)
+    # First-stage construction is explicit: the sequence-wide overrides did not
+    # alter its state, parameters, or time span (only the u0 keyword did).
+    @test it.problem.u0 == [1.2]
+    @test it.problem.p == 4.0
+    @test it.problem.tspan == (0.0, 1.0)
+    # init does not call the terminal; solve! does, and it observes the overrides.
+    @test seen[] === nothing
+    w2 = solve!(it)
+    @test length(w2) == 2
+    @test seen[] == (2, (rate = 0.9,), (offset = 5.0,))
+    # solve-level overrides behave identically through CommonSolve.solve.
+    seen2 = Ref{Any}(nothing)
+    direct = SequentialProblem(
+        template;
+        transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1)),
+        terminal = (seq, sol, i) -> (seen2[] = (i, seq.parameters); i >= 2),
+    )
+    w3 = solve(
+        direct, Tsit5(); SOLVE_KWARGS..., parameters = (rate = 1.1, extra = 3),
+    )
+    @test length(w3) == 2
+    @test seen2[] == (2, (rate = 1.1, extra = 3))
+    @test direct.parameters === nothing
+
+    # split_sequence_kwargs routes by the sequence's own field names, ahead of
+    # the wrapped problem's field names.
+    seq_kwargs, rest = CorleoneBase.split_sequence_kwargs(
+        problem, (parameters = 1, states = 2, u0 = [0.0], abstol = 1.0e-6)
+    )
+    @test seq_kwargs == (parameters = 1, states = 2)
+    @test rest == (u0 = [0.0], abstol = 1.0e-6)
+end
+
+@testset "Callbacks must accept the sequence argument" begin
+    # No legacy fallback: a stored two-argument callable is a MethodError at the
+    # call site, not silently rebound to a two-argument wrapper.
+    legacy_transition = SequentialProblem(
+        StageProblem(true);
+        transition = (sol, i) -> StageProblem(true),
+    )
+    it = init(legacy_transition, NoSolve())
+    @test Base.isdone(it)                 # the default terminal accepts (seq, sol, i)
+    @test_throws MethodError step!(it)    # the legacy transition does not
+
+    legacy_terminal = SequentialProblem(
+        StageProblem(true);
+        terminal = (sol, i) -> true,
+    )
+    @test_throws MethodError Base.isdone(init(legacy_terminal, NoSolve()))
 end
 
 # Every field of any SciML problem is passed through ArrayInterface.aos_to_soa,

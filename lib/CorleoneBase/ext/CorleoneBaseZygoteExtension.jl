@@ -10,7 +10,8 @@ import CorleoneBase: AbstractSequentialProblem, get_problem, make_buffer, transi
 import CorleoneBase: AbstractParallelProblem
 # Shared EnsembleProblem/keyword helpers defined by the parent package; they are
 # implementation detail shared with the extensions, not public API.
-import CorleoneBase: ENSEMBLE_KEYS, ensemble_problem, select_keys, split_problem_kwargs
+import CorleoneBase: ENSEMBLE_KEYS, ensemble_problem, select_keys, split_problem_kwargs,
+    split_sequence_kwargs
 
 # The parallel ensemble fans out across a SciML EnsembleProblem and, under
 # EnsembleThreads or EnsembleDistributed, across threads or worker processes.
@@ -73,17 +74,21 @@ function ChainRulesCore.rrule(::typeof(getproperty), it::SequentialProblemIterat
 end
 
 function initial_stage(problem, algorithm, options)
-    # Route by the wrapped problem's field names, exactly like the primal
-    # CommonSolve.init does: field-named keywords (for an ODEProblem, the
-    # non-(u0,p,tspan) fields `f`, `kwargs`, and `problem_type` included) are
-    # remade into the first stage, the remainder reach every stage's solve.
-    template = get_problem(problem)
+    # Route by field names in two steps, exactly like the primal
+    # CommonSolve.init does: keywords naming a field of the sequence remake the
+    # sequence the callbacks observe, keywords naming a field of the wrapped
+    # problem (for an ODEProblem, the non-(u0,p,tspan) fields `f`, `kwargs`, and
+    # `problem_type` included) are remade into the first stage, and the
+    # remainder reach every stage's solve.
+    seq_kwargs, options = split_sequence_kwargs(problem, options)
+    sequence = isempty(seq_kwargs) ? problem : remake(problem; seq_kwargs...)
+    template = get_problem(sequence)
     initial_kwargs, solve_kwargs = split_problem_kwargs(template, options)
     inner_problem = prepare_stage_problem(remake(template; initial_kwargs...))
     solution = solve(inner_problem, algorithm; solve_kwargs...)
     return SequentialProblemIterator(
-        inner_problem, (sol, i) -> transition(problem, sol, i), (sol, i) -> terminal(problem, sol, i),
-        algorithm, solve_kwargs, make_buffer(problem, solution), 1
+        inner_problem, (sol, i) -> transition(sequence, sol, i), (sol, i) -> terminal(sequence, sol, i),
+        algorithm, solve_kwargs, make_buffer(sequence, solution), 1
     )
 end
 

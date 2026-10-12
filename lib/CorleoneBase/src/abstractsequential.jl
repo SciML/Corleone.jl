@@ -22,7 +22,9 @@ function get_problem(::AbstractSequentialProblem) end
 
 Return the problem for next stage `i` (`i >= 2`) given the preceding stage's
 solution `sol`. Implemented by concrete sequential problems; see
-[`SequentialProblem`](@ref).
+[`SequentialProblem`](@ref). Concrete problems call their stored hook with the
+sequence itself as the first argument, so the hook can read sequence-wide data
+such as `seq.parameters` and `seq.states`.
 """
 function transition(::AbstractSequentialProblem, sol, i) end
 
@@ -30,8 +32,10 @@ function transition(::AbstractSequentialProblem, sol, i) end
     terminal(problem::AbstractSequentialProblem, sol, i)
 
 Return `true` when stage `i`'s solution `sol` ends the sequence (`i` starts at
-1). Implemented by concrete sequential problems; see
-[`SequentialProblem`](@ref).
+1). Implemented by concrete sequential problems; see [`SequentialProblem`](@ref).
+Concrete problems call their stored hook with the sequence itself as the first
+argument, so the hook can read sequence-wide data such as `seq.parameters` and
+`seq.states`.
 """
 function terminal(::AbstractSequentialProblem, sol, i) end
 
@@ -173,11 +177,54 @@ conversion happens in `prepare_stage_problem`, not here.
     return _split_problem_kwargs(prob, NamedTuple(kwargs))
 end
 
+# 1. The generated function does the tuple intersection at compile-time
 """
-    init(problem::SciMLBase.AbstractSciMLProblem, algorithm::SciMLBase.AbstractSciMLAlgorithm; kwargs...)
+    _split_sequence_kwargs(problem, nt_kwargs::NamedTuple) -> (seq_kwargs, rest_kwargs)
+
+Generated implementation of [`split_sequence_kwargs`](@ref). The partition is
+resolved at compile time from `fieldnames(typeof(problem))`, so the returned
+`NamedTuple`s keep concrete key sets. Values are forwarded unchanged.
+"""
+@generated function _split_sequence_kwargs(
+        ::S, nt_kwargs::NamedTuple{K}
+    ) where {S <: AbstractSequentialProblem, K}
+    # These execute during compilation:
+    valid_keys = fieldnames(S)
+    seq_keys = Tuple(k for k in K if k in valid_keys)
+    rest_keys = Tuple(k for k in K if !(k in valid_keys))
+
+    # This generates the exact type-stable slicing code for the specific kwargs passed
+    return quote
+        seq_kwargs = NamedTuple{$seq_keys}(nt_kwargs)
+        rest_kwargs = NamedTuple{$rest_keys}(nt_kwargs)
+        return seq_kwargs, rest_kwargs
+    end
+end
+
+"""
+    split_sequence_kwargs(problem::AbstractSequentialProblem, kwargs) -> (seq_kwargs, rest_kwargs)
+
+Partition a keyword collection for `CommonSolve.init` using `problem`'s own
+field names (in contrast to [`split_problem_kwargs`](@ref), which uses the
+wrapped SciML problem's fields). Keywords whose name is a field of
+`typeof(problem)` become `seq_kwargs` and are passed to `SciMLBase.remake` to
+build the sequence the callbacks observe; every other keyword is forwarded
+unchanged. The partition is decided at compile time; values are never
+converted here.
+"""
+@inline function split_sequence_kwargs(prob::AbstractSequentialProblem, kwargs)
+    return _split_sequence_kwargs(prob, NamedTuple(kwargs))
+end
+
+"""
+    init(problem::AbstractSequentialProblem, algorithm::SciMLBase.AbstractSciMLAlgorithm; kwargs...)
 
 Initialize `problem` and immediately solve its first stage.
 
+Keywords whose name is a field of the sequence (`problem`, `transition`,
+`terminal`, `parameters`, `states`) are first passed to `SciMLBase.remake` to
+build the sequence the callbacks observe; the original sequence object is never
+mutated, and the overrides are not applied to any stage problem automatically.
 Keywords whose name is a field of the wrapped SciML problem (for an
 `ODEProblem`: `u0`, `p`, `tspan`, `f`, `kwargs`, `problem_type`) are passed to
 `SciMLBase.remake` to build the first stage, which is then normalized by
@@ -196,16 +243,18 @@ are rejected by dispatch.
         kwargs...
     ) where {T <: AbstractSequentialProblem}
 
-    prob = get_problem(problem)
+    seq_kwargs, kwargs = split_sequence_kwargs(problem, kwargs)
+    sequence = isempty(seq_kwargs) ? problem : remake(problem; seq_kwargs...)
+    prob = get_problem(sequence)
     initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
     inner_problem = prepare_stage_problem(remake(prob; initial_kwargs...))
     sol = solve(inner_problem, algorithm; solve_kwargs...)
-    buffer = make_buffer(problem, sol)
+    buffer = make_buffer(sequence, sol)
     # Fix1 accepts only one remaining argument on Julia 1.10/1.11.
     return SequentialProblemIterator(
         inner_problem,
-        (sol, i) -> transition(problem, sol, i),
-        (sol, i) -> terminal(problem, sol, i),
+        (sol, i) -> transition(sequence, sol, i),
+        (sol, i) -> terminal(sequence, sol, i),
         algorithm,
         solve_kwargs,
         buffer,

@@ -1,14 +1,31 @@
 """
-    SequentialProblem(problem; transition = (sol, i) -> nothing,
-                      terminal = (sol, i) -> i >= 1)
+    SequentialProblem(problem; transition = (seq, sol, i) -> nothing,
+                      terminal = (seq, sol, i) -> i >= 1,
+                      parameters = nothing, states = nothing)
 
 Solve a sequence of SciML problems with `CommonSolve.init`/`solve` and an algorithm.
-The terminal predicate receives `(solution, current_index)`, starting at index 1.
-If it is false, `transition(solution, next_index)` supplies the next SciML problem,
-starting at index 2. State, parameters, and time spans are not propagated
-automatically: use e.g. `remake(sol.prob; u0 = sol.u[end], tspan = ..., p = ...)`
-in the transition. Returned problems must support the same algorithm and their
-solutions must be compatible with the iterator's solution buffer element type.
+The terminal predicate is called as `terminal(seq, sol, i)` with the sequence
+itself, the current stage's solution, and the 1-based current index. If it is
+`false`, `transition(seq, sol, next_index)` supplies the next SciML problem,
+starting at index 2. Both callbacks must accept the sequence as their first
+argument and can read the sequence-wide `seq.parameters` and `seq.states`
+fields from it; legacy two-argument `(sol, i)` callables are not supported.
+State, parameters, and time spans are not propagated automatically: use e.g.
+`remake(sol.prob; u0 = sol.u[end], tspan = ..., p = ...)` in the transition.
+Returned problems must support the same algorithm and their solutions must be
+compatible with the iterator's solution buffer element type.
+
+`parameters` and `states` are optional sequence-wide fields, `nothing` by
+default. They are plain data for the callbacks: neither is applied to any
+stage problem automatically, and the first stage's state, parameters, and time
+span come exclusively from its explicit construction (the wrapped problem plus
+first-stage `init` keywords such as `u0`, `p`, `tspan`). A new sequence with
+either field replaced is built by `SciMLBase.remake(sequence; parameters = ...,
+states = ...)` — any field (`problem`, `transition`, `terminal`, `parameters`,
+`states`) can be replaced, the others are carried over. `CommonSolve.init` and
+`CommonSolve.solve` accept the same names as keywords: keywords naming a field
+of the sequence remake the sequence before solving, so the callbacks observe
+the overrides while the original sequence object is never mutated.
 
 `CommonSolve.init` solves the first stage immediately. `CommonSolve.step!` solves
 one next stage and returns its success flag; it does not check termination or
@@ -26,31 +43,60 @@ stage's exact return code; `CommonSolve.init` returns the iterator itself.
 Initial keywords that name a field of the initial problem (for an `ODEProblem`:
 `u0`, `p`, `tspan`, `f`, `kwargs`, `problem_type`) remake only the first stage,
 which `prepare_stage_problem` then normalizes; remaining keywords are
-forwarded unchanged to every stage. Keep endpoint saving enabled when propagating
+forwarded unchanged to every stage. Sequence-field keywords are routed before
+problem-field keywords, so a wrapped problem with a same-named field cannot
+capture them. Keep endpoint saving enabled when propagating
 `sol.u[end]`. `maxiters` limits each stage's solver, not the total number of
 stages.
 """
-struct SequentialProblem{P, T, R} <: AbstractSequentialProblem
+struct SequentialProblem{P, T, R, X, S} <: AbstractSequentialProblem
     "The initial problem to solve (first stage)"
     problem::P
-    "Transition callable that receives `(solution, next_index)`
+    "Transition callable that receives `(sequence, solution, next_index)`
   and returns the next `AbstractSciMLProblem`"
     transition::T
-    "Terminal predicate callable that receives `(solution, current_index)`
+    "Terminal predicate callable that receives `(sequence, solution, current_index)`
   and returns `Bool`. When `true`, no further stages are solved."
     terminal::R
+    "Sequence-wide parameters the callbacks can read as `seq.parameters`;
+  `nothing` by default and never applied to a stage problem automatically"
+    parameters::X
+    "Sequence-wide states the callbacks can read as `seq.states`;
+  `nothing` by default and never applied to a stage problem automatically"
+    states::S
 end
 
 get_problem(x::SequentialProblem) = x.problem
-transition(x::SequentialProblem, sol, i) = x.transition(sol, i)
-terminal(x::SequentialProblem, sol, i) = x.terminal(sol, i)
+transition(x::SequentialProblem, sol, i) = x.transition(x, sol, i)
+terminal(x::SequentialProblem, sol, i) = x.terminal(x, sol, i)
 
 function SequentialProblem(
         problem::SciMLBase.AbstractSciMLProblem;
-        transition = (sol, i) -> nothing,
-        terminal = (sol, i) -> i >= 1,
+        transition = (seq, sol, i) -> nothing,
+        terminal = (seq, sol, i) -> i >= 1,
+        parameters = nothing,
+        states = nothing,
     )
-    return SequentialProblem{typeof(problem), typeof(transition), typeof(terminal)}(
-        problem, transition, terminal
+    return SequentialProblem{typeof(problem), typeof(transition), typeof(terminal), typeof(parameters), typeof(states)}(
+        problem, transition, terminal, parameters, states
+    )
+end
+
+"""
+    SciMLBase.remake(sequence::SequentialProblem; kwargs...) -> SequentialProblem
+
+Return a new sequence with the given fields replaced and the remaining fields
+carried over unchanged. Every field of the sequence (`problem`, `transition`,
+`terminal`, `parameters`, `states`) may be replaced; the returned sequence is a
+new object and the input is never mutated.
+"""
+function SciMLBase.remake(sequence::SequentialProblem; kwargs...)
+    nt = NamedTuple(kwargs)
+    return SequentialProblem(
+        haskey(nt, :problem) ? nt.problem : sequence.problem,
+        haskey(nt, :transition) ? nt.transition : sequence.transition,
+        haskey(nt, :terminal) ? nt.terminal : sequence.terminal,
+        haskey(nt, :parameters) ? nt.parameters : sequence.parameters,
+        haskey(nt, :states) ? nt.states : sequence.states,
     )
 end

@@ -27,10 +27,10 @@ function trajectory_problem(case, x, wrapped)
     # vectors, scalars, and functions pass through unchanged, so this is a
     # no-op for untraced inputs and leaves ForwardDiff coverage unaffected.
     wrapped || return CorleoneBase.prepare_stage_problem(ode)
-    transition = (sol, stage) -> stage == 2 ?
+    transition = (seq, sol, stage) -> stage == 2 ?
         remake(sol.prob; u0 = sol.u[end], p = [x[3]], tspan = (1.0, 2.0)) :
         remake(sol.prob; u0 = [x[4]], tspan = (2.0, 3.0))
-    return SequentialProblem(ode; transition, terminal = (sol, i) -> i >= 3)
+    return SequentialProblem(ode; transition, terminal = (seq, sol, i) -> i >= 3)
 end
 
 function ensemble_solutions(case, x, wrapped, mode; solve_kwargs = (;))

@@ -40,16 +40,25 @@ const SOLVE_KWARGS = (
 
 function sequential_solutions(case, x; solve_kwargs = (;))
     # Deliberately different from x: stage one must use solve-time overrides.
+    # The later stages' inputs travel as sequence-wide parameters, which the
+    # transition reads from the sequence argument; stage one's state, parameters,
+    # and time span stay the explicit ODEProblem construction below.
     template = ODEProblem(dynamics(case), [9.0], (0.0, 1.0), [4.0])
-    transition = function (sol, next_stage)
+    transition = function (seq, sol, next_stage)
         if next_stage == 2
-            return remake(sol.prob; u0 = sol.u[end], p = [x[3]], tspan = (1.0, 2.0))
+            return remake(
+                sol.prob; u0 = sol.u[end], p = [seq.parameters.p2], tspan = (1.0, 2.0)
+            )
         elseif next_stage == 3
-            return remake(sol.prob; u0 = [x[4]], tspan = (2.0, 3.0))
+            return remake(sol.prob; u0 = [seq.parameters.u3], tspan = (2.0, 3.0))
         end
         throw(ArgumentError("Unexpected stage $next_stage"))
     end
-    problem = SequentialProblem(template; transition, terminal = (sol, i) -> i >= 3)
+    problem = SequentialProblem(
+        template; transition,
+        terminal = (seq, sol, i) -> i >= 3,
+        parameters = (p2 = x[3], u3 = x[4]),
+    )
     options = merge(SOLVE_KWARGS, solve_kwargs)
     return CommonSolve.solve(problem, Tsit5(); options..., u0 = [x[1]], p = [x[2]])
 end

@@ -32,6 +32,7 @@ run_qa(
                 :AbstractParallelProblem, :AbstractSequentialProblem,
                 :SequentialProblemIterator, :ENSEMBLE_KEYS,
                 :ensemble_problem, :select_keys, :split_problem_kwargs,
+                :split_sequence_kwargs,
                 :get_problem, :make_buffer, :prepare_stage_problem, :terminal, :transition,
                 :prob_func, :fix_me,
             ),

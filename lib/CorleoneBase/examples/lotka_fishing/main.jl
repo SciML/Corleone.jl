@@ -47,28 +47,33 @@ ode_abstol = 1.0e-9
 ode_reltol = 1.0e-9
 
 # ## Sequential stages and explicit state propagation
-# `transition(sol, i)` receives the NEXT stage index, starting at 2.
-# Propagate all three states, including accumulated cost; resetting z would
-# minimize only the last interval. Each fresh solve starts from initial_state.
+# `transition(seq, sol, i)` receives the sequence, the previous solution, and
+# the NEXT stage index, starting at 2. The control vector travels as the
+# sequence's sequence-wide `parameters` field; `seq.parameters[i]` is the
+# control of the interval being built. Propagate all three states, including
+# accumulated cost; resetting z would minimize only the last interval.
 # Promoting the first state to the control's element type supports ForwardDiff.
+# The sequence skeleton is constructed once below; every evaluation then only
+# remakes it: `parameters = controls` replaces the sequence-wide controls while
+# the explicit first-stage keywords `u0` and `p` build stage one, and none of
+# these overrides leave the original skeleton mutated.
+
+fishing_sequence = SequentialProblem(
+    ODEProblem(fishing_dynamics!, initial_state, (grid[1], grid[2]), 0.0);
+    transition = (seq, sol, i) -> remake(
+        sol.prob; u0 = sol.u[end], p = seq.parameters[i],
+        tspan = (grid[i], grid[i + 1])
+    ),
+    terminal = (seq, sol, i) -> i >= ncontrols
+)
 
 function fishing_stages(controls; abstol = ode_abstol, reltol = ode_reltol)
     length(controls) == ncontrols || throw(DimensionMismatch("one control per interval"))
     u0 = initial_state .+ zero(controls[1])
-    first_stage = ODEProblem(
-        fishing_dynamics!, u0, (grid[1], grid[2]), controls[1]
-    )
-    sequence = SequentialProblem(
-        first_stage;
-        transition = (sol, i) -> remake(
-            sol.prob; u0 = sol.u[end], p = controls[i],
-            tspan = (grid[i], grid[i + 1])
-        ),
-        terminal = (sol, i) -> i >= ncontrols
-    )
     stages = solve(
-        sequence, Tsit5(); abstol, reltol,
-        save_everystep = false, save_start = true, save_end = true
+        fishing_sequence, Tsit5(); abstol, reltol,
+        save_everystep = false, save_start = true, save_end = true,
+        u0 = u0, p = controls[1], parameters = controls
     )
     ## Do not optimize a truncated trajectory or silently accept a failed stage.
     length(stages) == ncontrols && all(successful_retcode, stages) ||

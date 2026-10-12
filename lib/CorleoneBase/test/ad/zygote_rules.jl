@@ -57,13 +57,13 @@ end
     # both route identically, and the value keyword keeps its gradient.
     primal_loss(x) = solve!(
         init(
-            SequentialProblem(KwProblem(0.5, :a); terminal = (sol, i) -> true),
+            SequentialProblem(KwProblem(0.5, :a); terminal = (seq, sol, i) -> true),
             NoSolve();
             value = x[1], tag = :b, extra = 1
         )
     )[1].value
     @testset "routing" begin
-        template = SequentialProblem(KwProblem(0.5, :a); terminal = (sol, i) -> true)
+        template = SequentialProblem(KwProblem(0.5, :a); terminal = (seq, sol, i) -> true)
         it = init(template, NoSolve(); value = 1.3, tag = :b, extra = 1)
         @test it.problem isa KwProblem
         @test it.problem.tag == :b
