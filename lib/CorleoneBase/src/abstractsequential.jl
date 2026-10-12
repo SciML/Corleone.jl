@@ -194,7 +194,7 @@ are rejected by dispatch.
 @inline function CommonSolve.init(
         problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm;
         kwargs...
-    ) where {T <: SciMLBase.AbstractSciMLProblem}
+    ) where {T <: AbstractSequentialProblem}
 
     prob = get_problem(problem)
     initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
