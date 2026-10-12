@@ -42,6 +42,8 @@ using Lux, LuxCore
 using ComponentArrays
 using OrdinaryDiffEqTsit5
 using Optimization, OptimizationOptimisers, OptimizationLBFGSB
+using LinearAlgebra: norm
+using Statistics: mean
 using CairoMakie
 using StableRNGs
 
@@ -338,3 +340,99 @@ plot_joint_fit(
     tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
     ugrid, g_single, g_joint,
 )
+
+# ## Regularizing the network with an L1 penalty
+#
+# The joint fit has **217 tunable network weights** but only
+# ``n_{experiments}`` × `length(tdata)` scalar observations (here 2 × 51 = 102). With this many
+# more unknowns than data points the parameters are only weakly identifiable: many weights
+# can vary freely without changing the trajectory. This is the textbook setting for
+# *regularization*.
+#
+# Corleone's [`L1Regularizer`](@ref) (lasso) augments the least-squares objective with a
+# data-independent penalty ``\lambda\sum_i w_i |\theta_i|`` on the fitted parameters.
+# Because the penalty appears as *additional residuals* appended to the observation
+# residuals, it is completely transparent to the optimizer: the same Adam → L-BFGS-B scheme
+# drives the penalized objective.
+#
+# By default only the **model parameters** are penalized — here all 217 weights — and any
+# tuned initial conditions would be left untouched (this example has none). We simply pass
+# the regularizer to `CorleoneParameterEstimationProblem` through its `regularization`
+# keyword. The `regularization_reference` (shrinkage toward zero by default) and the
+# number of residual rows appended are resolved automatically.
+
+lasso_prob = CorleoneParameterEstimationProblem(pe_joint; regularization = L1Regularizer(1e-4))
+println("Regularization residual rows added: ", lasso_prob.n_regularization_residuals)
+
+# We warm-start from the unregularized joint fit and run the same two-stage optimization
+# with the L1 penalty active.
+
+lasso_opt = OptimizationProblem(pe_joint; regularization = L1Regularizer(1e-4))
+sol_lasso = solve(lasso_opt, Adam(0.01); u0 = sol_joint.u, maxiters = 300)
+sol_lasso = solve(lasso_opt, LBFGSB(); u0 = sol_lasso.u, maxiters = 500)
+p_lasso = ComponentArray(sol_lasso.u, getaxes(p0))
+
+# ## The L1-regularized fit
+#
+# With a mild penalty the trajectory fit is unchanged (the data dominates the objective),
+# exactly as one would want from a small amount of regularization. The regularized fit is
+# therefore our baseline fit for the rest of this example.
+
+single_1_l1 = reduce(hcat, ude_traj(p_lasso).u)
+single_2_l1 = reduce(hcat, ude_traj(p_lasso; u0 = u0_2).u)
+
+println("L1-regularized weight vector norm: ", round(norm(Vector(p_lasso.net)); digits = 3))
+println("Weighted R² (experiment 1): joint fit = ",
+    weighted_r2(y1, single_1_l1))
+println("RMSE/σ (experiment 2):      joint fit = ",
+    nrmse(y2, vec(single_2_l1)))
+
+# The learned reaction term stays on top of the truth in the visited region.
+
+g_lasso = [nn([u], p_lasso.net, st_nn)[1][1] for u in ugrid]
+
+u_obs_all = vcat(vec(y1), vec(y2))
+u_lo, u_hi = extrema(u_obs_all)
+println("Max |ĝ(u) - g(u)| on the joint data range (L1 fit): ",
+    maximum(abs.(g_lasso[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))))
+
+# The final panel compares the true term, the unregularized joint fit and the L1-regularized
+# fit. The regularized fit is the baseline: it is visually indistinguishable from the
+# unregularized one on the visited states, while the network parameters carry a small L1
+# penalty.
+
+function plot_regularized(tdata, ugrid, g_lasso)
+    f = Figure(size = (900, 440))
+
+    ax_traj = CairoMakie.Axis(
+        f[1, 1];
+        xlabel = "time t",
+        ylabel = "state u",
+        title = "L1-regularized fit",
+    )
+    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker =:x,
+        label = "observations (exp 1)")
+    lines!(ax_traj, tdata, vec(single_1_l1); linewidth = 2.5, color = :darkgreen,
+        label = "L1-regularized fit")
+    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
+        color = :black, label = "true")
+    axislegend(ax_traj; position = :rt)
+
+    ax_term = CairoMakie.Axis(
+        f[1, 2];
+        xlabel = "state u",
+        ylabel = "unknown term",
+        title = "Recovered reaction term",
+    )
+    lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
+        label = "g(u) = 0.5 sin(u)")
+    lines!(ax_term, ugrid, g_lasso; linewidth = 2.5, color = :purple,
+        label = "L1-regularized ĝ(u)")
+    scatter!(ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker =:x,
+        label = "visited (exp 2)")
+    axislegend(ax_term; position = :rb)
+
+    return f
+end
+
+plot_regularized(tdata, ugrid, g_lasso)
