@@ -134,6 +134,37 @@ each observable species is sampled at the (generally different) times that the d
 selects (see the example). Use the accessors `per_quantity`, `observation_times`,
 `observation_times_per_quantity` and `n_observations` to introspect the data.
 
+## Universal differential equations (UDEs)
+
+A UDE replaces an unknown term of a mechanistic ODE by a neural network, e.g.
+`du/dt = f_known(u, t) + NN(u)`. Corleone treats the network weights like any other model
+parameter, so the whole UDE can be fitted with the same least-squares machinery described
+above:
+
+```julia
+using Lux, LuxCore, ComponentArrays
+
+nn = Lux.Chain(Lux.Dense(1, 8, tanh), Lux.Dense(8, 1))
+ps_nn, st_nn = LuxCore.setup(rng, nn)          # promote to Float64 and zero-init the output layer
+p0 = ComponentArray(; net = ComponentArray(ps_nn))
+
+ude!(du, u, p, t) = (du[1] = -0.5 * u[1] + nn([u[1]], p.net, st_nn)[1][1])
+prob = ODEProblem(ude!, u0, tspan, p0)
+
+pe = ParameterEstimationLayer(prob, Tsit5(), data)
+nlls = problem(pe)                              # or the Optimization extension below
+sol = solve(nlls, LevenbergMarquardt())
+```
+
+Because the network landscape is non-convex, a two-stage schedule is recommended: a short
+**Adam** phase (through the Optimization extension) to find a good basin, followed by a
+quasi-Newton **L-BFGS-B** phase to polish the fit. The extension drops trivial (`±Inf`)
+bounds, so `Adam` can be used on an unconstrained problem.
+
+See `examples/ude_growth/main.jl` for a complete worked example that learns an unknown
+reaction term, shows how a single experiment leaves part of state space to extrapolation,
+and then constrains it by fitting a second experiment jointly.
+
 ## Relationship to Optimization.jl
 
 CorleoneParameterEstimation primarily interfaces with **NonlinearSolve.jl**, whose
