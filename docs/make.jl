@@ -60,7 +60,8 @@ makedocs(
         "CorleoneParameterEstimation" => [
             "SIR parameter estimation" => "examples/joint_parameter_estimation_for_an_sir_epidemic_across_two_regions.md",
             "OED + Parameter estimation" => "examples/parameter_estimation_with_fixed_controls_from_optimal_experimental_design.md",
-            "Multiple shooting" => "examples/multiple_shooting_parameter_estimation_with_controls.md"
+            "Multiple shooting" => "examples/multiple_shooting_parameter_estimation_with_controls.md",
+            "Universal Differential Equation with a Lux Network" => "examples/universal_differential_equation_with_a_lux_network.md",
         ],
         "References" => "references.md",
         "API" => "api.md",

@@ -85,6 +85,19 @@ CorleoneParameterEstimation.model_values
 CorleoneParameterEstimation.n_shooting_constraints
 ```
 
+### Parameter transforms
+
+```@docs
+CorleoneParameterEstimation.AbstractParameterTransform
+CorleoneParameterEstimation.Identity
+CorleoneParameterEstimation.Affine
+CorleoneParameterEstimation.Log
+CorleoneParameterEstimation.Logit
+CorleoneParameterEstimation.to_internal
+CorleoneParameterEstimation.from_internal
+CorleoneParameterEstimation.dθ_dφ
+```
+
 ### Estimates, uncertainties and diagnostics
 
 ```@docs
@@ -99,6 +112,16 @@ CorleoneParameterEstimation.r_squared
 CorleoneParameterEstimation.adjusted_r_squared
 CorleoneParameterEstimation.correlation
 CorleoneParameterEstimation.condition_number
+```
+
+### Parameter regularization
+
+```@docs
+CorleoneParameterEstimation.AbstractRegularizer
+CorleoneParameterEstimation.L2Regularizer
+CorleoneParameterEstimation.L1Regularizer
+CorleoneParameterEstimation.ElasticNetRegularizer
+CorleoneParameterEstimation.n_regularization_residuals
 ```
 
 ### Profile likelihood
