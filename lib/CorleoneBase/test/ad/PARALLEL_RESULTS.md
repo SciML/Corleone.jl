@@ -1,9 +1,16 @@
-# Parallel ForwardDiff and ReverseDiff verification
+# Parallel ForwardDiff, ReverseDiff, and Zygote verification
 
 Commands run from `/home/alcap/Projects/Corleone.jl.worktrees/CJM-CorleoneBase`
 on Linux x86_64, against the checked-out `lib/CorleoneBase` (0.1.0).
-Only test files were changed; no implementation, extension, or metadata change
-was needed. Pre-existing unrelated changes were left untouched.
+Only test files and the `CorleoneBaseZygoteExtension` were changed; no `src`
+or package-metadata change was needed. Pre-existing unrelated changes were left
+untouched.
+
+This document grew by phase: first ForwardDiff, then uncompiled ReverseDiff, then
+Zygote. Each phase's results stand on its own; counts below are per phase.
+Zygote was added in the `Add parallel Zygote` commit, which is exactly the
+three-file change (extension, parallel driver, README) described in
+`README.md`.
 
 ## Environments and commands
 
@@ -43,17 +50,32 @@ julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/cb-ad -e 'usin
 ```
 
 `cb-ad` has the same relevant resolved versions as the fresh 1.12 environment.
-Each backend's suite checks analytic/primal/AD contracts — ForwardDiff 3,168
-and ReverseDiff 2,112 — plus nine driver checks for threads, workers,
-availability, and actual execution locations.
+Each backend's suite checks analytic/primal/AD contracts — ForwardDiff 3,168,
+ReverseDiff 2,112, and Zygote 3,168 — plus nine driver checks for threads,
+workers, availability, and actual execution locations.
+
+The Zygote phase reused fresh path-developed environments
+`/tmp/opencode/zyg-1.10.12-UKGBVq`, `/tmp/opencode/zyg-1.11.7-O8GZpL`, and
+`/tmp/opencode/zyg-1.12.7-SVUk56` (same resolved versions as above, each
+recording its matching Julia version), driven by the committed extension via
+
+```sh
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/zyg-1.10.12-UKGBVq -e 'include("lib/CorleoneBase/test/ad/parallel.jl")' > /tmp/opencode/zyg_full_driver_110.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/zyg-1.11.7-O8GZpL -e 'include("lib/CorleoneBase/test/ad/parallel.jl")' > /tmp/opencode/zyg_full_driver_111.log 2>&1
+julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/zyg-1.12.7-SVUk56 -e 'include("lib/CorleoneBase/test/ad/parallel.jl")' > /tmp/opencode/zyg_full_driver_112.log 2>&1
+```
+
+The sequential AD suite was re-run unchanged on all three versions to confirm
+the extension change did not disturb sequential Zygote (logs
+`zyg_seqad_{110,111,112}.log`).
 
 ## Observed parallel results
 
 | Julia | Analytic/primal/AD checks | Actual threaded IDs | Distributed OS process IDs |
 | --- | --- | --- | --- |
-| 1.10.12 | 5,280 passed: 3,168 ForwardDiff + 2,112 ReverseDiff | 1, 2, 3, 4 (driver PID 888354) | 888577, 888580 |
-| 1.11.7 | 5,280 passed: 3,168 ForwardDiff + 2,112 ReverseDiff | 1, 2, 3, 4 (driver PID 889528) | 889743, 889747 |
-| 1.12.7 | 5,280 passed: 3,168 ForwardDiff + 2,112 ReverseDiff | 2, 3, 4, 5 (driver PID 890687) | 890947, 890951 |
+| 1.10.12 | 8,448 passed: 3,168 ForwardDiff + 2,112 ReverseDiff + 3,168 Zygote | 1, 2, 3, 4 (driver PID 972170) | 972266, 972269 |
+| 1.11.7 | 8,448 passed: 3,168 ForwardDiff + 2,112 ReverseDiff + 3,168 Zygote | 1, 2, 3, 4 (driver PID 974058) | 974183, 974187 |
+| 1.12.7 | 8,448 passed: 3,168 ForwardDiff + 2,112 ReverseDiff + 3,168 Zygote | 2, 3, 4, 5 (driver PID 963566) | 963646, 963650 |
 
 All runs use four default-pool driver threads and two newly started worker
 processes, each with two default-pool threads. Julia 1.12 also has an
@@ -64,7 +86,8 @@ execution stays on the driver; distributed execution uses both remote processes.
 The registered ForwardDiff coverage is 24 combinations: three ensemble modes ×
 two template kinds × two models × two dynamics forms. ReverseDiff adds 16
 combinations: the same crossings under `EnsembleSerial` and `EnsembleThreads`
-with the pass-through sensealg. Each combination has three distinct
+with the pass-through sensealg. Zygote adds the full 24 combinations again,
+under all three ensemble modes. Each combination has three distinct
 trajectories, two inputs, unprepared gradients, and prepared evaluations of
 both inputs then the first again. No parallel assertion is skipped or marked
 broken. Numerical tolerances match the sequential ForwardDiff suite exactly;
@@ -166,12 +189,53 @@ ensemble-level reverse-mode handling in SciMLBase or tape-serialization
 support in ReverseDiff — or a CorleoneBase ReverseDiff extension with a
 worker-side pullback; both are outside this test-only change.
 
+## Zygote reverse-mode and the ensemble adjoint rule
+
+Zygote registers with the same harness as ForwardDiff and ReverseDiff, across
+all three ensemble modes and both template kinds, and needs no solver-time
+`sensealg` and no `solve_kwargs`. Two native Zygote limitations make plain
+instrumentation unusable for the parallel ensemble, so the
+`CorleoneBaseZygoteExtension` adjoins the real ensemble solve directly.
+
+- **Zygote reverse-mode is not thread-safe.** Under `EnsembleThreads` the
+  wrapped `SequentialProblem` trajectories run the extension's `solve!` pullback
+  (`rrule_via_ad` + `Zygote.Buffer`) concurrently; the recorder races and
+  intermittently returns wrong gradients. In a 10-iteration probe across all
+  four models and both inputs, 7 of 80 threaded wrapped evaluations were wrong
+  (max error up to 2.4) with the native trace. Direct `ODEProblem` templates (via
+  SciMLSensitivity's rule) were unaffected: 0 of 80 threaded evaluations failed.
+- **Zygote's shadow/pullback structures cannot survive Distributed's pmap
+  serialization.** Under `EnsembleDistributed`, SciMLBase's `batch_func`
+  serializes a `Zygote.Pullback`-typed result back to the driver and the workers
+  crash; this is the same process-boundary wall that blocks ReverseDiff's tape.
+
+The extension fixes both with one rule for `CommonSolve.solve(::AbstractParallelProblem,
+…)`: it runs the requested-mode ensemble solve as an **opaque forward** (outside
+Zygote's recorder, so threaded/distributed execution is genuine and the
+execution-location probes still observe it) and in the **pullback** re-differentiates
+the actual trajectory problems serially via `rrule_via_ad` on a helper that
+rebuilds the same `EnsembleProblem` and solves it with `EnsembleSerial`.
+Ensemble solutions are mode-independent, so the adjoint reproduces the forward's
+primal values exactly while computing every trajectory's real trajectory-specific
+gradient (`prob_func`/closure captures included) without racing or serializing a
+tape. The minimal probe that first demonstrated the threaded race
+(`/tmp/opencode/zyg_race.jl`) re-passes 0/80 (and 0/120 in a second probe) once
+the rule is loaded; the distributed reproducer (`/tmp/opencode/zyg_dist2.jl`)
+passes all eight combos on real workers.
+
+Zygote parallel verification: **3,168/3,168** analytic/primal/AD checks on each
+of Julia 1.10.12, 1.11.7, and 1.12.7, plus nine driver checks. Sequential AD is
+unchanged: **2,143** total per version (six backends at 344 each, 72 supplemental
+Zygote rules, seven top-level assertions), confirming the extension change does
+not disturb sequential Zygote (`solve!` still uses its pullback).
+
 ## Core regression verification
 
 Core passed 330 sequential contracts, four parallel construction/interface
 contracts, and 15 parallel workflow contracts on each of Julia 1.10.12, 1.11.7,
 and 1.12.7 (349 assertions within the reported testsets, plus passing top-level
-source/extension checks). The sequential file was unchanged.
+source/extension checks). The sequential file was unchanged. Core loads no Zygote,
+so the extension stays unloaded there (asserted by the core source check).
 Exact commands:
 
 ```sh
@@ -193,9 +257,9 @@ julia +1.12 --startup-file=no --threads=1 --project=/tmp/opencode/cb-ad -e 'usin
 ```
 
 Passed: the parent asserts the child process succeeds; the child passes all
-3,168 ForwardDiff and 2,112 ReverseDiff contracts with four driver threads. Its
-probes observe thread IDs 2, 3, 4, 5 on driver PID 889705 and remote PIDs
-889774 and 889778. Thus ordinary single-threaded test invocation still
+3,168 ForwardDiff, 2,112 ReverseDiff, and 3,168 Zygote contracts with four driver threads. Its
+probes observe thread IDs 2, 3, 4, 5 on driver PID 963566 and remote PIDs
+for the distributed mode. Thus ordinary single-threaded test invocation still
 exercises actual threaded and distributed execution rather than substituting
 serial coverage.
 
@@ -206,18 +270,17 @@ JULIA_PKG_PRECOMPILE_AUTO=0 CORLEONE_TEST_GROUP=AD julia +1.12 --startup-file=no
 ```
 
 Passed on Julia 1.12.7: unchanged Sequential AD **2,143/2,143**, Parallel AD
-**5,289/5,289** (3,168 ForwardDiff + 2,112 ReverseDiff contracts plus nine
-driver checks); total **7,432** with no skips, broken assertions, or errors.
-This uses SciMLTesting's isolated AD environment
-`/tmp/jl_sciml_group_env_tgazMX`, resolved against the checked-out package with
-the same relevant versions above, and exercises the SafeTestsets registrations.
-The unchanged sequential driver covers ForwardDiff, ReverseDiff, Zygote,
-Mooncake reverse/forward, FiniteDiff, and supplemental Zygote rules. Parallel
-ForwardDiff and ReverseDiff therefore also pass with SciMLSensitivity and the
-other existing AD packages loaded. The isolated SafeTestsets registration
-separately passes **5,289/5,289** (`parallel-ad-isolated-rd-112.log`). Parallel
-AD probes observe default-pool thread IDs 2–5 on driver PID 892168 and remote
-PIDs 895607 and 895611.
+**8,458/8,458** (3,168 ForwardDiff + 2,112 ReverseDiff + 3,168 Zygote contracts
+plus the driver's worker/thread/availability/execution-location checks); total
+**10,601** with no skips, broken assertions, or errors. This uses SciMLTesting's
+isolated AD environment `/tmp/jl_sciml_group_env_LyhWrs`, resolved against the
+checked-out package with the same relevant versions above, and exercises the
+SafeTestsets registrations. The unchanged sequential driver covers ForwardDiff,
+ReverseDiff, Zygote, Mooncake reverse/forward, FiniteDiff, and supplemental
+Zygote rules. Parallel ForwardDiff, ReverseDiff, and Zygote therefore also pass
+with SciMLSensitivity and the other existing AD packages loaded. Parallel AD
+probes observe default-pool thread IDs (driver process) and the two remote
+worker OS PIDs for distributed mode inside the SafeTestsets-isolated run.
 
 The group log retains Julia's warnings about precompiled dependencies differing
 from already loaded modules during environment activation. They are not test
@@ -237,10 +300,14 @@ julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel
 
 ## Scope
 
-ForwardDiff parallel support (all three ensemble modes) and uncompiled
-ReverseDiff parallel support (serial and threaded modes) are claimed. The
-backend-neutral harness is ready for later explicitly selected DI backends, but
-those backends' parallel support is not required or inferred here. These checks
-do not certify GPUs, external cluster workers, stochastic differentiation,
-compiled ReverseDiff tapes, distributed ReverseDiff evaluation (see the
-limitation above), or dependency versions other than the recorded resolves.
+ForwardDiff parallel support (all three ensemble modes), uncompiled ReverseDiff
+parallel support (serial and threaded modes), and Zygote parallel support (all
+three ensemble modes, via the extension's ensemble adjoint rule) are claimed.
+The backend-neutral harness is ready for later explicitly selected DI backends,
+but those backends' parallel support is not required or inferred here. These
+checks do not certify GPUs, external cluster workers, stochastic
+differentiation, compiled ReverseDiff tapes, distributed ReverseDiff evaluation
+(see the limitation above), or dependency versions other than the recorded
+resolves. Zygote parallel registration specifically requires the committed
+extension rule; without it (native trace) threaded wrapped results race and
+distributed workers crash, as documented above.

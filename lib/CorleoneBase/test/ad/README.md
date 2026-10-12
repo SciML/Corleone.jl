@@ -109,8 +109,8 @@ templates).
 
 The harness crosses direct `ODEProblem` and wrapped three-stage
 `SequentialProblem` templates with linear/nonlinear and in-place/out-of-place
-dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff)
-`EnsembleDistributed`. Out-of-place direct-template problems are normalized
+dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff and
+Zygote) `EnsembleDistributed`; ReverseDiff covers serial and threaded. Out-of-place direct-template problems are normalized
 with `CorleoneBase.prepare_stage_problem` before the ensemble machinery solves
 them, mirroring the sequential driver; it is a no-op for untraced inputs, so
 ForwardDiff coverage is unaffected.
