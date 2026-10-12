@@ -1,6 +1,7 @@
 using Distributed
 using SciMLBase: SciMLBase, EnsembleSerial, EnsembleThreads, EnsembleDistributed
-using DifferentiationInterface: AutoForwardDiff, AutoReverseDiff, AutoZygote, AutoMooncake
+using DifferentiationInterface: AutoForwardDiff, AutoReverseDiff, AutoZygote, AutoMooncake,
+    AutoMooncakeForward
 using ForwardDiff
 using Mooncake
 using ReverseDiff
@@ -90,6 +91,17 @@ else
         # deterministic trajectory solves serially. The hook supplies fresh
         # problems, so no template mutation or per-trajectory safetycopy is needed.
         Main.ParallelADTests.test_parallel_ad(AutoMooncake(),
+            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed());
+            solve_kwargs = (; safetycopy = false))
+        flush(stdout)
+        # AutoMooncakeForward is Mooncake's forward mode: the shared extension's
+        # frule!! runs the genuine requested-mode parallel primal, then
+        # differentiates the actual deterministic trajectory solves serially with
+        # the incoming Duals, so threaded and distributed execution is observed by
+        # the probes and gradients carry the real per-trajectory contributions.
+        # The same extension file supplies both the reverse-mode rrule and this
+        # forward-mode frule; safetycopy = false is required by the rule.
+        Main.ParallelADTests.test_parallel_ad(AutoMooncakeForward(),
             (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed());
             solve_kwargs = (; safetycopy = false))
         flush(stdout)

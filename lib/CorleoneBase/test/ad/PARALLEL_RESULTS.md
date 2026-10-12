@@ -508,9 +508,160 @@ runs genuine requested-mode parallel primals and differentiates real trajectory
 solves serially; parallel reverse-pass scheduling is not claimed. It requires
 explicit rule loading and `safetycopy = false`, and is limited to deterministic,
 mode-independent, default-output/default-reduction ensembles with read-only
-hooks. Stochastic/custom-reduction ensembles, GPUs, external clusters,
-Mooncake forward-mode parallelism, higher derivatives, and automatic package
-extension registration are not certified here. There are no remaining failures
-in the requested matrix or entry points. Changes are confined to tests,
-test-local documentation/results, and the new extension file; package metadata
-and `src` are unchanged. Unrelated user files were left untouched.
+hooks. Stochastic/custom-reduction ensembles, GPUs, external clusters, higher
+derivatives, and automatic package extension registration are not certified
+here. There are no remaining failures in the requested matrix or entry points.
+Changes are confined to tests, test-local documentation/results, and the new
+extension file; package metadata and `src` are unchanged. Unrelated user files
+were left untouched.
+
+## Mooncake forward-mode phase
+
+This phase extends the shared parallel harness to `AutoMooncakeForward`
+alongside the existing registrations, without a separate suite. Changed files:
+`parallel.jl` (registration), `parallel_suite.jl` (docstring),
+`CorleoneBaseMooncakeExtension.jl` (forward-mode rule), `README.md`, and this
+document. No `src` or package-metadata edit was made; pre-existing unrelated
+changes were left untouched.
+
+Mooncake marks a `MinimalCtx` rule primitive in `DefaultCtx` too, so the
+reverse-mode `@is_primitive` declaration already makes the ensemble
+`Core.kwcall` a forward-mode primitive. Forward-mode differentiation therefore
+reached the signature and failed with
+`MethodError: no method matching frule!!(::Mooncake.Dual{typeof(Core.kwcall),
+Mooncake.NoTangent}, ::Mooncake.Dual{@NamedTuple{...}}, ...)`, retained in
+`autofwd-probe-rw` runs (the focused reproducer below shows it). The fix is one
+`frule!!` in the same extension file taking `Dual` arguments: it runs the
+genuine requested-mode primal ensemble (so threaded and distributed execution is
+real and the execution-location probes observe it), then differentiates the
+actual deterministic serial replay with the incoming Duals via
+`Mooncake.build_frule`, returning the replay's tangent with the genuine primal.
+The tangent is already the full forward derivative, so no pullback is needed.
+The rule rejects custom output/reduction, RNG/seed, and batching keywords and
+requires `safetycopy = false`, exactly like the reverse-mode rule.
+
+Focused reproducers (repository root, any resolved Mooncake environment):
+
+```julia
+# Before the frule: MethodError: no method matching frule!!(Dual{Core.kwcall}, ...)
+using Mooncake, SciMLSensitivity, DifferentiationInterface, SciMLBase, CorleoneBase,
+    CommonSolve, OrdinaryDiffEqTsit5
+include("lib/CorleoneBase/ext/CorleoneBaseMooncakeExtension.jl")
+include("lib/CorleoneBase/test/ad/parallel_suite.jl")
+P = ParallelADTests
+f = x -> P.ensemble_loss(P.LinearCase{false}(), x, false, EnsembleSerial();
+    solve_kwargs = (; safetycopy = false))
+value_and_gradient(f, AutoMooncakeForward(), [1.2, 0.4])
+```
+
+After the frule, the same probe returns value `1.7552838932325958` and gradient
+`[3.0691566576013765, -4.904742426995389]` — the value matches the reverse-mode
+Mooncake result exactly and the gradient agrees to ~4e-13. A wrapped
+`SequentialProblem` template under `EnsembleThreads` agrees with ForwardDiff to
+~4e-12 (value `1.9672118549776847`). A non-fixture default-hook probe
+(`/tmp/opencode/autofwd-template-dependencies.jl`, identical to the reverse-mode
+one but calling `value_and_gradient(loss, AutoMooncakeForward(), x)`) returned
+`2.2928276967982333` and gradient
+`[5.44454233113096, 3.3711137426881344, 3.872378809023712]`, agreeing with
+ForwardDiff to ~1e-13, confirming dependence on the template's state and
+parameters rather than only the fixture's captured trajectory hook.
+
+Full-driver commands reuse the resolved manifests:
+
+```sh
+julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/autofwd-full-1.12.log 2>&1
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.10.12-Vg4zko lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/autofwd-full-1.10.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-gO7XfS lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/autofwd-full-1.11.log 2>&1
+```
+
+All three exited successfully. Each run observed real execution locations:
+serial work on the driver process, threaded work across multiple default-pool
+thread IDs, and distributed work on both remote worker OS PIDs. The 1.12 run
+logged `EnsembleThreads execution locations` across thread IDs 2–5 on driver PID
+95852 and `EnsembleDistributed execution locations` on PIDs 96017 and 96021.
+
+| Julia | AutoMooncakeForward | Preserved backends |
+| --- | --- | --- |
+| 1.12.7 | 3,168/3,168 (4m53.4s) | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168; Mooncake 3,168 |
+| 1.10.12 | 3,168/3,168 (4m52.1s) | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168; Mooncake 3,168 |
+| 1.11.7 | 3,168/3,168 (4m16.9s) | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168; Mooncake 3,168 |
+
+Each AutoMooncakeForward run covers all 24 combinations (three ensemble modes ×
+two template kinds × two models × two dynamics forms), three distinct
+trajectories and two inputs each, and every analytic primal, prepared/unprepared
+gradient, changed-input, repeated-evaluation, and input-preservation assertion
+at unchanged tolerances. DI derives the forward-mode gradient per input
+coordinate from pushforwards, so each gradient evaluation runs the traced solve
+once per coordinate; the frule's primal and serial replay run untraced except
+for the replay's tangent propagation. No parallel assertion is skipped or marked
+broken, and no tolerance was weakened.
+
+Sequential AD is unchanged with the updated extension loaded (all six backends
+at 344 assertions each on Julia 1.12.7, including sequential AutoMooncakeForward
+at 1m55.3s; log `autofwd-seqad-1.12.log`; the same six at 344 each on
+1.10.12 (`autofwd-seqad-1.10.log`) and 1.11.7 (`autofwd-seqad-1.11.log`)):
+
+```sh
+julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX -e 'Base.include(Main, "lib/CorleoneBase/ext/CorleoneBaseMooncakeExtension.jl"); include("lib/CorleoneBase/test/ad/runtests.jl")' > /tmp/opencode/autofwd-seqad-1.12.log 2>&1
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.10.12-Vg4zko -e 'Base.include(Main, "lib/CorleoneBase/ext/CorleoneBaseMooncakeExtension.jl"); include("lib/CorleoneBase/test/ad/runtests.jl")' > /tmp/opencode/autofwd-seqad-1.10.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-gO7XfS -e 'Base.include(Main, "lib/CorleoneBase/ext/CorleoneBaseMooncakeExtension.jl"); include("lib/CorleoneBase/test/ad/runtests.jl")' > /tmp/opencode/autofwd-seqad-1.11.log 2>&1
+```
+
+SafeTestsets isolation and the single-thread entry point use the same commands
+as the reverse-mode phase:
+
+```sh
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.10.12-Vg4zko -e 'using SafeTestsets; @safetestset "Parallel AD isolation" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/autofwd-safe-1.10.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-gO7XfS -e 'using SafeTestsets; @safetestset "Parallel AD isolation" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/autofwd-safe-1.11.log 2>&1
+julia +1.12 --startup-file=no --threads=1 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX -e 'using SafeTestsets; @safetestset "Parallel AD single-thread entry" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/autofwd-single-safe-1.12.log 2>&1
+```
+
+Julia 1.10 and 1.11 SafeTestsets isolation each passed **14,801/14,801**: 14,784
+backend contracts (3,168 ForwardDiff + 2,112 ReverseDiff + 3,168 Zygote +
+3,168 Mooncake + 3,168 AutoMooncakeForward) plus 17 driver checks (thread/worker
+availability, actual execution locations, per-backend availability, upstream
+extension loading on every process, and worker cleanup). Julia 1.12
+single-thread entry passed the parent's one child-success assertion
+(`Parallel AD single-thread entry | 1 1`, 12m08.1s); the four-thread child
+passed all five backends (14,801 checks) and its driver checks, observing
+default-pool thread IDs 2–5 on driver PID 134659 and remote PIDs 134755/134759
+for distributed mode. Threaded/distributed coverage was not replaced by serial
+work or skipped by the single-thread parent.
+
+Core is unchanged (no `src` or Core-test change): sequential Core plus 4
+parallel construction/interface contracts and 15 parallel supported-version
+contracts passed on Julia 1.12.7 with the updated extension present but
+unloaded (`autofwd-core-1.12.log`):
+
+```sh
+julia --startup-file=no --threads=4 --project=/tmp/opencode/ad-regressions-1.12.7-hbcxnQ -e 'include("lib/CorleoneBase/test/core/sequential.jl"); include("lib/CorleoneBase/test/core/parallel.jl")' > /tmp/opencode/autofwd-core-1.12.log 2>&1
+```
+
+The real registered AD group (including SciMLTesting's environment activation and
+both SafeTestsets registrations) is exercised on Julia 1.12:
+
+```sh
+JULIA_PKG_PRECOMPILE_AUTO=0 CORLEONE_TEST_GROUP=AD julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX -e 'include("lib/CorleoneBase/test/runtests.jl")' > /tmp/opencode/autofwd-registered-ad-1.12.log 2>&1
+```
+
+Passed: **Sequential AD 2,143/2,143 (6m13.7s) + Parallel AD 14,801/14,801
+(10m20.0s)**, no skips, broken assertions, failures, or errors. The unchanged
+sequential driver covers ForwardDiff, ReverseDiff, Zygote, Mooncake reverse/forward,
+and FiniteDiff; the parallel driver covers ForwardDiff, ReverseDiff, Zygote,
+Mooncake reverse mode, and Mooncake forward mode across the full matrix.
+
+### Final Mooncake forward-mode scope
+
+AutoMooncakeForward is verified through the existing shared parallel harness on
+Julia 1.10.12, 1.11.7, and 1.12.7, across all 24 combinations and all existing
+contracts at unchanged tolerances, with real threaded and distributed execution
+observed by the probes. ForwardDiff, ReverseDiff, Zygote, Mooncake reverse mode,
+sequential AD, and Core results are preserved. The forward-mode rule runs the
+genuine requested-mode primal and differentiates the actual trajectory solves
+serially; parallel forward-pass scheduling is not claimed. It requires explicit
+rule loading (the same extension file as reverse mode) and `safetycopy = false`,
+and is limited to deterministic, mode-independent, default-output/default-
+reduction ensembles with read-only hooks. Stochastic/custom-reduction ensembles,
+GPUs, external clusters, higher derivatives, and automatic package extension
+registration are not certified here. There are no remaining failures in the
+requested matrix or entry points.

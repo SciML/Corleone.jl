@@ -77,7 +77,9 @@ uncompiled ReverseDiff (serial and threaded modes, with
 `SciMLSensitivity.SensitivityADPassThrough()` and `safetycopy = false` supplied
 via `solve_kwargs`), Zygote (all three ensemble modes), and Mooncake reverse mode
 (all three ensemble modes, with `safetycopy = false`) are registered for
-parallel AD; the remaining existing backends stay sequential-only. The
+parallel AD, and Mooncake forward mode (`AutoMooncakeForward`) is registered
+across the same full matrix with `safetycopy = false`; the remaining existing
+backends stay sequential-only. The
 pass-through matches the sequential suite, and skipping SciMLBase's default
 per-simulation template deepcopy keeps ReverseDiff's tape-bound template from
 overflowing the stack inside `deepcopy` on Julia 1.10 and 1.11 (the harness does
@@ -131,12 +133,24 @@ reduction, and requires `safetycopy = false` (the hook must provide independent
 problems and must not mutate the template). Custom output/reduction, RNG/seed,
 and batching keywords are rejected rather than silently differentiated
 incorrectly. It is not a general stochastic or custom-reduction ensemble rule.
-No solver-time `sensealg` is required. Mooncake forward mode remains sequential.
+No solver-time `sensealg` is required.
+
+Mooncake forward mode (`AutoMooncakeForward`) reuses the same extension file and
+`safetycopy = false`. Mooncake marks a `MinimalCtx` rule primitive in `DefaultCtx`
+too, so forward-mode differentiation reaches the ensemble solve and needs an
+`frule!!` taking Duals. That rule runs the genuine requested-mode primal (so the
+execution-location probes observe real threaded and distributed work) and returns
+the serial replay's forward-mode tangent, computed by differentiating the actual
+trajectory solves with the incoming Duals; the tangent is already the full
+forward derivative, so no pullback is required. Like the reverse-mode rule it
+rejects custom output/reduction, RNG/seed, and batching keywords, and it requires
+`safetycopy = false`.
 
 The harness crosses direct `ODEProblem` and wrapped three-stage
 `SequentialProblem` templates with linear/nonlinear and in-place/out-of-place
-dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff and
-Zygote and Mooncake) `EnsembleDistributed`; ReverseDiff covers serial and threaded. Out-of-place direct-template problems are normalized
+dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff, Zygote,
+Mooncake reverse mode, and Mooncake forward mode) `EnsembleDistributed`;
+ReverseDiff covers serial and threaded. Out-of-place direct-template problems are normalized
 with `CorleoneBase.prepare_stage_problem` before the ensemble machinery solves
 them, mirroring the sequential driver; it is a no-op for untraced inputs, so
 ForwardDiff coverage is unaffected.

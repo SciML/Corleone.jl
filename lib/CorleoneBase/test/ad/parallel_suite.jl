@@ -89,6 +89,10 @@ AutoMooncake uses the explicitly loaded CorleoneBaseMooncakeExtension and
 `safetycopy = false`. Its rule runs the requested-mode primal ensemble, then
 recomputes and differentiates the actual deterministic trajectory solves in
 serial; it does not differentiate scheduler, RNG, or progress infrastructure.
+AutoMooncakeForward shares that extension: its frule runs the genuine
+requested-mode primal (so threaded and distributed execution is real) and
+returns the serial replay's forward-mode tangent, computed from the actual
+trajectory solves with the incoming Duals.
 The full matrix and all contracts below are shared unchanged by every backend.
 """
 function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1e-7, gradient_rtol = 1e-6)
