@@ -22,8 +22,10 @@ end
 
 # Context creation carries no numerical derivative. The actual hook and its
 # captured inputs remain differentiated. Random/seeded ensembles are rejected.
-trajectory_context(i) = SciMLBase.EnsembleContext(i, 1, 0, nothing,
-    SciMLBase.default_rng_func(SciMLBase.EnsembleContext(i, 1, 0, nothing, nothing, nothing)), nothing)
+trajectory_context(i) = SciMLBase.EnsembleContext(
+    i, 1, 0, nothing,
+    SciMLBase.default_rng_func(SciMLBase.EnsembleContext(i, 1, 0, nothing, nothing, nothing)), nothing
+)
 Mooncake.@zero_adjoint Mooncake.MinimalCtx Tuple{typeof(trajectory_context), Int}
 
 Mooncake.@is_primitive Mooncake.MinimalCtx Tuple{
@@ -35,10 +37,13 @@ function Mooncake.rrule!!(
         kwcall::CoDual{typeof(Core.kwcall)}, options::CoDual{<:NamedTuple},
         solve::CoDual{typeof(CommonSolve.solve)},
         problem::CoDual{<:CorleoneBase.AbstractParallelProblem},
-        algorithm::CoDual, mode::CoDual{<:SciMLBase.BasicEnsembleAlgorithm})
+        algorithm::CoDual, mode::CoDual{<:SciMLBase.BasicEnsembleAlgorithm}
+    )
     nt = primal(options)
-    for key in (:output_func, :reduction, :u_init, :seed, :rng, :rng_func,
-            :batch_size, :pmap_batch_size)
+    for key in (
+            :output_func, :reduction, :u_init, :seed, :rng, :rng_func,
+            :batch_size, :pmap_batch_size,
+        )
         haskey(nt, key) && throw(ArgumentError("Mooncake ensemble recomputation does not support $key"))
     end
     get(nt, :safetycopy, true) && throw(ArgumentError("Mooncake ensemble recomputation requires safetycopy=false"))
@@ -68,10 +73,13 @@ function Mooncake.frule!!(
         ::Dual{typeof(Core.kwcall)}, options::Dual{<:NamedTuple},
         ::Dual{typeof(CommonSolve.solve)},
         problem::Dual{<:CorleoneBase.AbstractParallelProblem},
-        algorithm::Dual, mode::Dual{<:SciMLBase.BasicEnsembleAlgorithm})
+        algorithm::Dual, mode::Dual{<:SciMLBase.BasicEnsembleAlgorithm}
+    )
     nt = primal(options)
-    for key in (:output_func, :reduction, :u_init, :seed, :rng, :rng_func,
-            :batch_size, :pmap_batch_size)
+    for key in (
+            :output_func, :reduction, :u_init, :seed, :rng, :rng_func,
+            :batch_size, :pmap_batch_size,
+        )
         haskey(nt, key) && throw(ArgumentError("Mooncake ensemble recomputation does not support $key"))
     end
     get(nt, :safetycopy, true) && throw(ArgumentError("Mooncake ensemble recomputation requires safetycopy=false"))

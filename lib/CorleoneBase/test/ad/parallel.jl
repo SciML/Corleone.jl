@@ -35,15 +35,21 @@ else
         # Stable module identity on driver and workers, also inside SafeTestsets.
         Base.include(Main, suite_path)
         Base.include(Main, mooncake_rules)
-        for (package, extension) in ((SciMLBase, :SciMLBaseMooncakeExt),
-                (SciMLSensitivity, :SciMLSensitivityMooncakeExt))
+        for (package, extension) in (
+                (SciMLBase, :SciMLBaseMooncakeExt),
+                (SciMLSensitivity, :SciMLSensitivityMooncakeExt),
+            )
             @test Base.get_extension(package, extension) !== nothing
-            @test all(pid -> remotecall_fetch(Base.get_extension, pid, package, extension) !== nothing,
-                added_workers)
+            @test all(
+                pid -> remotecall_fetch(Base.get_extension, pid, package, extension) !== nothing,
+                added_workers
+            )
         end
         @test all(pid -> remotecall_fetch(Threads.nthreads, pid) > 1, added_workers)
-        println("Parallel AD runtime: Julia=", VERSION, " threads=", Threads.nthreads(),
-            " workers=", added_workers, " source=", pkgdir(CorleoneBase))
+        println(
+            "Parallel AD runtime: Julia=", VERSION, " threads=", Threads.nthreads(),
+            " workers=", added_workers, " source=", pkgdir(CorleoneBase)
+        )
         flush(stdout)
         # Check where ensemble work actually runs, not just available resources.
         for mode in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
@@ -58,8 +64,10 @@ else
                 @test all(location -> location[1] != getpid(), locations)
             end
         end
-        Main.ParallelADTests.test_parallel_ad(AutoForwardDiff(),
-            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed()))
+        Main.ParallelADTests.test_parallel_ad(
+            AutoForwardDiff(),
+            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
+        )
         flush(stdout)
         # ReverseDiff traces the inner solves directly, matching the sequential
         # suite's SensitivityADPassThrough configuration; compiled tapes stay
@@ -72,9 +80,11 @@ else
         # Distributed's pmap serialization (gradients come back zero and the
         # orphaned tape structures segfault the workers); see PARALLEL_RESULTS.md
         # for the reproducer and unblock path.
-        Main.ParallelADTests.test_parallel_ad(AutoReverseDiff(),
+        Main.ParallelADTests.test_parallel_ad(
+            AutoReverseDiff(),
             (EnsembleSerial(), EnsembleThreads());
-            solve_kwargs = (; sensealg = SensitivityADPassThrough(), safetycopy = false))
+            solve_kwargs = (; sensealg = SensitivityADPassThrough(), safetycopy = false)
+        )
         flush(stdout)
         # Zygote registers across the full ensemble matrix. It adjoins the actual
         # ensemble solve: the CorleoneBaseZygoteExtension runs the real (threaded
@@ -84,15 +94,19 @@ else
         # not serialize a tape. Ensemble solutions are mode-independent, so the
         # adjoint has the same primal values as the forward that the
         # execution-location probes observe.
-        Main.ParallelADTests.test_parallel_ad(AutoZygote(),
-            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed()))
+        Main.ParallelADTests.test_parallel_ad(
+            AutoZygote(),
+            (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
+        )
         flush(stdout)
         # Mooncake runs the real parallel primal, then differentiates the actual
         # deterministic trajectory solves serially. The hook supplies fresh
         # problems, so no template mutation or per-trajectory safetycopy is needed.
-        Main.ParallelADTests.test_parallel_ad(AutoMooncake(),
+        Main.ParallelADTests.test_parallel_ad(
+            AutoMooncake(),
             (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed());
-            solve_kwargs = (; safetycopy = false))
+            solve_kwargs = (; safetycopy = false)
+        )
         flush(stdout)
         # AutoMooncakeForward is Mooncake's forward mode: the shared extension's
         # frule!! runs the genuine requested-mode parallel primal, then
@@ -101,9 +115,11 @@ else
         # the probes and gradients carry the real per-trajectory contributions.
         # The same extension file supplies both the reverse-mode rrule and this
         # forward-mode frule; safetycopy = false is required by the rule.
-        Main.ParallelADTests.test_parallel_ad(AutoMooncakeForward(),
+        Main.ParallelADTests.test_parallel_ad(
+            AutoMooncakeForward(),
             (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed());
-            solve_kwargs = (; safetycopy = false))
+            solve_kwargs = (; safetycopy = false)
+        )
         flush(stdout)
     finally
         rmprocs(added_workers)

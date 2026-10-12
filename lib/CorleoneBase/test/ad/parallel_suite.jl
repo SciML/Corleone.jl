@@ -36,16 +36,22 @@ end
 function ensemble_solutions(case, x, wrapped, mode; solve_kwargs = (;))
     template = trajectory_problem(case, x, wrapped)
     hook = (problem, template, ctx) ->
-        trajectory_problem(case, trajectory_input(x, ctx.sim_id), wrapped)
+    trajectory_problem(case, trajectory_input(x, ctx.sim_id), wrapped)
     problem = ParallelProblem(template; prob_func = hook)
-    return CommonSolve.solve(problem, Tsit5(), mode;
-        trajectories = 3, merge(SOLVE_KWARGS, solve_kwargs)...)
+    return CommonSolve.solve(
+        problem, Tsit5(), mode;
+        trajectories = 3, merge(SOLVE_KWARGS, solve_kwargs)...
+    )
 end
 
 function ensemble_loss(case, x, wrapped, mode; solve_kwargs = (;))
     ensemble = ensemble_solutions(case, x, wrapped, mode; solve_kwargs)
-    return sum(i * (wrapped ? endpoint_loss(ntuple(k -> ensemble.u[i][k].u[end][1], 3)) :
-        (ensemble.u[i].u[end][1] - TARGETS[1])^2 / 2) for i in 1:3)
+    return sum(
+        i * (
+            wrapped ? endpoint_loss(ntuple(k -> ensemble.u[i][k].u[end][1], 3)) :
+                (ensemble.u[i].u[end][1] - TARGETS[1])^2 / 2
+        ) for i in 1:3
+    )
 end
 
 function ensemble_reference(case, x, wrapped)
@@ -65,12 +71,13 @@ end
 
 function check_gradient(case, x, wrapped, value, gradient; gradient_atol, gradient_rtol)
     expected_value, expected_gradient = ensemble_reference(case, x, wrapped)
-    @test isapprox(value, expected_value; atol = 1e-9, rtol = 1e-9)
+    @test isapprox(value, expected_value; atol = 1.0e-9, rtol = 1.0e-9)
     @test size(gradient) == size(x)
     @test all(isfinite, gradient)
     for j in eachindex(x)
         @test isapprox(gradient[j], expected_gradient[j]; atol = gradient_atol, rtol = gradient_rtol)
     end
+    return
 end
 
 """
@@ -95,7 +102,7 @@ returns the serial replay's forward-mode tangent, computed from the actual
 trajectory solves with the incoming Duals.
 The full matrix and all contracts below are shared unchanged by every backend.
 """
-function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1e-7, gradient_rtol = 1e-6)
+function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1.0e-7, gradient_rtol = 1.0e-6)
     @test DI.check_available(backend)
     return @testset "Parallel AD: $(repr(backend))" begin
         for mode in modes, wrapped in (false, true), case in CASES
@@ -118,10 +125,10 @@ function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1e
                             @test sol.t == [Float64(k - 1), Float64(k)]
                             @test sol.prob.p == [z[k == 1 ? 2 : 3]]
                             @test sol.prob.u0 == (k == 1 ? [z[1]] : k == 2 ? stages[1].u[end] : [z[4]])
-                            @test isapprox(sol.u[end][1], y[k]; atol = 1e-9, rtol = 1e-9)
+                            @test isapprox(sol.u[end][1], y[k]; atol = 1.0e-9, rtol = 1.0e-9)
                         end
                     end
-                    @test isapprox(loss(x), first(ensemble_reference(case, x, wrapped)); atol = 1e-9, rtol = 1e-9)
+                    @test isapprox(loss(x), first(ensemble_reference(case, x, wrapped)); atol = 1.0e-9, rtol = 1.0e-9)
                     @test x == unchanged
                 end
                 @testset "unprepared" begin

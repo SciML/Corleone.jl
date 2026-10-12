@@ -33,8 +33,10 @@ function parallel_ensemble_serial_solve(problem, algorithm, kwargs)
         prob_func = fix_me(prob_func, problem),
         ensemble_kwargs...
     )
-    return SciMLBase.solve(ensemble_problem, algorithm, SciMLBase.EnsembleSerial();
-        trajectories = trajectories, solver_kwargs...)
+    return SciMLBase.solve(
+        ensemble_problem, algorithm, SciMLBase.EnsembleSerial();
+        trajectories = trajectories, solver_kwargs...
+    )
 end
 
 function ChainRulesCore.rrule(
@@ -53,7 +55,7 @@ function ChainRulesCore.rrule(
     function ensemble_pullback(delta)
         gradients = back(delta)
         gradients === nothing && return (
-            NoTangent(), NoTangent(), NoTangent(), NoTangent()
+            NoTangent(), NoTangent(), NoTangent(), NoTangent(),
         )
         _, problem_bar, algorithm_bar, _ = gradients
         return NoTangent(), problem_bar, algorithm_bar, NoTangent()
