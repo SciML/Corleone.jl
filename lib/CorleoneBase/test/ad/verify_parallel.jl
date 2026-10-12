@@ -8,4 +8,7 @@ Pkg.develop(path = abspath(joinpath(@__DIR__, "../..")))
 Pkg.instantiate()
 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
 println("Julia=", VERSION, " threads=", Threads.nthreads(), " environment=", environment)
-include("parallel.jl")
+# Resolution may load dependencies at versions different from the final manifest.
+# Start a clean process so driver and workers use exactly the recorded environment.
+command = `$(Base.julia_cmd()) --startup-file=no --threads=$(Threads.nthreads()) --project=$environment $(joinpath(@__DIR__, "parallel.jl"))`
+run(command)

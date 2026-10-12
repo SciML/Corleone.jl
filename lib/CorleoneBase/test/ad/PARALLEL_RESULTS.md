@@ -1,10 +1,14 @@
-# Parallel ForwardDiff, ReverseDiff, and Zygote verification
+# Parallel AD verification
 
 Commands run from `/home/alcap/Projects/Corleone.jl.worktrees/CJM-CorleoneBase`
 on Linux x86_64, against the checked-out `lib/CorleoneBase` (0.1.0).
 Only test files and the `CorleoneBaseZygoteExtension` were changed; no `src`
 or package-metadata change was needed. Pre-existing unrelated changes were left
 untouched.
+
+The statement above describes the earlier phases. The Mooncake phase additionally
+uses an explicitly test-loaded `CorleoneBaseMooncakeExtension`; see the appended
+Mooncake section. No package metadata or `src` changes are permitted in that phase.
 
 This document grew by phase: first ForwardDiff, then uncompiled ReverseDiff, then
 Zygote. Each phase's results stand on its own; counts below are per phase.
@@ -298,7 +302,7 @@ julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.
 julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-faUxsB -e 'include("lib/CorleoneBase/test/ad/runtests.jl")' > /tmp/opencode/parallel-sequential-ad-rd-111.log 2>&1
 ```
 
-## Scope
+## Scope of earlier phases
 
 ForwardDiff parallel support (all three ensemble modes), uncompiled ReverseDiff
 parallel support (serial and threaded modes), and Zygote parallel support (all
@@ -311,3 +315,202 @@ differentiation, compiled ReverseDiff tapes, distributed ReverseDiff evaluation
 resolves. Zygote parallel registration specifically requires the committed
 extension rule; without it (native trace) threaded wrapped results race and
 distributed workers crash, as documented above.
+
+## Mooncake reverse-mode phase
+
+Initial native-trace commands (no Mooncake solve-boundary rule):
+
+```sh
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.10 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl > /tmp/opencode/mooncake-1.10.log 2>&1
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.11.7~x64 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl > /tmp/opencode/mooncake-1.11.log 2>&1
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.12 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_parallel.jl > /tmp/opencode/mooncake-1.12.log 2>&1
+```
+
+Resolved environments are `/tmp/opencode/parallel-ad-1.10.12-Vg4zko`,
+`/tmp/opencode/parallel-ad-1.11.7-gO7XfS`, and
+`/tmp/opencode/parallel-ad-1.12.7-c6AdEX`. Each has a persistent Project and
+Manifest and develops CorleoneBase 0.1.0 from this checkout. All three resolve
+Mooncake 0.5.63, DifferentiationInterface 0.7.21, SciMLBase 3.57.0,
+SciMLSensitivity 7.119.12, DiffEqBase 7.21.3, OrdinaryDiffEqTsit5 2.1.5,
+ForwardDiff 1.4.6, ReverseDiff 1.18.4, and Zygote 0.7.13.
+
+On 1.10/1.11, ForwardDiff passed 3,168 checks before Mooncake ran. Native
+Mooncake passed 2,304 primal checks but errored in all 48 gradient testsets
+(unprepared and prepared across 24 combinations), including serial execution.
+The first error is `Mooncake.UnhandledLanguageFeatureException` in
+`Base.CoreLogging.with_logstate`: reverse-mode differentiation does not support
+`try/catch/finally`. No failing case was skipped. A focused reproducer, from the
+repository root in either environment, is:
+
+```julia
+using Mooncake, SciMLSensitivity, DifferentiationInterface, SciMLBase
+include("lib/CorleoneBase/test/ad/parallel_suite.jl")
+P = ParallelADTests
+f = x -> P.ensemble_loss(P.LinearCase{false}(), x, false, EnsembleSerial();
+    solve_kwargs = (; safetycopy = false))
+value_and_gradient(f, AutoMooncake(), [1.2, 0.4])
+```
+
+The first 1.12 invocation warned of a stack overflow and segfaulted (exit 139).
+`coredumpctl info 13788` confirms SIGSEGV in the Julia driver; its logged stack is
+unsymbolized. The log contains environment-activation warnings about already
+loaded dependency versions differing from the newly resolved manifest; it does
+not establish the precise cause of the stack overflow. The kernel journal around
+the crash has no OOM entries. Verification now launches a fresh child after
+resolution to eliminate that environment ambiguity; the native backend failure
+on the other versions independently establishes the need for an ensemble rule.
+
+The attempted solve-boundary approach uses the real requested-mode forward
+ensemble, then directly maps the real trajectory hook and solves in serial,
+avoiding scheduler/logging instrumentation. It differentiates those inner solves
+with Mooncake, including input-dependent problem construction and transitions;
+the rule never calls analytic references. Only deterministic, mode-independent,
+default-output/default-reduction ensembles are covered. `safetycopy = false` is
+required; custom output/reduction, seed/RNG, and batching keywords are explicitly
+rejected. Loading is explicit on driver and workers because automatic package
+extension registration would require forbidden metadata changes.
+
+The focused rule-loaded probe on Julia 1.10 returned value
+`1.7552838932325958` and gradient `[3.0691566576017815, -4.9047424269932]`.
+This single probe alone is not evidence of full parallel support; the full
+matrix is verified below.
+
+Rule-loaded full-driver results (all three commands exited successfully):
+
+| Julia | Mooncake | Preserved backends | Thread IDs / distributed OS PIDs |
+| --- | --- | --- | --- |
+| 1.10.12 | 3,168/3,168 | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168 | 1–4 / 43267, 43270 |
+| 1.11.7 | 3,168/3,168 | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168 | 1–4 / 43295, 43299 |
+| 1.12.7 | 3,168/3,168 | ForwardDiff 3,168; ReverseDiff 2,112; Zygote 3,168 | 2–5 / 43305, 43309 |
+
+Each Mooncake run covers all 24 combinations, including every analytic primal,
+prepared/unprepared gradient, changed-input, repeat, and input-preservation
+assertion. No tolerances or existing assertions were changed. The driver uses
+four default-pool threads and two workers with two threads each.
+
+A non-fixture default-hook probe also passed on Julia 1.10
+(`/tmp/opencode/mooncake-template-dependencies.log`), confirming dependence on
+the template's state and parameters rather than only the fixture's captured
+trajectory hook. Reproduce in the 1.10 scratch environment:
+
+```julia
+using Mooncake, ForwardDiff, SciMLSensitivity, DifferentiationInterface,
+    SciMLBase, CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5, Test
+include("lib/CorleoneBase/ext/CorleoneBaseMooncakeExtension.jl")
+function loss(x)
+    ode = ODEProblem((u, p, t) -> p[1] .* u .+ p[2],
+        [x[1]], (0.0, 0.8), [x[2], x[3]])
+    ensemble = solve(ParallelProblem(ode), Tsit5(), EnsembleSerial();
+        trajectories = 2, safetycopy = false, abstol = 1e-11, reltol = 1e-11,
+        save_everystep = false)
+    return sum(sol.u[end][1]^2 for sol in ensemble.u)
+end
+x = [0.7, 0.3, 0.2]
+original = copy(x)
+a = value_and_gradient(loss, AutoMooncake(), x)
+b = value_and_gradient(loss, AutoForwardDiff(), x)
+@test a[1] ≈ b[1]
+@test isapprox(a[2], b[2]; atol = 1e-7, rtol = 1e-6)
+@test x == original
+```
+
+Mooncake returned `2.2928276967982333` and gradient
+`[5.444542331131, 3.3711137426877853, 3.8723788090236897]`; ForwardDiff agreed
+to approximately 2e-13. This supplements, not replaces, the analytic matrix.
+
+Rule-loaded full-driver commands reuse the resolved manifests:
+
+```sh
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.10.12-Vg4zko lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/mooncake-full-1.10.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-gO7XfS lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/mooncake-full-1.11.log 2>&1
+julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX lib/CorleoneBase/test/ad/parallel.jl > /tmp/opencode/mooncake-full-1.12.log 2>&1
+```
+
+Fresh regressions (Core before loading AD packages; sequential AD with the new
+Mooncake rule loaded) use:
+
+```sh
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.10 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_regressions.jl > /tmp/opencode/mooncake-regressions-1.10.log 2>&1
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.11.7~x64 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_regressions.jl > /tmp/opencode/mooncake-regressions-1.11.log 2>&1
+JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.12 --startup-file=no --threads=4 lib/CorleoneBase/test/ad/verify_regressions.jl > /tmp/opencode/mooncake-regressions-1.12.log 2>&1
+```
+
+Isolation and entry-point verification uses the final driver, including explicit
+upstream extension-loading checks on driver/workers and a post-`rmprocs` cleanup
+assertion:
+
+```sh
+julia +1.10 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.10.12-Vg4zko -e 'using SafeTestsets; @safetestset "Parallel AD isolation" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/mooncake-safe-1.10.log 2>&1
+julia +1.11.7~x64 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.11.7-gO7XfS -e 'using SafeTestsets; @safetestset "Parallel AD isolation" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/mooncake-safe-1.11.log 2>&1
+julia +1.12 --startup-file=no --threads=1 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX -e 'using SafeTestsets; @safetestset "Parallel AD single-thread entry" begin; include("lib/CorleoneBase/test/ad/parallel.jl"); end' > /tmp/opencode/mooncake-single-safe-1.12.log 2>&1
+```
+
+Julia 1.10 and 1.11 SafeTestsets isolation each passed **11,632/11,632**: 11,616 backend
+contracts plus 16 driver checks (thread/worker availability, actual execution
+locations, backend availability, upstream extension loading on every process,
+and worker cleanup). Julia 1.10 observed thread IDs 1–4 on driver PID 54334 and
+remote OS PIDs 54425, 54429. Julia 1.11 observed thread IDs 1–4 on driver PID
+53515 and remote OS PIDs 53706, 53710.
+
+Julia 1.12 single-thread entry passed the parent's one child-success assertion.
+The four-thread child passed all 11,616 backend contracts and its driver checks,
+including extension loading and cleanup. It observed thread IDs 2–5 on driver
+PID 53687 and remote OS PIDs 53769, 53773. Threaded/distributed coverage was not
+replaced by serial work or skipped by the single-thread parent.
+
+The first regression-verifier implementation ran AD before Core: Julia 1.12
+sequential AD passed 2,143 checks, but Core's existing extension-unloaded
+assertion correctly failed after Zygote had been loaded. The verifier now runs
+Core first, then explicitly loads the new Mooncake rule before sequential AD.
+No Core assertion was changed. The corrected 1.12 rerun reuses its scratch
+manifest:
+
+```sh
+julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/ad-regressions-1.12.7-hbcxnQ lib/CorleoneBase/test/ad/verify_regressions.jl resolved > /tmp/opencode/mooncake-regressions-1.12-final.log 2>&1
+```
+
+Final regression observations:
+
+| Julia | Environment | Core (including source/extension assertions) | Sequential AD |
+| --- | --- | --- | --- |
+| 1.10.12 | `/tmp/opencode/ad-regressions-1.10.12-GzDBP7` | 332 sequential + 20 parallel passed | 2,143 passed |
+| 1.11.7 | `/tmp/opencode/ad-regressions-1.11.7-L6HTKj` | 332 sequential + 20 parallel passed | 2,143 passed |
+| 1.12.7 | `/tmp/opencode/ad-regressions-1.12.7-hbcxnQ` | 332 sequential + 20 parallel passed | 2,143 passed |
+
+These scratch environments additionally declare ArrayInterface 7.30.2 for Core;
+the AD declaration file in the checkout is unchanged. Core runs before loading
+the new Mooncake extension, preserving its existing extension-unloaded check;
+sequential AD runs with that extension loaded and keeps all six backends and
+the supplemental Zygote rule contracts.
+
+The real registered AD group (including SciMLTesting's environment activation
+and both SafeTestsets registrations) is also exercised on Julia 1.12:
+
+```sh
+JULIA_PKG_PRECOMPILE_AUTO=0 CORLEONE_TEST_GROUP=AD julia +1.12 --startup-file=no --threads=4 --project=/tmp/opencode/parallel-ad-1.12.7-c6AdEX -e 'include("lib/CorleoneBase/test/runtests.jl")' > /tmp/opencode/mooncake-registered-ad-1.12.log 2>&1
+```
+
+Passed: **13,775/13,775** (2,143 sequential AD + 11,632 parallel AD), with no
+skips, broken assertions, failures, or errors. SciMLTesting activated
+`/tmp/jl_sciml_group_env_D0mJH3`, resolving the same relevant dependency versions
+recorded above against this checkout. Both suites ran under their actual
+SafeTestsets registrations. Parallel probes observed thread IDs 2–5 on driver
+PID 59020 and remote OS PIDs 63359, 63363; extension-loading and post-`rmprocs`
+cleanup assertions passed.
+
+### Final Mooncake scope
+
+AutoMooncake reverse mode is verified through the existing shared parallel
+harness on Julia 1.10.12, 1.11.7, and 1.12.7, across all 24 combinations and all
+existing contracts at unchanged tolerances. ForwardDiff, ReverseDiff, Zygote,
+sequential AD, and Core results are preserved. The explicit solve-boundary rule
+runs genuine requested-mode parallel primals and differentiates real trajectory
+solves serially; parallel reverse-pass scheduling is not claimed. It requires
+explicit rule loading and `safetycopy = false`, and is limited to deterministic,
+mode-independent, default-output/default-reduction ensembles with read-only
+hooks. Stochastic/custom-reduction ensembles, GPUs, external clusters,
+Mooncake forward-mode parallelism, higher derivatives, and automatic package
+extension registration are not certified here. There are no remaining failures
+in the requested matrix or entry points. Changes are confined to tests,
+test-local documentation/results, and the new extension file; package metadata
+and `src` are unchanged. Unrelated user files were left untouched.

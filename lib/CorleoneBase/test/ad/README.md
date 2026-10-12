@@ -25,7 +25,7 @@ stage accumulation through an internal `Zygote.Buffer`, including transitions
 and saved endpoints, while preserving the primal iterator and buffer identity.
 The same extension also adjoins the parallel
 `CommonSolve.solve(::AbstractParallelProblem, ...)` ensemble solve across all
-ensemble modes (see "Parallel ForwardDiff, ReverseDiff, and Zygote contracts").
+ensemble modes (see "Parallel ForwardDiff, ReverseDiff, Zygote, and Mooncake contracts").
 Discrete stage indices and return-code decisions carry no derivative. The internal buffer is initialized
 from the existing solutions and frozen with `copy` only after solving finishes.
 Extension-local identity pullbacks normalize SciML state cotangents to
@@ -68,14 +68,15 @@ and hand-derived Jacobians provide independent gradient references for both
 `du/dt = -p*u` and `du/dt = -p*u²`. Prepared evaluations alternate inputs and
 repeat the first input to expose stale tapes or leaked mutable state.
 
-## Parallel ForwardDiff, ReverseDiff, and Zygote contracts
+## Parallel ForwardDiff, ReverseDiff, Zygote, and Mooncake contracts
 
 The AD group also registers `parallel.jl`, backed by the reusable
 `ParallelADTests.test_parallel_ad(backend, modes; solve_kwargs, gradient_atol,
 gradient_rtol)` in `parallel_suite.jl`. ForwardDiff (all three ensemble modes),
 uncompiled ReverseDiff (serial and threaded modes, with
 `SciMLSensitivity.SensitivityADPassThrough()` and `safetycopy = false` supplied
-via `solve_kwargs`), and Zygote (all three ensemble modes) are registered for
+via `solve_kwargs`), Zygote (all three ensemble modes), and Mooncake reverse mode
+(all three ensemble modes, with `safetycopy = false`) are registered for
 parallel AD; the remaining existing backends stay sequential-only. The
 pass-through matches the sequential suite, and skipping SciMLBase's default
 per-simulation template deepcopy keeps ReverseDiff's tape-bound template from
@@ -107,10 +108,35 @@ without racing or serializing a Zygote tape. Zygote needs no solver-time
 sequential rules (wrapped templates) and SciMLSensitivity's `solve` rules (direct
 templates).
 
+Mooncake uses `ext/CorleoneBaseMooncakeExtension.jl`, explicitly included under
+the same `Main` module on driver and workers after loading Mooncake and
+SciMLSensitivity. This is test-driven extension loading, not automatic package
+extension registration: package metadata is intentionally unchanged. The driver
+also checks that the upstream SciMLBase and SciMLSensitivity Mooncake extensions
+are loaded on every process.
+
+Native Mooncake tracing reaches unsupported `try/catch/finally` ensemble
+infrastructure. The solve-boundary rule performs the actual requested-mode
+ensemble forward outside Mooncake's recorder, then recomputes each trajectory
+from the real `prob_func`, template, solver, and solver keywords, differentiating
+those solves with Mooncake. It retains initial-state, parameter, dynamics, and
+transition-closure dependencies; neither analytic references nor fixture models
+are used by the rule. The output's structural tangent is connected to these
+recomputed solutions. Execution scheduling, elapsed time, RNG/context creation,
+and aggregate statistics are not numerical sensitivity targets.
+
+This rule is restricted to deterministic, mode-independent ensembles with read-only
+hooks, default output and
+reduction, and requires `safetycopy = false` (the hook must provide independent
+problems and must not mutate the template). Custom output/reduction, RNG/seed,
+and batching keywords are rejected rather than silently differentiated
+incorrectly. It is not a general stochastic or custom-reduction ensemble rule.
+No solver-time `sensealg` is required. Mooncake forward mode remains sequential.
+
 The harness crosses direct `ODEProblem` and wrapped three-stage
 `SequentialProblem` templates with linear/nonlinear and in-place/out-of-place
 dynamics under `EnsembleSerial`, `EnsembleThreads`, and (for ForwardDiff and
-Zygote) `EnsembleDistributed`; ReverseDiff covers serial and threaded. Out-of-place direct-template problems are normalized
+Zygote and Mooncake) `EnsembleDistributed`; ReverseDiff covers serial and threaded. Out-of-place direct-template problems are normalized
 with `CorleoneBase.prepare_stage_problem` before the ensemble machinery solves
 them, mirroring the sequential driver; it is a no-op for untraced inputs, so
 ForwardDiff coverage is unaffected.
@@ -148,5 +174,11 @@ JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.12 --startup-file=no --threads=4 lib/Corleo
 The script copies the AD group's declarations into a persistent scratch project
 under `/tmp/opencode`, develops the checked-out CorleoneBase, records the full
 resolved manifest, Julia version, thread counts, worker IDs, and execution
-locations, then runs the parallel contracts. It does not edit repository
+locations, then runs the parallel contracts in a clean subprocess (resolution
+may have loaded dependencies before the final environment was selected). It does not edit repository
 metadata. See `PARALLEL_RESULTS.md` for observed results and regression commands.
+
+`verify_regressions.jl` similarly creates a scratch environment, adds Core's
+direct ArrayInterface test dependency only there, and runs the unchanged
+sequential AD and sequential/parallel Core suites under SafeTestsets in a clean
+subprocess. Invoke it with the same Julia versions and flags as above.
