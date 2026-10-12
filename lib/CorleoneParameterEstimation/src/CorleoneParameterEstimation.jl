@@ -26,6 +26,9 @@ export ParameterEstimationLayer
 include("transforms.jl")
 export AbstractParameterTransform, Identity, Affine, Log, Logit
 
+include("regularization.jl")
+export AbstractRegularizer, L2Regularizer, L1Regularizer, ElasticNetRegularizer
+
 include("residuals.jl")
 export residuals!, residual, model_values, n_shooting_constraints
 

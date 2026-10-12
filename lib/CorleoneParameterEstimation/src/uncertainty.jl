@@ -17,6 +17,13 @@ variance, ``\\mathrm{RSS}`` the sum of squared (weighted) *observation* residual
 ``p`` the number of fitted parameters (including any nuisance local shooting states). When the
 data specifies measurement noise ``\\sigma``, the residuals (and hence ``J``) are the *weighted*
 ones, so that ``(J^\\top J)^{-1}`` is the weighted least-squares covariance.
+
+When an [`AbstractRegularizer`](@ref) is in effect, the appended penalty residuals are
+included in the residual Jacobian, so the covariance is the MAP / posterior covariance
+``(J_{data}^T J_{data} + Lambda)^{-1} sigma^2`` (with
+``Lambda = J_{reg}^T J_{reg}``); the standard errors shrink as the
+regularization strength grows. ``RSS``, ``sigma^2`` and the degrees of
+freedom are still computed from the *observation* residuals alone.
 """
 struct ParameterEstimate{T, V, M, C}
     "Flat vector of fitted parameter values"
@@ -129,7 +136,10 @@ function estimate_parameters(
 
     # Jacobian of the (possibly weighted) residuals at the optimum. Allocate the residual
     # buffer with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
-    J = _residual_jacobian(problem, x_full, n_obs + n_shoot)
+    # `problem.n_residuals` includes any regularization rows (appended after the shooting
+    # block), so with regularization the covariance below is the MAP / posterior covariance
+    # `(J_dataᵀJ_data + Λ)⁻¹·σ̂²` of the penalized problem.
+    J = _residual_jacobian(problem, x_full, problem.n_residuals)
 
     # Eliminate the local shooting states (nuisance variables) by profiling, then invert the
     # reduced normal matrix of the model block, `Jred = Jθ - Jλ (JλᵀJλ)⁻¹ Jλᵀ Jθ`. For a

@@ -32,17 +32,35 @@ in the *internal* space.
 exactly one transform per shared entry (useful when tunable initial conditions and model
 parameters need different transforms).
 
+# Parameter regularization
+
+By default the optimizer solves a pure (weighted) least-squares problem. The
+`regularization` keyword augments the objective with a data-independent penalty on the
+fitted *model parameters*, most commonly to stabilise ill-conditioned or
+overparameterized fits. Regularization is expressed as extra residuals appended after the
+observations (and any multiple-shooting continuity residuals), so `regularize` is honored by
+every nonlinear least-squares solver (Gauss-Newton, Levenberg-Marquardt, trust-region, ...)
+and by the Optimization.jl extension without any solver-specific code.
+
+By default only the **model parameters** `p` of the shared `[u0; p]` block are penalized:
+tuned *initial conditions* `u0` and the local multiple-shooting states are **never**
+regularized. The penalty is evaluated on the **natural** parameter values (so `reference`
+and per-parameter `weights` are in natural units). See [`AbstractRegularizer`](@ref),
+[`L2Regularizer`](@ref), [`L1Regularizer`](@ref) and [`ElasticNetRegularizer`](@ref). Any
+other callable mapping the penalized natural parameter vector to a residual vector can be
+used directly as a custom regularizer.
+
 # Fields
 $(FIELDS)
 
 # Constructors
-- `CorleoneParameterEstimationProblem(layer; rng, x0, shooting_scale, transforms)`
+- `CorleoneParameterEstimationProblem(layer; rng, x0, shooting_scale, transforms, regularization)`
 
 The low-level `NonlinearSolve.NonlinearLeastSquaresProblem` can be built directly via
 [`problem`](@ref). Most users construct that problem through the convenience constructor
 `NonlinearSolve.NonlinearLeastSquaresProblem(pe::ParameterEstimationLayer; kwargs...)`.
 """
-struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2, TR}
+struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2, TR, RG}
     "The wrapped parameter-estimation layer"
     layer::L
     "Structured initial parameters of the first experiment (`(u0, p, controls)` for single shooting, or an `(interval_1, ...)` NamedTuple for multiple shooting)"
@@ -65,10 +83,14 @@ struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2, TR}
     residual_oop::R2
     "Multiplier applied to the appended shooting (continuity) residuals so they can be weighted relative to the observation residuals"
     shooting_scale::Float64
-    "Total number of residuals (observations plus multiple-shooting continuity constraints)"
+    "Total number of residuals (observations + multiple-shooting continuity constraints + regularization)"
     n_residuals::Int
-    "Number of multiple-shooting continuity residuals (the last `n_shooting_constraints` entries of the residual vector)"
+    "Number of multiple-shooting continuity residuals (the `n_shooting_constraints` entries after the observation block)"
     n_shooting_constraints::Int
+    "Number of regularization residuals (the trailing block), see [`AbstractRegularizer`](@ref)"
+    n_regularization_residuals::Int
+    "The resolved regularizer `(θ_pen) -> r_reg`, or `nothing` when no regularization is in effect"
+    reg::RG
 end
 
 # --------------------------------------------------------------------------------------
@@ -330,6 +352,10 @@ function CorleoneParameterEstimationProblem(
         x0 = nothing,
         shooting_scale::Real = 1.0,
         transforms = nothing,
+        regularization = nothing,
+        regularization_reference = nothing,
+        regularization_weights = nothing,
+        regularized_indices = nothing,
     )
     # One structured parameter set per experiment (its shooting layer's initial
     # parameters), plus the tuple of per-experiment layer states. `ps0` (the first
@@ -344,6 +370,19 @@ function CorleoneParameterEstimationProblem(
     transforms = _resolve_transforms(transforms, m)
     x0 = isnothing(x0) ? _to_internal_shared(_flatten(layer, ps0s), transforms, m) : x0
     lb, ub = _transformed_bounds(transforms, _tunable_bounds(layer, ps0s)..., m)
+
+    # Parameter regularization. `nu` tunable initial-condition entries are followed by `np`
+    # model parameters in the shared block. By default only the `np` model parameters are
+    # penalized; `regularized_indices` may extend (or restrict) the penalized set to any
+    # subset of the shared `[u0; p]` block, so tuned initial conditions can be regularized
+    # too when the user has a prior on them. The `regularization_reference` /
+    # `regularization_weights` keywords, when given, override those carried by the
+    # regularizer itself (they are the most common per-fit tunables) and are aligned with
+    # the penalized set.
+    nu = length(_shared_block(first(get_layer(layer)), ps0s[1]).u0)
+    np = m - nu
+    regularization = _apply_reg_overrides(regularization, regularization_reference, regularization_weights)
+    reg, pen, n_reg = _resolve_regularization(regularization, regularized_indices, nu, np)
 
     # Optional weighting of the shooting (continuity) residuals. Observations are
     # residualized against their noise scale `σ`, so they are `O(1)` at the noise floor,
@@ -361,37 +400,81 @@ function CorleoneParameterEstimationProblem(
     n_shoot::Int = sum(
         i -> _layer_shooting_constraints(get_layer(layer)[i], ps0s[i], st[i]), 1:n_exp
     )
-    n_res = n_obs + n_shoot
-    residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs,
-            transforms = transforms, shooting_scale = Float64(shooting_scale)
+    n_res = n_obs + n_shoot + n_reg
+    # In-place residual: observation residuals, then (scaled) shooting residuals, then the
+    # regularization residuals. `shooting_scale` only weights the shooting block.
+    residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
+            transforms = transforms, shooting_scale = Float64(shooting_scale),
+            reg = reg, pen = pen, n_reg = n_reg
         (res, x, p) -> begin
+            # `residuals!` writes the observation block into `res[1:n_obs]` and the
+            # multiple-shooting block into `res[n_obs+1 : n_obs+n_shoot]` of the full buffer;
+            # the trailing regularization slot is filled below.
             ps = _unflatten(layer, ps0s, x, transforms)
             residuals!(res, layer, ps, st)
-            if shooting_scale != 1.0
-                @views res[(n_obs + 1):end] .*= shooting_scale
+            if shooting_scale != 1.0 && n_shoot > 0
+                @views res[(n_obs + 1):(n_obs + n_shoot)] .*= shooting_scale
+            end
+            if n_reg > 0
+                θ_pen = [from_internal(transforms[i], x[i]) for i in pen]
+                r_reg = reg(θ_pen)
+                copyto!(view(res, (n_obs + n_shoot + 1):n_res), r_reg)
             end
             return res
         end
     end
-    # Out-of-place counterpart of `residual` used by the solvers when reverse-mode AD is
-    # requested (see `residual` in `residuals.jl`). It reuses the functional residual path and
-    # applies the same `shooting_scale` weighting without mutating in place.
+    # Out-of-place counterpart used by the solvers when reverse-mode AD is requested (see
+    # `residual` in `residuals.jl`). It reuses the functional residual path and applies the
+    # same `shooting_scale` weighting and regularization without mutating in place. All
+    # three blocks are built functionally so it stays `Zygote`/`ReverseDiff`-differentiable.
     residual_oop = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
-            transforms = transforms, shooting_scale = Float64(shooting_scale)
+            transforms = transforms, shooting_scale = Float64(shooting_scale),
+            reg = reg, pen = pen, n_reg = n_reg
         (x, p) -> begin
             ps = _unflatten(layer, ps0s, x, transforms)
             r = CorleoneParameterEstimation.residual(layer, ps, st)
-            if shooting_scale == 1.0
-                return r
+            # Scale the shooting block (entries `n_obs+1 .. n_obs+n_shoot`).
+            r = if shooting_scale == 1.0
+                r
+            else
+                vcat(r[1:n_obs], r[(n_obs + 1):(n_obs + n_shoot)] .* shooting_scale)
             end
-            return vcat(r[1:n_obs], r[(n_obs + 1):(n_obs + n_shoot)] .* shooting_scale)
+            if n_reg > 0
+                θ_pen = [from_internal(transforms[i], x[i]) for i in pen]
+                r = vcat(r, reg(θ_pen))
+            end
+            return r
         end
     end
 
     return CorleoneParameterEstimationProblem(
         layer, ps0s[1], ps0s, st, x0, lb, ub, transforms, residual, residual_oop,
-        Float64(shooting_scale), n_res, n_shoot
+        Float64(shooting_scale), n_res, n_shoot, n_reg, reg
     )
+end
+
+# Apply the optional `regularization_reference` / `regularization_weights` overrides to a
+# regularizer (returning a new regularizer with the tuned vectors) while leaving `nothing`
+# (no regularization) and plain custom functors untouched.
+function _apply_reg_overrides(reg, reference, weights)
+    if isnothing(reg) || (isnothing(reference) && isnothing(weights))
+        return reg
+    end
+    if reg isa L2Regularizer
+        return L2Regularizer(reg.λ; reference = isnothing(reference) ? reg.reference : reference,
+            weights = isnothing(weights) ? reg.weights : weights)
+    elseif reg isa L1Regularizer
+        return L1Regularizer(reg.λ; reference = isnothing(reference) ? reg.reference : reference,
+            weights = isnothing(weights) ? reg.weights : weights)
+    elseif reg isa ElasticNetRegularizer
+        return ElasticNetRegularizer(reg.l1.λ, reg.l2.λ;
+            reference = isnothing(reference) ? reg.l1.reference : reference,
+            weights = isnothing(weights) ? reg.l1.weights : weights)
+    end
+    throw(ArgumentError(
+        "`regularization_reference` / `regularization_weights` overrides can only be " *
+        "applied to L2/L1/ElasticNetRegularizer (got a custom regularizer). Build the " *
+        "overrides into the custom regularizer directly."))
 end
 
 """

@@ -37,6 +37,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Parameter transforms" begin
                 include("core/transforms.jl")
             end
+            @safetestset "Regularization" begin
+                include("core/regularization.jl")
+            end
             return @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
             end
