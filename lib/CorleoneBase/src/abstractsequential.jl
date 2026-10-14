@@ -26,7 +26,9 @@ solution `sol`. Implemented by concrete sequential problems; see
 sequence itself as the first argument, so the hook can read sequence-wide data
 such as `seq.parameters` and `seq.states`.
 """
-function transition(::AbstractSequentialProblem, sol, i) end
+function transition(x::AbstractSequentialProblem, sol, i) 
+    get_problem(x)
+end
 
 """
     terminal(problem::AbstractSequentialProblem, sol, i)
@@ -37,75 +39,41 @@ Concrete problems call their stored hook with the sequence itself as the first
 argument, so the hook can read sequence-wide data such as `seq.parameters` and
 `seq.states`.
 """
-function terminal(::AbstractSequentialProblem, sol, i) end
+function terminal(::AbstractSequentialProblem, sol, i) 
+    i >= 1 || !SciMLBase.successful_retcode(sol)
+end
 
+function output(::AbstractSequentialProblem, sol, i)
+    sol
+end
+
+function get_size(::AbstractSequentialProblem) end
+
+has_size(::AbstractSequentialProblem) = false
 
 """
     make_buffer(problem::AbstractSequentialProblem, sol::T) -> Vector{T}
-
-Allocate the stage-solution buffer seeded with the first stage's solution `sol`.
+return T[sol]h the first stage's solution `sol`.
 The element type is `T`, the concrete type of `sol`, so every later stage must
 produce that exact type.
 """
-function make_buffer(::AbstractSequentialProblem, sol::T) where {T}
-    return T[sol]
-end
-
-
-"""
-    SequentialProblemIterator
-
-Mutable CommonSolve state returned by `CommonSolve.init(::SequentialProblem, alg)`.
-It stores the first stage's remade `problem`, the `transition`/`terminal`
-callbacks bound to the parent problem, the `algorithm`, the `solve_kwargs`
-forwarded to every stage, the stage-solution `buffer`, and the current 1-based
-`state`. `CommonSolve.step!` solves one more stage; `CommonSolve.solve!` runs
-until the terminal predicate fires or a stage fails and returns a
-[`SolutionWrapper`](@ref).
-"""
-mutable struct SequentialProblemIterator{P, N, T, A, K, B, S}
-    const problem::P
-    const transition::N
-    const terminal::T
-    const algorithm::A
-    const solve_kwargs::K
-    const buffer::B
-    state::S
-end
-
-
-# 1. The generated function does the tuple intersection at compile-time
-"""
-    _split_problem_kwargs(problem, nt_kwargs::NamedTuple) -> (prob_kwargs, solve_kwargs)
-
-Generated implementation of [`split_problem_kwargs`](@ref). The partition is
-resolved at compile time from `fieldnames(typeof(problem))`, so the returned
-`NamedTuple`s keep concrete key sets. Values are forwarded unchanged; the
-stage problem's representation is normalized afterwards by
-`prepare_stage_problem`.
-"""
-@generated function _split_problem_kwargs(::P, nt_kwargs::NamedTuple{K}) where {P <: SciMLBase.AbstractSciMLProblem, K}
-    # These execute during compilation:
-    valid_keys = fieldnames(P)
-    prob_keys = Tuple(k for k in K if k in valid_keys)
-    solve_keys = Tuple(k for k in K if !(k in valid_keys))
-
-    # This generates the exact type-stable slicing code for the specific kwargs passed
-    return quote
-        prob_kwargs = NamedTuple{$prob_keys}(nt_kwargs)
-        solve_kwargs = NamedTuple{$solve_keys}(nt_kwargs)
-        return prob_kwargs, solve_kwargs
+function make_buffer(x::AbstractSequentialProblem, sol::T) where {T}
+    if has_size(x)
+        buffer = Vector{T}(undef, get_size(x))
+        buffer[1] = sol 
+        return buffer
+    else 
+        return T[sol]
     end
+    #if !isnothing(Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension)) 
+    #    return make_zygote_buffer(x, buffer)
+    #else
+    #    return buffer
+    #end
 end
 
-"""
-    _prepare_problem(problem) -> problem′
 
-Generated helper for `prepare_stage_problem`: apply
-`ArrayInterface.aos_to_soa` to every field. Return `problem` unchanged when
-every converted field is identical (`===`) to the original; otherwise rebuild
-it through `SciMLBase.remake` with the converted fields.
-"""
+
 @generated function _prepare_problem(x::P) where {P}
     f_names = fieldnames(P)
     isempty(f_names) && return :(x)
@@ -125,35 +93,10 @@ it through `SciMLBase.remake` with the converted fields.
     end
 end
 
-# Trait query: SciMLBase.isinplace is an empty-body fallback on
-# AbstractSciMLProblem (returns `nothing`) and returns a Bool for problem types
-# that implement the convention, so `=== true` treats unimplemented traits as
-# out-of-place.
 @inline function _is_inplace(x::SciMLBase.AbstractSciMLProblem)
     return SciMLBase.isinplace(x) === true
 end
 
-"""
-    prepare_stage_problem(problem::SciMLBase.AbstractSciMLProblem) -> problem′
-
-Return `problem` ready to be solved as one stage. Every field is passed through
-`ArrayInterface.aos_to_soa`: out-of-place solvers require the state and
-derivative to share one array representation, and AD broadcasts may leave a
-struct-of-arrays representation, which this normalizes before solving.
-In-place problems are returned unchanged: their dynamics write into buffers
-the solver derives from the problem's own arrays, so converting tracked state
-or parameter arrays (for example a `Vector` of ReverseDiff tracked reals into
-a tracked array) would hand the dynamics a buffer that does not support
-`setindex!`. When every converted field is identical (`===`) to the original —
-plain vectors, scalars, and functions are already contiguous — `problem` is
-returned as-is without a remake. Unlike the earlier ODE-only special case,
-this method accepts any `SciMLBase.AbstractSciMLProblem` field set.
-
-Stage problems that are not `SciMLBase.AbstractSciMLProblem`s are returned
-unchanged by a fallback method: there is no `SciMLBase.remake` contract to
-honor for them, and the traced re-implementation of `step!` in the Zygote
-extension relies on it for its custom fixtures.
-"""
 @inline function prepare_stage_problem(x::SciMLBase.AbstractSciMLProblem)
     _is_inplace(x) && return x
     return _prepare_problem(x)
@@ -161,30 +104,6 @@ end
 
 @inline prepare_stage_problem(problem) = problem
 
-# 2. Your frontend function simply converts the kwargs to a NamedTuple and forwards it
-"""
-    split_problem_kwargs(problem, kwargs) -> (prob_kwargs, solve_kwargs)
-
-Partition a keyword collection for `CommonSolve.init` using `problem`'s field
-names. Keywords whose name is a field of `typeof(problem)` become `prob_kwargs`
-and are passed to `SciMLBase.remake`; every other keyword becomes
-`solve_kwargs` and is forwarded unchanged to each stage's solve. For an
-`ODEProblem` the problem fields are `f`, `u0`, `tspan`, `p`, `kwargs`, and
-`problem_type`. The partition is decided at compile time; representation
-conversion happens in `prepare_stage_problem`, not here.
-"""
-@inline function split_problem_kwargs(prob::SciMLBase.AbstractSciMLProblem, kwargs)
-    return _split_problem_kwargs(prob, NamedTuple(kwargs))
-end
-
-# 1. The generated function does the tuple intersection at compile-time
-"""
-    _split_sequence_kwargs(problem, nt_kwargs::NamedTuple) -> (seq_kwargs, rest_kwargs)
-
-Generated implementation of [`split_sequence_kwargs`](@ref). The partition is
-resolved at compile time from `fieldnames(typeof(problem))`, so the returned
-`NamedTuple`s keep concrete key sets. Values are forwarded unchanged.
-"""
 @generated function _split_sequence_kwargs(
         ::S, nt_kwargs::NamedTuple{K}
     ) where {S <: AbstractSequentialProblem, K}
@@ -201,100 +120,116 @@ resolved at compile time from `fieldnames(typeof(problem))`, so the returned
     end
 end
 
-"""
-    split_sequence_kwargs(problem::AbstractSequentialProblem, kwargs) -> (seq_kwargs, rest_kwargs)
 
-Partition a keyword collection for `CommonSolve.init` using `problem`'s own
-field names (in contrast to [`split_problem_kwargs`](@ref), which uses the
-wrapped SciML problem's fields). Keywords whose name is a field of
-`typeof(problem)` become `seq_kwargs` and are passed to `SciMLBase.remake` to
-build the sequence the callbacks observe; every other keyword is forwarded
-unchanged. The partition is decided at compile time; values are never
-converted here.
-"""
 @inline function split_sequence_kwargs(prob::AbstractSequentialProblem, kwargs)
     return _split_sequence_kwargs(prob, NamedTuple(kwargs))
 end
 
+
 """
-    init(problem::AbstractSequentialProblem, algorithm::SciMLBase.AbstractSciMLAlgorithm; kwargs...)
+    SequentialProblemIterator
 
-Initialize `problem` and immediately solve its first stage.
-
-Keywords whose name is a field of the sequence (`problem`, `transition`,
-`terminal`, `parameters`, `states`) are first passed to `SciMLBase.remake` to
-build the sequence the callbacks observe; the original sequence object is never
-mutated, and the overrides are not applied to any stage problem automatically.
-Keywords whose name is a field of the wrapped SciML problem (for an
-`ODEProblem`: `u0`, `p`, `tspan`, `f`, `kwargs`, `problem_type`) are passed to
-`SciMLBase.remake` to build the first stage, which is then normalized by
-`prepare_stage_problem` (`ArrayInterface.aos_to_soa` on fields whose
-representation must change). All remaining keywords are stored and forwarded
-unchanged to every stage's solve. Later stages come from the transition; the
-initial overrides are not reapplied.
-
-Returns a [`SequentialProblemIterator`](@ref) whose `buffer` already holds the
-first stage's solution and whose `state` is `1`. The `algorithm` must be a
-`SciMLBase.AbstractSciMLAlgorithm`; arbitrary solver-state objects and `nothing`
-are rejected by dispatch.
+Mutable CommonSolve state returned by `CommonSolve.init(::SequentialProblem, alg)`.
+It stores the first stage's remade `problem`, the `transition`/`terminal`
+callbacks bound to the parent problem, the `algorithm`, the `solve_kwargs`
+forwarded to every stage, the stage-solution `buffer`, and the current 1-based
+`state`. `CommonSolve.step!` solves one more stage; `CommonSolve.solve!` runs
+until the terminal predicate fires or a stage fails and returns a
+[`SolutionWrapper`](@ref).
 """
+mutable struct SequentialProblemIterator{P, N, O, T, A, B, S, M}
+    "The SciMLProblem to solve in a sequence"
+    const problem::P
+    "The transition function"
+    const transition::N
+    "The output function"
+    const output::O
+    "The terminal condition"
+    const terminal::T
+    "The algorithm to solve"
+    const algorithm::A
+    "The buffer"
+    const buffer::B
+    "The current iteration"
+    current::S
+    "The maximum estimated iteration"
+    max_steps::M
+end
+
+
 @inline function CommonSolve.init(
-        problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm;
+        problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm; 
         kwargs...
     ) where {T <: AbstractSequentialProblem}
 
     seq_kwargs, kwargs = split_sequence_kwargs(problem, kwargs)
     sequence = isempty(seq_kwargs) ? problem : remake(problem; seq_kwargs...)
-    prob = get_problem(sequence)
-    initial_kwargs, solve_kwargs = split_problem_kwargs(prob, kwargs)
-    inner_problem = prepare_stage_problem(remake(prob; initial_kwargs...))
-    sol = solve(inner_problem, algorithm; solve_kwargs...)
-    buffer = make_buffer(sequence, sol)
-    # Fix1 accepts only one remaining argument on Julia 1.10/1.11.
+    inner_problem = prepare_stage_problem(
+        remake(
+            transition(sequence, nothing, 1); 
+            kwargs...
+            )
+        )
+    sol = solve(inner_problem, algorithm; dense = false, save_everystep = false, save_start = true ,save_end = true)
+    bff = output(sequence, sol, 1)
+    buffer = make_buffer(sequence, bff)
     return SequentialProblemIterator(
         inner_problem,
         (sol, i) -> transition(sequence, sol, i),
+        (sol, i) -> output(sequence, sol, i),
         (sol, i) -> terminal(sequence, sol, i),
         algorithm,
-        solve_kwargs,
         buffer,
-        1
+        1,
+        has_size(sequence) ? get_size(sequence) : nothing
     )
 end
 
 function increment!(it::SequentialProblemIterator)
-    it.state += 1
+    it.current += 1
     return it
 end
 
 function CommonSolve.step!(it::SequentialProblemIterator)
-    (; algorithm, solve_kwargs, transition, buffer, state) = it
-    current_problem = prepare_stage_problem(transition(buffer[state], state + 1))
-    current_solution = solve(current_problem, algorithm; solve_kwargs...)
-    if length(buffer) >= state + 1
-        buffer[state + 1] = current_solution
+    (; algorithm, transition, output, buffer, current) = it
+    next = current+1
+    current_problem = prepare_stage_problem(transition(buffer[current], next))
+    if length(buffer) >= next
+        buffer[next] = output(solve(current_problem, algorithm; save_start = false, save_end = true), next)
     else
-        push!(buffer, current_solution)
+        push!(buffer, output(solve(current_problem, algorithm; save_start = false, save_end = true), next))
     end
     increment!(it)
-    SciMLBase.successful_retcode(current_solution) || return false
-    return true
 end
 
-function Base.isdone(it::SequentialProblemIterator, state = it.state)
-    return it.terminal(it.buffer[state], state)
+function Base.isdone(it::SequentialProblemIterator)
+    return it.terminal(it.buffer[it.current], it.current)
+end
+
+finalize_buffer!(it::SequentialProblemIterator) = finalize_buffer!(it.buffer, it)
+
+function finalize_buffer!(buffer::AbstractVector, x::SequentialProblemIterator)
+    (; current) = x 
+    resize!(buffer, current)
+end
+
+function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Nothing})
+    while true 
+        Base.isdone(it) && break
+        CommonSolve.step!(it) 
+    end
+    return finalize_buffer!(it)
 end
 
 
-function CommonSolve.solve!(it::SequentialProblemIterator)
-    # Gate the loop on the last retained stage's success so an unsuccessful first
-    # stage (already in the buffer from init) never transitions or solves again.
-    # Later failures are caught by step!'s `|| break`.
-    if !SciMLBase.successful_retcode(it.buffer[it.state])
-        return SolutionWrapper(it.buffer, it.state)
+function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Int})
+    (; max_steps, buffer, transition, output, algorithm) = it
+    for current in 1:max_steps
+        Base.isdone(it) && break
+        next = current+1
+        current_problem = prepare_stage_problem(transition(buffer[current], next))
+        buffer[next] = output(solve(current_problem, algorithm; save_start = false, save_end = true), next)
+        increment!(it)
     end
-    while !Base.isdone(it)
-        CommonSolve.step!(it) || break
-    end
-    return SolutionWrapper(it.buffer, it.state)
+    return finalize_buffer!(it)
 end

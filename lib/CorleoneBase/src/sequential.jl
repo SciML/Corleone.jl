@@ -49,12 +49,14 @@ capture them. Keep endpoint saving enabled when propagating
 `sol.u[end]`. `maxiters` limits each stage's solver, not the total number of
 stages.
 """
-struct SequentialProblem{P, T, R, X, S} <: AbstractSequentialProblem
+struct SequentialProblem{P, T, O, R, X, S} <: AbstractSequentialProblem
     "The initial problem to solve (first stage)"
     problem::P
     "Transition callable that receives `(sequence, solution, next_index)`
   and returns the next `AbstractSciMLProblem`"
     transition::T
+    "Output function"
+    output::O
     "Terminal predicate callable that receives `(sequence, solution, current_index)`
   and returns `Bool`. When `true`, no further stages are solved."
     terminal::R
@@ -69,16 +71,18 @@ end
 get_problem(x::SequentialProblem) = x.problem
 transition(x::SequentialProblem, sol, i) = x.transition(x, sol, i)
 terminal(x::SequentialProblem, sol, i) = x.terminal(x, sol, i)
+output(x::SequentialProblem, sol, i) = x.output(x, sol, i)
 
 function SequentialProblem(
         problem::SciMLBase.AbstractSciMLProblem;
         transition = (seq, sol, i) -> nothing,
+        output = (seq, sol, i) -> sol,
         terminal = (seq, sol, i) -> i >= 1,
         parameters = nothing,
         states = nothing,
     )
-    return SequentialProblem{typeof(problem), typeof(transition), typeof(terminal), typeof(parameters), typeof(states)}(
-        problem, transition, terminal, parameters, states
+    return SequentialProblem{typeof(problem), typeof(transition), typeof(output), typeof(terminal), typeof(parameters), typeof(states)}(
+        problem, transition, output, terminal, parameters, states
     )
 end
 
@@ -95,6 +99,7 @@ function SciMLBase.remake(sequence::SequentialProblem; kwargs...)
     return SequentialProblem(
         haskey(nt, :problem) ? nt.problem : sequence.problem,
         haskey(nt, :transition) ? nt.transition : sequence.transition,
+        haskey(nt, :output) ? nt.output : sequence.output,
         haskey(nt, :terminal) ? nt.terminal : sequence.terminal,
         haskey(nt, :parameters) ? nt.parameters : sequence.parameters,
         haskey(nt, :states) ? nt.states : sequence.states,
