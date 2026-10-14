@@ -1,76 +1,67 @@
 # [Sequential problems (CorleoneBase)](@id corleonebase)
 
-`CorleoneBase` is a small, independently usable sublibrary. It sequences SciML
-problems using CommonSolve; it does not construct controls, objectives, bounds,
-optimization problems, or plots. Those belong in your application. See
-[manual single shooting](@ref base_fishing) for a runnable fishing example and
-[the API reference](@ref base_api) for the public result and problem types.
+`CorleoneBase` sequences SciML problems using CommonSolve. Controls, objectives,
+bounds, and optimization belong in your application. See the
+[manual single-shooting tutorial](@ref base_fishing) and [API reference](@ref base_api).
 
-## Callback contract and propagation
+## Construction, output, and termination
 
-Construct `SequentialProblem(first_problem; transition, terminal)`. With defaults,
-only the first problem is solved. To continue, supply both callbacks. Both are
-called with the sequence itself as their first argument, so they can read the
-optional sequence-wide fields `seq.parameters` and `seq.states` (`nothing` by
-default):
+Every hook takes the sequence first and may read `seq.parameters` and `seq.states`
+(both default to `nothing`). `transition(seq, nothing, 1)` constructs the first
+stage. Later calls receive the previous **stored output** and the next stage index.
+Always supply a transition: the concrete constructor's default returns `nothing`,
+not the wrapped problem. To use the template for stage one, return `seq.problem`.
 
-* `terminal(seq, sol, i)` receives the sequence, the solution, and the
-  **current** stage index (first is 1). Returning `true` stops before
-  constructing another stage.
-* `transition(seq, sol, i)` receives the sequence, the previous solution, and
-  the **next** stage index (first call is 2). Return a SciML problem compatible
-  with the same algorithm and stored solution buffer type. Stored two-argument
-  `(sol, i)` callables are not supported: both hooks must accept the sequence.
+`output(seq, solution, i)` runs after every solve, before storage; its default is
+identity. `terminal(seq, stored_output, i)` stops when true; the concrete default
+stops after one stage. Custom terminals own all stopping policies, including
+failed solves. The abstract fallback instead stops at `i >= 1` or an unsuccessful
+SciML return code. All stored outputs must fit the first output's buffer type.
 
-There is no automatic propagation of state, parameters, or time intervals —
-neither from `seq.parameters`/`seq.states` into any stage problem, whose
-construction stays explicit.
-Typically `remake(sol.prob; u0 = sol.u[end], p = ..., tspan = ...)` carries the
-endpoint to the next stage. Copy or replace state explicitly if the next stage
-must reset it. You must ensure an eventual terminal condition; there is no outer
-stage limit. A stage solver's `maxiters` limits that stage, not the sequence.
+State, parameters, and time intervals are never propagated automatically.
+Remake the preceding solution's problem explicitly to carry an endpoint forward:
 
 ```jldoctest sequence
 julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
 
-julia> using SciMLBase: ODEProblem, remake, ReturnCode, successful_retcode
+julia> using SciMLBase: ODEProblem, remake, successful_retcode
 
 julia> calls = Int[];
 
-julia> first_problem = ODEProblem((u, p, t) -> p .* u, [1.0], (0.0, 1.0), 0.0);
+julia> template = ODEProblem((u, p, t) -> p .* u, [1.0], (0.0, 1.0), 0.0);
 
-julia> sequence = SequentialProblem(first_problem;
+julia> sequence = SequentialProblem(template;
            transition = (seq, sol, i) -> begin
                push!(calls, i)
-               remake(sol.prob; u0 = sol.u[end], p = 0.0,
-                      tspan = (Float64(i - 1), Float64(i)))
+               i == 1 ? seq.problem : remake(sol.prob; u0 = sol.u[end],
+                   tspan = (Float64(i - 1), Float64(i)))
            end,
-           terminal = (seq, sol, i) -> i >= 3);
+           terminal = (seq, sol, i) -> i >= 3 || !successful_retcode(sol));
 
-julia> stages = solve(sequence, Tsit5(); abstol = 1e-9, reltol = 1e-9,
-                     save_everystep = false);
+julia> stages = solve(sequence, Tsit5());
 
 julia> (calls, length(stages), all(successful_retcode, stages))
-([2, 3], 3, true)
+([1, 2, 3], 3, true)
 
-julia> (stages[1].prob.tspan, stages[end].prob.tspan, stages[end].u[end])
-((0.0, 1.0), (2.0, 3.0), [1.0])
-
-julia> (stages isa SolutionWrapper, CorleoneBase.retcode(stages) == ReturnCode.Success,
-        successful_retcode(stages))
-(true, true, true)
+julia> (stages isa Vector, stages[end].prob.tspan, stages[end].u[end])
+(true, (2.0, 3.0), [1.0])
 ```
 
-## Sequence-wide parameters and states
+## Sequence fields and stage keywords
 
-`parameters` and `states` are optional sequence-wide fields the callbacks can
-read as `seq.parameters` and `seq.states`. They are plain data: neither field is
-applied to a stage problem automatically, and the first stage's state,
-parameters, and time span come exclusively from its explicit construction.
-A new sequence with either field replaced is built with
-`SciMLBase.remake(sequence; parameters = ..., states = ...)` — any sequence
-field (`problem`, `transition`, `terminal`, `parameters`, `states`) can be
-replaced and the others are carried over; the input is never mutated.
+`SciMLBase.remake(sequence; kwargs...)` replaces any of `problem`, `transition`,
+`output`, `terminal`, `parameters`, and `states`, carrying the others over without
+mutating the original sequence. `init` and `solve` route these field names to the
+same sequence remake, so every hook observes the overrides.
+
+All **remaining** keywords remake only the problem returned by
+`transition(sequence, nothing, 1)`. There is no separate solver-keyword routing
+or stored solver options. Later problems come exclusively from transition;
+options can be embedded in their construction, or inherited by remaking `sol.prob`.
+Stage one has hard-coded `dense = false`, `save_everystep = false`,
+`save_start = true`, `save_end = true`. Later solves use `save_start = false`,
+`save_end = true`; their other options come from the stage problem or solver defaults.
+Thus later solutions need not contain their starting endpoint.
 
 ```jldoctest sequence-remake
 julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
@@ -78,208 +69,107 @@ julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
 julia> using SciMLBase: ODEProblem, remake
 
 julia> skeleton = SequentialProblem(
-           ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 0.0);
-           transition = (seq, sol, i) ->
-               remake(sol.prob; u0 = sol.u[end], p = seq.parameters[i],
-                      tspan = (sol.t[end], sol.t[end] + 1.0)),
+           ODEProblem((u, p, t) -> zero(u), [9.0], (0.0, 1.0), 0.0);
+           transition = (seq, sol, i) -> remake(seq.problem;
+               u0 = i == 1 ? seq.problem.u0 : sol.u[end],
+               p = seq.parameters[i], tspan = (Float64(i - 1), Float64(i))),
            terminal = (seq, sol, i) -> i >= 3);
 
-julia> (skeleton.parameters, skeleton.states)
-(nothing, nothing)
+julia> stages = solve(skeleton, Tsit5(); parameters = [0.1, 0.2, 0.3], u0 = [2.0]);
 
-julia> remade = remake(skeleton; parameters = [0.0, 0.0]);
+julia> (skeleton.parameters, [sol.prob.p for sol in stages], stages[end].u[end])
+(nothing, [0.1, 0.2, 0.3], [2.0])
 
-julia> (skeleton.parameters, remade.parameters, remade.transition === skeleton.transition)
-(nothing, [0.0, 0.0], true)
+julia> projected = remake(skeleton; parameters = zeros(3),
+           transition = (seq, previous, i) -> seq.problem,
+           output = (seq, sol, i) -> sol.u[end][1]);
 
-julia> stages = solve(skeleton, Tsit5(); parameters = [1.2, 0.4, 0.4],
-                      abstol = 1e-9, reltol = 1e-9, save_everystep = false,
-                      save_start = true, save_end = true);
-
-julia> (skeleton.parameters, [sol.prob.p for sol in stages])
-(nothing, [0.0, 0.4, 0.4])
+julia> solve(projected, Tsit5())
+3-element Vector{Float64}:
+ 9.0
+ 9.0
+ 9.0
 ```
 
-## CommonSolve workflow and keywords
+## CommonSolve workflow and buffers
 
-`solve(sequence, algorithm; kwargs...)` initializes and completes the sequence.
-`init` **already solves the first stage**, returning a mutable iterator with
-`state == 1`, the solved-stage `buffer`, and the algorithm and remaining solve
-keywords. It is a CommonSolve state object, not a Julia iteration protocol for
-streaming stage solves: use `step!`, `Base.isdone`, and `solve!` as below.
-
-Keywords naming a sequence field (`parameters`, `states`, or any other
-`SequentialProblem` field) remake the sequence the callbacks observe, as
-described above. `u0`, `p`, and `tspan` keywords remake **only the initial
-problem**. They are
-removed from the stored solve keywords. All other keywords (for example
-`abstol`, `reltol`, `save_everystep`, `save_start`, `save_end`, `maxiters`) are
-forwarded unchanged to **each** stage solver, whose own semantics apply.
-Subsequent problems come exclusively from `transition`; overrides are not
-reapplied, although a transition remaking `sol.prob` can intentionally inherit
-the first stage's parameters. A shared absolute `saveat` schedule may be
-inappropriate for different stage spans. Propagating endpoints requires that
-they actually be saved (keep `save_end = true`).
+`init` already solves stage one. Its mutable iterator stores `problem`, bound
+`transition`, `output`, `terminal`, `algorithm`, `buffer`, `current == 1`, and
+`max_steps`. This is a CommonSolve state, not a streaming Julia iterator.
+`step!` always attempts another stage and returns the iterator, **not a success
+flag**. Guard manual stepping with `Base.isdone(it)` and your own failure policy.
+`Base.isdone` calls only the terminal. `solve!` runs until that predicate fires.
 
 ```jldoctest sequence
 julia> empty!(calls);
 
-julia> it = init(sequence, Tsit5(); u0 = [2.0], p = 0.0, tspan = (0.0, 1.0),
-                abstol = 1e-9, reltol = 1e-9, save_everystep = false);
+julia> it = init(sequence, Tsit5(); u0 = [2.0]);
 
-julia> (it.state, isempty(calls), it.buffer[1].u[end], Base.isdone(it))
-(1, true, [2.0], false)
+julia> (it.current, it.max_steps, calls, Base.isdone(it))
+(1, nothing, [1], false)
 
-julia> step!(it)  # explicitly solves stage 2; returns its success flag
+julia> step!(it) === it
 true
 
-julia> (it.state, calls, it.buffer[2].prob.u0)
-(2, [2], [2.0])
+julia> (it.current, calls, it.buffer[2].prob.u0)
+(2, [1, 2], [2.0])
 
 julia> completed = solve!(it);
 
-julia> (it.state, calls, Base.isdone(it), length(completed), completed[end].u[end])
-(3, [2, 3], true, 3, [2.0])
+julia> (completed === it.buffer, it.current, calls, length(completed))
+(false, 3, [1, 2, 3], 3)
 
-julia> length(solve!(it))  # a completed successful iterator does not advance again
-3
-
-julia> first_problem.u0  # original template was not remade in place
-1-element Vector{Float64}:
- 1.0
+julia> solve!(it) === completed
+false
 ```
 
-`step!` is deliberately low level: it always attempts a next stage, without
-checking the terminal predicate or the previous stage's success. Guard it with
-`successful_retcode(it.buffer[it.state]) && !Base.isdone(it)` when manually
-stepping. `Base.isdone` calls only the terminal predicate; it does not signify
-successful integration or failure. Prefer `solve!` for automatic stopping on
-either terminal completion or stage failure.
+`solve` and `solve!` return a new mutable vector containing a shallow copy of
+the solved prefix `it.buffer[1:it.current]`. The iterator retains its capacity
+and unused slots; the returned vector excludes them. Concrete abstract subtypes
+can implement `has_size(problem) = true` and
+`get_size(problem)::Int` to preallocate; their terminal must stop within that
+capacity. The default is a growing buffer and `max_steps = nothing`.
 
-## Results and failure behavior
-
-`solve` and `solve!` return a read-only `SolutionWrapper <: AbstractVector` over
-the iterator's retained stage solutions. Use `length`, indexing, `end`, and
-iteration; `stages[i]` is the original stage solution, with its usual `.u`, `.t`,
-`.prob`, and `.retcode`. Only solved slots are exposed. The wrapper shares the
-buffer, does not deep-copy solutions, and stores its length at creation; it is
-not an immutable snapshot of the underlying data. Do not mutate the buffer.
-
-`CorleoneBase.retcode(stages)` (qualified, not exported) is the **exact last
-retained stage's** return code, not a new aggregated code or an optimization
-status. `SciMLBase.successful_retcode(stages)` checks that code. In an ordinary
-`solve`, preceding retained stages succeeded; inspect individual stages, their
-end times, and the expected count if your application needs full-horizon
-completion. A terminal predicate can intentionally stop early with a successful
-result.
-
-Stage success follows SciML's return-code classification: `ReturnCode.Terminated`
-is successful, even if an integration callback stopped before the stage's final
-time. It does **not** automatically terminate the sequence. Use the sequence's
-`terminal` predicate to request that policy. Here the forwarded solver callback
-stops both stages early, but the sequence still reaches its two-stage limit:
-
-```jldoctest
-julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
-
-julia> using SciMLBase: ODEProblem, remake, ReturnCode, successful_retcode,
-                       DiscreteCallback, terminate!
-
-julia> stopped_sequence = SequentialProblem(
-           ODEProblem((u, p, t) -> zero(u), [1.0], (0.0, 1.0));
-           transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end],
-               tspan = (sol.t[end], sol.t[end] + 1.0)),
-           terminal = (seq, sol, i) -> i >= 2);
-
-julia> stop_stage = DiscreteCallback((u, t, integrator) -> true, terminate!);
-
-julia> stopped = solve(stopped_sequence, Tsit5(); callback = stop_stage,
-                      adaptive = false, dt = 0.25);
-
-julia> (length(stopped), successful_retcode(stopped),
-        all(sol -> sol.retcode == ReturnCode.Terminated, stopped),
-        all(sol -> sol.t[end] < sol.prob.tspan[2], stopped))
-(2, true, true, true)
-```
-
-An unsuccessful first solve is retained as a one-stage failure result and
-`solve!` never transitions. A later unsuccessful stage is retained too, then
-`solve!` stops without calling another transition. `step!` returns `false` for
-that failed next stage, after storing it and incrementing `state`. A failed
-iterator is not automatically retried by a subsequent `solve!`. Exceptions from
-solvers or callbacks propagate; they are not converted to return codes. There
-is no built-in penalty, retry, or fallback policy for an optimization objective.
-
-This example silences the intentional solver warning with Julia's standard
-logger, while checking the failure code and absence of transitions.
-
-```jldoctest
-julia> using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5
-
-julia> using SciMLBase: ODEProblem, remake, ReturnCode, successful_retcode
-
-julia> using Logging: with_logger, NullLogger
-
-julia> transitions = Int[];
-
-julia> failing = SequentialProblem(
-           ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0));
-           transition = (seq, sol, i) -> (push!(transitions, i); sol.prob),
-           terminal = (seq, sol, i) -> i >= 3);
-
-julia> failed = with_logger(NullLogger()) do
-           solve(failing, Tsit5(); maxiters = 0)
-       end;
-
-julia> (length(failed), isempty(transitions), successful_retcode(failed),
-        CorleoneBase.retcode(failed) == ReturnCode.MaxIters)
-(1, true, false, true)
-```
+There is no aggregate return-code accessor. For identity outputs use
+`all(successful_retcode, stages)` and inspect individual solutions' `.retcode`,
+end times, and expected count to establish full-horizon completion.
+`ReturnCode.Terminated` counts as SciML success, but does not itself stop a custom
+sequence. Exceptions from solvers and hooks propagate. No retry or penalty policy
+is supplied for optimization objectives.
 
 ## Parallel problems
 
-`ParallelProblem` wraps a problem — typically a `SequentialProblem` — so SciML's
-ensemble machinery can solve it across `trajectories` ensemble members. The
-wrapped problem is the template; the `prob_func` hook builds each trajectory
-from the template and a `SciMLBase.EnsembleContext` (`ctx.sim_id`, `ctx.repeat`,
-`ctx.rng`, `ctx.sim_seed`, `ctx.master_rng`).
+`ParallelProblem` wraps a template (often a `SequentialProblem`) for SciML ensembles.
+Its `prob_func(problem, template, ctx)` constructs a trajectory using
+`SciMLBase.EnsembleContext`, including `ctx.sim_id` and `ctx.rng`.
 
 ```julia
-using CorleoneBase, CommonSolve, OrdinaryDiffEqTsit5, SciMLBase
-
-problem = ParallelProblem(sequence; prob_func = (problem, template, ctx) ->
-    SequentialProblem(remake(template.problem; u0 = rand(ctx.rng, 1));
-                      transition = template.transition, terminal = template.terminal,
-                      parameters = template.parameters, states = template.states))
-
-trajectories = solve(problem, Tsit5(), EnsembleSerial(); trajectories = 8,
-                     seed = 1)
-length(trajectories.u)  # 8
+parallel = ParallelProblem(sequence; prob_func = (problem, template, ctx) ->
+    remake(template; problem = remake(template.problem; u0 = rand(ctx.rng, 1))))
+trajectories = solve(parallel, Tsit5(), EnsembleSerial(); trajectories = 8, seed = 1)
+all(stages -> all(successful_retcode, stages), trajectories.u)
 ```
 
-`output_func`, `reduction`, `u_init`, and `safetycopy` are forwarded to the
-underlying `SciMLBase.EnsembleProblem`; all other keywords (`rng`, `seed`,
-`abstol`, `maxiters`, ...) reach the ensemble and inner solves. `trajectories`
-is required. On the declared Julia 1.10 minimum the default hook binding cannot
-forward the ensemble context, so the parallel entry point requires Julia 1.12 or
-later; the Core test suite records that limitation as a version-gated
-regression check.
+`trajectories` is required. `output_func`, `reduction`, `u_init`, and `safetycopy`
+configure `SciMLBase.EnsembleProblem`; other options reach the ensemble solver and
+trajectory solves. A sequential trajectory applies the stage-keyword rules above.
+The ensemble hook uses a multi-argument closure on both Julia 1.10 and 1.12.
 
-## Running and checking the tutorial
+## Executed tutorial
 
-From the repository root, run the standalone Literate source with its own
-environment and the checked-out sublibrary (no registered CorleoneBase needed):
+The streamlined fishing example uses **120** intervals of length 0.1 over
+`[0, 12]`. `fishing_stages` and `fishing_objective` are closures; the latter takes
+the control vector and `fishing_sequence.states`. Controls live in sequence-wide
+`parameters`, and the transition constructs stage one as well as every later
+stage. It propagates all three states, including cumulative cost.
 
 ```sh
-julia --startup-file=no --project=lib/CorleoneBase/examples/lotka_fishing -e 'using Pkg; Pkg.develop(path="lib/CorleoneBase"); Pkg.instantiate(); include("lib/CorleoneBase/examples/lotka_fishing/main.jl"); display(report)'
+julia --startup-file=no --project=lib/CorleoneBase/examples/lotka_fishing -e 'using Pkg; Pkg.develop(path="lib/CorleoneBase"); Pkg.instantiate(); include("lib/CorleoneBase/examples/lotka_fishing/main.jl")'
 ```
 
-The assertions check local optimizer success, all 24 stage solves, finite
-results, bounded controls, and improvement over constant intensity 0.5, including
-a tighter-tolerance reevaluation. The output reports numerical tolerances and
-termination, not global optimality. Optimization, AD, and solver dependencies
-are confined to the example/docs/test environments, not runtime dependencies.
-
-`julia --startup-file=no --project=docs docs/make.jl` builds the full shared manual
-from the repository root. For a focused strict render/doctest/tutorial check of
-these same pages, see `docs/check_corleonebase.jl` and its setup instructions.
+The Docs group runs `docs/check_corleonebase.jl`: Literate executes the unmodified
+tutorial, then Documenter checks exported documentation and doctests. Independent
+tests check optimizer status, 120 stages, bounded controls, improvement, and
+a scalar directional ForwardDiff derivative through construction and propagation
+of every stage against a central difference. The derivative uses the full control
+vector without another quadratic-cost full gradient.

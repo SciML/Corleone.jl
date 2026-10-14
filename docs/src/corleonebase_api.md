@@ -7,6 +7,13 @@ optimization problem explicitly.
 ```@docs
 CorleoneBase.SequentialProblem
 CorleoneBase.ParallelProblem
-CorleoneBase.SolutionWrapper
-CorleoneBase.retcode
+CorleoneBase.AbstractSequentialProblem
+CorleoneBase.SequentialProblemIterator
+CorleoneBase.get_problem
+CorleoneBase.transition
+CorleoneBase.output
+CorleoneBase.terminal
+CorleoneBase.get_size
+CorleoneBase.has_size
+CorleoneBase.make_buffer
 ```
