@@ -135,7 +135,7 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
   22  2.7149392e-04 0.00e+00 5.89e-06  -7.4 3.65e-01    -  9.92e-01 7.40e-01f  1
   23  2.6884494e-04 0.00e+00 3.63e-06  -7.6 1.18e-01    -  1.00e+00 6.93e-01f  1
   24  2.6515804e-04 0.00e+00 2.57e-06  -7.8 4.61e-01    -  1.00e+00 1.00e+00f  1
-  25  2.6502262e-04 0.00e+00 8.02e-07  -7.8 2.24e-01    -  9.76e-01 3.95e-01h  2
+  25  2.6502262e-04 0.00e+00 8.02e-07  -7.8 2.24e-01    -  9.76e-01 3.95e-01f  2
   26  2.6293978e-04 0.00e+00 5.63e-07  -8.2 2.54e-01    -  9.99e-01 9.66e-01f  1
   27  2.6403205e-04 0.00e+00 5.87e-07  -7.9 2.54e-01    -  1.00e+00 1.00e+00f  1
   28  2.6353749e-04 0.00e+00 2.97e-06  -8.0 1.47e-01    -  1.00e+00 1.00e+00f  1
@@ -157,22 +157,22 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
 Number of Iterations....: 40
 
                                    (scaled)                 (unscaled)
-Objective...............:   2.6124351185348145e-04    2.6124351185348145e-04
-Dual infeasibility......:   4.2044824421230914e-09    4.2044824421230914e-09
+Objective...............:   2.6124351185348243e-04    2.6124351185348243e-04
+Dual infeasibility......:   4.2044834072053265e-09    4.2044834072053265e-09
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0000000000000003e-11    1.0000000000000003e-11
-Overall NLP error.......:   4.2044824421230914e-09    4.2044824421230914e-09
+Complementarity.........:   1.0000000000017541e-11    1.0000000000017541e-11
+Overall NLP error.......:   4.2044834072053265e-09    4.2044834072053265e-09
 
 
-Number of objective function evaluations             = 42
+Number of objective function evaluations             = 43
 Number of objective gradient evaluations             = 41
 Number of equality constraint evaluations            = 0
-Number of inequality constraint evaluations          = 42
+Number of inequality constraint evaluations          = 43
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 41
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 61.107
+Total seconds in IPOPT                               = 42.373
 
 EXIT: Optimal Solution Found.
 </code></pre><p>After solving, we now only need to investigate the solution.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st)
@@ -210,7 +210,7 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
    1  2.0502137e-04 0.00e+00 4.34e-01  -1.0 1.67e-01    -  8.67e-01 1.00e+00f  1
    2  2.0502108e-04 0.00e+00 4.34e-03  -6.9 4.29e-06    -  9.90e-01 1.00e+00h  1
    3  1.9519799e-04 0.00e+00 6.15e-06  -3.0 2.26e-01    -  1.00e+00 1.00e+00f  1
-   4  1.9514543e-04 0.00e+00 2.21e-08  -9.0 6.07e-04    -  9.97e-01 1.00e+00h  1
+   4  1.9514543e-04 0.00e+00 2.21e-08  -9.0 6.07e-04    -  9.97e-01 1.00e+00f  1
    5  1.7161970e-04 0.00e+00 2.88e-06  -5.9 3.08e-01    -  9.91e-01 1.00e+00f  1
    6  1.3931501e-04 0.00e+00 2.62e-06  -6.4 4.19e-01    -  8.54e-01 1.00e+00f  1
    7  1.1846738e-04 0.00e+00 4.26e-06  -6.6 4.01e-01    -  9.87e-01 7.70e-01f  1
@@ -234,48 +234,50 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
   23  6.6498881e-05 0.00e+00 4.60e-07  -8.4 7.22e-01    -  9.97e-01 4.85e-01f  1
   24  6.6306893e-05 0.00e+00 3.03e-07  -8.6 9.09e-01    -  1.00e+00 3.13e-01f  1
   25  6.6032642e-05 0.00e+00 2.37e-07  -8.5 3.43e-01    -  1.00e+00 1.00e+00f  1
-  26  6.6002066e-05 0.00e+00 2.23e-07  -8.6 3.47e-01    -  1.00e+00 4.90e-01f  2
-  27  6.6001721e-05 0.00e+00 6.90e-06 -11.0 9.15e-06    -  1.00e+00 1.00e+00f  1
-  28  6.5875285e-05 0.00e+00 9.61e-07 -11.0 2.49e-01    -  1.00e+00 6.49e-03f  1
-  29  6.5744616e-05 0.00e+00 3.47e-07 -10.7 1.87e-01    -  1.00e+00 5.53e-02f  1
+  26  6.5969930e-05 0.00e+00 2.62e-07  -8.6 3.47e-01    -  1.00e+00 9.80e-01h  1
+  27  6.5969597e-05 0.00e+00 1.38e-04 -11.0 1.38e-04    -  1.00e+00 1.00e+00h  1
+  28  6.5768356e-05 0.00e+00 1.18e-04 -10.4 9.92e-01    -  1.42e-01 4.40e-03f  1
+  29  6.5660715e-05 0.00e+00 2.51e-07 -10.3 3.72e-01    -  1.00e+00 3.42e-02f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  30  6.5675241e-05 0.00e+00 1.84e-07 -10.4 1.18e+00    -  1.00e+00 2.99e-02f  1
-  31  6.5643777e-05 0.00e+00 1.38e-07 -10.8 6.96e-01    -  1.00e+00 5.80e-02f  1
-  32  6.5628999e-05 0.00e+00 5.15e-07 -10.4 5.32e+00    -  1.00e+00 9.62e-03f  1
-  33  6.5609979e-05 0.00e+00 3.75e-07  -9.5 3.96e+00    -  9.44e-01 3.83e-02f  1
-  34  6.5615550e-05 0.00e+00 8.96e-07  -8.6 2.47e+00    -  7.95e-01 1.32e-01f  1
-  35  6.5614494e-05 0.00e+00 7.27e-07  -8.9 1.88e+00    -  3.01e-01 1.61e-02f  2
-  36  6.5614648e-05 0.00e+00 9.24e-06  -8.9 9.61e-06    -  1.00e+00 1.00e+00h  1
-  37  6.5597867e-05 0.00e+00 1.19e-06  -8.9 2.47e-01    -  8.71e-01 6.56e-01h  1
-  38  6.5451298e-05 0.00e+00 1.24e-07  -9.7 1.35e-01    -  1.00e+00 7.80e-01f  1
-  39  6.5624595e-05 0.00e+00 8.81e-08  -8.9 2.73e-01    -  1.00e+00 1.00e+00f  1
+  30  6.5647564e-05 0.00e+00 7.93e-07  -9.2 5.63e+00    -  1.00e+00 4.54e-03f  1
+  31  6.5577699e-05 0.00e+00 6.54e-07  -9.6 3.89e-01    -  1.00e+00 2.83e-01f  1
+  32  6.5407685e-05 0.00e+00 6.84e-07 -10.1 1.91e-01    -  1.00e+00 1.00e+00f  1
+  33  6.5383236e-05 0.00e+00 7.58e-07 -10.7 1.67e-01    -  1.00e+00 1.00e+00h  1
+  34  6.5383150e-05 0.00e+00 1.12e-06 -11.0 2.23e-06    -  1.00e+00 1.00e+00h  1
+  35  6.5381345e-05 0.00e+00 6.36e-07 -11.0 1.64e-02    -  4.37e-01 3.47e-01h  1
+  36  6.5354301e-05 0.00e+00 4.73e-07  -9.5 8.69e+00    -  2.94e-01 3.71e-02f  1
+  37  6.5343676e-05 0.00e+00 2.66e-07 -11.0 5.23e-01    -  7.10e-01 5.73e-01f  1
+  38  6.5342937e-05 0.00e+00 1.65e-07 -10.5 2.51e-01    -  5.47e-01 8.86e-02f  1
+  39  6.5342866e-05 0.00e+00 1.16e-03 -11.0 1.16e-03    -  1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  40  6.5543343e-05 0.00e+00 3.72e-07  -9.0 5.35e-01    -  1.00e+00 1.00e+00f  1
-  41  6.5535273e-05 0.00e+00 2.99e-07  -9.0 5.60e-01    -  7.75e-01 2.68e-01h  1
-  42  6.5539484e-05 0.00e+00 7.60e-02  -9.0 7.60e-02    -  1.00e+00 1.00e+00f  1
-  43  6.5539483e-05 0.00e+00 3.59e-07  -9.0 3.58e-07    -  1.00e+00 1.00e+00f  1
-  44  6.5535649e-05 0.00e+00 3.53e-08  -9.0 1.52e-02    -  1.00e+00 1.00e+00h  1
-  45  6.5534688e-05 0.00e+00 6.75e-09  -9.0 1.12e-01    -  1.00e+00 2.71e-01h  2
+  40  6.6107721e-05 0.00e+00 1.53e-04  -8.6 4.22e-01    -  8.69e-01 8.76e-01f  1
+  41  6.5858858e-05 0.00e+00 2.28e-07  -8.6 2.49e-01    -  1.00e+00 1.00e+00f  1
+  42  6.5853534e-05 0.00e+00 1.92e-07  -8.6 4.73e-01    -  7.88e-01 4.00e-01f  2
+  43  6.5837311e-05 0.00e+00 3.42e-08  -8.6 2.71e-01    -  1.00e+00 5.19e-01h  1
+  44  6.5835820e-05 0.00e+00 1.53e-08  -8.6 8.77e-02    -  1.00e+00 1.00e+00f  1
+  45  6.5512118e-05 0.00e+00 2.94e-08  -9.0 1.94e-01    -  1.00e+00 1.00e+00f  1
+  46  6.5505389e-05 0.00e+00 2.08e-08  -9.0 2.14e-02    -  1.00e+00 1.00e+00h  1
+  47  6.5505450e-05 0.00e+00 4.63e-09  -9.0 3.10e-03    -  1.00e+00 1.00e+00h  1
 
-Number of Iterations....: 45
+Number of Iterations....: 47
 
                                    (scaled)                 (unscaled)
-Objective...............:   6.5534687503013083e-05    6.5534687503013083e-05
-Dual infeasibility......:   6.7462295363719240e-09    6.7462295363719240e-09
+Objective...............:   6.5505450235098001e-05    6.5505450235098001e-05
+Dual infeasibility......:   4.6316451477854852e-09    4.6316451477854852e-09
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.6979930543358814e-09    1.6979930543358814e-09
-Overall NLP error.......:   6.7462295363719240e-09    6.7462295363719240e-09
+Complementarity.........:   9.1023143420014732e-10    9.1023143420014732e-10
+Overall NLP error.......:   4.6316451477854852e-09    4.6316451477854852e-09
 
 
-Number of objective function evaluations             = 55
-Number of objective gradient evaluations             = 46
+Number of objective function evaluations             = 53
+Number of objective gradient evaluations             = 48
 Number of equality constraint evaluations            = 0
-Number of inequality constraint evaluations          = 55
+Number of inequality constraint evaluations          = 53
 Number of equality constraint Jacobian evaluations   = 0
-Number of inequality constraint Jacobian evaluations = 46
+Number of inequality constraint Jacobian evaluations = 48
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 45.865
+Total seconds in IPOPT                               = 22.949
 
 EXIT: Optimal Solution Found.
 </code></pre><p>However, in this example, the solution is the same, as also the parameter values are unchanged.</p><pre><code class="language-julia hljs">optsol, _ = oed(nothing, uopt + zero(ComponentArray(ps)), st_new)
@@ -303,7 +305,7 @@ u0: 9-element Vector{Float64}:
   [13f3f980] CairoMakie v0.15.15
   [38540f10] CommonSolve v0.2.14
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v1.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v1.0.1 `~/work/Corleone.jl/Corleone.jl`
   [6f54492f] CorleoneBase v0.1.0 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneBase`
   [6590a4b1] CorleoneOED v1.0.0 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
   [e30172f5] Documenter v1.19.0
@@ -315,13 +317,13 @@ u0: 9-element Vector{Float64}:
   [2ddba703] Juniper v0.9.5
   [98b081ad] Literate v2.21.0
   [bb33d45b] LuxCore v1.5.3
-  [961ee093] ModelingToolkit v11.45.3
+  [961ee093] ModelingToolkit v11.45.4
   [d147904a] OptimalControlBenchmarks v1.0.0 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
   [7f7a1694] Optimization v5.9.1
-  [22f7324a] OptimizationLBFGSB v1.5.1
-  [fd9f6733] OptimizationMOI v1.4.2
+  [22f7324a] OptimizationLBFGSB v1.5.2
+  [fd9f6733] OptimizationMOI v1.5.0
   [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
-  [0bca4576] SciMLBase v3.57.0
+  [0bca4576] SciMLBase v3.58.0
   [2efcf032] SymbolicIndexingInterface v0.3.55
   [ddb6d928] YAML v0.4.17
   [56ddb016] Logging v1.11.0
@@ -333,9 +335,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × INTEL(R) XEON(R) PLATINUM 8573C
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, emeraldrapids)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -353,7 +355,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [27a7e980] Animations v0.4.2
   [ec485272] ArnoldiMethod v0.4.0
   [4fba245c] ArrayInterface v7.30.2
-  [4c555306] ArrayLayouts v1.15.0
+  [4c555306] ArrayLayouts v1.15.1
   [67c07d97] Automa v1.2.0
   [13072b0f] AxisAlgorithms v1.1.0
   [39de3d68] AxisArrays v0.4.8
@@ -367,9 +369,9 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [e2ed5e7c] Bijections v0.2.2
   [b2a6c25c] BinaryHeaps v1.1.0
   [caf10ac8] BipartiteGraphs v0.1.14
-  [8e7c35d0] BlockArrays v1.10.1
+  [8e7c35d0] BlockArrays v1.10.2
   [70df07ce] BracketingNonlinearSolve v1.12.8
-  [fa961155] CEnum v0.5.0
+⌅ [fa961155] CEnum v0.5.0
   [96374032] CRlibm v1.0.2
   [159f3aea] Cairo v1.1.1
   [13f3f980] CairoMakie v0.15.15
@@ -380,7 +382,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [6b39b394] CodecZstd v0.8.7
   [a2cac450] ColorBrewer v0.4.2
   [35d6a980] ColorSchemes v3.31.0
-  [3da002f7] ColorTypes v0.12.3
+  [3da002f7] ColorTypes v0.12.4
   [c3611d14] ColorVectorSpace v0.11.0
   [5ae59095] Colors v0.13.3
 ⌅ [861a8166] Combinatorics v1.0.2
@@ -397,7 +399,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v1.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v1.0.1 `~/work/Corleone.jl/Corleone.jl`
   [6f54492f] CorleoneBase v0.1.0 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneBase`
   [6590a4b1] CorleoneOED v1.0.0 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
   [a8cc5b0e] Crayons v4.2.0
@@ -406,8 +408,8 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [e2d170a0] DataValueInterfaces v1.0.0
   [927a84f5] DelaunayTriangulation v1.6.7
   [8bb1440f] DelimitedFiles v1.9.1
-  [2b5f629d] DiffEqBase v7.21.3
-  [459566f4] DiffEqCallbacks v4.19.4
+  [2b5f629d] DiffEqBase v7.21.4
+  [459566f4] DiffEqCallbacks v4.19.5
   [163ba53b] DiffResults v1.1.0
   [b552c78f] DiffRules v1.16.0
   [a0c0ee7d] DifferentiationInterface v0.7.21
@@ -432,8 +434,8 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [5789e2e9] FileIO v1.20.0
   [8fc22ac5] FilePaths v0.9.0
   [48062228] FilePathsBase v0.9.24
-  [1a297f60] FillArrays v1.18.0
-  [64ca27bc] FindFirstFunctions v3.4.0
+  [1a297f60] FillArrays v1.18.1
+  [64ca27bc] FindFirstFunctions v3.4.1
   [6a86dc24] FiniteDiff v2.33.0
 ⌅ [53c48c17] FixedPointNumbers v0.8.6
   [1fa38f19] Format v1.3.7
@@ -496,15 +498,15 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [e6f89c97] LoggingExtras v1.2.0
   [bb33d45b] LuxCore v1.5.3
   [1914dd2f] MacroTools v0.5.16
-  [ee78f7c6] Makie v0.24.15
+⌅ [ee78f7c6] Makie v0.24.15
   [dbb5928d] MappedArrays v0.4.3
   [d0879d2d] MarkdownAST v0.1.3
   [b8f27783] MathOptInterface v1.54.0
   [0a4f8689] MathTeXEngine v0.6.9
   [bb5d69b7] MaybeInplace v0.1.8
   [e1d29d7a] Missings v1.2.0
-  [961ee093] ModelingToolkit v11.45.3
-  [7771a370] ModelingToolkitBase v1.77.3
+  [961ee093] ModelingToolkit v11.45.4
+  [7771a370] ModelingToolkitBase v1.77.4
   [6bb917b9] ModelingToolkitTearing v1.20.7
   [e94cdb99] MosaicViews v0.3.4
   [2e0e35c7] Moshi v0.3.13
@@ -513,7 +515,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [d8a4904e] MutableArithmetics v1.8.1
   [77ba4419] NaNMath v1.1.4
   [f09324ee] Netpbm v1.1.1
-  [be0214bd] NonlinearSolveBase v2.54.1
+  [be0214bd] NonlinearSolveBase v2.55.0
   [5959db7a] NonlinearSolveFirstOrder v2.10.0
   [510215fc] Observables v0.5.5
   [6fe1bfb0] OffsetArrays v1.17.0
@@ -521,11 +523,11 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [52e1d378] OpenEXR v0.3.3
   [d147904a] OptimalControlBenchmarks v1.0.0 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
   [7f7a1694] Optimization v5.9.1
-  [bca83a33] OptimizationBase v5.8.0
-  [22f7324a] OptimizationLBFGSB v1.5.1
-  [fd9f6733] OptimizationMOI v1.4.2
-  [bac558e1] OrderedCollections v2.0.2
-  [bbf590c4] OrdinaryDiffEqCore v4.18.1
+  [bca83a33] OptimizationBase v5.9.0
+  [22f7324a] OptimizationLBFGSB v1.5.2
+  [fd9f6733] OptimizationMOI v1.5.0
+  [bac558e1] OrderedCollections v2.0.3
+  [bbf590c4] OrdinaryDiffEqCore v4.19.0
   [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
   [90014a1f] PDMats v0.11.41
   [f57f5aa1] PNGFiles v0.4.5
@@ -552,7 +554,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [988b38a3] ReadOnlyArrays v0.2.0
   [795d4caa] ReadOnlyDicts v1.0.1
   [3cdcf5f2] RecipesBase v1.4.0
-  [731186ca] RecursiveArrayTools v4.5.3
+  [731186ca] RecursiveArrayTools v4.5.4
   [189a3867] Reexport v1.2.2
   [2792f1a3] RegistryInstances v0.1.0
   [05181044] RelocatableFolders v1.0.1
@@ -562,14 +564,14 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [f2b01f46] Roots v3.0.11
   [5eaf0fd0] RoundingEmulator v0.2.1
   [7e49a35a] RuntimeGeneratedFunctions v0.5.27
-  [9dfe8606] SCCNonlinearSolve v1.15.4
+  [9dfe8606] SCCNonlinearSolve v1.16.0
   [fdea26ae] SIMD v3.8.0
-  [0bca4576] SciMLBase v3.57.0
-  [19f34311] SciMLJacobianOperators v0.1.19
+  [0bca4576] SciMLBase v3.58.0
+  [19f34311] SciMLJacobianOperators v0.1.20
   [a6db7da4] SciMLLogging v2.1.0
-  [c0aeaf25] SciMLOperators v1.30.2
+  [c0aeaf25] SciMLOperators v1.30.3
   [431bcebd] SciMLPublic v1.3.0
-  [53ae85a6] SciMLStructures v1.10.5
+  [53ae85a6] SciMLStructures v1.10.6
   [7e506255] ScopedValues v1.6.2
   [6c6a2e73] Scratch v1.3.0
   [efcf1570] Setfield v1.1.2
@@ -602,7 +604,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [09ab397b] StructArrays v0.7.3
   [ec057cc2] StructUtils v2.9.2
   [2efcf032] SymbolicIndexingInterface v0.3.55
-  [19f23fe9] SymbolicLimits v1.2.1
+  [19f23fe9] SymbolicLimits v1.2.2
   [d1185830] SymbolicUtils v4.50.0
   [0c5d862f] Symbolics v7.45.0
   [3783bdb8] TableTraits v1.0.1
@@ -664,7 +666,8 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [e7412a2a] Ogg_jll v1.3.6+0
   [656ef2d0] OpenBLAS32_jll v0.3.34+0
   [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
-  [18a262bb] OpenEXR_jll v3.4.16+0
+  [18a262bb] OpenEXR_jll v3.5.2+0
+  [95196869] OpenJPH_jll v0.32.0+0
   [9bd350c2] OpenSSH_jll v10.6.1+0
   [efe28fd5] OpenSpecFun_jll v0.5.6+0
   [91d4177d] Opus_jll v1.6.1+0
@@ -686,6 +689,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [9a68df92] isoband_jll v0.2.3+0
   [a4ae2306] libaom_jll v3.15.1+0
   [0ac62f75] libass_jll v0.17.5+0
+  [46979653] libdeflate_jll v1.26.0+0
   [8e53e030] libdrm_jll v2.4.134+0
   [f638f0a6] libfdk_aac_jll v2.0.4+0
   [b53b4c65] libpng_jll v1.6.59+1
@@ -749,4 +753,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.67.1+0
   [3f19e933] p7zip_jll v17.8.2+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../manual_single_shooting_with_corleonebase/">« Manual single shooting (CorleoneBase)</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Monday 12 October 2026 18:02">Monday 12 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../manual_single_shooting_with_corleonebase/">« Manual single shooting (CorleoneBase)</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete measurements »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 14 October 2026 06:35">Wednesday 14 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
