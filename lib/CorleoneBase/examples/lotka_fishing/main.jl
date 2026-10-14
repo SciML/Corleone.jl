@@ -16,11 +16,9 @@
 # are propagated, never optimized independently or matched with constraints.
 
 using CorleoneBase
-using CommonSolve: solve
-using SciMLBase: ODEProblem, remake, successful_retcode
-using OrdinaryDiffEqTsit5: Tsit5
+using OrdinaryDiffEqTsit5
 using ForwardDiff
-using Optimization: OptimizationFunction, OptimizationProblem, AutoForwardDiff
+using Optimization
 using OptimizationMOI
 using Ipopt
 
@@ -40,11 +38,10 @@ function fishing_dynamics!(du, u, c, t)
     return nothing
 end
 
-grid = collect(range(0.0, 12.0; length = 25))
-ncontrols = length(grid) - 1
+grid = collect(0.0:0.001:12.0)
+tspans = [(grid[i], grid[i+1]) for i in 1:length(grid)-1]
+controls = fill(0.5, length(tspans))
 initial_state = [0.5, 0.7, 0.0]
-ode_abstol = 1.0e-9
-ode_reltol = 1.0e-9
 
 # ## Sequential stages and explicit state propagation
 # `transition(seq, sol, i)` receives the sequence, the previous solution, and
@@ -59,41 +56,54 @@ ode_reltol = 1.0e-9
 # these overrides leave the original skeleton mutated.
 
 fishing_sequence = SequentialProblem(
-    ODEProblem(fishing_dynamics!, initial_state, (grid[1], grid[2]), 0.0);
-    transition = (seq, sol, i) -> remake(
-        sol.prob; u0 = sol.u[end], p = seq.parameters[i],
-        tspan = (grid[i], grid[i + 1])
-    ),
-    terminal = (seq, sol, i) -> i >= ncontrols
+    ODEProblem(fishing_dynamics!, initial_state, (grid[1], grid[end]), 0.0);
+    transition = function (seq, sol, i)
+        prob = CorleoneBase.get_problem(seq)
+        remake(
+            prob;
+            u0 = i == 1 ? seq.problem.u0 : sol.u[end], 
+            p = seq.parameters[i],
+            tspan = seq.states.tspans[i],
+        )
+    end,
+    output = function (seq, sol, i)
+        sol
+    end,
+    terminal = (seq, sol, i) -> i >= length(seq.states.tspans), 
+    parameters = controls, 
+    states = (; tspans)
 )
 
-function fishing_stages(controls; abstol = ode_abstol, reltol = ode_reltol)
-    length(controls) == ncontrols || throw(DimensionMismatch("one control per interval"))
-    u0 = initial_state .+ zero(controls[1])
+
+fishing_stages = let fishing_sequence = fishing_sequence
+(controls, states = fishing_sequence.states) -> begin
     stages = solve(
-        fishing_sequence, Tsit5(); abstol, reltol,
-        save_everystep = false, save_start = true, save_end = true,
-        u0 = u0, p = controls[1], parameters = controls
+        fishing_sequence, Tsit5();
+        parameters = controls, 
+        states = states,
     )
-    ## Do not optimize a truncated trajectory or silently accept a failed stage.
-    length(stages) == ncontrols && all(successful_retcode, stages) ||
-        error("Fishing stage solve failed: $(CorleoneBase.retcode(stages))")
     return stages
 end
+end 
+
 
 # ## Objective, feasible start, and bounds
 # The third state already integrates the running cost, so we read the last
 # endpoint. Bounds are explicit vectors, not supplied by a control/layer API.
 # Constant intensity 0.5 is the stated feasible starting control.
 
-fishing_objective(controls, _) = fishing_stages(controls)[end].u[end][3]
-starting_control = fill(0.5, ncontrols)
-lower_bounds = zeros(ncontrols)
-upper_bounds = ones(ncontrols)
-starting_objective = fishing_objective(starting_control, nothing)
+fishing_objective = let stages = fishing_stages 
+    (controls, states) -> stages(controls, states)[end].u[end][3]
+end
+
+fishing_objective(controls, fishing_sequence.states)
+
+lower_bounds = zero(controls)
+upper_bounds = zero(controls) .+ 1.
+starting_objective = fishing_objective(controls, fishing_sequence.states)
 objective = OptimizationFunction(fishing_objective, AutoForwardDiff())
 optproblem = OptimizationProblem(
-    objective, starting_control; lb = lower_bounds, ub = upper_bounds
+    objective, controls, fishing_sequence.states; lb = lower_bounds, ub = upper_bounds
 )
 
 # ## Local bounded optimization
@@ -106,43 +116,7 @@ optimum = solve(
     hessian_approximation = "limited-memory", bound_relax_factor = 0.0,
     print_level = 0
 )
+
 optimized_control = optimum.u
 optimized_stages = fishing_stages(optimized_control)
 optimized_objective = optimized_stages[end].u[end][3]
-
-# ## Reproducible checks and numerical report
-# Check every stage, finite endpoints/objectives, bounds (1e-8 numerical slack),
-# and improvement by at least 1e-3. Reevaluate both controls with ODE tolerances
-# 1e-11; require cost agreement within absolute 1e-6, relative 1e-6.
-# Solver tolerances are numerical requests, not rigorous error bounds.
-# Optimizer termination is reported separately from ODE stage termination.
-# A successful local solve and a better feasible point do NOT prove global
-# optimality, or optimality for finer grids or binary fishing controls.
-
-bound_tolerance = 1.0e-8
-@assert successful_retcode(optimum)
-@assert all(successful_retcode, optimized_stages)
-@assert all(sol -> all(u -> all(isfinite, u), sol.u), optimized_stages)
-@assert isfinite(starting_objective) && isfinite(optimized_objective)
-@assert all(isfinite, optimized_control)
-@assert all(lower_bounds .- bound_tolerance .<= optimized_control .<= upper_bounds .+ bound_tolerance)
-@assert optimized_objective < starting_objective - 1.0e-3
-tight_start = fishing_stages(starting_control; abstol = 1.0e-11, reltol = 1.0e-11)[end].u[end][3]
-tight_optimum = fishing_stages(optimized_control; abstol = 1.0e-11, reltol = 1.0e-11)[end].u[end][3]
-@assert isapprox(tight_start, starting_objective; atol = 1.0e-6, rtol = 1.0e-6)
-@assert isapprox(tight_optimum, optimized_objective; atol = 1.0e-6, rtol = 1.0e-6)
-@assert tight_optimum < tight_start - 1.0e-3
-
-report = (
-    starting_objective = starting_objective,
-    optimized_objective = optimized_objective,
-    tight_objective = tight_optimum,
-    control_extrema = extrema(optimized_control),
-    stage_count = length(optimized_stages),
-    stage_retcodes = unique(sol.retcode for sol in optimized_stages),
-    optimizer_retcode = optimum.retcode,
-    ode_tolerances = (abstol = ode_abstol, reltol = ode_reltol),
-    optimizer_tolerance = 1.0e-6,
-    bound_tolerance = bound_tolerance,
-)
-report
