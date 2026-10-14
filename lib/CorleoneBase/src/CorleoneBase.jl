@@ -15,7 +15,6 @@ include("parallel.jl")
 # Re-export types for user convenience
 export SequentialProblem
 export ParallelProblem
-export SolutionWrapper
 
 
 end # module CorleoneBase

@@ -43,9 +43,12 @@ function sequential_solutions(case, x; solve_kwargs = (;))
     # The later stages' inputs travel as sequence-wide parameters, which the
     # transition reads from the sequence argument; stage one's state, parameters,
     # and time span stay the explicit ODEProblem construction below.
-    template = ODEProblem(dynamics(case), [9.0], (0.0, 1.0), [4.0])
+    template = ODEProblem(dynamics(case), [9.0], (0.0, 1.0), [4.0];
+        merge(SOLVE_KWARGS, solve_kwargs)...)
     transition = function (seq, sol, next_stage)
-        if next_stage == 2
+        if next_stage == 1
+            return seq.problem
+        elseif next_stage == 2
             return remake(
                 sol.prob; u0 = sol.u[end], p = [seq.parameters.p2], tspan = (1.0, 2.0)
             )
@@ -59,8 +62,9 @@ function sequential_solutions(case, x; solve_kwargs = (;))
         terminal = (seq, sol, i) -> i >= 3,
         parameters = (p2 = x[3], u3 = x[4]),
     )
-    options = merge(SOLVE_KWARGS, solve_kwargs)
-    return CommonSolve.solve(problem, Tsit5(); options..., u0 = [x[1]], p = [x[2]])
+    # Solver options already belong to the template; first-stage overrides are
+    # remade separately and inherited by the later sol.prob remakes.
+    return CommonSolve.solve(problem, Tsit5(); u0 = [x[1]], p = [x[2]])
 end
 
 endpoint_loss(y) = sum(WEIGHTS[i] * (y[i] - TARGETS[i])^2 for i in 1:3) / 2

@@ -31,9 +31,10 @@ run_qa(
             ignore = (
                 :AbstractParallelProblem, :AbstractSequentialProblem,
                 :SequentialProblemIterator, :ENSEMBLE_KEYS,
-                :ensemble_problem, :select_keys, :split_problem_kwargs,
+                :ensemble_problem, :select_keys,
                 :split_sequence_kwargs,
                 :get_problem, :make_buffer, :prepare_stage_problem, :terminal, :transition,
+                :output, :has_size, :get_size,
                 :prob_func, :fix_me,
             ),
         ),

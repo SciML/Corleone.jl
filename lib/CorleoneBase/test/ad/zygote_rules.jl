@@ -4,6 +4,7 @@ using Test
 using CorleoneBase
 using CommonSolve
 using SciMLBase
+using SciMLBase: successful_retcode
 using Zygote
 
 struct StageProblem{T}
@@ -19,16 +20,14 @@ end
 CommonSolve.solve(p::StageProblem, ::Nothing; kwargs...) = StageSolution(p.value, p.succeeds)
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
 
-# A problem whose field is not named u0/p/tspan: the init rule must route the
-# field-named keyword through remake exactly like the primal
-# CommonSolve.init does via the shared split_problem_kwargs.
+# Every non-sequence keyword must reach the constructed stage's remake.
 struct KwProblem{V} <: SciMLBase.AbstractSciMLProblem
     value::V
     tag::Symbol
     retcode::SciMLBase.ReturnCode.T
 end
 KwProblem(value, tag) = KwProblem(value, tag, SciMLBase.ReturnCode.Success)
-SciMLBase.remake(p::KwProblem; value = p.value, tag = p.tag) = KwProblem(value, tag)
+SciMLBase.remake(p::KwProblem; value = p.value, tag = p.tag, extra = nothing) = KwProblem(value, tag)
 
 struct NoSolve <: SciMLBase.AbstractSciMLAlgorithm end
 CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) = p
@@ -37,38 +36,39 @@ SciMLBase.successful_retcode(p::KwProblem) = true
 function iterator(x; terminal_at = 3, fail_at = 0, preallocate = false)
     problem = StageProblem(x[1], true)
     initial = solve(problem, nothing)
-    buffer = preallocate ? vcat([initial], fill(StageSolution(0.0, true), 2)) : [initial]
+    buffer = preallocate ? vcat([initial], fill(StageSolution(x[1]^2, true), 2)) : [initial]
     transition = (sol, i) -> StageProblem(sol.value * x[2], i != fail_at)
-    terminal = (sol, i) -> i >= terminal_at
+    terminal = (sol, i) -> i >= terminal_at || !successful_retcode(sol)
     return CorleoneBase.SequentialProblemIterator(
-        problem, transition, terminal, nothing, (;), buffer, 1
+        problem, transition, (sol, i) -> sol, terminal, nothing, buffer, 1,
+        preallocate ? 3 : nothing
     )
 end
 
 function loss(x; kwargs...)
-    w = solve!(iterator(x; kwargs...))
-    return sum(w[i].value for i in eachindex(w))
+    it = iterator(x; kwargs...)
+    w = solve!(it)
+    return sum(w[i].value for i in 1:it.current)
 end
 
 @testset "Zygote init keyword routing matches the primal" begin
-    # `tag` is a field of the staged problem, so it must reach remake, not the
-    # stage solve; a non-field keyword stays in solve_kwargs. The primal init
-    # and the Zygote-adjoined rule share CorleoneBase.split_problem_kwargs, so
-    # both route identically, and the value keyword keeps its gradient.
+    # Both field and non-field options reach remake; value retains its gradient.
     primal_loss(x) = solve!(
         init(
-            SequentialProblem(KwProblem(0.5, :a); terminal = (seq, sol, i) -> true),
+            SequentialProblem(KwProblem(0.5, :a);
+                transition = (seq, sol, i) -> seq.problem, terminal = (seq, sol, i) -> true),
             NoSolve();
             value = x[1], tag = :b, extra = 1
         )
     )[1].value
     @testset "routing" begin
-        template = SequentialProblem(KwProblem(0.5, :a); terminal = (seq, sol, i) -> true)
+        template = SequentialProblem(KwProblem(0.5, :a);
+            transition = (seq, sol, i) -> seq.problem, terminal = (seq, sol, i) -> true)
         it = init(template, NoSolve(); value = 1.3, tag = :b, extra = 1)
         @test it.problem isa KwProblem
         @test it.problem.tag == :b
         @test it.problem.value == 1.3
-        @test it.solve_kwargs == (; extra = 1)
+        @test it.current == 1 && it.max_steps === nothing
     end
     x = [1.7]
     primal_value = primal_loss(x)
@@ -87,10 +87,14 @@ end
         it = iterator(x; options...)
         original_buffer = it.buffer
         result, back = Zygote.pullback(solve!, it)
-        @test result isa CorleoneBase.SolutionWrapper
-        @test result.buffer === original_buffer
-        @test result.state == stages
-        @test length(result.buffer) == (preallocate ? 3 : stages)
+        @test result isa Vector
+        @test result !== original_buffer && it.buffer === original_buffer
+        @test it.current == stages
+        @test length(result) == stages
+        @test length(it.buffer) == (preallocate ? 3 : stages)
+        if preallocate
+            @test all(i -> it.buffer[i].value == x[1]^2, (stages + 1):length(it.buffer))
+        end
         @test back(nothing) === nothing
 
         value, gradient = Zygote.withgradient(x -> loss(x; options...), x)
@@ -103,6 +107,34 @@ end
         @test only(gradient) ≈ expected_gradient
     end
     @test only(Zygote.gradient(x -> solve!(iterator(x))[1].value, x)) ≈ [1.0, 0.0]
+    @test_throws BoundsError solve!(iterator(x; terminal_at = 1, preallocate = true))[3]
+end
+
+struct SizedRuleSequence{T} <: CorleoneBase.AbstractSequentialProblem
+    value::T
+end
+CorleoneBase.has_size(::SizedRuleSequence) = true
+CorleoneBase.get_size(::SizedRuleSequence) = 4
+CorleoneBase.transition(seq::SizedRuleSequence, previous, i) =
+    KwProblem(i == 1 ? seq.value : previous.value * seq.value, :stage)
+CorleoneBase.output(seq::SizedRuleSequence, sol, i) = KwProblem(2 * sol.value, sol.tag)
+CorleoneBase.terminal(::SizedRuleSequence, sol, i) = i >= 3
+
+@testset "Zygote sized initialization and differentiated output" begin
+    objective(x) = sum(sol.value for sol in solve(SizedRuleSequence(x[1]), NoSolve()))
+    x = [0.4]
+    value, gradient = Zygote.withgradient(objective, x)
+    @test value ≈ 2x[1] + 4x[1]^2 + 8x[1]^3
+    @test only(gradient) ≈ [2 + 8x[1] + 24x[1]^2]
+    it = init(SizedRuleSequence(x[1]), NoSolve())
+    @test length(it.buffer) == it.max_steps == 4
+    result, back = Zygote.pullback(solve!, it)
+    @test result !== it.buffer
+    @test length(result) == 3
+    @test length(it.buffer) == it.max_steps == 4
+    @test it.current == 3
+    @test !isassigned(it.buffer, 4)
+    @test back(nothing) === nothing
 end
 
 end # module ZygoteRuleTests

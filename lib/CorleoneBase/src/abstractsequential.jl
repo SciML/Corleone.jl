@@ -12,16 +12,17 @@ abstract type AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem end
 """
     get_problem(problem::AbstractSequentialProblem)
 
-Return the initial SciML problem solved as stage 1. Implemented by concrete
-sequential problems; see [`SequentialProblem`](@ref).
+Return the wrapped template. Stage one is constructed by `transition(problem,
+nothing, 1)`, which defaults to this template for abstract subtypes.
 """
 function get_problem(::AbstractSequentialProblem) end
 
 """
     transition(problem::AbstractSequentialProblem, sol, i)
 
-Return the problem for next stage `i` (`i >= 2`) given the preceding stage's
-solution `sol`. Implemented by concrete sequential problems; see
+Construct stage `i`, with `sol = nothing` for stage one and the preceding stored
+output for later stages. The abstract fallback returns `get_problem(problem)`.
+See
 [`SequentialProblem`](@ref). Concrete problems call their stored hook with the
 sequence itself as the first argument, so the hook can read sequence-wide data
 such as `seq.parameters` and `seq.states`.
@@ -33,8 +34,9 @@ end
 """
     terminal(problem::AbstractSequentialProblem, sol, i)
 
-Return `true` when stage `i`'s solution `sol` ends the sequence (`i` starts at
-1). Implemented by concrete sequential problems; see [`SequentialProblem`](@ref).
+Return `true` when stage `i`'s stored output ends the sequence (`i` starts at 1).
+The abstract fallback stops at `i >= 1` or an unsuccessful SciML return code;
+[`SequentialProblem`](@ref) instead delegates entirely to its stored predicate.
 Concrete problems call their stored hook with the sequence itself as the first
 argument, so the hook can read sequence-wide data such as `seq.parameters` and
 `seq.states`.
@@ -43,19 +45,38 @@ function terminal(::AbstractSequentialProblem, sol, i)
     i >= 1 || !SciMLBase.successful_retcode(sol)
 end
 
+"""
+    output(problem::AbstractSequentialProblem, sol, i)
+
+Transform stage `i`'s solution before storage. The abstract fallback is identity.
+Transitions and terminals receive the stored output, not the raw solution.
+"""
 function output(::AbstractSequentialProblem, sol, i)
     sol
 end
 
+"""
+    get_size(problem::AbstractSequentialProblem)
+
+Return the preallocated buffer length when `has_size(problem)` is true.
+The fallback returns `nothing`. A sized subtype must provide enough slots for
+every attempted stage and a terminal predicate that stops within that capacity.
+"""
 function get_size(::AbstractSequentialProblem) end
 
+"""
+    has_size(problem::AbstractSequentialProblem) -> Bool
+
+Whether `get_size` supplies a buffer capacity. Defaults to false (growing buffer).
+"""
 has_size(::AbstractSequentialProblem) = false
 
 """
     make_buffer(problem::AbstractSequentialProblem, sol::T) -> Vector{T}
-return T[sol]h the first stage's solution `sol`.
-The element type is `T`, the concrete type of `sol`, so every later stage must
-produce that exact type.
+Create a buffer containing the first stored output `sol`. Sized problems allocate
+`get_size(problem)` slots with only slot one initialized; others start with
+`T[sol]`. Later outputs must be compatible with `T`. Finalization returns the
+solved prefix as a new vector, leaving any unused preallocated slots unchanged.
 """
 function make_buffer(x::AbstractSequentialProblem, sol::T) where {T}
     if has_size(x)
@@ -130,12 +151,13 @@ end
     SequentialProblemIterator
 
 Mutable CommonSolve state returned by `CommonSolve.init(::SequentialProblem, alg)`.
-It stores the first stage's remade `problem`, the `transition`/`terminal`
-callbacks bound to the parent problem, the `algorithm`, the `solve_kwargs`
-forwarded to every stage, the stage-solution `buffer`, and the current 1-based
-`state`. `CommonSolve.step!` solves one more stage; `CommonSolve.solve!` runs
-until the terminal predicate fires or a stage fails and returns a
-[`SolutionWrapper`](@ref).
+Stores the remade first-stage `problem`, bound `transition`, `output`, and
+`terminal` hooks, `algorithm`, output `buffer`, current 1-based index `current`,
+and `max_steps` (the sized buffer capacity, or `nothing`). `CommonSolve.step!`
+advances and returns the iterator. `CommonSolve.solve!` checks the terminal
+predicate and returns a shallow copy of the solved prefix `buffer[1:current]`.
+The iterator's buffer retains its capacity and any unused preallocated slots.
+No solver keyword collection or aggregate return code is stored.
 """
 mutable struct SequentialProblemIterator{P, N, O, T, A, B, S, M}
     "The SciMLProblem to solve in a sequence"
@@ -206,30 +228,25 @@ function Base.isdone(it::SequentialProblemIterator)
     return it.terminal(it.buffer[it.current], it.current)
 end
 
-finalize_buffer!(it::SequentialProblemIterator) = finalize_buffer!(it.buffer, it)
-
-function finalize_buffer!(buffer::AbstractVector, x::SequentialProblemIterator)
-    (; current) = x 
-    resize!(buffer, current)
-end
+finalize_buffer(it::SequentialProblemIterator) = it.buffer[1:it.current]
 
 function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Nothing})
     while true 
         Base.isdone(it) && break
         CommonSolve.step!(it) 
     end
-    return finalize_buffer!(it)
+    return finalize_buffer(it)
 end
 
 
 function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Int})
     (; max_steps, buffer, transition, output, algorithm) = it
-    for current in 1:max_steps
+    for current in it.current:max_steps
         Base.isdone(it) && break
         next = current+1
         current_problem = prepare_stage_problem(transition(buffer[current], next))
         buffer[next] = output(solve(current_problem, algorithm; save_start = false, save_end = true), next)
         increment!(it)
     end
-    return finalize_buffer!(it)
+    return finalize_buffer(it)
 end

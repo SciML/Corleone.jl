@@ -1,5 +1,4 @@
 using CorleoneBase
-using CorleoneBase: retcode
 using CommonSolve: CommonSolve, init, solve, solve!, step!
 using OrdinaryDiffEqTsit5: Tsit5
 using SciMLBase: SciMLBase, ODEProblem, isinplace, remake, successful_retcode
@@ -8,20 +7,20 @@ import ArrayInterface
 
 @test realpath(pkgdir(CorleoneBase)) == realpath(joinpath(@__DIR__, "../.."))
 @test Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension) === nothing
-
-# The analytic fixtures use only SciMLBase and a solver, not DI or AD packages.
 include("../ad/fixtures.jl")
 
 @testset "Analytic multi-stage solutions" begin
     for case in CASES, x in INPUTS
         solutions = sequential_solutions(case, x)
         expected, _ = reference_endpoints(case, x)
+        @test solutions isa Vector
         @test length(solutions) == 3
         for (i, sol) in enumerate(solutions)
             @test successful_retcode(sol)
             @test isinplace(sol.prob) == is_inplace(case)
             @test sol.prob.tspan == (Float64(i - 1), Float64(i))
-            @test sol.t == [Float64(i - 1), Float64(i)]
+            @test sol.t[end] == Float64(i)
+            @test i == 1 ? sol.t[1] == 0.0 : sol.t[1] > Float64(i - 1)
             @test sol.prob.p == [x[i == 1 ? 2 : 3]]
             @test sol.prob.u0 == (i == 1 ? [x[1]] : i == 2 ? solutions[1].u[end] : [x[4]])
             @test isapprox(sol.u[end][1], expected[i]; atol = 1.0e-9, rtol = 1.0e-9)
@@ -29,57 +28,6 @@ include("../ad/fixtures.jl")
     end
 end
 
-@testset "Initialization, stepping, and identity" begin
-    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
-    calls = Int[]
-    problem = SequentialProblem(
-        template;
-        transition = (seq, sol, i) -> begin
-            push!(calls, i)
-            remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
-        end,
-        terminal = (seq, sol, i) -> i >= 3,
-    )
-    it = init(problem, Tsit5(); SOLVE_KWARGS..., u0 = [1.2], p = 0.4, tspan = (2.0, 3.0))
-    @test isempty(calls)
-    @test it.state == 1
-    @test length(it.buffer) == 1
-    @test !Base.isdone(it)
-    @test it.problem.u0 == [1.2]
-    @test it.problem.p == 0.4
-    @test it.problem.tspan == (2.0, 3.0)
-    @test template.u0 == [9.0]
-    @test template.p == 4.0
-    @test template.tspan == (0.0, 1.0)
-    buffer = it.buffer
-    @test step!(it)
-    @test it.state == 2
-    @test calls == [2]
-    w = solve!(it)
-    @test w isa SolutionWrapper
-    @test w.buffer === buffer
-    @test it.buffer === buffer
-    @test calls == [2, 3]
-    @test Base.isdone(it)
-    @test it.state == 3
-    @test length(w) == 3
-    @test w[3].u[end][1] ≈ 1.2 * exp(-1.2)
-    @test retcode(w) == SciMLBase.ReturnCode.Success
-    @test successful_retcode(w)
-    w2 = solve!(it)
-    @test w2 isa SolutionWrapper
-    @test length(w2) == 3
-    @test calls == [2, 3]
-
-    single = solve(SequentialProblem(template), Tsit5(); SOLVE_KWARGS...)
-    @test single isa SolutionWrapper
-    @test length(single) == 1
-    @test retcode(single) == SciMLBase.ReturnCode.Success
-    @test successful_retcode(single)
-end
-
-# Controlled return codes exercise failures without relying on a solver's
-# adaptive-step heuristics. These types and methods belong to this test module.
 struct StageProblem <: SciMLBase.AbstractSciMLProblem
     succeeds::Bool
 end
@@ -91,316 +39,228 @@ StageSolution(succeeds::Bool) = StageSolution(
     succeeds, succeeds ? SciMLBase.ReturnCode.Success : SciMLBase.ReturnCode.MaxIters
 )
 struct NoSolve <: SciMLBase.AbstractSciMLAlgorithm end
-
 SciMLBase.remake(p::StageProblem; kwargs...) = p
 CommonSolve.solve(p::StageProblem, ::NoSolve; kwargs...) = StageSolution(p.succeeds)
 SciMLBase.successful_retcode(sol::StageSolution) = sol.succeeds
 
-
-@testset "Return codes, failures, and preallocated buffers" begin
-    # An unsuccessful first stage produces a one-element failure result instead
-    # of the earlier initialization exception, and never advances.
-    w = solve(SequentialProblem(StageProblem(false)), NoSolve())
-    @test w isa SolutionWrapper
-    @test length(w) == 1
-    @test retcode(w) == SciMLBase.ReturnCode.MaxIters
-    @test !successful_retcode(w)
-    @test w[1].retcode == SciMLBase.ReturnCode.MaxIters
-
-    for preallocate in (false, true), fail_at in (0, 2, 3)
-        problem = SequentialProblem(
-            StageProblem(true);
-            transition = (seq, sol, i) -> StageProblem(i != fail_at),
-            terminal = (seq, sol, i) -> i >= 3,
-        )
-        it = init(problem, NoSolve())
-        if preallocate
-            append!(it.buffer, [StageSolution(false), StageSolution(false)])
-        end
-        buffer = it.buffer
-        w = solve!(it)
-        @test w isa SolutionWrapper
-        @test w.buffer === buffer
-        expected_state = fail_at == 0 ? 3 : fail_at
-        @test it.state == expected_state
-        @test length(w) == expected_state
-        # Preallocated, unused slots are hidden from the wrapper.
-        @test length(w.buffer) == (preallocate ? 3 : expected_state)
-        for i in 1:(expected_state - (fail_at == 0 ? 0 : 1))
-            @test w[i].succeeds
-        end
-        if fail_at != 0
-            @test !w[expected_state].succeeds
-            @test retcode(w) == SciMLBase.ReturnCode.MaxIters
-            @test !successful_retcode(w)
-            # No further stages were attempted after the failure.
-        else
-            @test successful_retcode(w)
-            @test retcode(w) == SciMLBase.ReturnCode.Success
-        end
-        @test_throws BoundsError w[expected_state + 1]
-    end
+# A concrete subtype exercises the abstract defaults and sized solve! dispatch.
+struct SizedSequence <: CorleoneBase.AbstractSequentialProblem
+    problem::StageProblem
+    count::Int
+    stop::Int
+    fail_at::Int
 end
+CorleoneBase.get_problem(p::SizedSequence) = p.problem
+CorleoneBase.get_size(p::SizedSequence) = p.count
+CorleoneBase.has_size(::SizedSequence) = true
+CorleoneBase.transition(p::SizedSequence, sol, i) = StageProblem(i != p.fail_at)
+CorleoneBase.terminal(p::SizedSequence, sol, i) = i >= p.stop || !successful_retcode(sol)
 
-@testset "SolutionWrapper array interface" begin
-    problem = SequentialProblem(
-        StageProblem(true);
-        transition = (seq, sol, i) -> StageProblem(true),
-        terminal = (seq, sol, i) -> i >= 3,
-    )
-    it = init(problem, NoSolve())
-    append!(it.buffer, [StageSolution(false), StageSolution(false)])
-    w = solve!(it)
-    @test w isa CorleoneBase.SolutionWrapper
-    @test w isa AbstractVector
-    @test length(w) == 3
-    @test size(w) == (3,)
-    @test firstindex(w) == 1
-    @test lastindex(w) == 3
-    @test eltype(w) == StageSolution
-    @test Base.IndexStyle(typeof(w)) == IndexLinear()
-    @test collect(w) == w.buffer[1:3]
-    @test [s for s in w] == w.buffer[1:3]
-    @test w[2].succeeds
-    @test w[end].succeeds
-    # Read-only: assignment through the array interface errors without mutating.
-    @test_throws Exception (w[1] = StageSolution(true))
-    @test w[1].succeeds
-    # A wrapper over a manually advanced (non-full) state only exposes solved stages.
-    problem2 = SequentialProblem(
-        StageProblem(true);
-        transition = (seq, sol, i) -> StageProblem(true),
-        terminal = (seq, sol, i) -> i >= 2,
-    )
-    it2 = init(problem2, NoSolve())
-    append!(it2.buffer, [StageSolution(false), StageSolution(false)])
-    w2 = solve!(it2)
-    @test length(w2) == 2
-    @test w2[1].succeeds && w2[2].succeeds
-    @test_throws BoundsError w2[3]
-    @test retcode(w2) == SciMLBase.ReturnCode.Success
+struct FallbackSequence <: CorleoneBase.AbstractSequentialProblem
+    problem::StageProblem
 end
+CorleoneBase.get_problem(p::FallbackSequence) = p.problem
 
-@testset "No advancement after failure" begin
-    attempts = Int[]
-    problem = SequentialProblem(
-        StageProblem(true);
+@testset "Initialization, output, stepping, and buffer identity" begin
+    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0;
+        abstol = 1.0e-11, reltol = 1.0e-11)
+    calls = Int[]
+    problem = SequentialProblem(template;
         transition = (seq, sol, i) -> begin
-            push!(attempts, i)
-            StageProblem(i != 2)
+            push!(calls, i)
+            i == 1 ? seq.problem : remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
         end,
-        terminal = (seq, sol, i) -> i >= 5,
-    )
-    it = init(problem, NoSolve())
-    w = solve!(it)
-    @test attempts == [2]      # stage 2 fails; stage 3 is never attempted
-    @test it.state == 2
-    @test length(w) == 2
-    @test retcode(w) == SciMLBase.ReturnCode.MaxIters
-    # Re-solve! must not advance a failed state either.
-    w2 = solve!(it)
-    @test attempts == [2]
-    @test it.state == 2
-    @test length(w2) == 2
-end
-
-# Regression coverage for the unpushed CorleoneBase API changes: the abstract
-# problem is now a SciML problem, `init` dispatches on a SciML algorithm, and
-# keywords are partitioned by the wrapped problem's field names.
-@testset "AbstractSequentialProblem is a SciML problem" begin
-    @test CorleoneBase.AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem
-    @test SequentialProblem <: SciMLBase.AbstractSciMLProblem
-end
-
-@testset "init dispatch requires a SciML algorithm" begin
-    problem = SequentialProblem(StageProblem(true))
-    @test_throws MethodError init(problem, nothing)
-    @test_throws MethodError init(problem, :not_an_algorithm)
-end
-
-@testset "Keyword partitioning by problem fields" begin
-    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
-    solve_kwargs = (; abstol = 1.0e-9, reltol = 1.0e-9, save_everystep = false)
-    it = init(
-        SequentialProblem(template), Tsit5();
-        solve_kwargs..., u0 = [1.2], p = 0.4, tspan = (2.0, 3.0)
-    )
+        terminal = (seq, sol, i) -> i >= 3)
+    it = init(problem, Tsit5(); u0 = [1.2], p = 0.4, tspan = (2.0, 3.0))
+    @test calls == [1]
+    @test it.current == 1
+    @test it.max_steps === nothing
+    @test length(it.buffer) == 1
+    @test !Base.isdone(it)
     @test it.problem.u0 == [1.2]
     @test it.problem.p == 0.4
     @test it.problem.tspan == (2.0, 3.0)
-    @test it.solve_kwargs == solve_kwargs
-    @test !haskey(it.solve_kwargs, :u0)
-    @test !haskey(it.solve_kwargs, :p)
-    @test !haskey(it.solve_kwargs, :tspan)
     @test template.u0 == [9.0] && template.p == 4.0 && template.tspan == (0.0, 1.0)
+    @test it.output(it.buffer[1], 1) === it.buffer[1]
+    buffer = it.buffer
+    @test step!(it) === it
+    @test it.current == 2
+    @test calls == [1, 2]
+    result = solve!(it)
+    @test result !== buffer && buffer === it.buffer
+    @test all(i -> result[i] === buffer[i], eachindex(result))
+    @test calls == [1, 2, 3]
+    @test Base.isdone(it)
+    @test it.current == 3
+    @test length(result) == 3
+    @test result[3].u[end][1] ≈ 1.2 * exp(-1.2)
+    @test all(successful_retcode, result)
+    @test solve!(it) !== result
+    @test calls == [1, 2, 3]
 
-    # An ODEProblem field that is not u0/p/tspan is routed to remake, not solve.
-    problem_kwargs, remainder = CorleoneBase.split_problem_kwargs(
-        template, (f = template.f, abstol = 1.0e-6, save_everystep = false)
-    )
-    @test haskey(problem_kwargs, :f)
-    @test remainder == (; abstol = 1.0e-6, save_everystep = false)
-
-    # The empty keyword collection partitions into two empty NamedTuples.
-    empty_problem, empty_solve = CorleoneBase.split_problem_kwargs(template, (;))
-    @test isempty(empty_problem) && isempty(empty_solve)
+    outputs = Int[]
+    seen = Int[]
+    projected = SequentialProblem(StageProblem(true);
+        transition = (seq, previous, i) -> begin
+            i == 1 || push!(seen, previous)
+            StageProblem(true)
+        end,
+        output = (seq, sol, i) -> (push!(outputs, i); i * 10),
+        terminal = (seq, value, i) -> value >= 30)
+    @test solve(projected, NoSolve()) == [10, 20, 30]
+    @test outputs == [1, 2, 3]
+    @test seen == [10, 20]
+    @test CorleoneBase.output(FallbackSequence(StageProblem(true)), :value, 1) === :value
 end
 
-# Fixtures owned by this test module for field-based keyword routing.
+@testset "Terminal fallback, explicit failures, and preallocation" begin
+    fallback = FallbackSequence(StageProblem(true))
+    @test !CorleoneBase.has_size(fallback)
+    @test CorleoneBase.get_size(fallback) === nothing
+    @test CorleoneBase.transition(fallback, nothing, 1) === fallback.problem
+    @test !CorleoneBase.terminal(fallback, StageSolution(true), 0)
+    @test CorleoneBase.terminal(fallback, StageSolution(false), 0)
+    @test CorleoneBase.terminal(fallback, StageSolution(true), 1)
+    @test length(solve(fallback, NoSolve())) == 1
+    for sized in (false, true), stop in (1, 2, 3), fail_at in (0, 1, 2, 3)
+        problem = sized ? SizedSequence(StageProblem(true), 5, stop, fail_at) :
+            SequentialProblem(StageProblem(true);
+                transition = (seq, sol, i) -> StageProblem(i != fail_at),
+                terminal = (seq, sol, i) -> i >= stop || !successful_retcode(sol))
+        it = init(problem, NoSolve())
+        expected = fail_at == 0 ? stop : min(stop, fail_at)
+        @test it.max_steps === (sized ? 5 : nothing)
+        @test length(it.buffer) == (sized ? 5 : 1)
+        buffer = it.buffer
+        suffix_assigned = [isassigned(buffer, i) for i in (expected + 1):length(buffer)]
+        result = solve!(it)
+        @test result !== buffer && it.buffer === buffer
+        @test it.current == expected
+        @test length(result) == expected
+        @test length(buffer) == (sized ? 5 : expected)
+        @test successful_retcode(result[it.current]) == (fail_at == 0 || fail_at > stop)
+        @test all(i -> isassigned(result, i), 1:expected)
+        @test CorleoneBase.finalize_buffer(it) !== buffer
+        @test solve!(it) !== result
+        @test all(i -> result[i] === buffer[i], eachindex(result))
+        if sized
+            # Inline/isbits elements are always reported assigned, even in an
+            # unwritten slot. Finalization must preserve the suffix either way.
+            @test [isassigned(buffer, i) for i in (expected + 1):length(buffer)] == suffix_assigned
+        end
+        @test_throws BoundsError result[expected + 1]
+    end
+    # Custom terminals own failure handling: no implicit success check.
+    explicit = SequentialProblem(StageProblem(false);
+        transition = (seq, sol, i) -> StageProblem(false), terminal = (seq, sol, i) -> i >= 3)
+    @test length(solve(explicit, NoSolve())) == 3
+    # Final buffers are ordinary mutable vectors, not read-only views.
+    result = solve(fallback, NoSolve())
+    result[1] = StageSolution(false)
+    @test !successful_retcode(result[1])
+end
+
+# Capture both remake options and solve flags without accepting them silently.
 struct KwProblem <: SciMLBase.AbstractSciMLProblem
     tag::Symbol
+    options::NamedTuple
 end
+KwProblem(tag) = KwProblem(tag, (;))
+SciMLBase.remake(p::KwProblem; tag = p.tag, options = p.options, kwargs...) =
+    KwProblem(tag, merge(options, NamedTuple(kwargs)))
 struct KwSolution
-    tag::Symbol
-    retcode::SciMLBase.ReturnCode.T
+    prob::KwProblem
+    flags::NamedTuple
 end
-SciMLBase.remake(p::KwProblem; tag = p.tag) = KwProblem(tag)
-CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) =
-    KwSolution(p.tag, SciMLBase.ReturnCode.Success)
-SciMLBase.successful_retcode(::KwSolution) = true
+CommonSolve.solve(p::KwProblem, ::NoSolve; kwargs...) = KwSolution(p, NamedTuple(kwargs))
 
-@testset "Field-named keywords remake only the first problem" begin
-    problem = SequentialProblem(KwProblem(:a); terminal = (seq, sol, i) -> true)
-    it = init(problem, NoSolve(); tag = :b, abstol = 1.0e-6, extra = 2)
-    @test it.problem isa KwProblem
-    @test it.problem.tag == :b
-    @test it.solve_kwargs == (; abstol = 1.0e-6, extra = 2)
-    @test it.buffer[1].tag == :b
+struct SizedKwSequence <: CorleoneBase.AbstractSequentialProblem end
+CorleoneBase.has_size(::SizedKwSequence) = true
+CorleoneBase.get_size(::SizedKwSequence) = 4
+CorleoneBase.transition(::SizedKwSequence, sol, i) = KwProblem(Symbol("stage", i))
+CorleoneBase.terminal(::SizedKwSequence, sol, i) = i >= 3
+
+@testset "Sized solve! resumes the current stage after step!" begin
+    it = init(SizedKwSequence(), NoSolve())
+    @test step!(it) === it
+    @test it.current == 2
+    buffer = it.buffer
+    result = solve!(it)
+    @test result !== buffer && it.buffer === buffer
+    @test it.current == 3
+    @test length(result) == 3
+    @test length(buffer) == it.max_steps == 4
+    @test !isassigned(buffer, 4)
+    @test [result[i].prob.tag for i in 1:it.current] == [:stage1, :stage2, :stage3]
+    sentinel = KwSolution(KwProblem(:unused), (;))
+    buffer[4] = sentinel
+    @test CorleoneBase.finalize_buffer(it) !== buffer
+    @test buffer[4] === sentinel
+    @test solve!(it) !== result
+    @test buffer[4] === sentinel
+    result[1] = sentinel
+    @test buffer[1].prob.tag == :stage1
 end
 
-@testset "Sequence-wide parameters and states" begin
-    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0)
-
-    # Both sequence-wide fields default to nothing.
-    plain = SequentialProblem(template)
-    @test plain.parameters === nothing
-    @test plain.states === nothing
-
-    # Callbacks receive the sequence first and can read the sequence-wide
-    # fields; the first stage's construction is untouched by them.
-    observed = []
-    problem = SequentialProblem(
-        template;
+@testset "Sequence routing and first-stage remake" begin
+    @test CorleoneBase.AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem
+    calls = []
+    template = KwProblem(:template)
+    problem = SequentialProblem(template;
         transition = (seq, sol, i) -> begin
-            push!(observed, (kind = :transition, index = i, parameters = seq.parameters, states = seq.states))
-            remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
+            push!(calls, (i, sol, seq.parameters, seq.states))
+            KwProblem(i == 1 ? :constructed : :later)
         end,
-        terminal = (seq, sol, i) -> (push!(observed, (kind = :terminal, index = i, parameters = seq.parameters, states = seq.states)); i >= 3),
-        parameters = (rate = 0.4,),
-        states = (offset = 2.0,),
-    )
-    w = solve(problem, Tsit5(); SOLVE_KWARGS...)
-    @test length(w) == 3
-    @test all(
-        entry.parameters == (rate = 0.4,) && entry.states == (offset = 2.0,) for entry in observed
-    )
-    # Stage problems never saw the sequence-wide parameters: stage 1 keeps its
-    # own p, later stages keep the p carried by the explicit transition remake.
-    @test w[1].prob.p == 4.0
-    @test w[2].prob.p == 4.0
-    @test w[1].prob.tspan == (0.0, 1.0)
-
-    # remake replaces the named fields, carries the others over, and never
-    # mutates the input sequence.
-    remade = SciMLBase.remake(problem; parameters = (rate = 0.8,))
+        terminal = (seq, sol, i) -> i >= 2)
+    @test_throws MethodError init(problem, nothing)
+    @test_throws MethodError init(problem, :not_an_algorithm)
+    @test problem.parameters === problem.states === nothing
+    it = init(problem, NoSolve(); tag = :override, extra = 2, parameters = :parameters, states = :states)
+    @test calls == [(1, nothing, :parameters, :states)]
+    @test it.problem.tag == :override
+    @test it.problem.options == (; extra = 2)
+    @test it.buffer[1].flags == (; dense = false, save_everystep = false, save_start = true, save_end = true)
+    result = solve!(it)
+    @test result[2].prob.tag == :later
+    @test isempty(result[2].prob.options)
+    @test result[2].flags == (; save_start = false, save_end = true)
+    @test calls[2][1] == 2 && calls[2][2] === result[1]
+    @test template.tag == :template
+    @test problem.parameters === problem.states === nothing
+    projection = (seq, sol, i) -> sol.prob.tag
+    remade = remake(problem; output = projection, parameters = :new, states = [1.0])
     @test remade !== problem
-    @test remade.parameters == (rate = 0.8,)
-    @test remade.states === problem.states
+    @test remade.output === projection
+    @test remade.parameters == :new && remade.states == [1.0]
+    @test remade.problem === problem.problem
     @test remade.transition === problem.transition
     @test remade.terminal === problem.terminal
-    @test remade.problem === problem.problem
-    @test problem.parameters == (rate = 0.4,)
-    remade2 = SciMLBase.remake(problem; states = [1.0, 2.0])
-    @test remade2.states == [1.0, 2.0]
-    @test remade2.parameters === problem.parameters
-    @test SciMLBase.remake(problem).problem === problem.problem
-
-    # init/solve keywords naming a sequence field override it for the callbacks
-    # without mutating the original sequence or leaking into the solve keywords.
-    seen = Ref{Any}(nothing)
-    overridden = SequentialProblem(
-        template;
-        transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1)),
-        terminal = (seq, sol, i) -> (seen[] = (i, seq.parameters, seq.states); i >= 2),
-    )
-    it = init(
-        overridden, Tsit5();
-        SOLVE_KWARGS..., parameters = (rate = 0.9,), states = (offset = 5.0,), u0 = [1.2]
-    )
-    @test overridden.parameters === nothing && overridden.states === nothing
-    @test it.solve_kwargs == SOLVE_KWARGS
-    @test !haskey(it.solve_kwargs, :parameters)
-    @test !haskey(it.solve_kwargs, :states)
-    # First-stage construction is explicit: the sequence-wide overrides did not
-    # alter its state, parameters, or time span (only the u0 keyword did).
-    @test it.problem.u0 == [1.2]
-    @test it.problem.p == 4.0
-    @test it.problem.tspan == (0.0, 1.0)
-    # init does not call the terminal; solve! does, and it observes the overrides.
-    @test seen[] === nothing
-    w2 = solve!(it)
-    @test length(w2) == 2
-    @test seen[] == (2, (rate = 0.9,), (offset = 5.0,))
-    # solve-level overrides behave identically through CommonSolve.solve.
-    seen2 = Ref{Any}(nothing)
-    direct = SequentialProblem(
-        template;
-        transition = (seq, sol, i) -> remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1)),
-        terminal = (seq, sol, i) -> (seen2[] = (i, seq.parameters); i >= 2),
-    )
-    w3 = solve(
-        direct, Tsit5(); SOLVE_KWARGS..., parameters = (rate = 1.1, extra = 3),
-    )
-    @test length(w3) == 2
-    @test seen2[] == (2, (rate = 1.1, extra = 3))
-    @test direct.parameters === nothing
-
-    # split_sequence_kwargs routes by the sequence's own field names, ahead of
-    # the wrapped problem's field names.
-    seq_kwargs, rest = CorleoneBase.split_sequence_kwargs(
-        problem, (parameters = 1, states = 2, u0 = [0.0], abstol = 1.0e-6)
-    )
-    @test seq_kwargs == (parameters = 1, states = 2)
-    @test rest == (u0 = [0.0], abstol = 1.0e-6)
+    seq_options, rest = CorleoneBase.split_sequence_kwargs(problem,
+        (; output = projection, parameters = 1, states = 2, tag = :a, extra = 3))
+    @test seq_options == (; output = projection, parameters = 1, states = 2)
+    @test rest == (; tag = :a, extra = 3)
+    @test CorleoneBase.split_sequence_kwargs(problem, (;)) == ((;), (;))
+    @test solve(problem, NoSolve(); output = projection) == [:constructed, :later]
 end
 
-@testset "Callbacks must accept the sequence argument" begin
-    # No legacy fallback: a stored two-argument callable is a MethodError at the
-    # call site, not silently rebound to a two-argument wrapper.
-    legacy_transition = SequentialProblem(
-        StageProblem(true);
-        transition = (sol, i) -> StageProblem(true),
-    )
-    it = init(legacy_transition, NoSolve())
-    @test Base.isdone(it)                 # the default terminal accepts (seq, sol, i)
-    @test_throws MethodError step!(it)    # the legacy transition does not
-
-    legacy_terminal = SequentialProblem(
-        StageProblem(true);
-        terminal = (sol, i) -> true,
-    )
+@testset "Callbacks require the sequence argument" begin
+    legacy = SequentialProblem(StageProblem(true); transition = (sol, i) -> StageProblem(true))
+    @test_throws MethodError init(legacy, NoSolve())
+    legacy_terminal = SequentialProblem(StageProblem(true);
+        transition = (seq, sol, i) -> seq.problem, terminal = (sol, i) -> true)
     @test_throws MethodError Base.isdone(init(legacy_terminal, NoSolve()))
+    legacy_output = SequentialProblem(StageProblem(true);
+        transition = (seq, sol, i) -> seq.problem, output = (sol, i) -> sol)
+    @test_throws MethodError init(legacy_output, NoSolve())
 end
 
-# Every field of any SciML problem is passed through ArrayInterface.aos_to_soa,
-# not only ODE u0/p as in the previous ODEProblem special case. Representation
-# conversion happens in prepare_stage_problem; split_problem_kwargs only routes.
 struct AoSMarker end
 struct SoAMarker end
 struct MarkerProblem <: SciMLBase.AbstractSciMLProblem
     data
 end
-struct MarkerSolution
-    data
-    retcode::SciMLBase.ReturnCode.T
-end
 ArrayInterface.aos_to_soa(::AoSMarker) = SoAMarker()
 SciMLBase.remake(p::MarkerProblem; data = p.data) = MarkerProblem(data)
-CommonSolve.solve(p::MarkerProblem, ::NoSolve; kwargs...) =
-    MarkerSolution(p.data, SciMLBase.ReturnCode.Success)
-SciMLBase.successful_retcode(::MarkerSolution) = true
-
-# A state representation that aos_to_soa normalizes, usable as an ODEProblem u0.
 struct AoSVector <: AbstractVector{Float64}
     n::Int
 end
@@ -408,38 +268,18 @@ Base.size(v::AoSVector) = (v.n,)
 Base.getindex(::AoSVector, i::Int) = 0.0
 ArrayInterface.aos_to_soa(v::AoSVector) = zeros(Float64, v.n)
 
-@testset "prepare_stage_problem converts every problem field" begin
-    prepared = CorleoneBase.prepare_stage_problem(MarkerProblem(AoSMarker()))
-    @test prepared isa MarkerProblem
-    @test prepared.data isa SoAMarker
-
-    # split_problem_kwargs routes by field names without converting values; the
-    # routed values are normalized by prepare_stage_problem during init.
-    problem_kwargs, remainder = CorleoneBase.split_problem_kwargs(
-        MarkerProblem(AoSMarker()), (data = AoSMarker(), extra = 1)
-    )
-    @test problem_kwargs == (data = AoSMarker(),)
-    @test remainder == (; extra = 1)
-
-    # A state that needs normalization is converted and the problem remade.
+@testset "Stage preparation" begin
+    @test CorleoneBase.prepare_stage_problem(MarkerProblem(AoSMarker())).data isa SoAMarker
+    @test CorleoneBase.prepare_stage_problem(:non_sciml) === :non_sciml
     converting = ODEProblem((u, p, t) -> -p .* u, AoSVector(1), (0.0, 1.0), [2.0])
-    prepared_converting = CorleoneBase.prepare_stage_problem(converting)
-    @test prepared_converting !== converting
-    @test prepared_converting.u0 isa Vector{Float64}
-    @test prepared_converting.p === converting.p
-    @test prepared_converting.tspan == converting.tspan
-
-    # Plain arrays, scalars, and functions need no conversion: the problem is
-    # returned as-is without a remake (no per-stage allocation).
+    prepared = CorleoneBase.prepare_stage_problem(converting)
+    @test prepared !== converting
+    @test prepared.u0 isa Vector{Float64}
+    @test prepared.p === converting.p
+    @test prepared.tspan == converting.tspan
     ode = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), [2.0])
-    prepared_ode = CorleoneBase.prepare_stage_problem(ode)
-    @test prepared_ode === ode
-
-    # In-place problems are returned unchanged: their dynamics write into
-    # buffers the solver derives from the problem's own arrays, so converting
-    # e.g. tracked state arrays would make those buffers unwritable.
+    @test CorleoneBase.prepare_stage_problem(ode) === ode
     inplace = ODEProblem((du, u, p, t) -> (du .= -p .* u; nothing), [1.0], (0.0, 1.0), [2.0])
-    prepared_inplace = CorleoneBase.prepare_stage_problem(inplace)
-    @test isinplace(prepared_inplace)
-    @test prepared_inplace === inplace
+    @test isinplace(inplace)
+    @test CorleoneBase.prepare_stage_problem(inplace) === inplace
 end

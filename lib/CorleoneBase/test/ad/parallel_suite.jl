@@ -20,14 +20,14 @@ function execution_locations(mode)
 end
 
 function trajectory_problem(case, x, wrapped)
-    ode = ODEProblem(dynamics(case), [x[1]], (0.0, 1.0), [x[2]])
+    ode = ODEProblem(dynamics(case), [x[1]], (0.0, 1.0), [x[2]]; SOLVE_KWARGS...)
     # Out-of-place problems solved directly by the ensemble machinery need the
     # state and derivative to share one array representation, like the
     # per-stage preparation the sequential solve applies internally. Plain
     # vectors, scalars, and functions pass through unchanged, so this is a
     # no-op for untraced inputs and leaves ForwardDiff coverage unaffected.
     wrapped || return CorleoneBase.prepare_stage_problem(ode)
-    transition = (seq, sol, stage) -> stage == 2 ?
+    transition = (seq, sol, stage) -> stage == 1 ? seq.problem : stage == 2 ?
         remake(sol.prob; u0 = sol.u[end], p = [x[3]], tspan = (1.0, 2.0)) :
         remake(sol.prob; u0 = [x[4]], tspan = (2.0, 3.0))
     return SequentialProblem(ode; transition, terminal = (seq, sol, i) -> i >= 3)
@@ -123,7 +123,7 @@ function test_parallel_ad(backend, modes; solve_kwargs = (;), gradient_atol = 1.
                             @test successful_retcode(sol)
                             @test isinplace(sol.prob) == is_inplace(case)
                             @test sol.prob.tspan == (Float64(k - 1), Float64(k))
-                            @test sol.t == [Float64(k - 1), Float64(k)]
+                            @test sol.t == (wrapped && k > 1 ? [Float64(k)] : [Float64(k - 1), Float64(k)])
                             @test sol.prob.p == [z[k == 1 ? 2 : 3]]
                             @test sol.prob.u0 == (k == 1 ? [z[1]] : k == 2 ? stages[1].u[end] : [z[4]])
                             @test isapprox(sol.u[end][1], y[k]; atol = 1.0e-9, rtol = 1.0e-9)

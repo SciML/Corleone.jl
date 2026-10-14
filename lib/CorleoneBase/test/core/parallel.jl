@@ -1,5 +1,4 @@
 using CorleoneBase
-using CorleoneBase: retcode
 using CommonSolve: CommonSolve, solve
 using OrdinaryDiffEqTsit5: Tsit5
 using SciMLBase: SciMLBase, ODEProblem, EnsembleSerial, remake, successful_retcode
@@ -9,7 +8,7 @@ using Test
 
 @testset "ParallelProblem construction and interface" begin
     template = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), 0.5)
-    sequential = SequentialProblem(template)
+    sequential = SequentialProblem(template; transition = (seq, sol, i) -> seq.problem)
     parallel = ParallelProblem(sequential)
 
     @test parallel isa CorleoneBase.AbstractParallelProblem
@@ -23,7 +22,7 @@ end
 @testset "Parallel supported-version contracts" begin
     @testset "Parallel ensemble workflow" begin
         template = ODEProblem((u, p, t) -> -p .* u, [1.0], (0.0, 1.0), 0.5)
-        sequential = SequentialProblem(template)  # default terminal solves one stage
+        sequential = SequentialProblem(template; transition = (seq, sol, i) -> seq.problem)
 
         # Default hook: every trajectory solves the identical problem.
         parallel = ParallelProblem(sequential)
@@ -33,9 +32,9 @@ end
         )
         @test ensemble isa SciMLBase.EnsembleSolution
         @test length(ensemble.u) == 4
-        @test all(w -> w isa SolutionWrapper, ensemble.u)
+        @test all(w -> w isa Vector, ensemble.u)
         @test all(w -> length(w) == 1, ensemble.u)
-        @test all(successful_retcode, ensemble.u)
+        @test all(w -> all(successful_retcode, w), ensemble.u)
         @test all(w -> w[1].prob.u0 == [1.0], ensemble.u)
 
         # The hook receives the ParallelProblem, the (copied) template, and a
@@ -44,7 +43,7 @@ end
         parallel2 = ParallelProblem(
             sequential; prob_func = (problem, tmpl, ctx) -> begin
                 push!(seen, (problem === parallel2, tmpl isa SequentialProblem, ctx.sim_id))
-                SequentialProblem(remake(tmpl.problem; u0 = [Float64(ctx.sim_id)]))
+                remake(tmpl; problem = remake(tmpl.problem; u0 = [Float64(ctx.sim_id)]))
             end
         )
         ensemble2 = solve(
@@ -64,19 +63,21 @@ end
         @test length(outputs.u) == 2
         @test [outputs.u[i] for i in 1:length(outputs.u)] == [1, 1]
 
-        # Ordinary solver keywords reach each trajectory's inner solve.
+        # Stage-one saving is hard-coded, even with ordinary solver options.
         dense = solve(parallel, Tsit5(), EnsembleSerial(); trajectories = 1)
         sparse = solve(
             parallel, Tsit5(), EnsembleSerial();
             trajectories = 1, save_everystep = false
         )
-        @test length(sparse.u[1][1].t) < length(dense.u[1][1].t)
+        @test sparse.u[1][1].t == dense.u[1][1].t == [0.0, 1.0]
+        remade = solve(parallel, Tsit5(), EnsembleSerial(); trajectories = 1, u0 = [2.0])
+        @test remade.u[1][1].prob.u0 == [2.0]
 
         # A master `seed` is forwarded and makes per-trajectory draws
         # reproducible through ctx.rng.
         parallel3 = ParallelProblem(
             sequential; prob_func = (problem, tmpl, ctx) ->
-            SequentialProblem(remake(tmpl.problem; u0 = [rand(ctx.rng)]))
+            remake(tmpl; problem = remake(tmpl.problem; u0 = [rand(ctx.rng)]))
         )
         run_a = solve(
             parallel3, Tsit5(), EnsembleSerial();

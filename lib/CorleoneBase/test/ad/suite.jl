@@ -21,8 +21,8 @@ function test_primal(case, x; solve_kwargs)
         @test successful_retcode(sol)
         @test isinplace(sol.prob) == is_inplace(case)
         @test sol.prob.tspan == (Float64(i - 1), Float64(i))
-        # Also checks that saving options reach all three inner solves.
-        @test sol.t == [Float64(i - 1), Float64(i)]
+        # Per-stage flags override the options carried by the problem.
+        @test sol.t == (i == 1 ? [0.0, 1.0] : [Float64(i)])
         @test sol.prob.p == [x[i == 1 ? 2 : 3]]
         expected_u0 = i == 1 ? [x[1]] : i == 2 ? solutions[1].u[end] : [x[4]]
         @test sol.prob.u0 == expected_u0

@@ -26,8 +26,7 @@ using Ipopt
 # With prey x, predator y, and cumulative cost z, the equations are
 # x′ = x - xy - 0.4cx, y′ = -y + xy - 0.2cy,
 # z′ = (x - 1)² + (y - 1)². Minimize z(12) from (0.5, 0.7, 0).
-# We use 24 equal intervals of length 0.5, a deliberately coarser control
-# discretization than the layer example. Control c[i] is constant on
+# We use 120 equal intervals of length 0.1. Control c[i] is constant on
 # [grid[i], grid[i+1]); the last interval includes the final endpoint.
 
 function fishing_dynamics!(du, u, c, t)
@@ -38,22 +37,21 @@ function fishing_dynamics!(du, u, c, t)
     return nothing
 end
 
-grid = collect(0.0:0.001:12.0)
+grid = collect(0.0:0.1:12.0)
 tspans = [(grid[i], grid[i+1]) for i in 1:length(grid)-1]
 controls = fill(0.5, length(tspans))
 initial_state = [0.5, 0.7, 0.0]
 
 # ## Sequential stages and explicit state propagation
 # `transition(seq, sol, i)` receives the sequence, the previous solution, and
-# the NEXT stage index, starting at 2. The control vector travels as the
+# stage index: stage one receives `sol = nothing`, and later calls receive
+# the preceding stored output. The control vector travels as the
 # sequence's sequence-wide `parameters` field; `seq.parameters[i]` is the
 # control of the interval being built. Propagate all three states, including
 # accumulated cost; resetting z would minimize only the last interval.
-# Promoting the first state to the control's element type supports ForwardDiff.
-# The sequence skeleton is constructed once below; every evaluation then only
-# remakes it: `parameters = controls` replaces the sequence-wide controls while
-# the explicit first-stage keywords `u0` and `p` build stage one, and none of
-# these overrides leave the original skeleton mutated.
+# The sequence skeleton is constructed once below. Each evaluation remakes its
+# sequence-wide parameters and states; the transition constructs every stage,
+# including stage one, without mutating the skeleton. The output hook is identity.
 
 fishing_sequence = SequentialProblem(
     ODEProblem(fishing_dynamics!, initial_state, (grid[1], grid[end]), 0.0);
@@ -108,7 +106,8 @@ optproblem = OptimizationProblem(
 
 # ## Local bounded optimization
 # Ipopt uses ForwardDiff gradients and a limited-memory Hessian approximation.
-# Request tol=1e-6 and at most 300 iterations. Disable bound relaxation so the
+# Request tol=1e-6 and at most 300 iterations, using ForwardDiff for all
+# 120 control variables. Disable bound relaxation so the
 # physical [0, 1] bounds are not intentionally expanded by the optimizer.
 
 optimum = solve(
