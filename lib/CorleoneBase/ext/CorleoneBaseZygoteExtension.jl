@@ -79,8 +79,10 @@ function initial_stage(problem, algorithm, options)
     seq_kwargs, options = split_sequence_kwargs(problem, options)
     sequence = isempty(seq_kwargs) ? problem : remake(problem; seq_kwargs...)
     inner_problem = prepare_stage_problem(remake(transition(sequence, nothing, 1); options...))
-    solution = solve(inner_problem, algorithm;
-        dense = false, save_everystep = false, save_start = true, save_end = true)
+    solution = solve(
+        inner_problem, algorithm;
+        dense = false, save_everystep = false, save_start = true, save_end = true
+    )
     first_output = output(sequence, solution, 1)
     return SequentialProblemIterator(
         inner_problem, (sol, i) -> transition(sequence, sol, i),

@@ -62,15 +62,19 @@ end
 CorleoneBase.get_problem(p::FallbackSequence) = p.problem
 
 @testset "Initialization, output, stepping, and buffer identity" begin
-    template = ODEProblem((u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0;
-        abstol = 1.0e-11, reltol = 1.0e-11)
+    template = ODEProblem(
+        (u, p, t) -> -p .* u, [9.0], (0.0, 1.0), 4.0;
+        abstol = 1.0e-11, reltol = 1.0e-11
+    )
     calls = Int[]
-    problem = SequentialProblem(template;
+    problem = SequentialProblem(
+        template;
         transition = (seq, sol, i) -> begin
             push!(calls, i)
             i == 1 ? seq.problem : remake(sol.prob; u0 = sol.u[end], tspan = (sol.t[end], sol.t[end] + 1))
         end,
-        terminal = (seq, sol, i) -> i >= 3)
+        terminal = (seq, sol, i) -> i >= 3
+    )
     it = init(problem, Tsit5(); u0 = [1.2], p = 0.4, tspan = (2.0, 3.0))
     @test calls == [1]
     @test it.current == 1
@@ -100,13 +104,15 @@ CorleoneBase.get_problem(p::FallbackSequence) = p.problem
 
     outputs = Int[]
     seen = Int[]
-    projected = SequentialProblem(StageProblem(true);
+    projected = SequentialProblem(
+        StageProblem(true);
         transition = (seq, previous, i) -> begin
             i == 1 || push!(seen, previous)
             StageProblem(true)
         end,
         output = (seq, sol, i) -> (push!(outputs, i); i * 10),
-        terminal = (seq, value, i) -> value >= 30)
+        terminal = (seq, value, i) -> value >= 30
+    )
     @test solve(projected, NoSolve()) == [10, 20, 30]
     @test outputs == [1, 2, 3]
     @test seen == [10, 20]
@@ -124,9 +130,11 @@ end
     @test length(solve(fallback, NoSolve())) == 1
     for sized in (false, true), stop in (1, 2, 3), fail_at in (0, 1, 2, 3)
         problem = sized ? SizedSequence(StageProblem(true), 5, stop, fail_at) :
-            SequentialProblem(StageProblem(true);
+            SequentialProblem(
+                StageProblem(true);
                 transition = (seq, sol, i) -> StageProblem(i != fail_at),
-                terminal = (seq, sol, i) -> i >= stop || !successful_retcode(sol))
+                terminal = (seq, sol, i) -> i >= stop || !successful_retcode(sol)
+            )
         it = init(problem, NoSolve())
         expected = fail_at == 0 ? stop : min(stop, fail_at)
         @test it.max_steps === (sized ? 5 : nothing)
@@ -151,8 +159,10 @@ end
         @test_throws BoundsError result[expected + 1]
     end
     # Custom terminals own failure handling: no implicit success check.
-    explicit = SequentialProblem(StageProblem(false);
-        transition = (seq, sol, i) -> StageProblem(false), terminal = (seq, sol, i) -> i >= 3)
+    explicit = SequentialProblem(
+        StageProblem(false);
+        transition = (seq, sol, i) -> StageProblem(false), terminal = (seq, sol, i) -> i >= 3
+    )
     @test length(solve(explicit, NoSolve())) == 3
     # Final buffers are ordinary mutable vectors, not read-only views.
     result = solve(fallback, NoSolve())
@@ -206,12 +216,14 @@ end
     @test CorleoneBase.AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem
     calls = []
     template = KwProblem(:template)
-    problem = SequentialProblem(template;
+    problem = SequentialProblem(
+        template;
         transition = (seq, sol, i) -> begin
             push!(calls, (i, sol, seq.parameters, seq.states))
             KwProblem(i == 1 ? :constructed : :later)
         end,
-        terminal = (seq, sol, i) -> i >= 2)
+        terminal = (seq, sol, i) -> i >= 2
+    )
     @test_throws MethodError init(problem, nothing)
     @test_throws MethodError init(problem, :not_an_algorithm)
     @test problem.parameters === problem.states === nothing
@@ -235,8 +247,10 @@ end
     @test remade.problem === problem.problem
     @test remade.transition === problem.transition
     @test remade.terminal === problem.terminal
-    seq_options, rest = CorleoneBase.split_sequence_kwargs(problem,
-        (; output = projection, parameters = 1, states = 2, tag = :a, extra = 3))
+    seq_options, rest = CorleoneBase.split_sequence_kwargs(
+        problem,
+        (; output = projection, parameters = 1, states = 2, tag = :a, extra = 3)
+    )
     @test seq_options == (; output = projection, parameters = 1, states = 2)
     @test rest == (; tag = :a, extra = 3)
     @test CorleoneBase.split_sequence_kwargs(problem, (;)) == ((;), (;))
@@ -246,11 +260,15 @@ end
 @testset "Callbacks require the sequence argument" begin
     legacy = SequentialProblem(StageProblem(true); transition = (sol, i) -> StageProblem(true))
     @test_throws MethodError init(legacy, NoSolve())
-    legacy_terminal = SequentialProblem(StageProblem(true);
-        transition = (seq, sol, i) -> seq.problem, terminal = (sol, i) -> true)
+    legacy_terminal = SequentialProblem(
+        StageProblem(true);
+        transition = (seq, sol, i) -> seq.problem, terminal = (sol, i) -> true
+    )
     @test_throws MethodError Base.isdone(init(legacy_terminal, NoSolve()))
-    legacy_output = SequentialProblem(StageProblem(true);
-        transition = (seq, sol, i) -> seq.problem, output = (sol, i) -> sol)
+    legacy_output = SequentialProblem(
+        StageProblem(true);
+        transition = (seq, sol, i) -> seq.problem, output = (sol, i) -> sol
+    )
     @test_throws MethodError init(legacy_output, NoSolve())
 end
 

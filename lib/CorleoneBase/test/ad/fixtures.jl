@@ -43,8 +43,10 @@ function sequential_solutions(case, x; solve_kwargs = (;))
     # The later stages' inputs travel as sequence-wide parameters, which the
     # transition reads from the sequence argument; stage one's state, parameters,
     # and time span stay the explicit ODEProblem construction below.
-    template = ODEProblem(dynamics(case), [9.0], (0.0, 1.0), [4.0];
-        merge(SOLVE_KWARGS, solve_kwargs)...)
+    template = ODEProblem(
+        dynamics(case), [9.0], (0.0, 1.0), [4.0];
+        merge(SOLVE_KWARGS, solve_kwargs)...
+    )
     transition = function (seq, sol, next_stage)
         if next_stage == 1
             return seq.problem

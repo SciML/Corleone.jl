@@ -38,7 +38,7 @@ function fishing_dynamics!(du, u, c, t)
 end
 
 grid = collect(0.0:0.1:12.0)
-tspans = [(grid[i], grid[i+1]) for i in 1:length(grid)-1]
+tspans = [(grid[i], grid[i + 1]) for i in 1:(length(grid) - 1)]
 controls = fill(0.5, length(tspans))
 initial_state = [0.5, 0.7, 0.0]
 
@@ -57,32 +57,32 @@ fishing_sequence = SequentialProblem(
     ODEProblem(fishing_dynamics!, initial_state, (grid[1], grid[end]), 0.0);
     transition = function (seq, sol, i)
         prob = CorleoneBase.get_problem(seq)
-        remake(
+        return remake(
             prob;
-            u0 = i == 1 ? seq.problem.u0 : sol.u[end], 
+            u0 = i == 1 ? seq.problem.u0 : sol.u[end],
             p = seq.parameters[i],
             tspan = seq.states.tspans[i],
         )
     end,
     output = function (seq, sol, i)
-        sol
+        return sol
     end,
-    terminal = (seq, sol, i) -> i >= length(seq.states.tspans), 
-    parameters = controls, 
+    terminal = (seq, sol, i) -> i >= length(seq.states.tspans),
+    parameters = controls,
     states = (; tspans)
 )
 
 
 fishing_stages = let fishing_sequence = fishing_sequence
-(controls, states = fishing_sequence.states) -> begin
-    stages = solve(
-        fishing_sequence, Tsit5();
-        parameters = controls, 
-        states = states,
-    )
-    return stages
+    (controls, states = fishing_sequence.states) -> begin
+        stages = solve(
+            fishing_sequence, Tsit5();
+            parameters = controls,
+            states = states,
+        )
+        return stages
+    end
 end
-end 
 
 
 # ## Objective, feasible start, and bounds
@@ -90,14 +90,14 @@ end
 # endpoint. Bounds are explicit vectors, not supplied by a control/layer API.
 # Constant intensity 0.5 is the stated feasible starting control.
 
-fishing_objective = let stages = fishing_stages 
+fishing_objective = let stages = fishing_stages
     (controls, states) -> stages(controls, states)[end].u[end][3]
 end
 
 fishing_objective(controls, fishing_sequence.states)
 
 lower_bounds = zero(controls)
-upper_bounds = zero(controls) .+ 1.
+upper_bounds = zero(controls) .+ 1.0
 starting_objective = fishing_objective(controls, fishing_sequence.states)
 objective = OptimizationFunction(fishing_objective, AutoForwardDiff())
 optproblem = OptimizationProblem(

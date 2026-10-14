@@ -27,8 +27,8 @@ See
 sequence itself as the first argument, so the hook can read sequence-wide data
 such as `seq.parameters` and `seq.states`.
 """
-function transition(x::AbstractSequentialProblem, sol, i) 
-    get_problem(x)
+function transition(x::AbstractSequentialProblem, sol, i)
+    return get_problem(x)
 end
 
 """
@@ -41,8 +41,8 @@ Concrete problems call their stored hook with the sequence itself as the first
 argument, so the hook can read sequence-wide data such as `seq.parameters` and
 `seq.states`.
 """
-function terminal(::AbstractSequentialProblem, sol, i) 
-    i >= 1 || !SciMLBase.successful_retcode(sol)
+function terminal(::AbstractSequentialProblem, sol, i)
+    return i >= 1 || !SciMLBase.successful_retcode(sol)
 end
 
 """
@@ -52,7 +52,7 @@ Transform stage `i`'s solution before storage. The abstract fallback is identity
 Transitions and terminals receive the stored output, not the raw solution.
 """
 function output(::AbstractSequentialProblem, sol, i)
-    sol
+    return sol
 end
 
 """
@@ -81,18 +81,17 @@ solved prefix as a new vector, leaving any unused preallocated slots unchanged.
 function make_buffer(x::AbstractSequentialProblem, sol::T) where {T}
     if has_size(x)
         buffer = Vector{T}(undef, get_size(x))
-        buffer[1] = sol 
+        buffer[1] = sol
         return buffer
-    else 
+    else
         return T[sol]
     end
-    #if !isnothing(Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension)) 
+    #if !isnothing(Base.get_extension(CorleoneBase, :CorleoneBaseZygoteExtension))
     #    return make_zygote_buffer(x, buffer)
     #else
     #    return buffer
     #end
 end
-
 
 
 @generated function _prepare_problem(x::P) where {P}
@@ -180,7 +179,7 @@ end
 
 
 @inline function CommonSolve.init(
-        problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm; 
+        problem::T, algorithm::SciMLBase.AbstractSciMLAlgorithm;
         kwargs...
     ) where {T <: AbstractSequentialProblem}
 
@@ -188,11 +187,11 @@ end
     sequence = isempty(seq_kwargs) ? problem : remake(problem; seq_kwargs...)
     inner_problem = prepare_stage_problem(
         remake(
-            transition(sequence, nothing, 1); 
+            transition(sequence, nothing, 1);
             kwargs...
-            )
         )
-    sol = solve(inner_problem, algorithm; dense = false, save_everystep = false, save_start = true ,save_end = true)
+    )
+    sol = solve(inner_problem, algorithm; dense = false, save_everystep = false, save_start = true, save_end = true)
     bff = output(sequence, sol, 1)
     buffer = make_buffer(sequence, bff)
     return SequentialProblemIterator(
@@ -214,14 +213,14 @@ end
 
 function CommonSolve.step!(it::SequentialProblemIterator)
     (; algorithm, transition, output, buffer, current) = it
-    next = current+1
+    next = current + 1
     current_problem = prepare_stage_problem(transition(buffer[current], next))
     if length(buffer) >= next
         buffer[next] = output(solve(current_problem, algorithm; save_start = false, save_end = true), next)
     else
         push!(buffer, output(solve(current_problem, algorithm; save_start = false, save_end = true), next))
     end
-    increment!(it)
+    return increment!(it)
 end
 
 function Base.isdone(it::SequentialProblemIterator)
@@ -231,9 +230,9 @@ end
 finalize_buffer(it::SequentialProblemIterator) = it.buffer[1:it.current]
 
 function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Nothing})
-    while true 
+    while true
         Base.isdone(it) && break
-        CommonSolve.step!(it) 
+        CommonSolve.step!(it)
     end
     return finalize_buffer(it)
 end
@@ -243,7 +242,7 @@ function CommonSolve.solve!(it::SequentialProblemIterator{<:Any, <:Any, <:Any, <
     (; max_steps, buffer, transition, output, algorithm) = it
     for current in it.current:max_steps
         Base.isdone(it) && break
-        next = current+1
+        next = current + 1
         current_problem = prepare_stage_problem(transition(buffer[current], next))
         buffer[next] = output(solve(current_problem, algorithm; save_start = false, save_end = true), next)
         increment!(it)

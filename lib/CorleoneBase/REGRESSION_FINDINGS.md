@@ -1,292 +1,350 @@
 # CorleoneBase unpushed-change regression findings
 
-Reproducible evidence for the docstrings and regression tests added for the
-unpushed commits affecting `lib/CorleoneBase`. Findings 1 and 2 were reproduced
-against the checked-out sources, root-caused from runtime evidence, and fixed in
-this change. Findings 3 and 4 are recorded unchanged.
+Reproducible evidence for the tests, documentation, and dependent AD rules aligned
+with the three unpushed commits below. Earlier findings recorded in this file
+concerned a different range; they are not verification results for this checkout.
+**Status: verification in progress.** Finding 3 was reproduced on both house
+Julia versions, then fixed with the user's explicit approval of the one-line
+sized-loop resume correction. The regression remains enabled. The user then
+replaced mutating finalization, then confirmed that nonmutating trimming was
+intended: `finalize_buffer(it) = it.buffer[1:it.current]`. Tests, documentation,
+and the Zygote rule now reflect a separate solved-prefix vector while retaining
+the iterator's preallocated capacity. Verification is in progress.
 
 ## Scope and baseline (recorded at session start)
 
-- HEAD: `367f073f4493fa4f93ff65f61393655fb8de90a8`, plus the documentation and
-  test commit `41e167f` and this change's fixes.
-- Configured upstream: `origin/CJM/CorleoneBase` = `b2619406a3cf45f871cfb9945e2f882beb4a106b`
-- Unpushed commits: `4b1361f` Layout changes, `8f2912c` Add initial
-  ParallelProblem API, `a7d8d00` Update methods and type stability, `451600d`
-  Format, `367f073` Format.
-- `lib/CorleoneBase` files in the unpushed range: `src/CorleoneBase.jl`,
-  `src/abstractproblem.jl` → `src/abstractsequential.jl` (rename + changes),
-  `src/abstractparallel.jl` (new), `src/parallel.jl` (new),
-  `test/core/sequential.jl`.
-- Unrelated local work preserved and left untouched: the five modified
-  `lib/CorleoneGame/library/**` files, and the untracked `plan.md` and
-  `testme.jl`.
-
-Baseline worktrees used for comparison (created with `git worktree add --detach`):
-
-- `/tmp/opencode/cb-baseline` — detached at `b261940` (upstream baseline).
-- `/tmp/opencode/cb-head-pristine` — detached at `367f073` (HEAD without any fix).
+- Branch: `CJM/CorleoneBase`; HEAD: `dc87cc2` Remove solution.
+- Range: `f4cfe8a..dc87cc2`: `69fafb5` Add output function and optimize loops,
+  `cc66cd7` Streamline examples, `dc87cc2` Remove solution.
+- The working tree was clean at session start.
+- Intended API behavior is retained. The user subsequently authorized changing
+  the fishing grid to `0.0:0.1:12.0` (120 intervals, unchanged horizon). Runtime
+  source edits remove the dangling result-type export and apply the explicitly
+  approved sized-loop resume correction. Other sequential source changes repair
+  documentation only; fishing changes update its grid and explanatory comments.
+- No package versions, test environment files, or group routing are changed.
 
 ## Matched environments
 
-Julia 1.12.7 (primary) and Julia 1.10.12 (declared minimum). Head and baseline
-scratch environments resolved identical key versions: SciMLBase 3.57.0,
-CommonSolve 0.2.14, OrdinaryDiffEqTsit5 2.1.5, ArrayInterface 7.30.2,
-BenchmarkTools 1.8.0.
+Julia 1.12.7 (primary) and Julia 1.10.12 (house minimum). Each group is launched
+through `lib/CorleoneBase/test/runtests.jl` using `CORLEONE_TEST_GROUP` and
+`Pkg.test("CorleoneBase")` from a newly created scratch environment. The existing
+group environments supply their own dependencies; no direct include substitutes
+for a group pass.
 
 ## Changed API contracts and documentation added
 
-- `AbstractSequentialProblem` is now `<: SciMLBase.AbstractSciMLProblem`; a
-  `SequentialProblem` can be used as an outer solve/ensemble template.
-- `CommonSolve.init` now dispatches on
-  `algorithm::SciMLBase.AbstractSciMLAlgorithm`; `nothing` and arbitrary
-  solver-state objects are rejected by dispatch (the test fixture gained a
-  `NoSolve <: AbstractSciMLAlgorithm`).
-- `init`/`solve` keyword partitioning moved from a hard-coded `u0`/`p`/`tspan`
-  set to `fieldnames(typeof(problem))` via the generated
-  `split_problem_kwargs`/`_split_problem_kwargs`. The routed values are
-  forwarded unchanged; representation conversion happens in
-  `prepare_stage_problem` when `init` remakes the first stage (this fix;
-  converting inside the partition reintroduced Finding 1 at stage 1).
-- `prepare_stage_problem(::SciMLBase.AbstractSciMLProblem)` accepts any
-  `AbstractSciMLProblem` and applies `ArrayInterface.aos_to_soa` to every
-  field, returning in-place problems unchanged and the input itself when no
-  field changes; a fallback returns non-SciML stage problems unchanged
-  (this fix; see Findings 1 and 2).
-- New `AbstractParallelProblem` / `ParallelProblem` ensemble API with
-  `get_problem`, `prob_func`, and an ensemble `CommonSolve.solve`
-  that routes `output_func`/`reduction`/`u_init`/`safetycopy` to
-  `SciMLBase.EnsembleProblem` and all other keywords to `SciMLBase.solve`.
+- Stage one comes from `transition(sequence, nothing, 1)`, not directly from the
+  wrapped template. All hooks receive the sequence first.
+- `output(sequence, solution, i)` is identity by default. Each solved stage is
+  transformed before storage; transitions and terminals receive stored outputs.
+- Iterator fields are `problem`, `transition`, `output`, `terminal`, `algorithm`,
+  `buffer`, `current`, and `max_steps`. Sized abstract subtypes implement
+   `has_size` and `get_size`; buffers preallocate and finalization shallow-copies
+   the solved prefix, leaving the iterator buffer and unused slots unchanged.
+- `step!` returns the iterator, not a success flag. `solve!` and `solve` return
+  a new mutable vector of solved outputs, with no result wrapper or aggregate
+  return-code accessor. SciML return codes remain available on individual stages.
+- Custom terminals alone control stopping. The abstract fallback stops at
+  `i >= 1` or an unsuccessful SciML return code; the concrete default stops at
+  stage one. Failure-aware custom predicates must request failure stopping.
+- Sequence-field keywords remake the sequence; every remaining keyword remakes
+  the constructed first stage. The former problem-keyword partition is removed.
+  No solver options collection is stored on the iterator. Stage one uses
+  `dense=false`, `save_everystep=false`, `save_start=true`, `save_end=true`;
+  later stages use `save_start=false`, `save_end=true`.
+- The fishing example now has 120 intervals of length 0.1 and closure-valued
+  `fishing_stages` / `fishing_objective`; objective data is the sequence's states,
+  not `nothing`. Apart from the authorized grid change, executable statements
+  and optimization settings remain unchanged.
 
-Docstrings were added to every new/changed symbol above and corrected on `init`,
-`SequentialProblem`, `SequentialProblemIterator`, `make_buffer`, the abstract
-`get_problem`/`transition`/`terminal`, and the parallel solve method.
-`ParallelProblem` is listed in `docs/src/corleonebase_api.md` and a parallel
-section is in `docs/src/corleonebase.md`. The `using ArrayInterface` in
-`src/CorleoneBase.jl` was restored to `import ArrayInterface` (all uses are
-qualified; this is behavior-preserving and required to keep QA's
-`no_implicit_imports` green).
+`docs/src/corleonebase.md` and `docs/src/corleonebase_api.md` document this surface.
+Docstrings in `src/sequential.jl` and `src/abstractsequential.jl` no longer claim
+old result, keyword, stepping, or first-stage behavior. The fishing page is
+regenerated with Literate from the checked-out source.
 
 ## Regression tests
 
 `test/core/sequential.jl`:
 
-- `AbstractSequentialProblem <: SciMLBase.AbstractSciMLProblem`.
-- `init(problem, nothing)` / `init(problem, :symbol)` throw `MethodError`.
-- Keyword partitioning by problem field names, including `it.solve_kwargs`
-  contents and an ODE field (`f`) routed to `remake` rather than `solve`;
-  routed values are forwarded unconverted.
-- Field-named keywords remake only the first problem (custom fixture).
-- `prepare_stage_problem` converts every field of any `AbstractSciMLProblem`
-  when the representation must change (fixture state converted through
-  `ArrayInterface.aos_to_soa`, other fields preserved by identity), returns
-  unchanged-field problems as the same object, and returns in-place problems
-  unchanged (the restored contracts behind Findings 1 and 2).
+- Analytic linear/nonlinear, in-place/out-of-place three-stage endpoints.
+- Stage-one transition, first-stage remake, sequence-field precedence, explicit
+  state propagation, identity/custom output, output seen by subsequent hooks.
+- Iterator `current` / `max_steps`, step return identity, finalized buffer
+  identity and mutability, repeated completed solves, and retained preallocation.
+- Abstract terminal fallback, explicit failure-aware terminals, and a custom
+  terminal that intentionally continues after unsuccessful stages.
+- Captured remake keywords and exact per-stage save flags, without silently
+  retaining the old keyword-forwarding expectation.
+- Algorithm dispatch, callback arity, generic stage normalization, unchanged
+  representation reuse, and in-place representation preservation.
 
-`test/core/parallel.jl` (new `Parallel Core contracts` lane, 20 checks on
-1.12): construction/interfaces; default and custom `prob_func` receiving the
-`ParallelProblem`, the (copied) template, and an `EnsembleContext`; per-trajectory
-`sim_id`; `output_func` routing; ordinary solver keyword forwarding;
-reproducibility through `seed`; and the required `trajectories` keyword. On
-Julia < 1.12 it asserts the documented `MethodError` instead of skipping.
+`test/core/parallel.jl`:
+
+- Vector-valued sequential trajectories, per-stage success, trajectory context,
+  output routing, first-stage keyword remake/save flags, reproducible seeds,
+  required trajectory count, and real ensemble behavior on both Julia versions.
+
+`test/ad/fixtures.jl`, `suite.jl`, `parallel_suite.jl`, `zygote_rules.jl`:
+
+- Fixtures construct stage one explicitly and carry tolerances/sensitivity options
+  in stage problems. Assertions respect the hard-coded absence of later start saves.
+- The Zygote extension uses the new iterator constructor, first-stage routing,
+  output hooks, terminal-only stopping, and vector-valued solve! cotangents.
+- Rules cover buffer identity/capacity, zero cotangents, failed stages with explicit
+  failure predicates, preallocation, and differentiated sized initialization/output.
+- The existing registered sequential backends and parallel execution-mode matrix
+  remain enabled; unavailable or failing coverage is not removed to obtain a pass.
+
+`test/docs/runtests.jl`:
+
+- Strict `makedocs(checkdocs = :exports)`, doctests, executed Literate tutorial,
+   optimizer success, the exact requested grid, 120 stages, finite/bounded controls, improvement, and
+  repeated objective evaluation.
+- A scalar directional ForwardDiff derivative perturbs every control and
+  propagates duals through all 120 stage constructions, checked against an
+  independent central difference. This replaces only the additional full-control
+  gradient assertion. The optimization settings are unchanged; the discretization
+  was reduced separately with explicit user authorization.
+
+`test/qa/qa.jl` checks extension loading and updates its private-hook allowlist
+without promoting implementation details to public API.
 
 ## Verification results (checked-out sources)
 
-- Core, Julia 1.12.7, `Pkg.test` (also via root `GROUP=CorleoneBase` routing):
-  Sequential 332/332, Parallel 20/20 — pass.
-- Core, Julia 1.10.12, `Pkg.test`: Sequential 332/332, Parallel 6/6 — pass.
-- QA, Julia 1.12.7: 23/23 — pass; Julia 1.10.12: 21/21 — pass.
-- Docs, Julia 1.12.7 and 1.10.12, `CORLEONE_TEST_GROUP=Docs`: 112/112 — pass
-  on both, including `makedocs(checkdocs = :exports)`, doctests, and the
-  executed Literate fishing tutorial.
-- Root integration, Julia 1.12.7: root `GROUP=Core` passes 61 checks (local
-  controls 20, precompile workload 4, layer interface 8, multiple shooting 29);
-  root `GROUP=CorleoneBase` routing passes the 332 sequential + 20 parallel
-  sublibrary Core checks.
-- AD, Julia 1.12.7, full group: 2143/2143 — pass, no skipped cases. All six
-  registered backends pass 344 checks each (ForwardDiff, ReverseDiff, Zygote,
-  Mooncake, MooncakeForward, FiniteDiff) plus 19 Zygote solve!-rule checks.
-  ReverseDiff's previously failing in-place gradient cases (linear and
-  nonlinear, `unprepared` and `prepared`) pass. See Finding 1.
+Latest solved-prefix-copy change: Core passes **595 sequential + 20 parallel**
+on both Julia versions (`/tmp/opencode/cb-core-112-prefix-copy.log`,
+`/tmp/opencode/cb-core-110-prefix-copy.log`). Focused Zygote passes **103/103**:
+routing 6, solve! contracts 88, sized initialization/output 9
+(`/tmp/opencode/cb-zygote-prefix-copy-v2.log`). QA passes **23/23** on 1.12 and
+**21/21** on 1.10; Docs passes **618/618** on both (logs
+`/tmp/opencode/cb-{qa,docs}-{112,110}-prefix-copy.log`). Routed AD on Julia
+1.12.7 completes with **2015 pass / 0 fail / 8 errors**
+(`/tmp/opencode/cb-ad-112-prefix-copy.log`). All eight errors are Mooncake
+reverse's solution keyword typeassert, across four model forms and their
+prepared/unprepared checks. ForwardDiff, ReverseDiff, Zygote, MooncakeForward,
+and FiniteDiff each pass 344 sequential checks; all 103 Zygote rule checks pass
+in this routed run too. Parallel AD is not reached after sequential failures.
+The returned vector excludes unused capacity
+and is distinct from the iterator buffer; replacing a returned slot does not
+replace the iterator slot, but its element objects are shared.
 
-## Finding 1 — ReverseDiff in-place AD regression (functional) — FIXED
+The initial copy-based Zygote probe still errored when a generator captured a
+boxed iterator and read `it.current`: Zygote's conversion of the captured iterator
+tangent traverses its internal unwritten suffix
+(`/tmp/opencode/cb-zygote-prefix-copy.log`). The sized output test now uses its
+original objective, summing the returned vector from `solve` directly; this
+passes with capacity four and three solved stages. Copy-based finalization
+resolves differentiation of the returned solved outputs, not arbitrary capture
+or differentiation of the iterator's entire internal buffer.
 
-Original symptom at HEAD: the canonical AD group aborted at the
-`AutoReverseDiff` backend (264 pass / 4 error), with
+Previous full-buffer finalization change: routed Core passes **532 sequential + 20 parallel**
+on both Julia versions (`/tmp/opencode/cb-core-112-finalize-v2.log`,
+`/tmp/opencode/cb-core-110-finalize-v2.log`). QA passes **23/23** on 1.12 and
+**21/21** on 1.10 (`/tmp/opencode/cb-qa-112-finalize.log`,
+`/tmp/opencode/cb-qa-110-finalize.log`). Docs passes **618/618** on each version,
+including strict rendering and execution (`/tmp/opencode/cb-docs-112-finalize.log`,
+`/tmp/opencode/cb-docs-110-finalize.log`). Earlier passes below predate this
+change. The first new Core run exposed an invalid test assumption: `isassigned`
+is always true for inline/isbits array elements, even in unwritten slots. The
+test now checks suffix assignment status is preserved, and separately checks
+uninitialized reference slots and initialized sentinel preservation. The Zygote
+rule retains capacity and passes through untouched suffix cotangents; its first
+focused rerun exposed missing zero padding for overwritten solved slots, corrected
+before the second rerun. The second focused Zygote run passes routing **6/6**
+and solve! contracts **78/78**, including preserved initialized suffix values
+and gradients, but errors in sized initialization/differentiated output with
+an unwritten reference suffix (`/tmp/opencode/cb-zygote-finalize-v2.log`).
+Although the objective accesses only indices `1:it.current`, ChainRules'
+`ProjectTo(::Vector)` traverses the full returned buffer while constructing
+indexing cotangents, causing `UndefRefError` at the unwritten fourth slot.
+The failing regression remains enabled; capacity is not narrowed to conceal it.
+Changing finalization to return only the solved prefix would require a new
+contract decision (copy/view versus full-buffer identity). No full routed AD
+pass is claimed for the latest source.
 
+- Docs, Julia 1.12.7: **618/618** — pass with the authorized 120-interval grid,
+  including strict exported-documentation checks, doctests, executed Literate,
+  and independent reproduction (43.7 seconds). Objective improves from
+  `7.215911708009439` to `1.3443404368734788`
+  (`/tmp/opencode/cb-docs-112-grid-120.log`).
+- Docs, Julia 1.10.12: **618/618** — pass with the same strict checks and grid
+  (50.0 seconds). Objective improves from `7.215911708009429` to
+  `1.3443404329656423` (`/tmp/opencode/cb-docs-110-grid-120.log`).
+  Old 12,000-interval Docs and auxiliary render processes were terminated before
+  launching these replacements; those interrupted runs are not passes.
+
+- Core, Julia 1.12.7: Sequential **478/478**, Parallel **20/20** — pass after
+  the approved resume fix (`/tmp/opencode/cb-core-112-resume-fixed.log`).
+- Core, Julia 1.10.12: Sequential **478/478**, Parallel **20/20** — pass after
+  the approved resume fix (`/tmp/opencode/cb-core-110-resume-fixed.log`).
+  Before the fix, both versions reproduced 475 pass / 1 error with the new
+  resume regression; before adding it, both passed 473/473 + 20/20.
+- QA, Julia 1.10.12: **21/21** — pass again after the approved resume fix
+  (`/tmp/opencode/cb-qa-110-resume-fixed.log`).
+- QA, Julia 1.12.7: **23/23** — pass again after the approved resume fix
+  (`/tmp/opencode/cb-qa-112-resume-fixed.log`).
+- QA, Julia 1.12.7: 23/23 — pass.
+- QA, Julia 1.10.12: 21/21 — pass.
+- First AD 1.12.7 run: 1932 pass / 9 error. ForwardDiff, ReverseDiff, Zygote,
+  MooncakeForward, and FiniteDiff each pass 344 sequential checks; sized Zygote
+  initialization/output passes 6 checks. The rule fixture lacked an explicit
+  `successful_retcode` import (fixed). Mooncake reverse reports eight typeassert
+  errors, with differing orders of the ODE problem's keyword fields in the
+  expected versus actual CoDual solution type. A rerun removes duplicate
+  first-stage solver options already stored in the fixture's template. The focused
+  default Mooncake probe still reproduces all eight errors; this was not a duplicate
+  keyword problem. The parallel lane was not reached in the completed AD run.
+- The subsequent full AD rerun, Mooncake pass-through diagnostic, Docs on both
+  versions, and auxiliary strict docstring render were stopped after the Core
+  blocker was verified. Neither AD nor Docs is claimed green. No backend is
+  disabled and no default Mooncake configuration is changed to hide the errors.
+- After approval, Docs 1.12 and the auxiliary strict render were relaunched.
+  The completed Mooncake pass-through retry reports 264 pass / **80 failed
+  gradient checks** (no errors), so pass-through is not adopted as a workaround.
+  Default-adjoint keyword canonicalization diagnostics are still in progress.
+- Independent full-horizon directional probe, Julia 1.12.7: ForwardDiff
+  `-2.6526904416678163`, central difference `-2.6526904353563197` — agreement.
+  The derivative took 3.89 seconds including compilation (diagnostic, not a
+  substitute for the Docs group).
+- An earlier 1.12 Docs run started before the manual edits and was interrupted for
+  replacement. After SIGINT it exited with SIGSEGV; `coredumpctl info 159459`
+  confirms Julia's signal handler but does not establish an API-related cause.
+  Its replacement uses the final pages; no result from the interrupted run is
+  counted as a pass or an unmodified-run regression.
+
+## Finding 1 — Stale result/keyword/iterator assumptions — aligned
+
+The prior Core and Zygote code imported a deleted result type/accessor, read
+deleted iterator fields, and called deleted keyword partitioning helpers.
+Those assumptions were replaced rather than restored in the runtime API.
+Zygote now differentiates stage construction and output before storage, returns
+the primal buffer by identity, and restores preallocated input cotangent slots
+without reading uninitialized primal slots. Its forward stopping policy matches
+the custom terminal instead of adding an implicit failure check.
+
+## Finding 2 — Fishing reproduction assumes the old example — aligned
+
+The Docs fixture imported deleted names and passed `nothing` as objective data.
+It expected 24 intervals and endpoints saved at the start of every stage. The
+fixture now follows the closure API, 12,000 intervals, and actual save flags.
+The independent AD assertion is one scalar direction through the full horizon,
+not a second full 12,000-control gradient. Executed tutorial completion is still
+required for a Docs pass.
+
+## Finding 3 — Sized solve! cannot resume after step! — FIXED WITH APPROVAL
+
+Exact failing check: `test/core/sequential.jl:172`, testset
+`Sized solve! resumes the current stage after step!`, at `result = solve!(it)`
+on line 177. Both routed Core groups report 475 pass / 1 error:
+
+```text
+UndefRefError: access to undefined reference
+  getindex
+  isdone at src/abstractsequential.jl:226
+  solve! at src/abstractsequential.jl:248
 ```
-TrackedArrays do not support setindex!
-  in dynamics at test/ad/fixtures.jl:17  (du .= -p[1] .* u)
-```
 
-in the linear/in-place and nonlinear/in-place `unprepared` and `prepared`
-gradient cases. All other backends passed 344 each; upstream `b261940` passed
-344 with ReverseDiff.
+The fixture has capacity four, stops at stage three, and returns reference-valued
+outputs. `init` fills slot one; `step!` fills slot two and sets `it.current = 2`.
+The sized solve! branch (`src/abstractsequential.jl:245–254`) loops with
+`for current in 1:max_steps`, ignoring the iterator's existing current index.
+It solves stage two again into slot two and increments `it.current` to three.
+The next `Base.isdone(it)` reads slot three, which has never been initialized.
+The same workflow works with the unsized branch.
 
-### Cause (established from the failure stack, not assumed)
+Paths attempted:
 
-The failing call was the stage-1 solve inside `init`
-(`src/abstractsequential.jl:166` at HEAD). ReverseDiff traces the loss with
-`x::ReverseDiff.TrackedArray`, so the solve-time keywords `u0 = [x[1]]`,
-`p = [x[2]]` are `Vector{ReverseDiff.TrackedReal}`. The unpushed commits made
-`_split_problem_kwargs` apply `ArrayInterface.aos_to_soa` to every
-problem-field keyword, and ArrayInterface's ReverseDiff extension implements
+- Independent ODE probe with `has_size=true`, `get_size=4`, identity-like
+  reference-valued output, and terminal `i >= 3`:
+  `/tmp/opencode/cb-sized-resume.log` — same undefined-reference error.
+- Owned Core fixture using `KwProblem`/`KwSolution`, no ODE/adaptive solver or AD
+  backend required: routed scratch `Pkg.test` on Julia 1.12.7 and 1.10.12.
+  Logs: `/tmp/opencode/cb-core-112-resume.log` and
+  `/tmp/opencode/cb-core-110-resume.log` — identical failure.
+- Initialization-only sized solves, growing-buffer stepping/resumption, and
+  finalized buffer identity/trimming pass; changing capacity does not fix the
+  mismatch between the loop index and iterator index.
+- Before approval, the runtime loop was left unchanged and no callback workaround
+  concealed the unwritten slot.
 
-```julia
-aos_to_soa(x::AbstractArray{<:ReverseDiff.TrackedReal}) =
-    reshape(reduce(vcat, x), size(x))
-```
+Decision received: the user explicitly approved the narrow runtime correction.
+`for current in 1:max_steps` is changed only to
+`for current in it.current:max_steps`. Callback signatures, outputs, save flags,
+buffer behavior, and the example's executable statements are unchanged. Both
+routed Core groups now pass the resume check and all other Core checks.
 
-(A `(TrackedArray <: AbstractArray{TrackedReal})` input is rebuilt the same
-way). The conversion replaces the state with a `TrackedArray`; the solver then
-derives its derivative buffer from that representation, and the user's
-in-place dynamics `du .= -p[1] .* u` calls `setindex!` on a `TrackedArray`,
-which ReverseDiff forbids. Out-of-place dynamics never write into a buffer, so
-only the in-place form fails; the primal cases use plain arrays and pass.
-`prepare_stage_problem`'s generic remake applied the same conversion to stage
-problems in `step!` (stages 2+). The upstream ODE-only method skipped in-place
-problems and only converted when `aos_to_soa` changed something, which is why
-the baseline passed. The ArrayInterface ReverseDiff extension is the only
-converting `aos_to_soa` method in the resolved environments; ForwardDiff,
-Zygote, Mooncake, and FiniteDiff values pass through the default identity.
+## Finding 4 — Mooncake reverse solution keyword-type mismatch — unresolved
 
-The Zygote solve!-rule errors (19th check of the group) were a second, masked
-regression of the same range: the unpushed commits replaced the untyped
-`prepare_stage_problem(problem) = problem` fallback with a
-`::SciMLBase.AbstractSciMLProblem` method, breaking the Zygote extension's
-traced re-implementation of `step!` for its non-SciML `StageProblem` fixtures.
-The AD group never reached `zygote_rules.jl` before because the ReverseDiff
-backend aborted first; pristine HEAD `367f073` reproduces the same error.
+All four analytic model forms fail both `unprepared` and `prepared` checks in
+`test/ad/suite.jl:79` and `:90`, with `TypeError: in typeassert, expected
+Mooncake.CoDual{...}`. Expected solution problem keywords are ordered
+`abstol, reltol, save_everystep, save_start, save_end, dense, callback`; the returned
+CoDual has a different keyword order. The default focused suite reproduces eight
+errors after removing duplicate first-stage options. Logs:
+`/tmp/opencode/cb-ad-112.log` and `/tmp/opencode/cb-mooncake-focus.log`.
 
-### Fix
+The template-carried options are required by the new API's first-stage remake and
+per-stage flags. A completed pass-through retry avoids the type error but fails
+80 gradient checks (`/tmp/opencode/cb-mooncake-pass-through-retry.log`): for the
+first linear input its first derivative is `0.4721627523371629`, not the analytic
+`0.6049418989274714`, and its third derivative is zero instead of
+`-0.275259727946513`. This path is rejected, not substituted into the test group.
+Canonical keyword order with an explicit empty callback still fails the native
+typeassert when the callback is placed among the ordered keys. Placing the
+callback last avoids that typeassert but still gives the wrong gradients
+(`/tmp/opencode/cb-mooncake-canonical-last.log`). A scratch replay that copies
+the initial buffer and carries a local stage index instead of mutating the
+iterator in the loop matches all four analytic derivatives, with canonical
+keywords (`/tmp/opencode/cb-mooncake-functional-loop.log`). Explicitly unrolled
+`step!` calls also match; a custom finalization rule alone does not repair the
+loop. These are isolation probes, not accepted fixes or suite passes. A replay
+with the original keyword options fails during `init`, before the replay loop,
+with the same solution keyword typeassert
+(`/tmp/opencode/cb-mooncake-functional-native-options.log`). The direct ODE-only
+probe also fails with the solution keyword typeassert
+(`/tmp/opencode/cb-mooncake-direct-ode.jl`,
+`/tmp/opencode/cb-mooncake-direct-ode.log`), without importing CorleoneBase or
+using an iterator. The keyword mismatch thus reproduces independently in the
+installed ODE/Mooncake sensitivity stack. The Mooncake
+extension has not yet been changed, and parallel/default-Mooncake investigation
+remains open.
 
-- `prepare_stage_problem` returns in-place problems unchanged, queried through
-  `SciMLBase.isinplace(problem) === true` (the trait's empty-body fallback
-  returns `nothing`, so unimplemented traits are treated as out-of-place), and
-  the untyped fallback `prepare_stage_problem(problem) = problem` is restored.
-- `split_problem_kwargs` only routes keywords by field names; `init` remakes
-  the first stage with the raw routed values and normalizes the result with
-  `prepare_stage_problem(remake(prob; initial_kwargs...))`, the baseline
-  composition.
-
-Out-of-place conversion is preserved: a `Vector{TrackedReal}` state is still
-normalized to a `TrackedArray` before solving (verified directly), which is
-what keeps ReverseDiff's tracked states and broadcast derivatives in one array
-representation.
-
-## Finding 2 — `prepare_stage_problem` always remakes (repeatable allocation) — FIXED
-
-The new `_prepare_problem` remade every problem even when `aos_to_soa` changed
-nothing. `@benchmark CorleoneBase.prepare_stage_problem(template)` on an
-out-of-place `ODEProblem` whose fields need no conversion, three fresh
-processes each, warmed, matched envs:
-
-| Source | min (ns) | memory (B) | allocs |
-| --- | --- | --- | --- |
-| HEAD before fix | 5.6–6.1 | 48 | 1 |
-| fixed (this change) | 1.8–2.0 | 0 | 0 |
-| baseline `b261940` | 1.779 | 0 | 0 |
-
-Fix: `_prepare_problem` applies `aos_to_soa` per field and returns the input
-itself when every converted field is identical (`===`) to the original,
-remaking only when some field changed. Zero allocations every run, matching
-the baseline latency. Unchanged-object reuse is safe here: all fields are
-`===`, so the problem is observationally identical, and the docstring and
-tests document the contract. Net `solve` allocations did not regress before
-the fix (the type-stability change saved more than this cost; see Finding 4).
-
-## Finding 3 — Parallel API is unsupported on Julia 1.10/1.11
-
-Unchanged and out of scope. `abstractparallel.jl` binds the ensemble hook with
-`Base.Fix1(prob_func, problem)`; SciMLBase calls that hook with two arguments
-(`prob, ctx`). `Base.Fix1` only forwards multiple remaining arguments on
-Julia >= 1.12, so on the declared minimum:
-
-```
-MethodError: no method matching (::Base.Fix1{typeof(CorleoneBase.prob_func), …})(::SequentialProblem, ::EnsembleContext)
-Closest candidates are: (::Base.Fix1)(::Any)
-```
-
-The parallel Core lane asserts this `MethodError` on Julia < 1.12, so the
-declared 1.10 minimum stays green while the limitation is visible. The parallel
-workflow itself is exercised only on Julia >= 1.12. Not fixed here.
-
-## Finding 4 — Type inference (improved, no new instabilities)
-
-`Base.return_types` on function barriers plus `Test.@inferred`, matched envs.
-Re-run after the Findings 1–2 fix; all rows concrete and `@inferred`-passing:
-
-| Path | fixed HEAD | baseline `b261940` |
-| --- | --- | --- |
-| `init(seq3, Tsit5; kwargs)` | concrete, `@inferred` OK | non-concrete `where {…}`, `@inferred` FAIL |
-| `solve(seq1, Tsit5; kwargs)` | concrete, `@inferred` OK | non-concrete `SolutionWrapper`, `@inferred` FAIL |
-| `solve(seq3, Tsit5; kwargs)` | concrete, `@inferred` OK | non-concrete `SolutionWrapper`, `@inferred` FAIL |
-| `prepare_stage_problem(ode)` | concrete, `@inferred` OK | concrete, `@inferred` OK |
-| `split_problem_kwargs(ode, nt)` (new) | concrete, `@inferred` OK | n/a |
-| `_prepare_problem(ode)` (new) | concrete, `@inferred` OK | n/a |
-| parallel `solve(par, Tsit5, EnsembleSerial; trajectories)` (new) | concrete, `@inferred` OK | n/a |
-
-Warmed runtime (allocation) comparison over three fresh processes, `min`
-(median) µs and allocation count — unchanged by this fix and no regression on
-the solve/init paths:
-
-| Path | fixed HEAD | baseline |
-| --- | --- | --- |
-| `solve(seq1, …)` | 56.6–60.0 (64.3–67.6) µs, 9809 allocs | 59.6–61.8 (67.6–70.6) µs, 9837 allocs |
-| `solve(seq3, …)` | 122.5–123.8 (130.0–133.4) µs, 19167 allocs | 124.2–130.2 (131.5–139.3) µs, 19188 allocs |
-| `init(seq3, …)` | 61.0–62.9 (65.4–66.1) µs, 9810 allocs | 62.3–66.2 (67.7–70.8) µs, 9831 allocs |
-
-The solve/init differences are small, consistently in HEAD's favor, and
-consistent with the type-stability commit; they are reported as no regression
-rather than as a speedup claim.
-
-## New APIs without a comparable baseline
-
-`ParallelProblem` and its `solve`, `AbstractParallelProblem`, `prob_func`,
-`split_problem_kwargs`, `_split_problem_kwargs`, and
-`_prepare_problem` do not exist at `b261940`, so no head-vs-baseline runtime or
-allocation comparison applies. Their inference is assessed above; only the
-`parallel_solve` path is measured for correctness, not compared for performance.
+The auxiliary render with Literate `execute=false` is not execution-free:
+Documenter evaluates the generated `@example` blocks. Flushed debug logging
+shows it reaches the unchanged 12,000-control Ipopt optimization
+(`/tmp/opencode/cb-docs-phases.log`). The earlier silent auxiliary runs therefore
+do not establish a hang during package loading or docstring rendering.
 
 ## Coverage limitations
 
-- Parallel behavior is verified only on Julia >= 1.12; on < 1.12 only the
-  documented `MethodError` is asserted (Finding 3).
-- Performance is measured on a shared workstation with BenchmarkTools' warmup
-  and sampling; contention was minimised but not eliminated, so min-of-samples
-  is used and only repeatable, code-explained differences are called findings.
-- Inference is assessed on representative concrete call sites; this is not a
-  claim that every possible usage is type-stable.
-- Compiled ReverseDiff tapes are outside the AD suite's scope (unchanged).
+- No performance improvement is claimed from the documentation/test changes.
+- Compiled ReverseDiff tapes remain outside the existing AD suite's scope.
+- Historical test reports elsewhere in the tree are not current-range evidence.
+- The example's obsolete introductory interval and callback descriptions are
+  corrected in comments only; its executable statements remain unchanged.
 
 ## Reproducible commands
 
-Core (1.12 / 1.10), QA, Docs via `CORLEONE_TEST_GROUP`:
+Run from the repository root. Primary Julia Core, AD, QA, Docs:
 
 ```sh
-CORLEONE_TEST_GROUP=Core JULIA_PKG_PRECOMPILE_AUTO=0 julia --startup-file=no -e 'using Pkg; Pkg.activate(mktempdir("/tmp/opencode")); Pkg.develop(path=abspath("lib/CorleoneBase")); Pkg.test("CorleoneBase"; julia_args=["--startup-file=no"])'
+CORLEONE_TEST_GROUP=Core JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.12 --startup-file=no -e 'using Pkg; Pkg.activate(mktempdir("/tmp/opencode")); Pkg.develop(path=abspath("lib/CorleoneBase")); Pkg.test("CorleoneBase"; julia_args=["--startup-file=no"])'
 ```
 
-Full AD group (all registered backends):
+Replace `Core` with `AD`, `QA`, or `Docs` for the other routed groups. Minimum
+Julia Core, QA, Docs:
 
 ```sh
-CORLEONE_TEST_GROUP=AD JULIA_PKG_PRECOMPILE_AUTO=0 julia --startup-file=no -e 'using Pkg; Pkg.activate(mktempdir("/tmp/opencode")); Pkg.develop(path=abspath("lib/CorleoneBase")); Pkg.test("CorleoneBase"; julia_args=["--startup-file=no"])'
+CORLEONE_TEST_GROUP=Core JULIA_PKG_PRECOMPILE_AUTO=0 julia +1.10 --startup-file=no -e 'using Pkg; Pkg.activate(mktempdir("/tmp/opencode")); Pkg.develop(path=abspath("lib/CorleoneBase")); Pkg.test("CorleoneBase"; julia_args=["--startup-file=no"])'
 ```
 
-Focused ReverseDiff comparison: recreate the comparison checkouts with
+Replace `Core` with `QA` or `Docs`. Logs are in `/tmp/opencode/cb-*.log`.
+Auxiliary docstring-render and directional-derivative probes are diagnostics only,
+not group passes. Regenerate the tracked tutorial with Literate:
 
 ```sh
-git worktree add --detach /tmp/opencode/cb-baseline b2619406a3cf45f871cfb9945e2f882beb4a106b
-git worktree add --detach /tmp/opencode/cb-head-pristine 367f073f4493fa4f93ff65f61393655fb8de90a8
+julia +1.12 --startup-file=no --project=lib/CorleoneBase/test/docs -e 'using Literate; Literate.markdown("lib/CorleoneBase/examples/lotka_fishing/main.jl", "docs/src/examples"; name="manual_single_shooting_with_corleonebase", execute=false, edit_commit="main", flavor=Literate.DocumenterFlavor())'
 ```
 
-then `Pkg.develop` each `lib/CorleoneBase` checkout into an AD environment and run
-
-```sh
-julia --startup-file=no --project=/tmp/opencode/cb-ad /tmp/opencode/ad_reversediff.jl
-```
-
-(`test_sequential_ad(AutoReverseDiff(); solve_kwargs = (; sensealg =
-SciMLSensitivity.SensitivityADPassThrough()))` against the checked-out
-sources.) Inference and performance scripts and raw logs:
-`/tmp/opencode/inference.jl`, `/tmp/opencode/inference_fixed.txt`,
-`/tmp/opencode/bench.jl`, per-run `RESULT` lines quoted above.
+The routed Docs group separately requires `execute=true` and the unmodified source.
