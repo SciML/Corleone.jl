@@ -45,7 +45,7 @@ function preprocess_script(content)
 end
 
 
-function make_tutorial(path)
+function make_tutorial(path; flavor = Literate.CommonMarkFlavor())
     isfile(path) || return nothing
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
@@ -56,7 +56,9 @@ function make_tutorial(path)
         path, outpath,
         execute = true,
         preprocess = preprocess_script,
-        flavor = Literate.CommonMarkFlavor(),
+        flavor = flavor,
+        # origin/HEAD is main; avoid a network lookup for every tutorial.
+        edit_commit = "main",
         name = fname
     )
     metadata["link"] = joinpath(".", "examples", fname)
@@ -75,6 +77,14 @@ tutorials = map(
 ) do tutorial
     make_tutorial(tutorial)
 end
+
+push!(
+    tutorials,
+    make_tutorial(
+        joinpath(@__DIR__, "..", "lib", "CorleoneBase", "examples", "lotka_fishing", "main.jl");
+        flavor = Literate.DocumenterFlavor()
+    )
+)
 
 function generate_searchable_index(tutorials)
     data = filter(!isnothing, tutorials)
