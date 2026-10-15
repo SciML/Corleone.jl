@@ -28,7 +28,11 @@ time points are obtained by applying the layer's `observed` map to the trajector
 The layer only treats the *tunable* parameters of the wrapped shooting layers as degrees of
 freedom. In particular, fixing individual parameters (e.g. via `bounds_p` with equal lower
 and upper bounds on the wrapped layer) is respected, so a subset of the model parameters can
-be kept at known values while the rest are estimated. Tunable initial conditions
+be kept at known values while the rest are estimated. To estimate only a *chosen subset* of
+the model parameters (and keep every other parameter fixed at its value in `prob.p`), pass
+the `params` keyword to the convenience constructors
+`ParameterEstimationLayer(prob, alg, data; params = ...)`; `params` is forwarded to the
+underlying `SingleShootingLayer`/`MultipleShootingLayer`. Tunable initial conditions
 (`tunable_ic`) are shared between all experiments: the tunable entries of the state vector
 are fitted jointly while the remaining entries stay at each experiment's prescribed initial
 conditions.
