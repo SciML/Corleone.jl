@@ -93,6 +93,91 @@ struct CorleoneParameterEstimationProblem{L, P, S, St, X, B, R, R2, TR, RG}
     reg::RG
 end
 
+# Resolve the names of the tunable (selected) model parameters of `problem`'s first
+# shooting layer, for display. Returns `nothing` when the names cannot be recovered (e.g.
+# no symbol cache), in which case `show` falls back to a plain index list.
+function _tunable_parameter_names(problem::CorleoneParameterEstimationProblem)
+    pe = problem.layer
+    layer = first(get_layer(pe))
+    inner = layer isa Corleone.MultipleShootingLayer ? layer.layer : layer
+    cache = try
+        Corleone.retrieve_symbol_cache(inner.problem, inner.control_indices)
+    catch
+        return nothing
+    end
+    names = SymbolicIndexingInterface.parameter_symbols(cache)
+    # Raw index of the k-th non-control parameter of `prob.p` (canonical order).
+    pvec, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), inner.problem.p)
+    nonidx = sort!(Int.(setdiff(eachindex(pvec), inner.control_indices)))
+    return [String(names[findfirst(==(ri), nonidx)]) for ri in inner.tunable_p]
+end
+
+# Engine shorthand used only for display purposes.
+_transform_label(t) = string(nameof(typeof(t)))
+
+function Base.show(io::IO, problem::CorleoneParameterEstimationProblem)
+    type_color, no_color = SciMLBase.get_colorizers(io)
+    pe = problem.layer
+    n_exp = n_experiments(get_data(pe))
+    shared = _shared_block(first(get_layer(pe)), problem.ps0)
+    nu = length(shared.u0)
+    np = length(shared.p)
+
+    print(io, type_color, "CorleoneParameterEstimationProblem", no_color,
+        _is_multiple_shooting(pe) ? " (multiple shooting, " : " (",
+        type_color, n_exp, no_color, n_exp == 1 ? " experiment)" : " experiments)")
+    print(io, no_color, " with ", type_color, length(problem.x0), no_color,
+        " optimization variable(s)\n")
+
+    # Fitted parameters, by name when resolvable, otherwise by count and index.
+    names = _tunable_parameter_names(problem)
+    print(io, no_color, "  fitted parameters (", type_color, np, no_color, "): ")
+    if isnothing(names)
+        print(io, join(_raw_param_indices(problem), ", "))
+    else
+        print(io, join(names, ", "))
+    end
+    nu > 0 && print(io, no_color,
+        "\n  tunable initial conditions (", type_color, nu, no_color, ")")
+
+    # Residual composition: observations + shooting continuity + regularization.
+    n_obs = problem.n_residuals - problem.n_shooting_constraints - problem.n_regularization_residuals
+    print(io, no_color, "\n  residuals: ", type_color, n_obs, no_color, " observation(s)")
+    if problem.n_shooting_constraints > 0
+        print(io, no_color, " + ", type_color, problem.n_shooting_constraints, no_color,
+            " shooting constraint(s)")
+    end
+    if problem.n_regularization_residuals > 0
+        print(io, no_color, " + ", type_color, problem.n_regularization_residuals, no_color,
+            " regularization residual(s)")
+    end
+    print(io, no_color, " = ", type_color, problem.n_residuals, no_color)
+
+    # Transforms / regularization / shooting scale (only when non-trivial).
+    has_t = any(t -> !(t isa Identity), problem.transforms)
+    if has_t || !isnothing(problem.reg)
+        print(io, no_color, "\n  ")
+        if has_t
+            print(io, "parameter transforms: ", join(_transform_label.(problem.transforms), ", "))
+        end
+        if !isnothing(problem.reg)
+            has_t && print(io, "; ")
+            print(io, nameof(typeof(problem.reg)), " regularization")
+        end
+    end
+    problem.shooting_scale != 1.0 && print(io, no_color,
+        "\n  shooting_scale: ", problem.shooting_scale)
+    return nothing
+end
+
+# Raw indices (into the canonical `prob.p` vector) of the tunable model parameters, for
+# the `show` fallback when names cannot be resolved. Returns the layers' `tunable_p`.
+function _raw_param_indices(problem::CorleoneParameterEstimationProblem)
+    layer = first(get_layer(problem.layer))
+    inner = layer isa Corleone.MultipleShootingLayer ? layer.layer : layer
+    return inner.tunable_p
+end
+
 # --------------------------------------------------------------------------------------
 # Optimization-variable layout
 # --------------------------------------------------------------------------------------
