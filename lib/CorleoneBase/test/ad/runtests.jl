@@ -15,6 +15,12 @@ using Zygote
 # CorleoneBase and Mooncake are loaded.
 @test Base.get_extension(CorleoneBase, :CorleoneBaseMooncakeExtension) !== nothing
 
+# Same-process multi-form regression: several distinct sequential replay rules
+# must build and run in one process (the pinned-stack LLVM codegen crash this
+# guards against only appeared when a second distinct replay rule was derived).
+# It also pins @inferred type stability at the extension's replay call sites.
+include("mooncake_replay.jl")
+
 include("suite.jl")
 using .SequentialADTests: test_sequential_ad
 

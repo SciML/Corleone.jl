@@ -11,8 +11,7 @@ import CorleoneBase: AbstractSequentialProblem, make_buffer, transition, output,
 import CorleoneBase: AbstractParallelProblem
 # Shared EnsembleProblem/keyword helpers defined by the parent package; they are
 # implementation detail shared with the extensions, not public API.
-import CorleoneBase: ENSEMBLE_KEYS, ensemble_problem, select_keys,
-    split_sequence_kwargs
+import CorleoneBase: split_sequence_kwargs, get_problem, prob_func
 
 # The parallel ensemble fans out across a SciML EnsembleProblem and, under
 # EnsembleThreads or EnsembleDistributed, across threads or worker processes.
@@ -25,18 +24,98 @@ import CorleoneBase: ENSEMBLE_KEYS, ensemble_problem, select_keys,
 # on threads/workers (so execution-location probes hold), ensemble solutions do
 # not depend on the mode, and the adjoint recomputes every trajectory's true
 # trajectory-specific gradient without racing or serializing a Zygote tape.
+#
+# The differentiated replay must not go through SciMLBase's native ensemble
+# adjoint (SciMLBaseZygoteExt's solve_batch pullback) -- that path assumes each
+# trajectory solve returns a single state array, so a wrapped SequentialProblem
+# trajectory (a Vector of per-stage solutions) breaks the cotangent broadcast
+# ("array could not be broadcast to match destination"). It also must not build
+# the SAME EnsembleSolution struct that Zygote then indexes: Zygote's
+# getproperty-based struct adjoint errors on the wrapped Vector-of-solutions
+# aggregation. Instead the replay returns the plain per-trajectory Vector
+# (which Zygote aggregates correctly) and the rrule translates the ensemble
+# solution's cotangent into that Vector cotangent before replaying.
 function parallel_ensemble_serial_solve(problem, algorithm, kwargs)
     # kwargs is the full NamedTuple forwarded to CommonSolve.solve: split into
-    # EnsembleProblem options, the required trajectories count, and solver kwargs.
-    ensemble_kwargs = select_keys(kwargs, ENSEMBLE_KEYS)
-    solve_kwargs = Base.structdiff(kwargs, ensemble_kwargs)
-    trajectories = solve_kwargs.trajectories
-    solver_kwargs = Base.structdiff(solve_kwargs, (; trajectories = nothing))
-    replay_problem = ensemble_problem(problem; ensemble_kwargs...)
-    return SciMLBase.solve(
-        replay_problem, algorithm, SciMLBase.EnsembleSerial();
-        trajectories = trajectories, solver_kwargs...
+    # the required trajectories count and the solver kwargs. `_solver_kwargs`
+    # reconstructs the solver kwargs as a *concrete* NamedTuple type and
+    # `_solve_trajectory` re-emits each solver keyword individually in codegen,
+    # so each per-trajectory solve stays type-stable (@inferred-clean, no
+    # abstract-NamedTuple widening from Base.structdiff/select_keys).
+    # CommonSolve.solve is itself a @generated kwcall: a runtime keyword list
+    # defeats its output-type inference, which is precisely the instability this
+    # construction removes. The results must be collected non-mutatingly so the
+    # replay remains differentiable under Zygote (an elementwise setindex! loop
+    # would trip Zygote's mutating-array check). Ensemble keys are not present
+    # here: they configure the EnsembleProblem only and never reach the
+    # per-trajectory solve.
+    solver_kwargs = _solver_kwargs(kwargs)
+    trajectories = kwargs.trajectories
+    template = get_problem(problem)
+    return map(1:trajectories) do i
+        _solve_trajectory(problem, template, algorithm, solver_kwargs, i)
+    end
+end
+
+# Reconstruct the solver-only kwargs (everything except :trajectories) as a
+# concrete NamedTuple type. Base.structdiff cannot be proven concrete at
+# inference (its result structure depends on runtime key sets), so this
+# @generated helper builds the dropped NamedTuple directly from the concrete
+# field names and drives the exact return type.
+@generated function _solver_kwargs(kwargs::K) where {K<:NamedTuple}
+    names = Tuple(filter(n -> n !== :trajectories, fieldnames(K)))
+    reads = Expr(:tuple, (:(kwargs.$n) for n in names)...)
+    return :(NamedTuple{$names}($reads))
+end
+
+# Solve one trajectory problem, re-emitting every solver keyword individually
+# (Expr(:kw, ...)) so the @generated CommonSolve.solve kwcall sees a statically
+# known keyword structure and infers a concrete ODESolution. `i` is the
+# trajectory's ensemble sim_id, matching the real forward's `prob_func` context.
+@generated function _solve_trajectory(problem, template, algorithm, sk::S, i) where {S<:NamedTuple}
+    names = fieldnames(S)
+    kws = [Expr(:kw, n, :(sk.$n)) for n in names]
+    return quote
+        ctx = _trajectory_context(i)
+        trajectory = prob_func(problem, template, ctx)
+        CommonSolve.solve(trajectory, algorithm; $(kws...))
+    end
+end
+
+# Every trajectory context mirrors the ensemble context the real forward feeds
+# `prob_func` (ctx.sim_id == 1:trajectories). Context creation carries no
+# numerical derivative.
+function _trajectory_context(i)
+    return SciMLBase.EnsembleContext(
+        i, 1, 0, nothing,
+        SciMLBase.default_rng_func(
+            SciMLBase.EnsembleContext(i, 1, 0, nothing, nothing, nothing)
+        ), nothing
     )
+end
+
+# Pull the per-trajectory cotangent out of an EnsembleSolution-shaped cotangent.
+# The loss only ever reads `ensemble.u`, so the `u` field carries the whole
+# derivative. Handle AbstractZero, NamedTuple/struct tangents, and `AbstractArray`
+# deltas uniformly via `unthunk`/`getproperty`. A wrapped trajectory's solution
+# is a `Vector` of per-stage solutions, so the ensemble cotangent arrives as a
+# dense `Matrix` keyed by (stage, trajectory); reshape it back into the nested
+# `Vector{Vector{...}}` cotangent that the serial replay's output expects.
+function _u_cotangent(delta)
+    delta = unthunk(delta)
+    delta isa AbstractZero && return delta
+    if delta isa AbstractArray
+        if ndims(delta) == 2
+            # Wrapped trajectory solutions are Vectors of per-stage solutions, so
+            # the ensemble cotangent arrives as a dense Matrix keyed by
+            # (stage, trajectory): delta[k, i] is the cotangent of trajectory
+            # i's k-th stage, i.e. of outputs[i][k]. Reshape it back into the
+            # nested Vector{Vector{...}} cotangent the serial replay expects.
+            return [[delta[k, i] for k in axes(delta, 1)] for i in axes(delta, 2)]
+        end
+        return hasproperty(delta, :u) ? delta.u : ZeroTangent()
+    end
+    return hasproperty(delta, :u) ? delta.u : ZeroTangent()
 end
 
 function ChainRulesCore.rrule(
@@ -53,7 +132,11 @@ function ChainRulesCore.rrule(
         config, parallel_ensemble_serial_solve, problem, algorithm, nt
     )
     function ensemble_pullback(delta)
-        gradients = back(delta)
+        ubar = _u_cotangent(delta)
+        ubar isa AbstractZero && return (
+            NoTangent(), ZeroTangent(), ZeroTangent(), NoTangent(),
+        )
+        gradients = back(ubar)
         gradients === nothing && return (
             NoTangent(), NoTangent(), NoTangent(), NoTangent(),
         )
