@@ -62,7 +62,7 @@ end
 # inference (its result structure depends on runtime key sets), so this
 # @generated helper builds the dropped NamedTuple directly from the concrete
 # field names and drives the exact return type.
-@generated function _solver_kwargs(kwargs::K) where {K<:NamedTuple}
+@generated function _solver_kwargs(kwargs::K) where {K <: NamedTuple}
     names = Tuple(filter(n -> n !== :trajectories, fieldnames(K)))
     reads = Expr(:tuple, (:(kwargs.$n) for n in names)...)
     return :(NamedTuple{$names}($reads))
@@ -72,7 +72,7 @@ end
 # (Expr(:kw, ...)) so the @generated CommonSolve.solve kwcall sees a statically
 # known keyword structure and infers a concrete ODESolution. `i` is the
 # trajectory's ensemble sim_id, matching the real forward's `prob_func` context.
-@generated function _solve_trajectory(problem, template, algorithm, sk::S, i) where {S<:NamedTuple}
+@generated function _solve_trajectory(problem, template, algorithm, sk::S, i) where {S <: NamedTuple}
     names = fieldnames(S)
     kws = [Expr(:kw, n, :(sk.$n)) for n in names]
     return quote

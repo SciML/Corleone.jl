@@ -162,12 +162,14 @@ function replayed_sequential_solve(problem, algorithm, options, forward)
         terminal && break
         next_problem = SciMLBase.remake(
             CorleoneBase.prepare_stage_problem(
-                CorleoneBase.transition(sequence, outputs[stage-1], stage)
+                CorleoneBase.transition(sequence, outputs[stage - 1], stage)
             );
             controls...
         )
-        sol = CommonSolve.solve(next_problem, algorithm;
-            save_start = false, save_end = true)
+        sol = CommonSolve.solve(
+            next_problem, algorithm;
+            save_start = false, save_end = true
+        )
         push!(outputs, CorleoneBase.output(sequence, sol, stage))
         terminal = CorleoneBase.terminal(sequence, outputs[stage], stage)
     end
@@ -176,10 +178,12 @@ end
 
 function Mooncake._is_primitive(
         ::Type{Mooncake.MinimalCtx}, ::Type{<:Mooncake.Mode}, ::Type{S}
-    ) where {S <: Tuple{
-        typeof(Core.kwcall), NamedTuple, typeof(CommonSolve.solve),
-        SciMLBase.AbstractODEProblem, Any,
-    }}
+    ) where {
+        S <: Tuple{
+            typeof(Core.kwcall), NamedTuple, typeof(CommonSolve.solve),
+            SciMLBase.AbstractODEProblem, Any,
+        },
+    }
     return _primitive_ode_solve(S)
 end
 

@@ -9,18 +9,22 @@ using Mooncake, SciMLSensitivity
 import DifferentiationInterface as DI
 
 module MooncakeReplayFixtures
-using CorleoneBase, CommonSolve, SciMLBase, OrdinaryDiffEqTsit5
-include(joinpath(@__DIR__, "fixtures.jl"))
+    using CorleoneBase, CommonSolve, SciMLBase, OrdinaryDiffEqTsit5
+    include(joinpath(@__DIR__, "fixtures.jl"))
 end
 
 @testset "Mooncake replay inference" begin
     ext = Base.get_extension(CorleoneBase, :CorleoneBaseMooncakeExtension)
     for case in MooncakeReplayFixtures.CASES
-        ode = ODEProblem(MooncakeReplayFixtures.dynamics(case), [1.2], (0.0, 1.0), [0.4];
-            MooncakeReplayFixtures.SOLVE_KWARGS...)
-        sequence = SequentialProblem(ode;
+        ode = ODEProblem(
+            MooncakeReplayFixtures.dynamics(case), [1.2], (0.0, 1.0), [0.4];
+            MooncakeReplayFixtures.SOLVE_KWARGS...
+        )
+        sequence = SequentialProblem(
+            ode;
             transition = (seq, sol, i) -> i == 1 ? seq.problem : remake(sol.prob; u0 = sol.u[end]),
-            terminal = (seq, sol, i) -> i >= 3)
+            terminal = (seq, sol, i) -> i >= 3
+        )
         options = (; u0 = [1.2], p = [0.4])
         @inferred CorleoneBase.split_sequence_kwargs(sequence, options)
         @inferred ext.kwargless_problem(ode)
@@ -29,10 +33,12 @@ end
         @test length(replay) == 3
         @inferred ext.replayed_ode_solve(ode, Tsit5(), (;), forward[1])
     end
-    ode = ODEProblem((u, p, t) -> zero(u), [1.2], (0.0, 1.0); abstol = 1e-11)
-    sequence = SequentialProblem(ode;
+    ode = ODEProblem((u, p, t) -> zero(u), [1.2], (0.0, 1.0); abstol = 1.0e-11)
+    sequence = SequentialProblem(
+        ode;
         transition = (seq, sol, i) -> seq.problem,
-        terminal = (seq, sol, i) -> i >= 513)
+        terminal = (seq, sol, i) -> i >= 513
+    )
     forward = CommonSolve.solve(sequence, Tsit5())
     replay = @inferred ext.replayed_sequential_solve(sequence, Tsit5(), (;), forward)
     @test length(replay) == length(forward) == 513
@@ -47,11 +53,11 @@ end
             for x in (MooncakeReplayFixtures.INPUTS..., first(MooncakeReplayFixtures.INPUTS))
                 expected_value, expected_gradient = MooncakeReplayFixtures.reference_value_and_gradient(case, x)
                 value, gradient = DI.value_and_gradient(f, backend, x)
-                @test value ≈ expected_value rtol = 1e-9 atol = 1e-9
-                @test gradient ≈ expected_gradient rtol = 1e-6 atol = 1e-7
+                @test value ≈ expected_value rtol = 1.0e-9 atol = 1.0e-9
+                @test gradient ≈ expected_gradient rtol = 1.0e-6 atol = 1.0e-7
                 value, gradient = DI.value_and_gradient(f, prep, backend, x)
-                @test value ≈ expected_value rtol = 1e-9 atol = 1e-9
-                @test gradient ≈ expected_gradient rtol = 1e-6 atol = 1e-7
+                @test value ≈ expected_value rtol = 1.0e-9 atol = 1.0e-9
+                @test gradient ≈ expected_gradient rtol = 1.0e-6 atol = 1.0e-7
             end
         end
     end
