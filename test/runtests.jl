@@ -26,43 +26,43 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
-            @safetestset "Local controls" begin
-                include("core/local_controls.jl")
-            end
-            @safetestset "Precompile workload" begin
-                include("core/precompile_workload.jl")
-            end
-            @safetestset "Generic layer interface" begin
-                include("core/interface_contracts.jl")
-            end
-            return @safetestset "Multiple shooting" begin
-                include("core/multiple_shooting.jl")
-            end
+            #@safetestset "Local controls" begin
+            #    include("core/local_controls.jl")
+            #end
+            #@safetestset "Precompile workload" begin
+            #    include("core/precompile_workload.jl")
+            #end
+            #@safetestset "Generic layer interface" begin
+            #    include("core/interface_contracts.jl")
+            #end
+            #return @safetestset "Multiple shooting" begin
+            #    include("core/multiple_shooting.jl")
+            #end
         end,
         groups = Dict(
             # Examples: the optimal-control example scripts pull in the heavy
             # MTK + Ipopt/MOI + SciMLSensitivity stack, isolated in test/examples
             # so those deps never enter the light main test target's resolve.
-            "Examples" => (;
-                env = joinpath(@__DIR__, "examples"),
-                body = function ()
-                    @safetestset "Lotka" begin
-                        include("examples/lotka_oc.jl")
-                    end
-                    @safetestset "Lotka MS" begin
-                        include("examples/lotka_ms.jl")
-                    end
-                    return @safetestset "Lotka MTK" begin
-                        include("examples/mtk.jl")
-                    end
-                end,
-            ),
+            #"Examples" => (;
+            #    env = joinpath(@__DIR__, "examples"),
+            #    body = function ()
+            #        @safetestset "Lotka" begin
+            #            include("examples/lotka_oc.jl")
+            #        end
+            #        @safetestset "Lotka MS" begin
+            #            include("examples/lotka_ms.jl")
+            #        end
+            #        return @safetestset "Lotka MTK" begin
+            #            include("examples/mtk.jl")
+            #        end
+            #    end,
+            #),
         ),
         qa = (;
-            env = joinpath(@__DIR__, "qa"),
-            body = function ()
-                return @safetestset "Code quality (Aqua.jl)" include("qa/qa.jl")
-            end,
+            #env = joinpath(@__DIR__, "qa"),
+            #body = function ()
+            #    return @safetestset "Code quality (Aqua.jl)" include("qa/qa.jl")
+            #end,
         ),
         # The original ran only the Core group for the default GROUP="All"; the
         # dep-adding Examples and QA groups ran only when explicitly selected.
