@@ -27,8 +27,10 @@ end
 
 Build a control-aware cache from a symbolic container and selected controls and quadratures.
 """
-function ControlSymbolCache(sys; controls = [], quadratures = [], 
-    bounds = Dict(), kwargs...)
+function ControlSymbolCache(
+        sys; controls = [], quadratures = [],
+        bounds = Dict(), kwargs...
+    )
     control_param_indices = filter!(!isnothing, map(Base.Fix1(parameter_index, sys), controls))
     parameter_indices = setdiff(parameter_symbols(sys), controls)
     var_offset = maximum(variable_symbols(sys); init = 0) do v
@@ -198,7 +200,6 @@ function SymbolicIndexingInterface.is_timeseries_parameter(csys::ControlSymbolCa
     return is_parameter(csys, sym) && is_timeseries_parameter(csys.sys, sym)
 end
 
-bounds(csys::ControlSymbolCache, var) =  get(csys.bounds, var, (-Inf, Inf))
+bounds(csys::ControlSymbolCache, var) = get(csys.bounds, var, (-Inf, Inf))
 upperbounds(csys::ControlSymbolCache, var) = map(last, bounds(csys, var))
 lowerbounds(csys::ControlSymbolCache, var) = map(first, bounds(csys, var))
-
