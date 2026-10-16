@@ -1,10 +1,11 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 version = "1.0.0"
+authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
@@ -26,13 +27,14 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 
 [extensions]
-CorleoneMakieExtension = "Makie"
 CorleoneComponentArraysExtension = ["ComponentArrays"]
+CorleoneMakieExtension = "Makie"
 CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
 ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15"
+ConcreteStructs = "0.2.8"
 Distributed = "1"
 DocStringExtensions = "0.9.3"
 Functors = "0.5"
@@ -41,18 +43,18 @@ LuxCore = "1.4"
 Makie = "0.24"
 ModelingToolkit = "11.22.0"
 OhMyThreads = "0.8"
-PrecompileTools = "1.2.1"
 Optimization = "5"
 OrdinaryDiffEqTsit5 = "2"
 Pkg = "1"
+PrecompileTools = "1.2.1"
 Random = "1"
 RecursiveArrayTools = "4"
 Reexport = "1.2.2"
 SafeTestsets = "0.1"
-StableRNGs = "1"
 SciMLBase = "3"
 SciMLStructures = "1.7"
 SciMLTesting = "2.6"
+StableRNGs = "1"
 SymbolicIndexingInterface = "0.3.43"
 Test = "1"
 julia = "1.10"
