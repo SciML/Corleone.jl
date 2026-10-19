@@ -143,6 +143,8 @@ function (c::PreparedTrajectoryConstraint{F, true})(res, traj) where {F}
     return res
 end
 
+(x::TrajectoryConstraintEvaluator)(res, traj, start::Integer = 0) = _traj_cons_eval!(res, x.constraints, traj, start)
+
 function prepare_trajectory_constraint(f, traj, n)
     if applicable(f, traj)
         c = PreparedTrajectoryConstraint{typeof(f), false}(f, n)
