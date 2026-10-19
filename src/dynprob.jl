@@ -32,8 +32,16 @@ struct TrajectoryConstraint{G, I}
     idx::I
 end
 
+function _path_constraint!(res, traj, getter, idx, start::Integer)
+    vals = getter(traj)
+    @inbounds for (k, i) in enumerate(idx)
+        res[start + k - 1] = vals[i]
+    end
+    return res
+end
+
 (x::TrajectoryConstraint)(traj) = x.getter(traj)[x.idx]
-(x::TrajectoryConstraint)(res, traj) = res .= x.getter(traj)[x.idx]
+(x::TrajectoryConstraint)(res, traj, start::Integer) = _path_constraint!(res, traj, x.getter, x.idx, start)
 Base.length(x::TrajectoryConstraint) = length(x.idx)
 
 struct TrajectoryConstraintEvaluator{C}
@@ -46,16 +54,16 @@ end
     end
 )
 
-(x::TrajectoryConstraintEvaluator)(res::AbstractVector, traj) = begin
-    i = 1
-    next = 0
-    foreach(x.constraints) do con
-        next = (i - 1) + length(con)
-        @views con(res[i:next], traj)
-        i = next + 1
+function _traj_cons_eval!(res, constraints, traj, start::Integer)
+    pos = start
+    for con in constraints
+        _path_constraint!(res, traj, con.getter, con.idx, pos + 1)
+        pos += length(con)
     end
     return res
 end
+
+(x::TrajectoryConstraintEvaluator)(res, traj, start::Integer = 0) = _traj_cons_eval!(res, x.constraints, traj, start)
 
 function CorleoneDynamicOptProblem(
         layer::Union{SingleShootingLayer, MultipleShootingLayer}, loss::Union{Symbol, Expr},
@@ -106,11 +114,11 @@ function CorleoneDynamicOptProblem(
         n_cons = sum(length, conseval.constraints)
         push!(lb, zeros(n_shoot))
         push!(ub, zeros(n_shoot))
-        constraints = let con = conseval, layer = layer, ncon = n_cons
+        constraints = let con = conseval, layer = layer, ncon = n_cons, nsh = n_shoot
             (res, ps, st) -> begin
                 traj, _ = layer(nothing, ps, st)
                 @views con(res[1:ncon], traj) # The constraints
-                @views shooting_constraints!(res[(ncon + 1):end], traj)
+                @views shooting_constraints!(res[(ncon + 1):(ncon + nsh)], traj)
                 return res
             end
         end

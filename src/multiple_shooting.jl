@@ -311,6 +311,22 @@ end
 
 shooting_constraints!(res, traj::Trajectory) = res
 
+"""
+Offset-aware, Buffer/Zygote-safe in-place shooting constraints. Writes the
+matching conditions directly into `res` at the given starting index (1-based)
+without slicing `res` into a view.
+"""
+function shooting_constraints!(res, traj::Trajectory{S, U, P, T, SH}, start::Integer) where {S, U, P, T, SH <: NamedTuple}
+    pos = start
+    for kind in (:u0, :p, :controls), key in keys(traj.shooting)
+        for v in traj.shooting[key][kind]
+            res[pos += 1] = v
+        end
+    end
+    return res
+end
+shooting_constraints!(res, traj::Trajectory, start::Integer) = res
+
 shooting_constraints(trajs::AbstractVector{<:Trajectory}) = reduce(vcat, reduce(vcat, shooting_violations.(trajs)))
 
 function shooting_constraints!(res::AbstractVector, trajs::AbstractVector{<:Trajectory})
