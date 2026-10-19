@@ -183,7 +183,9 @@ duration_constraint = (ps -> [ps.layer_1.p[1] + ps.layer_3.p[1] - t_p]) =>
 optprob = OptimizationProblem(
     chain, AutoForwardDiff(), Val(:ComponentArrays);
     loss = :(-x₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
-    constraints = (:x₄ => (t = [1.0], bounds = (c_d_w, Inf)),),
+    constraints = ((:x₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
+                    #(:x₂, 1) => (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
+                    ),
     parameter_constraints = duration_constraint,
 )
 

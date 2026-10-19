@@ -111,6 +111,43 @@ end
 """
 $(SIGNATURES)
 
+Run the whole `Lux.Chain` of shooting layers and `StageTransition`s forward once,
+threading the state through the transitions, and return an immutable tuple of the
+`Trajectory` of every shooting stage in application order (matching the ordering of
+`_collect_shooting_stages`). The trajectory of the final stage is the last element.
+
+This mirrors the forward pass that `layer(nothing, ps, st)` performs, but additionally
+captures the intermediate stage trajectories so that per-stage path constraints can
+be evaluated. The recursion builds the result as an immutable tuple (no in-place array
+mutation) and writes into the caller-provided `res` buffer via `_path_constraint!`,
+so it stays Zygote/Buffer safe exactly like the single-stage path-constraint path.
+"""
+function _forward_collect_stage_trajs(layer, ps, st)
+    names = keys(layer.layers)
+    return _forward_collect_stage_trajs(names, 1, layer, ps, st, nothing, ())
+end
+
+@inline function _forward_collect_stage_trajs(names, i, layer, ps, st, inp, trajs)
+    i > length(names) && return trajs
+    name = names[i]
+    sub = getproperty(layer.layers, name)
+    sub_ps = getproperty(ps, name)
+    sub_st = getproperty(st, name)
+    if sub isa SingleShootingLayer
+        traj, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_trajs(
+            names, i + 1, layer, ps, st, traj, (trajs..., traj)
+        )
+    else
+        # StageTransition: Trajectory -> next initial state
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_trajs(names, i + 1, layer, ps, st, outp, trajs)
+    end
+end
+
+"""
+$(SIGNATURES)
+
 Construct a dynamic optimization problem from a `Lux.Chain` of shooting layers. The
 objective is taken from the **last** shooting stage in the chain, since the
 `StageTransition` layers are expected to carry the accumulated cost of the preceding
@@ -138,6 +175,7 @@ function CorleoneDynamicOptProblem(
     st = LuxCore.initialstates(rng, layer)
     stages = _collect_shooting_stages(layer, st)
     @assert !isempty(stages) "The provided layer does not contain a SingleShootingLayer."
+    n_stages = length(stages)
     _, final_st = last(stages)
     sys = final_st.symcache
     objective = let getter = SymbolicIndexingInterface.getsym(sys, loss), layer = layer
@@ -147,19 +185,29 @@ function CorleoneDynamicOptProblem(
         end
     end
 
-    # Path constraints are imposed on the trajectory of the final stage.
-    tpoints = reduce(vcat, _collect_tspans(final_st.tspans...))
-    path_cons = TrajectoryConstraint[]
+    # Path constraints may target *any* stage. Each constraint key is either a bare
+    # `Symbol`/`Expr` (state, imposed on the trajectory of the final stage, for
+    # backwards compatibility) or a tuple `(expr, k)` pinning it to the `k`-th
+    # shooting stage of the chain. The time points `t` are in the *normalized*
+    # time `[0, 1]` of that stage.
+    path_cons = Tuple{Int, TrajectoryConstraint}[]
     path_lb = Float64[]
     path_ub = Float64[]
-    foreach(constraints) do (expr, specs)
+    foreach(constraints) do (key, specs)
+        expr, k = key isa Tuple ? key : (key, n_stages)
         @assert isa(expr, Symbol) || isa(expr, Expr) "The constraint $(expr) is neither a symbol nor an expression!"
-        tidx = findall(∈(specs.t), tpoints)
+        @assert 1 <= k <= n_stages "Stage index $(k) out of range (chain has $(n_stages) shooting stages)."
+        stage_st = stages[k][2]
+        tk = reduce(vcat, _collect_tspans(stage_st.tspans...))
+        tidx = findall(∈(specs.t), tk)
         if !isempty(tidx)
             push!(
                 path_cons,
-                TrajectoryConstraint(
-                    SymbolicIndexingInterface.getsym(sys, expr), tidx
+                (
+                    k,
+                    TrajectoryConstraint(
+                        SymbolicIndexingInterface.getsym(stage_st.symcache, expr), tidx
+                    ),
                 ),
             )
             lb_, ub_ = extrema(specs.bounds)
@@ -167,7 +215,6 @@ function CorleoneDynamicOptProblem(
             append!(path_ub, fill(ub_, length(tidx)))
         end
     end
-    conseval = TrajectoryConstraintEvaluator(Tuple(path_cons))
     n_path = length(path_lb)
 
     # Shooting constraints are contributed by the individual shooting layers.
@@ -187,11 +234,24 @@ function CorleoneDynamicOptProblem(
     n_param = length(param_lb)
 
     if n_path + n_shoot + n_param > 0
-        constraints = let conseval = conseval, layer = layer, n_path = n_path,
-                          n_shoot = n_shoot, param_fun = param_fun, n_param = n_param
+        constraints = let path_cons = tuple(path_cons...), layer = layer, n_path = n_path,
+                          n_shoot = n_shoot, param_fun = param_fun, n_param = n_param,
+                          n_path_cons = length(path_cons)
             (res, ps, st) -> begin
-                traj, _ = layer(nothing, ps, st)
-                conseval(res, traj, 0) # Path constraints (written directly, no views)
+                # Run the whole chain forward once, threading the state through the
+                # `StageTransition` layers, and capture the trajectory of every
+                # shooting stage so per-stage path constraints can be evaluated.
+                stage_trajs = _forward_collect_stage_trajs(layer, ps, st)
+                # Path-constraint values are written into `res` starting at index 1
+                # (the Zygote/Buffer-safe in-place convention used by
+                # `_path_constraint!`; `pos` tracks 1 + cumulative count).
+                pos = 1
+                @inbounds for i in 1:n_path_cons
+                    k, con = path_cons[i]
+                    _path_constraint!(res, stage_trajs[k], con.getter, con.idx, pos)
+                    pos += length(con) # length(con) == length(con.idx)
+                end
+                traj = stage_trajs[n_stages]
                 if n_shoot > 0
                     # Shooting constraints watch the full `res` at an offset so the
                     # writes stay Buffer/Zygote-safe (no `@views` slicing).
