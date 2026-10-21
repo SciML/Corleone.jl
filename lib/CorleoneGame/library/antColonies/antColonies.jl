@@ -25,7 +25,7 @@ module AntColonies
         store_loss::Float64 = 0.1
         brood_cost::Float64 = 0.8
         x0::Vector{Float64} = vcat(3.0, 3.0, ones(N), fill(0.3, N), fill(0.3, N))
-        weights::Matrix{Float64} = [k == 1 ? 0.15 : k == 2 ? 0.15 + 0.15 * (i - 1) / N : 0.7 - 0.15 * (i - 1) / N for i in 1:N,k in 1:3]
+        weights::Matrix{Float64} = [k == 1 ? 0.15 : k == 2 ? 0.15 + 0.15 * (i - 1) / N : 0.7 - 0.15 * (i - 1) / N for i in 1:N, k in 1:3]
         budgets::Vector{Union{Nothing, Float64}} = fill(0.15 * T, N)
         floors::Vector{Union{Nothing, Float64}} = fill(0.1, N)
         initial::Vector{Float64} = fill(0.2, 3N)

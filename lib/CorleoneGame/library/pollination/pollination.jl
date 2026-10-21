@@ -16,7 +16,7 @@ module Pollination
         nectar_rate::Float64 = 1.5
         nectar_loss::Float64 = 0.5
         half::Float64 = 0.3
-        visit::Matrix{Float64} = [(i == mod1(j, plants) ? 0.95 : 0.2) * (1 + 0.15 * (j - 1)) for j in 1:pollinators,i in 1:plants]
+        visit::Matrix{Float64} = [(i == mod1(j, plants) ? 0.95 : 0.2) * (1 + 0.15 * (j - 1)) for j in 1:pollinators, i in 1:plants]
         conversion::Float64 = 1.5
         mortality::Float64 = 0.2
         crowding::Float64 = 0.06
@@ -27,7 +27,7 @@ module Pollination
         )
         weights::Matrix{Float64} = [
             i <= plants ? (isodd(i) ? (0.88, 0.08, 0.04)[k] : (0.65, 0.3, 0.05)[k]) :
-                (isodd(i - plants) ? (0.8, 0.06, 0.14)[k] : (0.5, 0.3, 0.2)[k]) for i in 1:(plants + pollinators),k in 1:3
+                (isodd(i - plants) ? (0.8, 0.06, 0.14)[k] : (0.5, 0.3, 0.2)[k]) for i in 1:(plants + pollinators), k in 1:3
         ]
         budgets::Vector{Union{Nothing, Float64}} = [T * (i <= plants ? (isodd(i) ? 0.12 : 0.04) : (isodd(i - plants) ? 0.18 : 0.08)) for i in 1:(plants + pollinators)]
         floors::Vector{Union{Nothing, Float64}} = [i <= plants ? 0.12 : 0.1 for i in 1:(plants + pollinators)]
@@ -49,7 +49,7 @@ module Pollination
         n = player_number(a)
         q = physical_number(a)
         p = a.plants
-        visits = [a.visit[j, i] * u[p + (j - 1) * p + i] / (1 + sum(u[(p + (j - 1) * p + 1):(p + j * p)])) * x[2p + j] * x[p + i] / (a.half + x[p + i]) for j in 1:a.pollinators,i in 1:p]
+        visits = [a.visit[j, i] * u[p + (j - 1) * p + i] / (1 + sum(u[(p + (j - 1) * p + 1):(p + j * p)])) * x[2p + j] * x[p + i] / (a.half + x[p + i]) for j in 1:a.pollinators, i in 1:p]
         for i in 1:p
             received = sum(visits[:, i])
             dx[i] = x[i] * (a.r * (1 - x[i] / a.K) + a.benefit * received / (a.half + x[i]) - a.nectar_cost * u[i]^2)

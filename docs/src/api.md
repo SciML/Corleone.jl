@@ -17,14 +17,6 @@ Corleone.hybrid_initialization
 Corleone.CorleoneDynamicOptProblem
 ```
 
-## CorleoneBase
-
-See [Sequential problems](@ref corleonebase) for callback conventions, solver
-keywords, stepping, and failure handling, and [manual single shooting](@ref base_fishing)
-for explicit objective and bound construction without shooting layers.
-
-See [CorleoneBase API](@ref base_api).
-
 ### Developer interface
 
 These hooks are the contract used by CorleoneOED and by extensions that add new
@@ -61,4 +53,24 @@ CorleoneOED.ECriterion
 CorleoneOED.FisherACriterion
 CorleoneOED.FisherECriterion
 CorleoneOED.FisherDCriterion
+```
+
+### SymbolicUtils-owned names re-exported via Symbolics
+
+`CorleoneOED` builds its facade with `@reexport using Symbolics`. The following
+names are owned by SymbolicUtils and only reach CorleoneOED because Symbolics
+re-exports them; CorleoneOED does not define them.
+
+- [`SymbolicUtils.Unknown`](@extref)
+- [`SymbolicUtils.shape`](@extref)
+- `scalarize`
+- `unwrap`
+
+## OptimalControlBenchmarks
+
+```@docs
+OptimalControlBenchmarks.load_benchmarks
+OptimalControlBenchmarks.run_all
+OptimalControlBenchmarks.OptimalControlBenchmark
+OptimalControlBenchmarks.BenchmarkGrids
 ```

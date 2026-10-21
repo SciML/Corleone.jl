@@ -21,4 +21,13 @@ jobs:
       julia-version: "lts"
       group-env-name: "CORLEONE_TEST_GROUP"
       group-env-value: "Core"
-      # Every lib/* sublibrary is downgrade-tested (projects auto-discovered).
+      # CorleoneGame requires Julia >= 1.11 (BlockSQP2), so it gets its own job below.
+      exclude: "CorleoneGame"
+  downgrade-corleonegame:
+    uses: "SciML/.github/.github/workflows/sublibrary-downgrade.yml@v1"
+    secrets: "inherit"
+    with:
+      julia-version: "1.11"
+      projects: "lib/CorleoneGame"
+      group-env-name: "CORLEONE_TEST_GROUP"
+      group-env-value: "Core"

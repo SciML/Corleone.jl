@@ -13,7 +13,7 @@ module PlantWater
         seasonality::Float64 = 0.8
         evaporation::Float64 = 0.12
         # Each plant specializes in one layer; deeper layers replenish faster.
-        uptake::Matrix{Float64} = [(k == mod1(i, layers) ? 0.9 : 0.3) * (1 + 0.08 * (i - 1)) for i in 1:N,k in 1:layers]
+        uptake::Matrix{Float64} = [(k == mod1(i, layers) ? 0.9 : 0.3) * (1 + 0.08 * (i - 1)) for i in 1:N, k in 1:layers]
         half::Float64 = 0.4
         root_growth::Float64 = 0.9
         root_loss::Float64 = 0.18
@@ -30,7 +30,7 @@ module PlantWater
         budgets::Vector{Union{Nothing, Float64}} = [1.9 + 0.4 * i for i in 1:N]
         weights::Matrix{Float64} = [
             k == 1 ? 0.85 - 0.15 * (i - 1) / (N - 1) : k == 2 ? 0.06 + 0.08 * (i - 1) / (N - 1) :
-                0.09 + 0.07 * (i - 1) / (N - 1) for i in 1:N,k in 1:3
+                0.09 + 0.07 * (i - 1) / (N - 1) for i in 1:N, k in 1:3
         ]
         #    budgets::Vector{Union{Nothing,Float64}} = [2.4+0.4*i for i in 1:N]
         floors::Vector{Union{Nothing, Float64}} = fill(nothing, layers)

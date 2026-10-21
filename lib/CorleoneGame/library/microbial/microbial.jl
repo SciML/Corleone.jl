@@ -33,7 +33,7 @@ module Microbial
         mumax = mu_max === nothing ? (N == 2 ? [0.55, 0.5] : [0.45 + 0.025 * i for i in 1:N]) : collect(Float64, mu_max)
         # Half-saturation near the substrate level makes growth respond to the feed cycle.
         ks = K_S === nothing ? (N == 2 ? [0.8, 1.0] : [5.0 + 0.7 * i for i in 1:N]) : collect(Float64, K_S)
-        km = K_M === nothing ? (N == 2 ? [0.12 0.12; 0.1 0.1] : [0.06 + 0.004 * mod(i + 2j, 7) for i in 1:N,j in 1:N]) : Matrix{Float64}(K_M)
+        km = K_M === nothing ? (N == 2 ? [0.12 0.12; 0.1 0.1] : [0.06 + 0.004 * mod(i + 2j, 7) for i in 1:N, j in 1:N]) : Matrix{Float64}(K_M)
         cc = c === nothing ? (N == 2 ? [0.35, 0.3] : [0.15 + 0.02 * i for i in 1:N]) : collect(Float64, c)
         aa = alpha === nothing ? (N == 2 ? [0.55, 0.5] : [0.45 + 0.04 * i for i in 1:N]) : collect(Float64, alpha)
         ys = Y_S === nothing ? (N == 2 ? [0.65, 0.6] : [0.5 + 0.015 * i for i in 1:N]) : collect(Float64, Y_S)
@@ -45,7 +45,7 @@ module Microbial
             mu_max === nothing && (mumax = [0.13906911751595225, 0.15349715538425818, 0.1506718399047913, 0.16220497062596426, 0.16480608061340293, 0.1752300865080435, 0.18040941547175168, 0.1903919219621705, 0.19706249108844417, 0.20691312921825342])
             x0 === nothing && (state0 = [0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.22000000000000003, 0.24, 0.26, 0.28, 2.7166722580624003, 0.4602340171668921, 0.610507391814178, 0.7733384874174605, 0.9605044770830007, 1.1595419135663931, 1.3835755359295316, 1.6188845304979416, 1.8797601246365985, 2.151413227537054, 2.449110335935321])
         end
-        ww = weights === nothing ? (N == 2 ? [0.58 0.22 0.05 0.15; 0.62 0.25 0.05 0.08] : [k == 1 ? 0.4 : k == 2 ? 0.01 + 0.02 * (i - 1) / (N - 1) : k == 3 ? 0.08 : 0.51 - 0.02 * (i - 1) / (N - 1) for i in 1:N,k in 1:4]) : Matrix{Float64}(weights)
+        ww = weights === nothing ? (N == 2 ? [0.58 0.22 0.05 0.15; 0.62 0.25 0.05 0.08] : [k == 1 ? 0.4 : k == 2 ? 0.01 + 0.02 * (i - 1) / (N - 1) : k == 3 ? 0.08 : 0.51 - 0.02 * (i - 1) / (N - 1) for i in 1:N, k in 1:4]) : Matrix{Float64}(weights)
         graph = adjacency === nothing ? falses(N, N) : BitMatrix(adjacency)
         # Reciprocal partners for N>2; all pairs still compete for shared substrate.
         if adjacency === nothing

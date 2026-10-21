@@ -1,0 +1,9 @@
+# BlockSQP2 (a hard dependency) requires Julia >= 1.11, so there is no lts (1.10) leg.
+[Core]
+versions = ["1", "pre"]
+
+[Utils]
+versions = ["1", "pre"]
+
+[Library]
+versions = ["1", "pre"]

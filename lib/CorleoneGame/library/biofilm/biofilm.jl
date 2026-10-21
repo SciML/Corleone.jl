@@ -27,7 +27,7 @@ module Biofilm
         )
         weights::Matrix{Float64} = [
             k == 1 ? 0.5 - 0.3 * (i - 1) / (N - 1) : k == 2 ? 0.4 + 0.2 * (i - 1) / (N - 1) :
-                0.1 + 0.1 * (i - 1) / (N - 1) for i in 1:N,k in 1:3
+                0.1 + 0.1 * (i - 1) / (N - 1) for i in 1:N, k in 1:3
         ]
         budgets::Vector{Union{Nothing, Float64}} = [0.2 + 0.4 * i for i in 1:N]
         floors::Vector{Union{Nothing, Float64}} = [0.5, 0.4]
