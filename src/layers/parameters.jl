@@ -36,13 +36,13 @@ $(FIELDS)
 end
 
 
-LuxCore.initialparameters(::Random.AbstractRNG, ::FixedLayer) = (; )
+LuxCore.initialparameters(::Random.AbstractRNG, ::FixedLayer) = (;)
 LuxCore.initialstates(rng::Random.AbstractRNG, x::FixedLayer) = (;
     states = LuxCore.initialstates(rng, x.layer),
-    parameters = LuxCore.initialparameters(rng, x.layer)
+    parameters = LuxCore.initialparameters(rng, x.layer),
 )
 
 function (x::FixedLayer)(val, ps, st::NamedTuple)
     out, new_st = x.layer(val, st.parameters, st.states)
-    out, (; states = new_st, parameters = st.parameters)
+    return out, (; states = new_st, parameters = st.parameters)
 end

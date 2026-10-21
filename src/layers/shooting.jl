@@ -65,7 +65,7 @@ internal_solve(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = d
 
 function mkbuffer(::T, vec::AbstractArray) where {T}
     buffer = similar(vec, T)
-    return is_extension_loaded(Val{:Zygote}()) ? wrapbuffer(buffer) : buffer 
+    return is_extension_loaded(Val{:Zygote}()) ? wrapbuffer(buffer) : buffer
 end
 
 wrapbuffer(x) = Zygote.Buffer(x)
@@ -82,9 +82,9 @@ end
 
 @inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops)
     for i in Base.OneTo(length(tstops) - 1)
-        (u0, res[i+1]), st_ic = x.initialcondition(sols[i], ps.initialcondition, st.initialcondition)
+        (u0, res[i + 1]), st_ic = x.initialcondition(sols[i], ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
-        sols[i + 1] = internal_solve(prob, sols[i], u0, p, (tstops[i], tstops[i+1]))
+        sols[i + 1] = internal_solve(prob, sols[i], u0, p, (tstops[i], tstops[i + 1]))
         st = (; initialcondition = st_ic, parameter = st_p)
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
