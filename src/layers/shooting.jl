@@ -1,0 +1,91 @@
+@concrete terse struct ShootingLayer <: LuxCore.AbstractLuxContainerLayer{(:initialcondition, :parameter)}
+    name
+    problem
+    alg
+    initialcondition
+    parameter
+end
+
+function ShootingLayer(
+        problem::SciMLBase.AbstractSciMLProblem,
+        alg::SciMLBase.AbstractSciMLAlgorithm,
+        definitions...;
+        name = nothing,
+        fixed_parameters = [],
+    )
+    definitions = collect(definitions)
+    ic_defs = findall(Base.Fix2(isa, Pair{<:Number, <:NamedTuple}), definitions)
+    p_defs = setdiff(eachindex(definitions), ic_defs)
+    ics = InitialConditions(problem, definitions[ic_defs]...)
+    params = Parameter(problem, definitions[p_defs]...; fixed = fixed_parameters)
+    return ShootingLayer(name, problem, alg, ics, params)
+end
+
+function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
+    tstops = vcat(
+        get_timestops(layer.initialcondition, ps.initialcondition, st.initialcondition, T),
+        get_timestops(layer.parameter, ps.parameter, st.parameter, T)
+    )
+    sort!(tstops)
+    return unique!(tstops)
+end
+
+(x::ShootingLayer)(::Any, ps, st) = x(x.problem, ps, st)
+
+@inline function (x::ShootingLayer)(prob::SciMLBase.AbstractSciMLProblem, ps, st::NamedTuple)
+    tstops = get_timestops(x, ps, st)
+    return x((prob, tstops), ps, st)
+end
+
+@inline function (x::ShootingLayer)((prob, tstops)::Tuple, ps, st::NamedTuple)
+    return solve_problems(x, prob, ps, st, tstops)
+end
+
+@inline function solve_problems(x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
+    t0, tinf = tstops[1:2]
+    (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
+    p, st_p = x.parameter(t0, ps.parameter, st.parameter)
+    sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true)
+    next_st = (; initialcondition = st_ic, parameter = st_p)
+    residuals = variable_residuals
+    return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end])
+end
+
+get_du0(::Any, ::Any) = nothing
+get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
+
+function internal_solve(prob, sol, u0, p, tspan)
+    du0 = get_du0(prob, sol)
+    return internal_solve(prob, sol.alg, u0, p, tspan, du0)
+end
+
+internal_solve(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = false)
+internal_solve(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = false)
+
+
+function mkbuffer(::T, vec::AbstractArray) where {T}
+    buffer = similar(vec, T)
+    return is_extension_loaded(Val{:Zygote}()) ? wrapbuffer(buffer) : buffer 
+end
+
+wrapbuffer(x) = Zygote.Buffer(x)
+
+unwrapbuffer(x) = x
+
+function buffered_solve(x::ShootingLayer, prob, sol::T, res::R, ps, st, tstops) where {T, R}
+    solbuff = mkbuffer(sol, tstops)
+    solbuff[1] = sol
+    resbuff = mkbuffer(res, tstops)
+    resbuff[1] = res
+    return buffered_solve!(solbuff, x, prob, resbuff, ps, st, tstops)
+end
+
+@inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops)
+    for i in Base.OneTo(length(tstops) - 1)
+        (u0, res[i+1]), st_ic = x.initialcondition(sols[i], ps.initialcondition, st.initialcondition)
+        p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
+        sols[i + 1] = internal_solve(prob, sols[i], u0, p, (tstops[i], tstops[i+1]))
+        st = (; initialcondition = st_ic, parameter = st_p)
+    end
+    return unwrapbuffer(sols), unwrapbuffer(res), st
+end
