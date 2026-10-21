@@ -237,6 +237,7 @@ u1 = reduce(hcat, traj1.u)
 u2 = reduce(hcat, traj2.u)
 u3 = reduce(hcat, traj3.u)
 
+T1 = t1
 t_p1 = T1 .* traj1.t
 t_p2 = T1 .+ T2 .* traj2.t
 t_p3 = T1 .+ T2 .+ T3 .* traj3.t
