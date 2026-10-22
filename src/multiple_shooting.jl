@@ -37,6 +37,14 @@ end
 get_quadrature_indices(layer::MultipleShootingLayer) = get_quadrature_indices(layer.layer)
 
 """
+    get_problem(layer::MultipleShootingLayer)
+
+Return the differential-equation problem integrated by `layer` (the problem of the wrapped
+single-shooting layer).
+"""
+get_problem(layer::MultipleShootingLayer) = get_problem(layer.layer)
+
+"""
 $(FUNCTIONNAME)
 
 Initializes all shooting nodes with their default value, i.e., their initial value in

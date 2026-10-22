@@ -1,0 +1,11 @@
+[Core]
+versions = ["lts", "1", "pre"]
+
+[Extensions]
+versions = ["lts", "1"]
+
+[AD]
+versions = ["lts", "1"]
+
+[QA]
+versions = ["lts", "1"]

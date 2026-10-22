@@ -87,6 +87,14 @@ Constructs a SingleShootingLayer from an `AbstractDEProblem` and a suitable `Abs
     - `controls`: Tuple of `ControlParameter` specifying the controls
     - `tunable_ic`: Vector of indices of `prob.u0` that is tunable, i.e., a degree of freedom
     - `bounds_ic` : Vector of tuples of lower and upper bounds of tunable initial conditions
+    - `params`: Optional collection selecting the parameters of `prob` to treat as
+      **tunable** degrees of freedom. Each entry is either an integer index into the
+      canonicalized tunable parameter vector of `prob.p` (excluding any control slots) or a
+      `Symbol` naming a model parameter (resolved via the problem's symbol cache; any
+      control slot is a known parameter name and is rejected). Parameters not selected here
+      are *fixed* at their value in `prob.p` and are excluded from the layer's optimization
+      parameters. `nothing` (the default) keeps every non-control parameter tunable. This is
+      how a user fits only a *subset* of the model parameters while pinning the rest.
 """
 function SingleShootingLayer(
         prob,
@@ -98,6 +106,7 @@ function SingleShootingLayer(
         bounds_p = nothing,
         parameter_initialization = default_p0,
         quadrature_indices = Int[],
+        params = nothing,
         kwargs...,
     )
     _prob = init_problem(remake(prob; kwargs...), alg)
@@ -106,7 +115,12 @@ function SingleShootingLayer(
     controls = isempty(controls) ? controls : last.(controls)
     u0 = prob.u0
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-    tunable_p = setdiff(eachindex(p_vec), control_indices)
+    tunable_p = sort!(Int.(setdiff(eachindex(p_vec), control_indices)))
+    if !isnothing(params)
+        symcache = any(x -> x isa Symbol, collect(params)) ?
+            retrieve_symbol_cache(prob, control_indices) : nothing
+        tunable_p = _resolve_tunable_p(params, tunable_p, control_indices, symcache)
+    end
     p_vec = p_vec[tunable_p]
     ic_bounds = isnothing(bounds_ic) ? (to_val(u0, -Inf), to_val(u0, Inf)) : bounds_ic
     p_bounds = isnothing(bounds_p) ? (to_val(p_vec, -Inf), to_val(p_vec, Inf)) : bounds_p
@@ -129,6 +143,39 @@ function SingleShootingLayer(
         parameter_initialization,
         quadrature_indices
     )
+end
+
+# Restrict the default tunable-parameter set (every non-control parameter) to the subset
+# chosen by `params`. Integer entries select positions directly into the canonicalized
+# tunable parameter vector of `prob.p`; `Symbol` entries are resolved against the problem's
+# symbol cache (which lists the non-control parameters by name) and mapped back to their
+# raw positions via `pool`. Entries that are control slots or out of range are rejected.
+# `symcache` is `nothing` when `params` contains no symbols.
+function _resolve_tunable_p(params, pool::Vector{Int}, control_indices::Vector{Int}, symcache)
+    sel = Int[]
+    for entry in params
+        idx = if entry isa Integer
+            Int(entry)
+        elseif entry isa Symbol
+            pos = SymbolicIndexingInterface.parameter_index(symcache, entry)
+            isnothing(pos) && throw(ArgumentError(
+                "Unrecognized parameter name `$entry` in `params`; " *
+                "known non-control parameters are $(parameter_symbols(symcache))."))
+            pool[Int(pos)]
+        else
+            throw(ArgumentError(
+                "`params` entries must be integer parameter indices or `Symbol` names; " *
+                "got an entry of type $(typeof(entry))."))
+        end
+        idx in pool || throw(ArgumentError(
+            "`params` must be a subset of the non-control parameter indices $pool " *
+            "(got an entry resolving to $idx; control slots $(control_indices) and " *
+            "out-of-range indices are not allowed)."))
+        push!(sel, idx)
+    end
+    isempty(sel) && throw(ArgumentError(
+        "`params` selected no tunable parameters; provide at least one parameter index or name."))
+    return sort!(unique(sel))
 end
 
 """
@@ -227,9 +274,8 @@ end
 function __parameterlength(
         layer::SingleShootingLayer; tspan = layer.problem.tspan, shooting_layer = false, kwargs...
     )
-    p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), layer.problem.p)
     N = shooting_layer ? prod(size(layer.problem.u0)) - length(layer.quadrature_indices) : size(layer.tunable_ic, 1)
-    N += sum([i ∉ layer.control_indices for i in eachindex(p_vec)])
+    N += length(layer.tunable_p)
     if !isempty(layer.controls)
         N += sum(layer.controls) do control
             control_length(control; tspan, kwargs...)
@@ -302,7 +348,7 @@ function __initialstates(
         shooting_layer = false,
         kwargs...,
     )
-    (; tunable_ic, control_indices, problem, controls, quadrature_indices) = layer
+    (; tunable_ic, control_indices, tunable_p, problem, controls, quadrature_indices) = layer
     (; u0) = problem
 
     initial_condition = if !shooting_layer
@@ -327,22 +373,28 @@ function __initialstates(
     control_indices = control_indices[active_controls]
     controls = controls[active_controls]
 
-    parameter_matrix = zeros(
-        Bool, size(p_vec, 1), size(p_vec, 1) - size(control_indices, 1)
-    )
+    # Parameter matrix maps the *tunable* parameters (the `params` subset, or every
+    # non-control parameter by default) onto their slots in the full parameter vector;
+    # non-tunable, non-control parameters are *fixed* at their value in `prob.p` and enter
+    # as a constant offset (`fixed_params`), so they are not degrees of freedom.
+    parameter_matrix = zeros(Bool, size(p_vec, 1), length(tunable_p))
     control_matrix = zeros(Bool, size(p_vec, 1), size(control_indices, 1))
+    fixed_params = zeros(eltype(p_vec), size(p_vec, 1))
     param_id = 0
     control_id = 0
     for i in eachindex(p_vec)
         if i ∈ control_indices
             control_matrix[i, control_id += 1] = true
-        else
+        elseif i ∈ tunable_p
             parameter_matrix[i, param_id += 1] = true
+        else
+            fixed_params[i] = p_vec[i]
         end
     end
-    parameter_vector = let repack = repack, A = parameter_matrix, B = control_matrix
+    parameter_vector = let repack = repack, A = parameter_matrix, B = control_matrix,
+            f = fixed_params
         function (params, controls)
-            return repack(A * params .+ B * controls)
+            return repack(A * params .+ B * controls .+ f)
         end
     end
 
@@ -352,7 +404,7 @@ function __initialstates(
         tspans = collect_tspans(controls...; tspan, subdivide = 100)
     else
         grid = Int[i for i in control_indices]
-        tspans = (problem.tspan,)
+        tspans = (tspan,)
     end
     shooting_indices = zeros(Bool, size(u0, 1) + length(controls))
     if shooting_layer

@@ -55,6 +55,83 @@ CorleoneOED.FisherECriterion
 CorleoneOED.FisherDCriterion
 ```
 
+## CorleoneParameterEstimation
+
+### Data
+
+```@docs
+CorleoneParameterEstimation.Experiment
+CorleoneParameterEstimation.ExperimentData
+CorleoneParameterEstimation.experiments
+CorleoneParameterEstimation.n_experiments
+CorleoneParameterEstimation.n_observations
+CorleoneParameterEstimation.observation_times
+CorleoneParameterEstimation.observation_times_per_quantity
+CorleoneParameterEstimation.per_quantity
+CorleoneParameterEstimation.initial_conditions
+CorleoneParameterEstimation.controls
+CorleoneParameterEstimation.has_controls
+```
+
+### Parameter-estimation layer and problem
+
+```@docs
+CorleoneParameterEstimation.ParameterEstimationLayer
+CorleoneParameterEstimation.CorleoneParameterEstimationProblem
+CorleoneParameterEstimation.problem
+CorleoneParameterEstimation.residuals!
+CorleoneParameterEstimation.residual
+CorleoneParameterEstimation.model_values
+CorleoneParameterEstimation.n_shooting_constraints
+```
+
+### Parameter transforms
+
+```@docs
+CorleoneParameterEstimation.AbstractParameterTransform
+CorleoneParameterEstimation.Identity
+CorleoneParameterEstimation.Affine
+CorleoneParameterEstimation.Log
+CorleoneParameterEstimation.Logit
+CorleoneParameterEstimation.to_internal
+CorleoneParameterEstimation.from_internal
+CorleoneParameterEstimation.dθ_dφ
+```
+
+### Estimates, uncertainties and diagnostics
+
+```@docs
+CorleoneParameterEstimation.ParameterEstimate
+CorleoneParameterEstimation.ParameterEstimationResult
+CorleoneParameterEstimation.estimate_parameters
+CorleoneParameterEstimation.fitted_parameters
+CorleoneParameterEstimation.covariance
+CorleoneParameterEstimation.standard_errors
+CorleoneParameterEstimation.confidence_interval
+CorleoneParameterEstimation.r_squared
+CorleoneParameterEstimation.adjusted_r_squared
+CorleoneParameterEstimation.correlation
+CorleoneParameterEstimation.condition_number
+```
+
+### Parameter regularization
+
+```@docs
+CorleoneParameterEstimation.AbstractRegularizer
+CorleoneParameterEstimation.L2Regularizer
+CorleoneParameterEstimation.L1Regularizer
+CorleoneParameterEstimation.ElasticNetRegularizer
+CorleoneParameterEstimation.n_regularization_residuals
+```
+
+### Profile likelihood
+
+```@docs
+CorleoneParameterEstimation.profile_likelihood
+CorleoneParameterEstimation.ProfileCurve
+CorleoneParameterEstimation.ProfileLikelihoodEstimate
+CorleoneParameterEstimation.profiles
+```
 ### SymbolicUtils-owned names re-exported via Symbolics
 
 `CorleoneOED` builds its facade with `@reexport using Symbolics`. The following
