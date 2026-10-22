@@ -49,7 +49,9 @@ LuxCore.initialstates(::Random.AbstractRNG, x::InitialCondition) = deepcopy(x.pr
 function (layer::InitialCondition)(default, ps, st)
     (; repack, permutation, tunable_indices) = layer
     vals = vcat(collect(values(ps)), collect(values(st)))
-    return (vals[permutation], [vals[i] - default[i] for i in tunable_indices]) |> repack, st
+    ordered = vals[permutation]
+    residuals = isempty(tunable_indices) ? similar(ordered, 0) : [ordered[i] - default[i] for i in tunable_indices]
+    return (repack(ordered), residuals), st
 end
 
 @concrete terse struct InitialConditions <: LuxCore.AbstractLuxContainerLayer{(:lookup, :initialconditions)}
@@ -100,7 +102,7 @@ function (layer::InitialConditions)((default, t0)::Tuple, ps, st)
     (; lookup, initialconditions) = layer
     (id, _), st_lookup = LuxCore.apply(lookup, t0, ps.lookup, st.lookup)
     istypemax(id) && return (default, similar(default, 0)), (; lookup = st_lookup, initialconditions = st.initialconditions)
-    (newval, shooting), _ = initialconditions[id](nothing, ps.initialconditions[id], st.initialconditions[id])
+    (newval, shooting), _ = initialconditions[id](default, ps.initialconditions[id], st.initialconditions[id])
     return (newval, shooting), (; lookup = st_lookup, initialconditions = st.initialconditions)
 end
 

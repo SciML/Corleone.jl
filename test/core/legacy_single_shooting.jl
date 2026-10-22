@@ -15,6 +15,7 @@ using Test
     @test first(first(sols).t) == 0.0
     @test last(last(sols).t) == 2.0
     @test last(last(sols).u) ≈ [11.0]
+    @test all(isempty, residuals)
 
     # Input order differs from the underlying parameter order. The second
     # control changes before the first; the grids omit the final endpoint.
@@ -51,7 +52,8 @@ end
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test seen == [:ic, :p]
     @test collect(values(only(ps.initialcondition.initialconditions))) == [7.0, 8.0]
-    sols, _, _ = layer(nothing, ps, st)
+    sols, residuals, _ = layer(nothing, ps, st)
+    @test only(residuals) == [6.0, 6.0]
     @test first(first(sols).u) == [7.0, 8.0]
     @test last(last(sols).t) == 0.5
     @test last(last(sols).u) ≈ [7exp(2.5), 8exp(3.0)] rtol = 1.0e-3
@@ -62,7 +64,8 @@ end
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test only(values(only(ps.initialcondition.initialconditions))) == 5.0
-    sols, _, _ = layer(nothing, ps, st)
+    sols, residuals, _ = layer(nothing, ps, st)
+    @test only(residuals) == [3.0]
     @test first(first(sols).u) == [1.0, 5.0]
     @test first(sols).prob.p == [1.0, 2.0]
 
@@ -100,4 +103,30 @@ end
     sols, _, _ = layer(nothing, ps, st)
     @test last(last(sols).u) ≈ [exp(-1)] rtol = 1.0e-3
     @test isempty(ps.parameter.parameters)
+end
+
+
+@testset "Shooting constraints use tunable state indices" begin
+    prob = ODEProblem((u, p, t) -> [1.0, 2.0, 3.0], [10.0, 20.0, 30.0], (0.0, 1.0), Float64[])
+    ic = Corleone.InitialCondition(prob; fixed = [1, 3])
+    ps, st = LuxCore.setup(MersenneTwister(1), ic)
+    (u0, residuals), next_st = ic([100.0, 7.0, 300.0], ps, st)
+    @test u0 == [10.0, 20.0, 30.0]
+    @test residuals == [13.0]
+    @test next_st == st
+
+    # At an interior shooting point, compare only the tunable state with the
+    # previous segment endpoint, using the physical state order after repacking.
+    layer = ShootingLayer(
+        prob, Tsit5(),
+        0.0 => (; fixed = [1, 2, 3]),
+        0.5 => (; variables = (2 => 40.0,), fixed = [1, 3]),
+    )
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    sols, residuals, _ = layer(nothing, ps, st)
+    @test length(sols) == 2
+    @test isempty(first(residuals))
+    @test last(residuals) ≈ [19.0]
+    @test last(first(sols).u) ≈ [10.5, 21.0, 31.5]
+    @test last(last(sols).u) ≈ [10.5, 41.0, 31.5]
 end
