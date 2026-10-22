@@ -89,8 +89,8 @@ const c_d_w = 150.0 # minimum final concentration of D [mol/m^3]
 T1_init = 5.0 * 15.0
 T2_init = 15.0
 
-prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], sensealg=SciMLBase.NoAD())
-prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], sensealg=SciMLBase.NoAD())
+prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], sensealg = SciMLBase.NoAD())
+prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], sensealg = SciMLBase.NoAD())
 
 # Piecewise-constant temperature on P-1 = 5 uniform intervals of the first stage
 # (normalized time). Bounds of the control are the reactor temperature limits.
@@ -140,8 +140,10 @@ end
 # The transition applies the mixing relations: dilution by V1/V2 and addition of B.
 A, B, C, D, E, F, D_amount, V2 = last((stage1(nothing, ps.layer_1, st.layer_1))[1].u)
 expec = let S = ps.layer_2.p[1], V2n = V1 + S
-    [V1 * A / V2n, (V1 * B + S * c_b_s) / V2n, V1 * C / V2n, V1 * D / V2n,
-     V1 * E / V2n, V1 * F / V2n, V1 * D, V2n]
+    [
+        V1 * A / V2n, (V1 * B + S * c_b_s) / V2n, V1 * C / V2n, V1 * D / V2n,
+        V1 * E / V2n, V1 * F / V2n, V1 * D, V2n,
+    ]
 end
 @test switch_at_ts((stage1(nothing, ps.layer_1, st.layer_1))[1], ps.layer_2.p) ≈ expec
 

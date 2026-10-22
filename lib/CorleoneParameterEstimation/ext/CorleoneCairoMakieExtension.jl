@@ -58,7 +58,6 @@ function _fitted_series(pe::ParameterEstimationLayer, traj, k::Int)
 end
 
 
-
 # Resolve the `idxs` argument (integers = observed-quantity indices, or Symbols resolved
 # against the state variable names of `traj`) into a vector of integer quantity indices
 # covering `nq`.
@@ -66,7 +65,8 @@ function _resolve_idxs(idxs, nq::Int, traj)
     isnothing(idxs) && return collect(1:nq)
     all(i -> i isa Integer, idxs) && return collect(Int, idxs)
     isnothing(traj) && error(
-        "Symbolic `idxs` require a trajectory to resolve against (pass integer quantity indices).")
+        "Symbolic `idxs` require a trajectory to resolve against (pass integer quantity indices)."
+    )
     vars = traj.sys.variables
     return [vars[name] for name in idxs]
 end
@@ -133,8 +133,12 @@ function Makie.convert_arguments(
             tx, yx = _data_series(exp, k)
             base = labels isa AbstractVector ? string(labels[k]) : _quantity_label(nothing, nq, k)
             pref = n_exp > 1 ? "exp $i, " : ""
-            push!(specs, PlotSpec(:Scatter, Point2f.(tx, yx);
-                color = Cycled(k), markersize = markersize, label = pref * base))
+            push!(
+                specs, PlotSpec(
+                    :Scatter, Point2f.(tx, yx);
+                    color = Cycled(k), markersize = markersize, label = pref * base
+                )
+            )
         end
     end
     return specs
@@ -174,12 +178,20 @@ function Makie.convert_arguments(
             pref = n_exp > 1 ? "exp $i, " : ""
 
             tfit, yfit = _fitted_series(pe, traj_i, k)
-            push!(specs, PlotSpec(:Lines, Point2f.(tfit, yfit);
-                color = Cycled(k), linewidth = linewidth, label = pref * base * " (fit)"))
+            push!(
+                specs, PlotSpec(
+                    :Lines, Point2f.(tfit, yfit);
+                    color = Cycled(k), linewidth = linewidth, label = pref * base * " (fit)"
+                )
+            )
 
             tx, yx = _data_series(exp, k)
-            push!(specs, PlotSpec(:Scatter, Point2f.(tx, yx);
-                color = Cycled(k), markersize = markersize, label = pref * base * " (data)"))
+            push!(
+                specs, PlotSpec(
+                    :Scatter, Point2f.(tx, yx);
+                    color = Cycled(k), markersize = markersize, label = pref * base * " (data)"
+                )
+            )
         end
     end
     return specs
@@ -207,7 +219,8 @@ end
 Makie.plottype(::ProfileLikelihoodEstimate) = Makie.Lines
 
 # One subplot (axis) for one parameter's profile.
-function _profile_axis(fig::Figure, idx::Tuple{Int,Int}, est::ProfileLikelihoodEstimate,
+function _profile_axis(
+        fig::Figure, idx::Tuple{Int, Int}, est::ProfileLikelihoodEstimate,
         k::Integer; idxcol = 1, linewidth = 2.0, markersize = 4.0, alpha = 0.15,
         threshold_color = :black, threshold_linestyle = :dash,
         asymptotic_linestyle = :dot, axis_label = ("Parameter value", "Residual sum of squares"),
@@ -222,26 +235,36 @@ function _profile_axis(fig::Figure, idx::Tuple{Int,Int}, est::ProfileLikelihoodE
     # filled `band!`s need a resolved RGB(A) and cannot consume a `Cycled` attribute.
     col = Makie.wong_colors()[idxcol]
 
-    lines!(ax, Point2f.(curve.values, curve.rss);
-        color = col, linewidth = linewidth, label = "profile")
-    hlines!(ax, [curve.threshold];
-        color = threshold_color, linestyle = threshold_linestyle, label = "threshold")
+    lines!(
+        ax, Point2f.(curve.values, curve.rss);
+        color = col, linewidth = linewidth, label = "profile"
+    )
+    hlines!(
+        ax, [curve.threshold];
+        color = threshold_color, linestyle = threshold_linestyle, label = "threshold"
+    )
 
     # finite CI endpoints -> shading band + vertical lines
     lo, hi = curve.lower, curve.upper
     if isfinite(lo) && isfinite(hi) && lo != hi
-        band!(ax, [lo, hi], [curve.min_rss, curve.min_rss],
-            [curve.threshold, curve.threshold]; color = (col, alpha))
+        band!(
+            ax, [lo, hi], [curve.min_rss, curve.min_rss],
+            [curve.threshold, curve.threshold]; color = (col, alpha)
+        )
         vlines!(ax, [lo, hi]; color = (col, 0.5), linestyle = :solid)
     end
-    scatter!(ax, [curve.values[argmin(curve.rss)]], [curve.min_rss];
-        color = col, markersize = markersize, label = "optimum")
+    scatter!(
+        ax, [curve.values[argmin(curve.rss)]], [curve.min_rss];
+        color = col, markersize = markersize, label = "optimum"
+    )
 
     # asymptotic CI endpoints for cross-checking (dotted), when finite and nondegenerate
     aci = est.asymptotic_intervals[k]
     if isfinite(aci[1]) && isfinite(aci[2]) && aci[1] != aci[2]
-        vlines!(ax, [aci[1], aci[2]]; color = :gray, linestyle = asymptotic_linestyle,
-            label = "asymptotic CI")
+        vlines!(
+            ax, [aci[1], aci[2]]; color = :gray, linestyle = asymptotic_linestyle,
+            label = "asymptotic CI"
+        )
     end
     return ax
 end
@@ -252,8 +275,10 @@ function Makie.plot(x::ProfileLikelihoodEstimate; kwargs...)
     return plot(Figure(), x; kwargs...)
 end
 
-function Makie.plot(fig::Figure, est::ProfileLikelihoodEstimate; idxs = nothing,
-        fig_title = "Profile likelihood", kwargs...)
+function Makie.plot(
+        fig::Figure, est::ProfileLikelihoodEstimate; idxs = nothing,
+        fig_title = "Profile likelihood", kwargs...
+    )
     p = length(est.profiles)
     ks = _resolve_profile_idxs(idxs, est, p)
     ncol = min(3, length(ks))
@@ -272,8 +297,10 @@ function Makie.plot(fig::Figure, est::ProfileLikelihoodEstimate; idxs = nothing,
     # A single, shared legend below all axes (all profiled parameters use the same set of
     # labeled elements, so the first axis' legend entries describe the whole figure). This
     # keeps the legend out of the subplots, unlike an `axislegend` inside one axis.
-    Legend(fig[nrow + 1, :], first_ax; orientation = :horizontal, framevisible = false,
-        title = "Shared legend")
+    Legend(
+        fig[nrow + 1, :], first_ax; orientation = :horizontal, framevisible = false,
+        title = "Shared legend"
+    )
     resize_to_layout!(fig)
     return fig
 end
@@ -284,7 +311,8 @@ function _resolve_profile_idxs(idxs, est::ProfileLikelihoodEstimate, p::Int)
     all(i -> i isa Integer, idxs) && return collect(Int, idxs)
     names = est.names
     isnothing(names) && error(
-        "Symbolic `idxs` require parameter `names` (pass integer parameter indices).")
+        "Symbolic `idxs` require parameter `names` (pass integer parameter indices)."
+    )
     return [findfirst(==(Symbol(n)), names) for n in idxs]
 end
 

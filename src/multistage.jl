@@ -228,7 +228,7 @@ function CorleoneDynamicOptProblem(
         constraints::Pair{<:Any, <:NamedTuple{(:t, :bounds)}}...;
         rng::Random.AbstractRNG = Random.default_rng(),
         parameter_constraints::Union{
-            Nothing, Pair{<:Function, <:NamedTuple{(:lb, :ub)}}
+            Nothing, Pair{<:Function, <:NamedTuple{(:lb, :ub)}},
         } = nothing,
         kwargs...
     )
@@ -320,8 +320,8 @@ function CorleoneDynamicOptProblem(
 
     if n_path + n_shoot + n_param > 0
         constraints = let path_cons = tuple(path_cons...), layer = layer, n_path = n_path,
-                          n_shoot = n_shoot, param_fun = param_fun, n_param = n_param,
-                          n_path_cons = length(path_cons)
+                n_shoot = n_shoot, param_fun = param_fun, n_param = n_param,
+                n_path_cons = length(path_cons)
             (res, ps, st) -> begin
                 # Run the whole chain forward once, threading the state through the
                 # `StageTransition` layers, and capture the trajectory of every

@@ -76,7 +76,8 @@ obs_fish = (u, p, t) -> u[1:2]                         # both species are measur
 # strategy.
 
 fishing_control = ControlParameter(
-    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid)))
+    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid))
+)
 oed = OEDLayer{false}(
     prob_fish, Tsit5();
     params = [2, 3],
@@ -90,8 +91,10 @@ oed = OEDLayer{false}(
 )
 
 optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
-uopt = solve(optprob, Ipopt.Optimizer(); tol = 1.0e-8,
-    hessian_approximation = "limited-memory", max_iter = 300)
+uopt = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-8,
+    hessian_approximation = "limited-memory", max_iter = 300
+)
 println("OED solve successful: ", SciMLBase.successful_retcode(uopt))
 
 # Read off the designed fishing control and the per-species OED-selected sampling times.
@@ -120,7 +123,8 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
     ps = merge(ps, (p = fish_p_true, controls = cvals))
     sol, _ = lay(nothing, ps, st)
     dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish)
+        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish
+    )
     M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts)
     prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
     predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
@@ -128,8 +132,12 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
 end
 
 prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
-data_control = ExperimentData(Experiment([w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
-    controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)))
+data_control = ExperimentData(
+    Experiment(
+        [w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
+        controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)
+    )
+)
 
 # ## Build the `MultipleShootingLayer`
 #
@@ -163,8 +171,10 @@ println("Total residuals:            ", n_obs + n_shoot)
 # optimizer can stall before it drives the continuity gap at `t = 6` to zero. We solve and
 # *measure* the shooting residual left in the solution.
 
-sol_ms = solve(problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0])), GaussNewton();
-    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500)
+sol_ms = solve(
+    problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0])), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500
+)
 est_ms = estimate_parameters(pe_ms, sol_ms)
 println("MS (default weight):  fitted p = ", round.(est_ms.x; digits = 3), "  true = ", fish_p_true)
 println("MS (default weight):  std errors = ", round.(est_ms.std_errors; digits = 5))
@@ -178,8 +188,10 @@ function shooting_residual(pe, x)
     return r[(n_observations(pe.data) + 1):end]
 end
 tic_ms = shooting_residual(pe_ms, sol_ms.u)
-println("MS (default weight):  shooting residual = ", round.(tic_ms; digits = 4),
-    "  |x| = ", round(norm(tic_ms); digits = 4))
+println(
+    "MS (default weight):  shooting residual = ", round.(tic_ms; digits = 4),
+    "  |x| = ", round(norm(tic_ms); digits = 4)
+)
 
 # The shooting residual left at the optimum is on the **state scale** (a visible discontinuity
 # at `t = 6`), because the shooting constraints are unweighted while the observations are
@@ -198,13 +210,17 @@ traj_default = fitted_parameters(pe_ms, sol_ms).trajectory
 # increase `shooting_scale` and re-solve -- a standard continuation on the constraint weight
 # (here `1000` drives the gap to `~1e-4`, negligible next to the `O(1)` state scale).
 
-sol_ms2 = solve(problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0]), shooting_scale = 1000), GaussNewton();
-    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 1000)
+sol_ms2 = solve(
+    problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0]), shooting_scale = 1000), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 1000
+)
 est_ms2 = estimate_parameters(pe_ms, sol_ms2)
 tic_ms2 = shooting_residual(pe_ms, sol_ms2.u)
 println("MS (scaled x1000):   fitted p = ", round.(est_ms2.x; digits = 3))
-println("MS (scaled x1000):   shooting residual = ", round.(tic_ms2; digits = 6),
-    "  |x| = ", round(norm(tic_ms2); digits = 6))
+println(
+    "MS (scaled x1000):   shooting residual = ", round.(tic_ms2; digits = 6),
+    "  |x| = ", round(norm(tic_ms2); digits = 6)
+)
 
 # Both solves recover the same parameters, but the `shooting_scale = 1000` solve drives the
 # continuity residual to (near) zero, so the reconstructed multiple-shooting trajectory is
@@ -217,5 +233,5 @@ vlines!(ax, [6.0]; color = (:gray, 0.5), label = "shooting point t = 6")
 lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 1); color = (:red, 0.4), linestyle = :dash, label = "default weight (discontinuous)")
 lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 2); color = (:red, 0.4), linestyle = :dash)
 plot!(ax, result_ms)
-axislegend(ax, position = :lt, nbanks=2)
+axislegend(ax, position = :lt, nbanks = 2)
 f

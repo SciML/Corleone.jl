@@ -38,7 +38,7 @@ pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
     loss(x) = 0.5 * sum(abs2, pe_problem.residual_oop(x, nothing))
     g_zygote = Zygote.gradient(loss, pe_problem.x0)[1]
     g_forward = ForwardDiff.gradient(loss, pe_problem.x0)
-    @test g_zygote ≈ g_forward rtol = 1e-6
+    @test g_zygote ≈ g_forward rtol = 1.0e-6
 end
 
 @testset "Optimization extension with AutoZygote" begin
@@ -47,7 +47,7 @@ end
     # Reverse-mode gradient of the scalar objective matches forward mode.
     g_zygote = Zygote.gradient(x -> optprob.f(x, nothing), optprob.u0)[1]
     g_forward = ForwardDiff.gradient(x -> optprob.f(x, nothing), optprob.u0)
-    @test g_zygote ≈ g_forward rtol = 1e-6
+    @test g_zygote ≈ g_forward rtol = 1.0e-6
 
     # A reverse-mode-driven solver recovers the true parameter.
     sol = solve(optprob, LBFGSB())
@@ -66,7 +66,7 @@ end
 
     g_reverse = ReverseDiff.gradient(x -> optprob.f(x, nothing), optprob.u0)
     g_forward = ForwardDiff.gradient(x -> optprob.f(x, nothing), optprob.u0)
-    @test g_reverse ≈ g_forward rtol = 1e-6
+    @test g_reverse ≈ g_forward rtol = 1.0e-6
 
     sol = solve(optprob, LBFGSB())
     @test SciMLBase.successful_retcode(sol)
@@ -89,7 +89,7 @@ end
     loss_ms(x) = 0.5 * sum(abs2, pe_problem_ms.residual_oop(x, nothing))
     g_reverse = ReverseDiff.gradient(loss_ms, pe_problem_ms.x0)
     g_forward = ForwardDiff.gradient(loss_ms, pe_problem_ms.x0)
-    @test g_reverse ≈ g_forward rtol = 1e-6
+    @test g_reverse ≈ g_forward rtol = 1.0e-6
 
     optprob = OptimizationProblem(pe_ms; AD = AutoReverseDiff())
     sol = solve(optprob, LBFGSB())
@@ -114,12 +114,12 @@ end
     g_forward = ForwardDiff.gradient(loss_log, pe_rd_log_problem.x0)
     # The internal `Log` reparameterization scales the gradient by `θ` (and the residuals by
     # `1/σ`), so a slightly looser relative tolerance is used than for the O(1) gradients above.
-    @test g_reverse ≈ g_forward rtol = 1e-5
+    @test g_reverse ≈ g_forward rtol = 1.0e-5
 
     nlls_log = problem(pe; transforms = [Log()])
     @test isnothing(nlls_log.lb) && isnothing(nlls_log.ub)
     sol_log = solve(
-        nlls_log, GaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8
+        nlls_log, GaussNewton(; autodiff = AutoZygote()); abstol = 1.0e-8, reltol = 1.0e-8
     )
     @test SciMLBase.successful_retcode(sol_log)
     # The optimizer works in log space; map back to the natural parameter.
@@ -133,7 +133,7 @@ end
     nlls = problem(pe)
     @test isnothing(nlls.lb) && isnothing(nlls.ub)
 
-    sol = solve(nlls, GaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(nlls, GaussNewton(; autodiff = AutoZygote()); abstol = 1.0e-8, reltol = 1.0e-8)
     @test SciMLBase.successful_retcode(sol)
     @test isapprox(sol.u[1], p_true; atol = 0.05)
 
@@ -147,7 +147,7 @@ end
     @test nlls_b.lb == [0.0] && nlls_b.ub == [2.0]
 
     sol_b = solve(
-        nlls_b, BoundedGaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8
+        nlls_b, BoundedGaussNewton(; autodiff = AutoZygote()); abstol = 1.0e-8, reltol = 1.0e-8
     )
     @test isapprox(sol_b.u[1], p_true; atol = 0.05)
 end

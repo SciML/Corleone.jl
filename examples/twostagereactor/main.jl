@@ -146,14 +146,14 @@ const c_d_w = 150.0 # minimum final concentration of D [mol/m^3]
 T1_init = 5.0 * 15.0
 T2_init = 15.0
 
-prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], abstol=1e-10, sensealg=ForwardDiffSensitivity())
-prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], abstol=1e-10,    sensealg=ForwardDiffSensitivity())
+prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], abstol = 1.0e-10, sensealg = ForwardDiffSensitivity())
+prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], abstol = 1.0e-10, sensealg = ForwardDiffSensitivity())
 
 # The temperature is a piecewise-constant control on ``P - 1 = 5`` uniform intervals of the
 # first stage (normalized time), bounded to the reactor limits ``[298, 398]\,\mathrm{K}``.
 
 P = 20
-grid = collect(range(0.0, 1.0, P+1))[1:end-1]
+grid = collect(range(0.0, 1.0, P + 1))[1:(end - 1)]
 temp = ControlParameter(
     grid, name = :temp, bounds = (298.0, 398.0), controls = fill(350.0, length(grid))
 )
@@ -183,9 +183,10 @@ duration_constraint = (ps -> [ps.layer_1.p[1] + ps.layer_3.p[1] - t_p]) =>
 optprob = OptimizationProblem(
     chain, AutoForwardDiff(), Val(:ComponentArrays);
     loss = :(-x₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
-    constraints = ((:x₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
-                    #(:x₂, 1) => (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
-                    ),
+    constraints = (
+        (:x₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
+        #(:x₂, 1) => (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
+    ),
     parameter_constraints = duration_constraint,
 )
 
@@ -212,13 +213,13 @@ println("c_D(t_P) = ", last((chain(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
 
 # ### Simulating and plotting
 
-# The trajectories are sparsely sampled for efficiency. However, this is not useful for plotting. 
+# The trajectories are sparsely sampled for efficiency. However, this is not useful for plotting.
 # We remake the layers with more densely sampled trajectories.
 
 stage1 = SingleShootingLayer(
-    remake(prob1, saveat=.001), Tsit5(); controls = (2 => temp,), bounds_p = ([10.0], [170.0])
+    remake(prob1, saveat = 0.001), Tsit5(); controls = (2 => temp,), bounds_p = ([10.0], [170.0])
 )
-stage2 = SingleShootingLayer(remake(prob2, saveat=.001), Tsit5(); bounds_p = ([10.0], [170.0]))
+stage2 = SingleShootingLayer(remake(prob2, saveat = 0.001), Tsit5(); bounds_p = ([10.0], [170.0]))
 
 chain = Chain(stage1, transition, stage2)
 traj, _ = chain(nothing, ps_opt, st)
@@ -237,34 +238,40 @@ temperature = traj_stage1[:temp]
 function plot_reactor(u1, t1p, u2, t2p, temperature)
     f = Figure(size = (1000, 750))
     c = CairoMakie.Makie.wong_colors()
-    ax1 = CairoMakie.Axis(f[1, 1], title = "A, B, C", 
+    ax1 = CairoMakie.Axis(
+        f[1, 1], title = "A, B, C",
         xlabel = "t [min]", ylabel = "c [mol/m³]",
-        xticks = 0:30:180, yticks=0:250:2000)
+        xticks = 0:30:180, yticks = 0:250:2000
+    )
     for (i, n) in enumerate(("A", "B", "C"))
-        lines!(ax1, t1p, u1[i, :]; linewidth = 2, label = n, color=c[i])
+        lines!(ax1, t1p, u1[i, :]; linewidth = 2, label = n, color = c[i])
     end
     vlines!(ax1, T1, color = :black, linestyle = :dot)
     for (i, n) in enumerate(("A", "B", "C"))
-        lines!(ax1, t2p, u2[i, :]; linewidth = 2, color=c[i])
+        lines!(ax1, t2p, u2[i, :]; linewidth = 2, color = c[i])
     end
     axislegend(ax1; position = :rt)
 
-    ax2 = CairoMakie.Axis(f[1, 2], title = "D, E, F", 
+    ax2 = CairoMakie.Axis(
+        f[1, 2], title = "D, E, F",
         xlabel = "t [min]", ylabel = "c [mol/m³]",
-        xticks = 0:30:180, yticks=0:50:400)
+        xticks = 0:30:180, yticks = 0:50:400
+    )
     for (i, n) in enumerate(("D", "E", "F"))
-        lines!(ax2, t2p, u2[3 + i, :]; linewidth = 2, label = n, color=c[3+i])
+        lines!(ax2, t2p, u2[3 + i, :]; linewidth = 2, label = n, color = c[3 + i])
     end
     for (i, n) in enumerate(("D", "E", "F"))
-        lines!(ax2, t1p, u1[3 + i, :]; linewidth = 2, color=c[3+i])
+        lines!(ax2, t1p, u1[3 + i, :]; linewidth = 2, color = c[3 + i])
     end
     vlines!(ax2, T1, color = :black, linestyle = :dot)
     axislegend(ax2; position = :lt)
 
-    axc = CairoMakie.Axis(f[2, 1:2], title = "Optimal temperature control", 
-            xlabel = "t [min]", ylabel = "T [K]",
-            xticks = 0:30:180,
-            limits = (nothing, (305, 345)))
+    axc = CairoMakie.Axis(
+        f[2, 1:2], title = "Optimal temperature control",
+        xlabel = "t [min]", ylabel = "T [K]",
+        xticks = 0:30:180,
+        limits = (nothing, (305, 345))
+    )
     stairs!(axc, t1p, temperature; linewidth = 2, step = :pre, label = "T(t)")
     stairs!(axc, [extrema(t2p)...], ones(2) * last(temperature); linewidth = 2, step = :pre)
     vlines!(axc, T1, color = :black, linestyle = :dot)
