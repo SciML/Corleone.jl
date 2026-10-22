@@ -121,17 +121,21 @@ function estimate_parameters(
     # nuisance local shooting states) costs one degree of freedom of data.
     n_obs = n_observations(get_data(layer))
     n_shoot = problem.n_shooting_constraints
-    n_obs + n_shoot >= p_total || throw(ArgumentError(
-        "Need at least as many residuals as parameters to estimate uncertainties " *
-        "(got $(n_obs) observation(s) + $(n_shoot) shooting constraint(s) for $(p_total) parameters)."
-    ))
+    n_obs + n_shoot >= p_total || throw(
+        ArgumentError(
+            "Need at least as many residuals as parameters to estimate uncertainties " *
+                "(got $(n_obs) observation(s) + $(n_shoot) shooting constraint(s) for $(p_total) parameters)."
+        )
+    )
     r = collect(vec(sol.resid))
     rss = sum(abs2, view(r, 1:n_obs))
     dof = n_obs - p_total
-    dof > 0 || throw(ArgumentError(
-        "Need more observations than estimated parameters to estimate the noise level " *
-        "(got $(n_obs) observation(s) for $(p_total) estimated parameters)."
-    ))
+    dof > 0 || throw(
+        ArgumentError(
+            "Need more observations than estimated parameters to estimate the noise level " *
+                "(got $(n_obs) observation(s) for $(p_total) estimated parameters)."
+        )
+    )
     σ² = rss / dof
 
     # Jacobian of the (possibly weighted) residuals at the optimum. Allocate the residual
@@ -183,8 +187,8 @@ function estimate_parameters(
     condJ = cond(Jred * Diagonal(inv.(d)))
     if condJ > 1.0e8
         @warn "The residual Jacobian is ill-conditioned (condition number $(condJ)); " *
-              "some parameters may be non-identifiable. Treat the reported uncertainties " *
-              "with caution." maxlog = 1
+            "some parameters may be non-identifiable. Treat the reported uncertainties " *
+            "with caution." maxlog = 1
     end
 
     return ParameterEstimate(
@@ -199,11 +203,13 @@ end
 # is asserted to keep `estimate_parameters` type-stable. The residual buffer is allocated
 # with the element type of `x_full` (a `Dual` during ForwardDiff) so AD is dual-safe.
 function _residual_jacobian(problem::CorleoneParameterEstimationProblem, x_full::AbstractVector{T}, n_res::Int) where {T}
-    J = ForwardDiff.jacobian(x -> begin
-        rr = similar(x, n_res)
-        problem.residual(rr, x, nothing)
-        rr
-    end, x_full)
+    J = ForwardDiff.jacobian(
+        x -> begin
+            rr = similar(x, n_res)
+            problem.residual(rr, x, nothing)
+            rr
+        end, x_full
+    )
     return J::Matrix{T}
 end
 
@@ -230,8 +236,8 @@ function _safe_inverse(A::AbstractMatrix)
         return inv(F)
     end
     @warn "The least-squares information matrix is singular or numerically rank-deficient; " *
-          "parameter uncertainties may be unreliable (some parameters may be " *
-          "non-identifiable)." maxlog = 1
+        "parameter uncertainties may be unreliable (some parameters may be " *
+        "non-identifiable)." maxlog = 1
     return pinv(S)
 end
 
@@ -390,10 +396,16 @@ end
 # implementations (including the regularized incomplete beta function) rather than a local
 # hand-rolled approximation.
 function _t_quantile(ν::Int, q::Real)
-    ν >= 1 || throw(ArgumentError(
-        "The Student-t distribution needs at least 1 degree of freedom (got $ν)."))
-    0 < q < 1 || throw(ArgumentError(
-        "The quantile level must be in (0, 1) (got $q)."))
+    ν >= 1 || throw(
+        ArgumentError(
+            "The Student-t distribution needs at least 1 degree of freedom (got $ν)."
+        )
+    )
+    0 < q < 1 || throw(
+        ArgumentError(
+            "The quantile level must be in (0, 1) (got $q)."
+        )
+    )
     return tdistinvcdf(ν, q)
 end
 

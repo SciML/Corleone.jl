@@ -105,8 +105,10 @@ struct L2Regularizer{T, Vv <: AbstractVector} <: AbstractRegularizer
     weights::Vv
     function L2Regularizer(λ::Real; reference = nothing, weights = nothing)
         λ > 0 || throw(ArgumentError("L2Regularizer needs λ > 0 (got $λ)."))
-        return new{promote_type(typeof(λ), Float64),
-            Vector{promote_type(typeof(λ), Float64)}}(
+        return new{
+            promote_type(typeof(λ), Float64),
+            Vector{promote_type(typeof(λ), Float64)},
+        }(
             promote_type(typeof(λ), Float64)(λ),
             isnothing(reference) ? Float64[] : collect(Float64, reference),
             isnothing(weights) ? Float64[] : collect(Float64, weights),
@@ -152,8 +154,10 @@ struct L1Regularizer{T, Vv <: AbstractVector} <: AbstractRegularizer
     weights::Vv
     function L1Regularizer(λ::Real; reference = nothing, weights = nothing)
         λ > 0 || throw(ArgumentError("L1Regularizer needs λ > 0 (got $λ)."))
-        return new{promote_type(typeof(λ), Float64),
-            Vector{promote_type(typeof(λ), Float64)}}(
+        return new{
+            promote_type(typeof(λ), Float64),
+            Vector{promote_type(typeof(λ), Float64)},
+        }(
             promote_type(typeof(λ), Float64)(λ),
             isnothing(reference) ? Float64[] : collect(Float64, reference),
             isnothing(weights) ? Float64[] : collect(Float64, weights),
@@ -189,8 +193,10 @@ struct ElasticNetRegularizer{T, Vv <: AbstractVector} <: AbstractRegularizer
     l1::L1Regularizer{T, Vv}
     l2::L2Regularizer{T, Vv}
     function ElasticNetRegularizer(λ1::Real, λ2::Real; reference = nothing, weights = nothing)
-        return new{promote_type(typeof(λ1), typeof(λ2), Float64),
-            Vector{promote_type(typeof(λ1), typeof(λ2), Float64)}}(
+        return new{
+            promote_type(typeof(λ1), typeof(λ2), Float64),
+            Vector{promote_type(typeof(λ1), typeof(λ2), Float64)},
+        }(
             L1Regularizer(λ1; reference = reference, weights = weights),
             L2Regularizer(λ2; reference = reference, weights = weights),
         )
@@ -219,9 +225,12 @@ function _resolve_penalized_indices(indices, nu::Int, np::Int)
         return collect((nu + 1):m)
     end
     idx = collect(Int, indices)
-    all(i -> 1 <= i <= m, idx) || throw(ArgumentError(
-        "`regularized_indices` may only contain entries of the shared `[u0; p]` block " *
-        "(1:$m); got $idx."))
+    all(i -> 1 <= i <= m, idx) || throw(
+        ArgumentError(
+            "`regularized_indices` may only contain entries of the shared `[u0; p]` block " *
+                "(1:$m); got $idx."
+        )
+    )
     return idx
 end
 
@@ -252,9 +261,12 @@ end
 function _check_reg_vectors(reg::AbstractRegularizer, n_pen::Int)
     for (name, v) in ((:reference, reg.reference), (:weights, reg.weights))
         if !isempty(v) && length(v) != n_pen
-            throw(ArgumentError(
-                "A regularizer `$name` vector has length $(length(v)) but $n_pen entry(ies) " *
-                "are penalized; provide one value per penalized shared-block entry."))
+            throw(
+                ArgumentError(
+                    "A regularizer `$name` vector has length $(length(v)) but $n_pen entry(ies) " *
+                        "are penalized; provide one value per penalized shared-block entry."
+                )
+            )
         end
     end
     return nothing
@@ -276,12 +288,18 @@ function _regularizer_length(reg, np::Int)
     r = try
         reg(zeros(np))
     catch
-        throw(ArgumentError(
-            "Could not determine the number of regularization residuals from the custom " *
-            "regularizer. Return a vector for a zero input, or define " *
-            "`CorleoneParameterEstimation.n_regularization_residuals(reg, n)`."))
+        throw(
+            ArgumentError(
+                "Could not determine the number of regularization residuals from the custom " *
+                    "regularizer. Return a vector for a zero input, or define " *
+                    "`CorleoneParameterEstimation.n_regularization_residuals(reg, n)`."
+            )
+        )
     end
-    r isa AbstractVector || throw(ArgumentError(
-        "A custom regularizer must return a vector of residuals (got $(typeof(r)))."))
+    r isa AbstractVector || throw(
+        ArgumentError(
+            "A custom regularizer must return a vector of residuals (got $(typeof(r)))."
+        )
+    )
     return length(r)
 end

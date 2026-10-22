@@ -70,6 +70,9 @@ abstract type AbstractCorleoneFunctionWrapper end
 include("dynprob.jl")
 export CorleoneDynamicOptProblem
 
+include("multistage.jl")
+export StageTransition
+
 @setup_workload begin
     @compile_workload begin
         rng = Random.MersenneTwister(1)

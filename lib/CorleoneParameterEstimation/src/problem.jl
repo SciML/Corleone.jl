@@ -123,11 +123,15 @@ function Base.show(io::IO, problem::CorleoneParameterEstimationProblem)
     nu = length(shared.u0)
     np = length(shared.p)
 
-    print(io, type_color, "CorleoneParameterEstimationProblem", no_color,
+    print(
+        io, type_color, "CorleoneParameterEstimationProblem", no_color,
         _is_multiple_shooting(pe) ? " (multiple shooting, " : " (",
-        type_color, n_exp, no_color, n_exp == 1 ? " experiment)" : " experiments)")
-    print(io, no_color, " with ", type_color, length(problem.x0), no_color,
-        " optimization variable(s)\n")
+        type_color, n_exp, no_color, n_exp == 1 ? " experiment)" : " experiments)"
+    )
+    print(
+        io, no_color, " with ", type_color, length(problem.x0), no_color,
+        " optimization variable(s)\n"
+    )
 
     # Fitted parameters, by name when resolvable, otherwise by count and index.
     names = _tunable_parameter_names(problem)
@@ -137,19 +141,25 @@ function Base.show(io::IO, problem::CorleoneParameterEstimationProblem)
     else
         print(io, join(names, ", "))
     end
-    nu > 0 && print(io, no_color,
-        "\n  tunable initial conditions (", type_color, nu, no_color, ")")
+    nu > 0 && print(
+        io, no_color,
+        "\n  tunable initial conditions (", type_color, nu, no_color, ")"
+    )
 
     # Residual composition: observations + shooting continuity + regularization.
     n_obs = problem.n_residuals - problem.n_shooting_constraints - problem.n_regularization_residuals
     print(io, no_color, "\n  residuals: ", type_color, n_obs, no_color, " observation(s)")
     if problem.n_shooting_constraints > 0
-        print(io, no_color, " + ", type_color, problem.n_shooting_constraints, no_color,
-            " shooting constraint(s)")
+        print(
+            io, no_color, " + ", type_color, problem.n_shooting_constraints, no_color,
+            " shooting constraint(s)"
+        )
     end
     if problem.n_regularization_residuals > 0
-        print(io, no_color, " + ", type_color, problem.n_regularization_residuals, no_color,
-            " regularization residual(s)")
+        print(
+            io, no_color, " + ", type_color, problem.n_regularization_residuals, no_color,
+            " regularization residual(s)"
+        )
     end
     print(io, no_color, " = ", type_color, problem.n_residuals, no_color)
 
@@ -165,8 +175,10 @@ function Base.show(io::IO, problem::CorleoneParameterEstimationProblem)
             print(io, nameof(typeof(problem.reg)), " regularization")
         end
     end
-    problem.shooting_scale != 1.0 && print(io, no_color,
-        "\n  shooting_scale: ", problem.shooting_scale)
+    problem.shooting_scale != 1.0 && print(
+        io, no_color,
+        "\n  shooting_scale: ", problem.shooting_scale
+    )
     return nothing
 end
 
@@ -255,16 +267,20 @@ function _to_internal_shared(natural::AbstractVector, transforms::Tuple, m::Int)
         φ = try
             to_internal(transforms[i], θ)
         catch
-            throw(ArgumentError(
-                "The initial value $(θ) of shared optimization variable $i is not in the " *
-                "domain of transform $(transforms[i]). Provide a feasible initial parameter " *
-                "value or an explicit `x0` (in the internal space)."
-            ))
+            throw(
+                ArgumentError(
+                    "The initial value $(θ) of shared optimization variable $i is not in the " *
+                        "domain of transform $(transforms[i]). Provide a feasible initial parameter " *
+                        "value or an explicit `x0` (in the internal space)."
+                )
+            )
         end
-        isfinite(φ) || throw(ArgumentError(
-            "The initial value $(θ) of shared optimization variable $i maps to the " *
-            "non-finite internal value $φ under transform $(transforms[i])."
-        ))
+        isfinite(φ) || throw(
+            ArgumentError(
+                "The initial value $(θ) of shared optimization variable $i maps to the " *
+                    "non-finite internal value $φ under transform $(transforms[i])."
+            )
+        )
         return φ
     end
     return vcat(shared, natural[(m + 1):end])
@@ -342,18 +358,25 @@ function _resolve_transforms(transforms, m::Int)
     transforms === nothing && return ntuple(_ -> Identity(), m)
     transforms isa AbstractParameterTransform && return ntuple(_ -> transforms, m)
     if transforms isa Union{AbstractVector, Tuple}
-        length(transforms) == m || throw(ArgumentError(
-            "Got $(length(transforms)) transform(s) for the shared `[u0; p]` block of " *
-            "length $m. Provide exactly one transform per shared optimization variable."
-        ))
-        all(t -> t isa AbstractParameterTransform, transforms) || throw(ArgumentError(
-            "Every entry of `transforms` must be an `AbstractParameterTransform`."))
+        length(transforms) == m || throw(
+            ArgumentError(
+                "Got $(length(transforms)) transform(s) for the shared `[u0; p]` block of " *
+                    "length $m. Provide exactly one transform per shared optimization variable."
+            )
+        )
+        all(t -> t isa AbstractParameterTransform, transforms) || throw(
+            ArgumentError(
+                "Every entry of `transforms` must be an `AbstractParameterTransform`."
+            )
+        )
         return Tuple(transforms)
     end
-    throw(ArgumentError(
-        "`transforms` must be `nothing`, an `AbstractParameterTransform`, or a " *
-        "vector/tuple of them (got $(typeof(transforms)))."
-    ))
+    throw(
+        ArgumentError(
+            "`transforms` must be `nothing`, an `AbstractParameterTransform`, or a " *
+                "vector/tuple of them (got $(typeof(transforms)))."
+        )
+    )
 end
 
 # Flat internal bounds implied by the transforms. The shared block uses each transform's
@@ -546,20 +569,29 @@ function _apply_reg_overrides(reg, reference, weights)
         return reg
     end
     if reg isa L2Regularizer
-        return L2Regularizer(reg.λ; reference = isnothing(reference) ? reg.reference : reference,
-            weights = isnothing(weights) ? reg.weights : weights)
+        return L2Regularizer(
+            reg.λ; reference = isnothing(reference) ? reg.reference : reference,
+            weights = isnothing(weights) ? reg.weights : weights
+        )
     elseif reg isa L1Regularizer
-        return L1Regularizer(reg.λ; reference = isnothing(reference) ? reg.reference : reference,
-            weights = isnothing(weights) ? reg.weights : weights)
+        return L1Regularizer(
+            reg.λ; reference = isnothing(reference) ? reg.reference : reference,
+            weights = isnothing(weights) ? reg.weights : weights
+        )
     elseif reg isa ElasticNetRegularizer
-        return ElasticNetRegularizer(reg.l1.λ, reg.l2.λ;
+        return ElasticNetRegularizer(
+            reg.l1.λ, reg.l2.λ;
             reference = isnothing(reference) ? reg.l1.reference : reference,
-            weights = isnothing(weights) ? reg.l1.weights : weights)
+            weights = isnothing(weights) ? reg.l1.weights : weights
+        )
     end
-    throw(ArgumentError(
-        "`regularization_reference` / `regularization_weights` overrides can only be " *
-        "applied to L2/L1/ElasticNetRegularizer (got a custom regularizer). Build the " *
-        "overrides into the custom regularizer directly."))
+    throw(
+        ArgumentError(
+            "`regularization_reference` / `regularization_weights` overrides can only be " *
+                "applied to L2/L1/ElasticNetRegularizer (got a custom regularizer). Build the " *
+                "overrides into the custom regularizer directly."
+        )
+    )
 end
 
 """

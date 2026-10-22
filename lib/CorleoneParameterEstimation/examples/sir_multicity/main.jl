@@ -61,8 +61,8 @@ function sir!(du, u, p, t)
     β, γ = p
     N = S + I + R
     du[1] = -β * S * I / N
-    du[2] =  β * S * I / N - γ * I
-    du[3] =  γ * I
+    du[2] = β * S * I / N - γ * I
+    du[3] = γ * I
     return
 end
 
@@ -148,8 +148,10 @@ obs_sir = (u, p, t) -> (p[1] * u[1] * u[2] / (u[1] + u[2] + u[3]), u[3])
 β_guess, γ_guess = 0.3, 0.4               # wrong on purpose (true: 0.5, 0.2)
 prob_guess = ODEProblem(sir!, [Npop - 2.0, 2.0, 0.0], tspan, [β_guess, γ_guess])
 
-pe = ParameterEstimationLayer(prob_guess, Tsit5(), data; observed = obs_sir,
-    bounds_p = ([0.1, 0.05], [2.0, 0.6]))
+pe = ParameterEstimationLayer(
+    prob_guess, Tsit5(), data; observed = obs_sir,
+    bounds_p = ([0.1, 0.05], [2.0, 0.6])
+)
 
 # The flat optimization variables are the two shared params `(β, γ)`, starting at the wrong
 # guess stored in the problem:
@@ -172,10 +174,14 @@ println("True   [β, γ] = ", p_true)
 # asymptotic 95% confidence intervals:
 
 est = estimate_parameters(pe, sol)
-println("β  (transmission rate): ", round(est.x[1]; digits = 4), " ± ", round(est.std_errors[1]; digits = 4),
-    "   true = ", β_true)
-println("γ  (recovery rate):     ", round(est.x[2]; digits = 4), " ± ", round(est.std_errors[2]; digits = 4),
-    "   true = ", γ_true)
+println(
+    "β  (transmission rate): ", round(est.x[1]; digits = 4), " ± ", round(est.std_errors[1]; digits = 4),
+    "   true = ", β_true
+)
+println(
+    "γ  (recovery rate):     ", round(est.x[2]; digits = 4), " ± ", round(est.std_errors[2]; digits = 4),
+    "   true = ", γ_true
+)
 
 # The headline derived quantity — the basic reproduction number `R0 = β / γ` — and its
 # uncertainty follow by propagation from the covariance (delta method):
@@ -183,8 +189,10 @@ println("γ  (recovery rate):     ", round(est.x[2]; digits = 4), " ± ", round(
 R0_hat = est.x[1] / est.x[2]
 grad = [1 / est.x[2], -est.x[1] / est.x[2]^2]     # ∂R0/∂(β, γ)
 se_R0 = sqrt(grad' * est.covariance * grad)
-println("R0 = ", round(R0_hat; digits = 3), " ± ", round(se_R0; digits = 3),
-    "   true R0 = ", round(β_true / γ_true; digits = 3))
+println(
+    "R0 = ", round(R0_hat; digits = 3), " ± ", round(se_R0; digits = 3),
+    "   true R0 = ", round(β_true / γ_true; digits = 3)
+)
 
 # ## Profile-likelihood confidence intervals
 #
@@ -248,12 +256,18 @@ est_log = estimate_parameters(pe_log_problem, sol_log)
 # `from_internal`), and the covariance is propagated with the delta method. Notice that both
 # confidence intervals are strictly positive and asymmetric:
 
-println("β = ", round(est_log.x[1]; digits = 4), "   95% CI = ",
-    round.(est_log.confidence_intervals[1]; digits = 4))
-println("γ = ", round(est_log.x[2]; digits = 4), "   95% CI = ",
-    round.(est_log.confidence_intervals[2]; digits = 4))
-println("Natural-space lower endpoints: ",
-    [ci[1] for ci in est_log.confidence_intervals], "  (both > 0)")
+println(
+    "β = ", round(est_log.x[1]; digits = 4), "   95% CI = ",
+    round.(est_log.confidence_intervals[1]; digits = 4)
+)
+println(
+    "γ = ", round(est_log.x[2]; digits = 4), "   95% CI = ",
+    round.(est_log.confidence_intervals[2]; digits = 4)
+)
+println(
+    "Natural-space lower endpoints: ",
+    [ci[1] for ci in est_log.confidence_intervals], "  (both > 0)"
+)
 
 # ## Comparing the joint fit against a single-region fit
 #
@@ -261,17 +275,21 @@ println("Natural-space lower endpoints: ",
 # the transmission rate `β` (the quantity the data constrains most weakly).
 
 dataA = ExperimentData(Experiment([t_inf, t_rec], [y_infA, y_recA]; σ = [σ_infA, σ_recA], u0 = [Npop - 2.0, 2.0, 0.0]))
-peA = ParameterEstimationLayer(prob_guess, Tsit5(), dataA; observed = obs_sir,
-    bounds_p = ([0.1, 0.05], [2.0, 0.6]))
+peA = ParameterEstimationLayer(
+    prob_guess, Tsit5(), dataA; observed = obs_sir,
+    bounds_p = ([0.1, 0.05], [2.0, 0.6])
+)
 solA = solve(problem(peA), LevenbergMarquardt(); abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 200)
 estA = estimate_parameters(peA, solA)
 
 println("---")
 println("Joint-fit std error on β:      ", round(est.std_errors[1]; digits = 4))
 println("Region-A-only std error on β:  ", round(estA.std_errors[1]; digits = 4))
-println("Uncertainty on β reduced by ",
+println(
+    "Uncertainty on β reduced by ",
     round(100 * (1 - est.std_errors[1] / estA.std_errors[1]); digits = 1),
-    "% when pooling both regions")
+    "% when pooling both regions"
+)
 
 # ## Visualize the joint fit
 #
@@ -306,7 +324,8 @@ f
 I0_guess = 40.0                           # wrong on purpose (true: 2.0)
 prob_ic_guess = ODEProblem(sir!, [Npop - I0_guess, I0_guess, 0.0], tspan, [β_guess, γ_guess])
 
-lay_ic = SingleShootingLayer(prob_ic_guess, Tsit5();
+lay_ic = SingleShootingLayer(
+    prob_ic_guess, Tsit5();
     saveat = unique(sort(vcat(t_inf, t_rec))),
     tunable_ic = [2],
     bounds_ic = ([-Inf, 0.0, -Inf], [Inf, 100.0, Inf]),
@@ -318,16 +337,20 @@ pe_ic = ParameterEstimationLayer(lay_ic, dataA; observed = obs_sir)
 # followed by the two rates:
 
 nlls_ic = problem(pe_ic)
-println("Optimization variables [I(0), β, γ] starting at: ", nlls_ic.u0,
-    "   (true = ", [2.0, β_true, γ_true], ")")
+println(
+    "Optimization variables [I(0), β, γ] starting at: ", nlls_ic.u0,
+    "   (true = ", [2.0, β_true, γ_true], ")"
+)
 
 sol_ic = solve(nlls_ic, LevenbergMarquardt(); abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500)
 est_ic = estimate_parameters(pe_ic, sol_ic)
 
 println("Fitted [I(0), β, γ] = ", round.(sol_ic.u; digits = 4))
 println("True   [I(0), β, γ] = ", [2.0, β_true, γ_true])
-println("I(0) estimate: ", round(est_ic.x[1]; digits = 3), " ± ", round(est_ic.std_errors[1]; digits = 3),
-    "   (true = 2.0)")
+println(
+    "I(0) estimate: ", round(est_ic.x[1]; digits = 3), " ± ", round(est_ic.std_errors[1]; digits = 3),
+    "   (true = 2.0)"
+)
 
 # The extra fitted degree of freedom (`I(0)`) costs information: the standard error on `β`
 # grows relative to the fit where `I(0)` was known — here by roughly a factor of three — which

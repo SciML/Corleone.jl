@@ -7,6 +7,7 @@ Corleone.Trajectory
 Corleone.ControlParameter
 Corleone.SingleShootingLayer
 Corleone.MultipleShootingLayer
+Corleone.StageTransition
 Corleone.default_initialization
 Corleone.random_initialization
 Corleone.forward_initialization

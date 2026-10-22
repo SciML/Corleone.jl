@@ -92,7 +92,8 @@ end
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_mixed)
     # initial conditions with the wrong state dimension are rejected
     data_bad = ExperimentData(
-        ExperimentData(t1, y1; σ = σ), ExperimentData(t2, y2; σ = σ, u0 = [1.0, 2.0]))
+        ExperimentData(t1, y1; σ = σ), ExperimentData(t2, y2; σ = σ, u0 = [1.0, 2.0])
+    )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad)
     # wrapping a single pre-built shooting layer keeps working for a single experiment
     layer = SingleShootingLayer(prob, Tsit5(); saveat = unique(t1))

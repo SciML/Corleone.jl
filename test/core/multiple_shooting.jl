@@ -115,6 +115,31 @@ lb, ub = Corleone.get_bounds(layer)
     )
 end
 
+@testset "Path and terminal constraints at merged times" begin
+    # Regression test: the time grid used to locate path/terminal constraints on a
+    # `MultipleShootingLayer` must match the merged trajectory, which drops the duplicated
+    # shooting boundary. Previously the duplicated boundary shifted every index so
+    # terminal constraints read out of bounds.
+    terminal_time = tspan[2]
+    dynprob = Corleone.CorleoneDynamicOptProblem(
+        layer, :x₃,
+        :x₁ => (t = [terminal_time], bounds = (0.0, 0.0)),
+        :x₁ => (t = [6.0], bounds = (0.0, 0.0)),
+    )
+    ps, st = LuxCore.setup(rng, layer)
+    traj, _ = layer(nothing, ps, st)
+    n_shoot = Corleone.get_number_of_shooting_constraints(layer)
+    @test length(dynprob.lcons) == length(dynprob.ucons) == 2 + n_shoot
+    res = fill(NaN, length(dynprob.lcons))
+    dynprob.constraints(res, ps, st)
+    @test all(isfinite, res)
+    # First two entries are the state constraint at t=12 and t=6, matched against the
+    # merged trajectory (state 1, which for this layer is the first state of every step).
+    @test res[1] == last(traj.u)[1]
+    @test res[2] == traj.u[findfirst(==(6.0), traj.t)][1]
+    @test res[(2 + 1):end] == Corleone.shooting_constraints(traj)
+end
+
 @testset "Parallel" begin
     for alg in (EnsembleSerial(), EnsembleThreads(), EnsembleDistributed())
         layer = MultipleShootingLayer(

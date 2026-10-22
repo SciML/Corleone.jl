@@ -68,6 +68,8 @@ tutorials = map(
         abspath("examples/linear_quadratic/main.jl"),
         abspath("examples/lotka_fishing_optimal_control/main.jl"),
         abspath("examples/mtk_lotka/main.jl"),
+        abspath("examples/twostagereactor/main.jl"),
+        abspath("examples/falcon9/main.jl"),
         abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
         abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
         abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl"),

@@ -24,7 +24,7 @@ data = ExperimentData(tdata, ydata; σ = σ)
 @testset "Profile likelihood recovers parameter and matches asymptotic CI" begin
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
     nlls = problem(pe)
-    sol = solve(nlls, GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(nlls, GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
     @test SciMLBase.successful_retcode(sol)
 
     est = profile_likelihood(pe, sol; names = [:p])
@@ -67,7 +67,7 @@ end
     # a cross-check. We assert agreement to within 2.5x rather than an exact ordering to
     # stay robust to the (small) curvature of the likelihood.
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
-    sol = solve(problem(pe), GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(problem(pe), GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
     est = profile_likelihood(pe, sol; n_points = 61)
     lo, hi = est.confidence_intervals[1]
     alo, ahi = est.asymptotic_intervals[1]
@@ -84,7 +84,7 @@ end
     prob2 = ODEProblem(f2, u0, tspan, [0.3, 99.0])
     data2 = ExperimentData(tdata, ydata; σ = σ)
     pe = ParameterEstimationLayer(prob2, Tsit5(), data2)
-    sol = solve(problem(pe), GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(problem(pe), GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
 
     est = profile_likelihood(pe, sol; names = [:alpha, :dummy], n_points = 41)
     # The identifiable parameter attains a bordered interval.

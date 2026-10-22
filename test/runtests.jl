@@ -55,6 +55,9 @@ else
                     @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
                     end
+                    @safetestset "Two-stage reactor" begin
+                        include("examples/twostagereactor.jl")
+                    end
                     return @safetestset "Lotka MTK" begin
                         include("examples/mtk.jl")
                     end

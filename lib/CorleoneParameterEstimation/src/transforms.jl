@@ -74,8 +74,11 @@ struct Affine{T <: Real} <: AbstractParameterTransform
     "Offset `b` (`θ = a·φ + b`)"
     b::T
     function Affine(a::Real, b::Real)
-        iszero(a) && throw(ArgumentError(
-            "Affine transform needs a non-zero scale `a` (got a = $a)."))
+        iszero(a) && throw(
+            ArgumentError(
+                "Affine transform needs a non-zero scale `a` (got a = $a)."
+            )
+        )
         return new{promote_type(typeof(a), typeof(b))}(promote(a, b)...)
     end
 end
@@ -113,8 +116,11 @@ struct Logit{T <: Real} <: AbstractParameterTransform
     "Upper bound of the interval (excluded)"
     ub::T
     function Logit(lb::Real, ub::Real)
-        lb < ub || throw(ArgumentError(
-            "Logit transform needs `lb < ub` (got lb = $lb, ub = $ub)."))
+        lb < ub || throw(
+            ArgumentError(
+                "Logit transform needs `lb < ub` (got lb = $lb, ub = $ub)."
+            )
+        )
         return new{promote_type(typeof(lb), typeof(ub))}(promote(lb, ub)...)
     end
 end

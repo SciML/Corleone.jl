@@ -64,8 +64,37 @@ function Base.show(io::IO, layer::SingleShootingLayer)
     return Base.show(io, "text/plain", layer.problem)
 end
 
+# For DAE problems the default initialisation (`DefaultInit` -> `CheckInit`) requires the
+# initial `du0` to satisfy the algebraic constraints within the solver tolerance, which a
+# plain guess such as `du0 = 0` for a genuinely non-consistent state does not. Stiff implicit
+# DAE integrators (e.g. `DFBDF`) resolve the algebraic relations during the first steps, so
+# we trust the given initial derivative (`NoInit`) and let the solver relax onto the
+# constraint manifold.
+_dae_init_kwargs(prob::SciMLBase.AbstractDAEProblem) = (initializealg = SciMLBase.NoInit(),)
+_dae_init_kwargs(prob) = NamedTuple()
+
+# Integrate the shooting segment `[tspan[1], tspan[2]]` of `problem` from `u0` with the
+# parameters `p`. Ordinary problems are solved exactly as before; DAE problems additionally
+# receive `initializealg = NoInit()` so that the consistency check does not reject the
+# (intentionally non-consistent) initial derivative `du0` during optimization.
+function _solve_segment(prob::SciMLBase.AbstractDAEProblem, alg, u0, tspan, p, save_start)
+    return solve(
+        prob, alg;
+        u0, dense = false, save_start, save_end = true,
+        tspan, p = p, save_everystep = false,
+        initializealg = SciMLBase.NoInit(),
+    )
+end
+function _solve_segment(prob, alg, u0, tspan, p, save_start)
+    return solve(
+        prob, alg;
+        u0, dense = false, save_start, save_end = true,
+        tspan, p = p, save_everystep = false,
+    )
+end
+
 function init_problem(prob, alg)
-    return remake_problem(prob, SciMLBase.init(prob, alg))
+    return remake_problem(prob, SciMLBase.init(prob, alg; _dae_init_kwargs(prob)...))
 end
 
 function remake_problem(prob::ODEProblem, state)
@@ -112,7 +141,13 @@ function SingleShootingLayer(
     _prob = init_problem(remake(prob; kwargs...), alg)
     controls = collect(controls)
     control_indices = isempty(controls) ? Int[] : Int.(first.(controls))
-    controls = isempty(controls) ? controls : last.(controls)
+    # Keep an empty control set as an empty tuple instead of a `Vector{Any}` (which is what
+    # `collect([])` yields), and store the controls as a *tuple* rather than a `Vector`: an
+    # abstractly-typed empty `controls` field makes `parameterlength`/`get_bounds` infer
+    # `Any` for control-less layers, and splatting a `Vector` into the vararg
+    # `collect_local_control_bounds(controls...)` erases the count so a control-carrying
+    # layer infers `Any` too. Tuples keep both stable.
+    controls = isempty(controls) ? () : Tuple(last.(controls))
     u0 = prob.u0
     p_vec, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
     tunable_p = sort!(Int.(setdiff(eachindex(p_vec), control_indices)))
@@ -158,23 +193,35 @@ function _resolve_tunable_p(params, pool::Vector{Int}, control_indices::Vector{I
             Int(entry)
         elseif entry isa Symbol
             pos = SymbolicIndexingInterface.parameter_index(symcache, entry)
-            isnothing(pos) && throw(ArgumentError(
-                "Unrecognized parameter name `$entry` in `params`; " *
-                "known non-control parameters are $(parameter_symbols(symcache))."))
+            isnothing(pos) && throw(
+                ArgumentError(
+                    "Unrecognized parameter name `$entry` in `params`; " *
+                        "known non-control parameters are $(parameter_symbols(symcache))."
+                )
+            )
             pool[Int(pos)]
         else
-            throw(ArgumentError(
-                "`params` entries must be integer parameter indices or `Symbol` names; " *
-                "got an entry of type $(typeof(entry))."))
+            throw(
+                ArgumentError(
+                    "`params` entries must be integer parameter indices or `Symbol` names; " *
+                        "got an entry of type $(typeof(entry))."
+                )
+            )
         end
-        idx in pool || throw(ArgumentError(
-            "`params` must be a subset of the non-control parameter indices $pool " *
-            "(got an entry resolving to $idx; control slots $(control_indices) and " *
-            "out-of-range indices are not allowed)."))
+        idx in pool || throw(
+            ArgumentError(
+                "`params` must be a subset of the non-control parameter indices $pool " *
+                    "(got an entry resolving to $idx; control slots $(control_indices) and " *
+                    "out-of-range indices are not allowed)."
+            )
+        )
         push!(sel, idx)
     end
-    isempty(sel) && throw(ArgumentError(
-        "`params` selected no tunable parameters; provide at least one parameter index or name."))
+    isempty(sel) && throw(
+        ArgumentError(
+            "`params` selected no tunable parameters; provide at least one parameter index or name."
+        )
+    )
     return sort!(unique(sel))
 end
 
@@ -530,16 +577,8 @@ end
         push!(
             ex,
             :(
-                $(solutions[i]) = solve(
-                    problem,
-                    alg;
-                    u0 = $(u0s[i]),
-                    dense = false,
-                    save_start = $(i == 1),
-                    save_end = true,
-                    tspan = tspans[$(i)],
-                    p = param($(psym[i])),
-                    save_everystep = false,
+                $(solutions[i]) = _solve_segment(
+                    problem, alg, $(u0s[i]), tspans[$(i)], param($(psym[i])), $(i == 1)
                 )
             ),
         )

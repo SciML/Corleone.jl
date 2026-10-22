@@ -23,8 +23,10 @@ u_exact = u0_true .* exp.(-p_true .* tdata)
 ydata = u_exact .+ σ .* randn(rng, length(tdata))
 data = ExperimentData(tdata, ydata; σ = σ)
 
-pe = ParameterEstimationLayer(prob, Tsit5(), data;
-    observed = (u, p, t) -> u[1:1], tunable_ic = [1])
+pe = ParameterEstimationLayer(
+    prob, Tsit5(), data;
+    observed = (u, p, t) -> u[1:1], tunable_ic = [1]
+)
 sol = solve(problem(pe), GaussNewton(); abstol = 1.0e-10, reltol = 1.0e-10)
 est = estimate_parameters(pe, sol)
 

@@ -37,8 +37,10 @@ data = ExperimentData(tdata, ydata; σ = σ)
         @test isapprox(CorleoneParameterEstimation.from_internal(t, φ), θ; rtol = 1.0e-12)
         # Central finite difference of `from_internal` matches the analytic derivative.
         h = 1.0e-6 * max(1.0, abs(φ))
-        fd = (CorleoneParameterEstimation.from_internal(t, φ + h) -
-              CorleoneParameterEstimation.from_internal(t, φ - h)) / (2h)
+        fd = (
+            CorleoneParameterEstimation.from_internal(t, φ + h) -
+                CorleoneParameterEstimation.from_internal(t, φ - h)
+        ) / (2h)
         @test isapprox(CorleoneParameterEstimation.dθ_dφ(t, φ), fd; rtol = 1.0e-5)
     end
 
@@ -68,12 +70,15 @@ end
 
     # The internal problem is unconstrained (the positivity is encoded in the transform).
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Log()])
+        pe; transforms = [Log()]
+    )
     @test !any(isfinite, pe_problem.lb)
     @test !any(isfinite, pe_problem.ub)
 
-    solL = solve(NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8)
+    solL = solve(
+        NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8
+    )
     @test SciMLBase.successful_retcode(solL)
     estL = estimate_parameters(pe_problem, solL)
 
@@ -96,13 +101,20 @@ end
 
 @testset "Affine transform is exactly linear (symmetric CI)" begin
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
-    est0 = estimate_parameters(pe, solve(problem(pe), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8))
+    est0 = estimate_parameters(
+        pe, solve(
+            problem(pe), GaussNewton();
+            abstol = 1.0e-8, reltol = 1.0e-8
+        )
+    )
 
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Affine(0.1, 5.0)])
-    solA = solve(NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8)
+        pe; transforms = [Affine(0.1, 5.0)]
+    )
+    solA = solve(
+        NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8
+    )
     estA = estimate_parameters(pe_problem, solA)
 
     # The optimum is unchanged...
@@ -120,9 +132,12 @@ end
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
     lb, ub = 0.1, 1.1
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Logit(lb, ub)])
-    solLi = solve(NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8)
+        pe; transforms = [Logit(lb, ub)]
+    )
+    solLi = solve(
+        NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8
+    )
     estLi = estimate_parameters(pe_problem, solLi)
 
     @test isapprox(estLi.x[1], p_true; atol = 0.05)
@@ -138,14 +153,19 @@ end
         Experiment(tdata, u_exact .+ σ .* randn(rng, length(tdata)); σ = σ, u0 = u0),
     )
     shooting_points = collect(0.0:1.0:5.0)
-    pe = ParameterEstimationLayer(prob, Tsit5(), data2, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data2, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Log()])
+        pe; transforms = [Log()]
+    )
     # Only the shared rate is transformed; the local shooting states keep their bounds.
     @test pe_problem.transforms == (Log(),)
-    sol = solve(NonlinearLeastSquaresProblem(pe_problem), LevenbergMarquardt();
-        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 200)
+    sol = solve(
+        NonlinearLeastSquaresProblem(pe_problem), LevenbergMarquardt();
+        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 200
+    )
     @test SciMLBase.successful_retcode(sol)
     est = estimate_parameters(pe_problem, sol)
     @test isapprox(est.x[1], p_true; atol = 0.05)
@@ -155,9 +175,12 @@ end
 @testset "Profile likelihood back-transforms the interval" begin
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Log()])
-    sol = solve(NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8)
+        pe; transforms = [Log()]
+    )
+    sol = solve(
+        NonlinearLeastSquaresProblem(pe_problem), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8
+    )
 
     pl = profile_likelihood(pe_problem, sol; n_points = 41)
     lo, hi = pl.confidence_intervals[1]
@@ -176,7 +199,8 @@ end
 @testset "Transforms are type-stable for a homogeneous choice" begin
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Log()])
+        pe; transforms = [Log()]
+    )
     @test isconcretetype(typeof(pe_problem))
     @test typeof(pe_problem.transforms) === Tuple{Log}
     # The residual closures still infer to a concrete `Vector{Float64}`.
@@ -197,11 +221,14 @@ end
     tdata_m = collect(0.0:0.25:5.0)
     ydata_m = exp.(-p_true .* tdata_m) .+ σ .* randn(rng, length(tdata_m))
     data_m = ExperimentData(tdata_m, ydata_m; σ = σ)
-    layer = SingleShootingLayer(prob, Tsit5(); saveat = unique(tdata_m),
-        tunable_ic = [1], bounds_ic = ([0.0], [5.0]))
+    layer = SingleShootingLayer(
+        prob, Tsit5(); saveat = unique(tdata_m),
+        tunable_ic = [1], bounds_ic = ([0.0], [5.0])
+    )
     pe = ParameterEstimationLayer(layer, data_m)
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Identity(), Log()])
+        pe; transforms = [Identity(), Log()]
+    )
     @test isconcretetype(typeof(pe_problem))
     @test typeof(pe_problem.transforms) === Tuple{Identity, Log}
     @test pe_problem.x0 isa Vector{Float64}
@@ -218,11 +245,14 @@ end
 @testset "Transform validation" begin
     pe = ParameterEstimationLayer(prob, Tsit5(), data)
     @test_throws ArgumentError CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Log(), Log()])   # wrong length (only one shared variable)
+        pe; transforms = [Log(), Log()]
+    )   # wrong length (only one shared variable)
     @test_throws ArgumentError CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [1.0])            # not a transform
+        pe; transforms = [1.0]
+    )            # not a transform
     # The default start (natural p = 0.3) is outside a `Logit(0.4, 1.1)` interval; this is
     # reported as a clear error rather than an obscure `DomainError`.
     @test_throws ArgumentError CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
-        pe; transforms = [Logit(0.4, 1.1)])
+        pe; transforms = [Logit(0.4, 1.1)]
+    )
 end
