@@ -71,6 +71,7 @@ SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["ComponentArrays", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays"]
+test = ["ComponentArrays", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]

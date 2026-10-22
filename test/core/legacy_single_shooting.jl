@@ -3,6 +3,7 @@ using LuxCore
 using OrdinaryDiffEqTsit5
 using Random
 using Test
+import SymbolicIndexingInterface as SII
 
 @testset "Legacy constructor returns ShootingLayer" begin
     prob = ODEProblem((u, p, t) -> [p[1] + p[2]], [1.0], (0.0, 2.0), [2.0, 3.0])
@@ -11,10 +12,11 @@ using Test
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test keys(ps) == (:initialcondition, :parameter)
     @test isempty(only(ps.initialcondition.initialconditions))
-    sols, residuals, _ = layer(nothing, ps, st)
-    @test first(first(sols).t) == 0.0
-    @test last(last(sols).t) == 2.0
-    @test last(last(sols).u) ≈ [11.0]
+    traj, _ = layer(nothing, ps, st)
+    residuals = traj.residuals
+    @test first(traj.t) == 0.0
+    @test last(traj.t) == 2.0
+    @test last(traj.u) ≈ [11.0]
     @test all(isempty, residuals)
 
     # Input order differs from the underlying parameter order. The second
@@ -24,12 +26,13 @@ using Test
     layer = SingleShootingLayer(prob, Tsit5(); controls = [2 => c2, 1 => c1])
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test LuxCore.parameterlength(layer) == 4
-    sols, _, _ = layer(nothing, ps, st)
-    @test [first(sol.prob.tspan) for sol in sols] == [0.0, 0.5, 1.0]
-    @test [sol.t for sol in sols] == [[0.0, 0.5], [0.5, 1.0], [1.0, 2.0]]
-    @test [first(sol.u) for sol in sols] ≈ [[1.0], [3.5], [7.0]]
-    @test [sol.prob.p for sol in sols] == [[2.0, 3.0], [2.0, 5.0], [4.0, 5.0]]
-    @test last(last(sols).u) ≈ [16.0]
+    traj, _ = layer(nothing, ps, st)
+    @test traj isa Trajectory
+    @test SII.parameter_timeseries(traj, 1) == [0.0, 0.5, 1.0]
+    @test traj.t == [0.0, 0.5, 1.0, 2.0]
+    @test traj.u ≈ [[1.0], [3.5], [7.0], [16.0]]
+    @test SII.state_values(only(SII.get_parameter_timeseries_collection(traj))) == [[2.0, 3.0], [2.0, 5.0], [4.0, 5.0]]
+    @test last(traj.u) ≈ [16.0]
 end
 
 @testset "Initialization and constructor keywords" begin
@@ -54,11 +57,12 @@ end
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test seen == [:ic, :p]
     @test collect(values(only(ps.initialcondition.initialconditions))) == [7.0, 8.0]
-    sols, residuals, _ = layer(nothing, ps, st)
+    traj, _ = layer(nothing, ps, st)
+    residuals = traj.residuals
     @test only(residuals) == [6.0, 6.0]
-    @test first(first(sols).u) == [7.0, 8.0]
-    @test last(last(sols).t) == 0.5
-    @test last(last(sols).u) ≈ [7exp(2.5), 8exp(3.0)] rtol = 1.0e-3
+    @test first(traj.u) == [7.0, 8.0]
+    @test last(traj.t) == 0.5
+    @test last(traj.u) ≈ [7exp(2.5), 8exp(3.0)] rtol = 1.0e-3
 
     layer = SingleShootingLayer(
         prob, Tsit5(); tunable_ic = [2],
@@ -66,10 +70,11 @@ end
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test only(values(only(ps.initialcondition.initialconditions))) == 5.0
-    sols, residuals, _ = layer(nothing, ps, st)
+    traj, _ = layer(nothing, ps, st)
+    residuals = traj.residuals
     @test only(residuals) == [3.0]
-    @test first(first(sols).u) == [1.0, 5.0]
-    @test first(sols).prob.p == [1.0, 2.0]
+    @test first(traj.u) == [1.0, 5.0]
+    @test SII.parameter_values(traj) == [1.0, 2.0]
 
     @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); tunable_ic = [3])
     @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); quadrature_indices = [3])
@@ -96,14 +101,14 @@ end
     ps, st = LuxCore.setup(rng, layer)
     @test calls[] == 1
     @test ps.parameter.parameters.p₁.parameter.ps == expected
-    sols, _, _ = layer(nothing, ps, st)
-    @test last(last(sols).u) ≈ [sum(expected) / 2]
+    traj, _ = layer(nothing, ps, st)
+    @test last(traj.u) ≈ [sum(expected) / 2]
 
     prob = ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0), Float64[])
     layer = SingleShootingLayer(prob, Tsit5())
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    sols, _, _ = layer(nothing, ps, st)
-    @test last(last(sols).u) ≈ [exp(-1)] rtol = 1.0e-3
+    traj, _ = layer(nothing, ps, st)
+    @test last(traj.u) ≈ [exp(-1)] rtol = 1.0e-3
     @test isempty(ps.parameter.parameters)
 end
 
@@ -125,12 +130,14 @@ end
         0.5 => (; variables = (2 => 40.0,), fixed = [1, 3]),
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    sols, residuals, _ = layer(nothing, ps, st)
-    @test length(sols) == 2
-    @test [sol.t for sol in sols] == [[0.0, 0.5], [0.5, 1.0]]
+    traj, _ = layer(nothing, ps, st)
+    residuals = traj.residuals
+    @test length(traj.residuals) == 2
+    @test traj.t == [0.0, 0.5, 0.5, 1.0]
+    @test traj.reset_indices == [3]
     @test isempty(first(residuals))
     @test last(residuals) ≈ [19.0]
-    @test last(first(sols).u) ≈ [10.5, 21.0, 31.5]
-    @test first(last(sols).u) == [10.0, 40.0, 30.0]
-    @test last(last(sols).u) ≈ [10.5, 41.0, 31.5]
+    @test traj.u[2] ≈ [10.5, 21.0, 31.5]
+    @test traj.u[3] == [10.0, 40.0, 30.0]
+    @test last(traj.u) ≈ [10.5, 41.0, 31.5]
 end

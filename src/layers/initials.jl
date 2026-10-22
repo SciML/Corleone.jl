@@ -106,5 +106,5 @@ function (layer::InitialConditions)((default, t0)::Tuple, ps, st)
     return (newval, shooting), (; lookup = st_lookup, initialconditions = st.initialconditions)
 end
 
-(layer::InitialConditions)(prob::SciMLBase.AbstractDEProblem, ps, st) = layer((prob.u0, first(prob.tspan)), ps, st)
-(layer::InitialConditions)(sol::SciMLBase.AbstractTimeseriesSolution, ps, st) = layer((last(state_values(sol)), last(current_time(sol))), ps, st)
+#(layer::InitialConditions)(prob::SciMLBase.AbstractDEProblem, ps, st) = layer((prob.u0, first(prob.tspan)), ps, st)
+#(layer::InitialConditions)(sol::SciMLBase.AbstractTimeseriesSolution, ps, st) = layer((last(state_values(sol)), last(current_time(sol))), ps, st)

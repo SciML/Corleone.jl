@@ -16,6 +16,9 @@ evaluates parameters at a time, and `getp(trajectory, symbol)(trajectory)` retri
 a parameter's history on the combined parameter-change grid. No parameter-history
 object is stored in the trajectory.
 
+For tested backend configurations, solver settings, limitations, and validation
+results, see [Automatic differentiation backends](automatic_differentiation.md).
+
 ```@docs
 Corleone.Trajectory
 Corleone.ControlParameter

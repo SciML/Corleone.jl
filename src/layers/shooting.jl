@@ -4,7 +4,13 @@
     alg
     initialcondition
     parameter
+    sys
 end
+
+# Resolve symbolic metadata once, outside the forward/AD path. Keep the existing
+# five-argument constructor for callers that replace the problem or sublayers.
+ShootingLayer(name, problem, alg, initialcondition, parameter) =
+    ShootingLayer(name, problem, alg, initialcondition, parameter, get_symbolic_container(problem))
 
 function ShootingLayer(
         problem::SciMLBase.AbstractSciMLProblem,
@@ -41,7 +47,7 @@ end
 
 @inline function (x::ShootingLayer)((prob, tstops)::Tuple, ps, st::NamedTuple)
     solutions, residuals, next_st = solve_problems(x, prob, ps, st, tstops)
-    return Trajectory(x, ps, next_st, solutions, residuals), next_st
+    return build_trajectory(x, ps, next_st, solutions, residuals), next_st
 end
 
 @inline function solve_problems(x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
@@ -57,9 +63,9 @@ end
 get_du0(::Any, ::Any) = nothing
 get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
 
-function internal_solve(prob, sol, u0, p, tspan)
+function internal_solve(prob, alg, sol, u0, p, tspan)
     du0 = get_du0(prob, sol)
-    return internal_solve(prob, sol.alg, u0, p, tspan, du0)
+    return internal_solve(prob, alg, u0, p, tspan, du0)
 end
 
 # Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
@@ -84,11 +90,15 @@ function buffered_solve(x::ShootingLayer, prob, sol::T, res::R, ps, st, tstops) 
     return buffered_solve!(solbuff, x, prob, resbuff, ps, st, tstops)
 end
 
+terminal_state(sol::SciMLBase.AbstractTimeseriesSolution) = last(sol.u)
+terminal_state(sol::Base.AbstractVecOrTuple) = last(sol)
+terminal_state(sol::AbstractArray) = sol[:, end]
+
 @inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops)
     for i in Base.OneTo(length(tstops) - 1)
-        (u0, res[i + 1]), st_ic = x.initialcondition(sols[i], ps.initialcondition, st.initialcondition)
+        (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
-        sols[i + 1] = internal_solve(prob, sols[i], u0, p, (tstops[i], tstops[i + 1]))
+        sols[i + 1] = internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1]))
         st = (; initialcondition = st_ic, parameter = st_p)
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st

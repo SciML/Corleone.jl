@@ -12,6 +12,7 @@ using ChainRulesCore
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
+import RecursiveArrayTools
 
 using OhMyThreads
 using Distributed
@@ -31,6 +32,8 @@ is_extension_loaded(::Val) = false
 
 include("layers/Layers.jl")
 export ShootingLayer
+include("utilities/trajectory.jl")
+export Trajectory
 include("deprecation/single_shooting.jl")
 export SingleShootingLayer, ControlParameter
 

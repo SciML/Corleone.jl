@@ -26,8 +26,14 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
-            return @safetestset "Legacy single-shooting constructor" begin
+            @safetestset "Legacy single-shooting constructor" begin
                 include("core/legacy_single_shooting.jl")
+            end
+            @safetestset "Trajectory" begin
+                include("core/trajectory.jl")
+            end
+            return @safetestset "Trajectory differentiation" begin
+                include("core/trajectory_ad.jl")
             end
             #@safetestset "Local controls" begin
             #    include("core/local_controls.jl")
