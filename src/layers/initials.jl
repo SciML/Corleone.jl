@@ -6,6 +6,7 @@ $(TYPEDEF)
     tunable
     prescribed
     repack
+    tunable_indices
     permutation
 end
 
@@ -38,17 +39,17 @@ function InitialCondition(problem::SciMLBase.AbstractSciMLProblem, definitions..
 
     return InitialCondition(
         name,
-        free_values, fixed_values, repack, perm
+        free_values, fixed_values, repack, sort!(free), perm
     )
 end
 
 LuxCore.initialparameters(::Random.AbstractRNG, x::InitialCondition) = deepcopy(x.tunable)
 LuxCore.initialstates(::Random.AbstractRNG, x::InitialCondition) = deepcopy(x.prescribed)
 
-function (layer::InitialCondition)(x, ps, st)
-    (; repack, permutation) = layer
+function (layer::InitialCondition)(default, ps, st)
+    (; repack, permutation, tunable_indices) = layer
     vals = vcat(collect(values(ps)), collect(values(st)))
-    return vals[permutation] |> repack, st
+    return (vals[permutation], [vals[i] - default[i] for i in tunable_indices]) |> repack, st
 end
 
 @concrete terse struct InitialConditions <: LuxCore.AbstractLuxContainerLayer{(:lookup, :initialconditions)}
@@ -99,8 +100,8 @@ function (layer::InitialConditions)((default, t0)::Tuple, ps, st)
     (; lookup, initialconditions) = layer
     (id, _), st_lookup = LuxCore.apply(lookup, t0, ps.lookup, st.lookup)
     istypemax(id) && return (default, similar(default, 0)), (; lookup = st_lookup, initialconditions = st.initialconditions)
-    newval, _ = initialconditions[id](nothing, ps.initialconditions[id], st.initialconditions[id])
-    return (newval, newval .- default), (; lookup = st_lookup, initialconditions = st.initialconditions)
+    (newval, shooting), _ = initialconditions[id](nothing, ps.initialconditions[id], st.initialconditions[id])
+    return (newval, shooting), (; lookup = st_lookup, initialconditions = st.initialconditions)
 end
 
 (layer::InitialConditions)(prob::SciMLBase.AbstractDEProblem, ps, st) = layer((prob.u0, first(prob.tspan)), ps, st)
