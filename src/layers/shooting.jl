@@ -63,7 +63,7 @@ end
 get_du0(::Any, ::Any) = nothing
 get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
 
-function internal_solve(prob, alg, sol, u0, p, tspan)
+function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
     du0 = get_du0(prob, sol)
     return internal_solve(prob, alg, u0, p, tspan, du0)
 end
