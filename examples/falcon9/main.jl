@@ -75,7 +75,7 @@ const t1 = 40.8         # s, boost-back duration (fixed)
 const x₀ = 36.022e3
 const y₀ = 60.708e3
 const vx₀ = 1.052e3
-const vy₀ = 1.060e3
+const vy₀ = 1.06e3
 const m₀ = 76501.0
 
 # ## Phase dynamics
@@ -181,7 +181,7 @@ optprob = OptimizationProblem(
 
 sol = solve(
     optprob, Ipopt.Optimizer(), max_iter = 2000, tol = 1.0e-9,
-    constr_viol_tol = 1.0e-8, 
+    constr_viol_tol = 1.0e-8,
     hessian_approximation = "limited-memory",
     print_level = 0
 )
@@ -218,9 +218,9 @@ T3 = ps_ca.layer_5.p[1]
 theta_ctrl = ControlParameter(
     grid3, name = :theta, bounds = (-pi, pi), controls = Vector(ps_ca.layer_5.controls)
 )
-prob1 = ODEProblem(phase1!, u0, (0.0, 1.0), [t1], saveat = 1e-3)
-prob2 = ODEProblem(phase2!, u0, (0.0, 1.0), [T2], saveat = 1e-3)
-prob3 = ODEProblem(phase3!, u0, (0.0, 1.0), [T3, ps_ca.layer_5.controls[1]], saveat = 1e-3)
+prob1 = ODEProblem(phase1!, u0, (0.0, 1.0), [t1], saveat = 1.0e-3)
+prob2 = ODEProblem(phase2!, u0, (0.0, 1.0), [T2], saveat = 1.0e-3)
+prob3 = ODEProblem(phase3!, u0, (0.0, 1.0), [T3, ps_ca.layer_5.controls[1]], saveat = 1.0e-3)
 stage1 = SingleShootingLayer(prob1, Tsit5(); bounds_p = ([t1], [t1]))
 stage2 = SingleShootingLayer(prob2, Tsit5(); bounds_p = ([10.0], [260.0]))
 stage3 = SingleShootingLayer(
@@ -246,13 +246,14 @@ using CairoMakie
 
 fig = Figure(size = (1000, 800))
 ax1 = CairoMakie.Axis(
-    fig[1, 1]; title = "Booster path", xlabel = "x [km]", ylabel = "y [km]",)
+    fig[1, 1]; title = "Booster path", xlabel = "x [km]", ylabel = "y [km]",
+)
 # One continuous path over all three phases (absolute position, km)
-lines!(ax1, u1[1, :] ./ 1e3, u1[2, :] ./ 1e3; color = :blue, label = "boost-back")
-lines!(ax1, u2[1, :] ./ 1e3, u2[2, :] ./ 1e3; color = :orange, label = "coast")
-lines!(ax1, u3[1, :] ./ 1e3, u3[2, :] ./ 1e3; color = :green, label = "landing")
-scatter!(ax1, [u1[1, 1] / 1e3], [u1[2, 1] / 1e3]; color = :black, marker = :star5, markersize = 18, label = "start")
-scatter!(ax1, [u3[1, end] / 1e3], [u3[2, end] / 1e3]; color = :red, marker = :xcross, markersize = 18, label = "landing")
+lines!(ax1, u1[1, :] ./ 1.0e3, u1[2, :] ./ 1.0e3; color = :blue, label = "boost-back")
+lines!(ax1, u2[1, :] ./ 1.0e3, u2[2, :] ./ 1.0e3; color = :orange, label = "coast")
+lines!(ax1, u3[1, :] ./ 1.0e3, u3[2, :] ./ 1.0e3; color = :green, label = "landing")
+scatter!(ax1, [u1[1, 1] / 1.0e3], [u1[2, 1] / 1.0e3]; color = :black, marker = :star5, markersize = 18, label = "start")
+scatter!(ax1, [u3[1, end] / 1.0e3], [u3[2, end] / 1.0e3]; color = :red, marker = :xcross, markersize = 18, label = "landing")
 axislegend(ax1; position = :lt)
 
 ax2 = CairoMakie.Axis(fig[1, 2]; title = "Velocity", xlabel = "t [s]", ylabel = "v [m/s]")
@@ -272,10 +273,10 @@ lines!(ax3, t_p3, u3[5, :]; color = :black)
 ax4 = CairoMakie.Axis(fig[2, 2]; title = "Thrust angle θ", xlabel = "t [s]", ylabel = "θ [rad]")
 t3c = T1 .+ T2 .+ T3 .* grid3
 lines!(ax4, [0, T1], pi * ones(2))
-lines!(ax4, [T1, T1+T2], zeros(2))
+lines!(ax4, [T1, T1 + T2], zeros(2))
 lines!(ax4, t3c, Vector(ps_ca.layer_5.controls); color = :green)
 
 for ax in [ax2, ax3, ax4]
-    vlines!(ax, [T1, T1+T2], color=:gray, linestyle=:dash)
+    vlines!(ax, [T1, T1 + T2], color = :gray, linestyle = :dash)
 end
-fig 
+fig

@@ -193,23 +193,35 @@ function _resolve_tunable_p(params, pool::Vector{Int}, control_indices::Vector{I
             Int(entry)
         elseif entry isa Symbol
             pos = SymbolicIndexingInterface.parameter_index(symcache, entry)
-            isnothing(pos) && throw(ArgumentError(
-                "Unrecognized parameter name `$entry` in `params`; " *
-                "known non-control parameters are $(parameter_symbols(symcache))."))
+            isnothing(pos) && throw(
+                ArgumentError(
+                    "Unrecognized parameter name `$entry` in `params`; " *
+                        "known non-control parameters are $(parameter_symbols(symcache))."
+                )
+            )
             pool[Int(pos)]
         else
-            throw(ArgumentError(
-                "`params` entries must be integer parameter indices or `Symbol` names; " *
-                "got an entry of type $(typeof(entry))."))
+            throw(
+                ArgumentError(
+                    "`params` entries must be integer parameter indices or `Symbol` names; " *
+                        "got an entry of type $(typeof(entry))."
+                )
+            )
         end
-        idx in pool || throw(ArgumentError(
-            "`params` must be a subset of the non-control parameter indices $pool " *
-            "(got an entry resolving to $idx; control slots $(control_indices) and " *
-            "out-of-range indices are not allowed)."))
+        idx in pool || throw(
+            ArgumentError(
+                "`params` must be a subset of the non-control parameter indices $pool " *
+                    "(got an entry resolving to $idx; control slots $(control_indices) and " *
+                    "out-of-range indices are not allowed)."
+            )
+        )
         push!(sel, idx)
     end
-    isempty(sel) && throw(ArgumentError(
-        "`params` selected no tunable parameters; provide at least one parameter index or name."))
+    isempty(sel) && throw(
+        ArgumentError(
+            "`params` selected no tunable parameters; provide at least one parameter index or name."
+        )
+    )
     return sort!(unique(sel))
 end
 

@@ -22,8 +22,11 @@ rng = StableRNG(7)
 # Generate an "exact" trajectory on a fine grid to sample per-quantity data from. The grid
 # uses a 0.5 step so that all sampled time points (also multiples of 0.5) match exactly.
 tt = collect(0.0:0.5:5.0)
-pe_true = ParameterEstimationLayer(prob, Tsit5(), ExperimentData(
-    Experiment(tt, zeros(2, length(tt)); σ = σ, u0 = [1.0, 2.0])); observed = obs)
+pe_true = ParameterEstimationLayer(
+    prob, Tsit5(), ExperimentData(
+        Experiment(tt, zeros(2, length(tt)); σ = σ, u0 = [1.0, 2.0])
+    ); observed = obs
+)
 ps, st = LuxCore.setup(rng, first(pe_true.layer))
 ps = merge(ps, (p = [p_true, p_true],))
 traj, _ = first(pe_true.layer)(nothing, ps, st)
@@ -54,8 +57,10 @@ end
     # Number of time vectors must match number of value vectors.
     @test_throws ArgumentError Experiment([collect(0.0:1.0:2.0), collect(0.0:1.0:2.0)], [ones(3)])
     # Per-quantity lengths must match.
-    @test_throws ArgumentError Experiment([collect(0.0:1.0:2.0), collect(0.0:1.0:2.0)],
-        [ones(3), ones(4)])
+    @test_throws ArgumentError Experiment(
+        [collect(0.0:1.0:2.0), collect(0.0:1.0:2.0)],
+        [ones(3), ones(4)]
+    )
     # At least one quantity is required.
     @test_throws ArgumentError Experiment(AbstractVector{Float64}[], AbstractVector{Float64}[])
 end
@@ -99,8 +104,12 @@ end
     eq1 = M[1, indexin(w_eq1, tt)] .+ σ .* randn(rng, length(w_eq1))
     eq2 = M[2, indexin(w_eq2, tt)] .+ σ .* randn(rng, length(w_eq2))
 
-    data_shared = ExperimentData(Experiment(w_eq1, vcat(reshape(eq1, 1, :), reshape(eq2, 1, :));
-        σ = σ, u0 = [1.0, 2.0]))
+    data_shared = ExperimentData(
+        Experiment(
+            w_eq1, vcat(reshape(eq1, 1, :), reshape(eq2, 1, :));
+            σ = σ, u0 = [1.0, 2.0]
+        )
+    )
     data_pq = ExperimentData(Experiment([w_eq1, w_eq2], [eq1, eq2]; σ = σ, u0 = [1.0, 2.0]))
     @test n_observations(data_shared) == n_observations(data_pq)
 

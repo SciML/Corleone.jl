@@ -35,7 +35,8 @@ function generate_control_data(cvals)
     ps = merge(ps, (p = [1.0, 1.0], controls = cvals))
     sol, _ = lay(nothing, ps, st)
     pe = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(ts, zeros(2, length(ts))); observed = obs)
+        lay, ExperimentData(ts, zeros(2, length(ts))); observed = obs
+    )
     Y = CorleoneParameterEstimation.model_values(pe, sol, ts)
     return Y .+ σ .* randn(rng, 2, length(ts))
 end
@@ -44,13 +45,21 @@ end
 # fishing parameter is held at its default p[1] = 0.0, i.e. no fishing).
 function build_data(; exp1_ctrl = true_ctrl, exp2_ctrl = nothing, exp2_val = nothing)
     exps = Experiment[]
-    push!(exps, Experiment(ts, generate_control_data(exp1_ctrl); σ = σ, u0 = u0,
-        controls = (1 => ControlParameter(cgrid, controls = exp1_ctrl, bounds = (0.0, 1.0)),)))
+    push!(
+        exps, Experiment(
+            ts, generate_control_data(exp1_ctrl); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid, controls = exp1_ctrl, bounds = (0.0, 1.0)),)
+        )
+    )
     if isnothing(exp2_val)
         # experiment 2 uses its own real measurements generated with the same control
-        push!(exps, Experiment(ts, generate_control_data(isnothing(exp2_ctrl) ? zeros(nctrl) : exp2_ctrl);
-            σ = σ, u0 = u0, controls = isnothing(exp2_ctrl) ? nothing :
-                (1 => ControlParameter(cgrid, controls = exp2_ctrl, bounds = (0.0, 1.0)),)))
+        push!(
+            exps, Experiment(
+                ts, generate_control_data(isnothing(exp2_ctrl) ? zeros(nctrl) : exp2_ctrl);
+                σ = σ, u0 = u0, controls = isnothing(exp2_ctrl) ? nothing :
+                    (1 => ControlParameter(cgrid, controls = exp2_ctrl, bounds = (0.0, 1.0)),)
+            )
+        )
     else
         push!(exps, exp2_val)
     end
@@ -59,8 +68,10 @@ end
 
 @testset "Controls API" begin
     # per-experiment controls accessors
-    exp1 = Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-        controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),))
+    exp1 = Experiment(
+        ts, ones(2, length(ts)); σ = σ, u0 = u0,
+        controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+    )
     exp2 = Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0)
     data = ExperimentData(exp1, exp2)
     @test has_controls(data) == true
@@ -97,8 +108,10 @@ end
     inner = CorleoneParameterEstimationProblem(pe; x0 = [1.2, 1.3])
     @test length(inner.x0) == 2
 
-    sol = solve(problem(pe; x0 = [1.2, 1.3]), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300)
+    sol = solve(
+        problem(pe; x0 = [1.2, 1.3]), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300
+    )
     @test SciMLBase.successful_retcode(sol)
     res = estimate_parameters(inner, sol)
     @test isapprox(res.x, [1.0, 1.0]; atol = 0.05)
@@ -112,15 +125,21 @@ end
 @testset "Controlled + uncontrolled with same non-zero control" begin
     # both experiments apply the same non-zero control; the fitter must distinguish the
     # shared tunable parameters, not fit the control.
-    data = build_data(; exp1_ctrl = true_ctrl,
-        exp2_val = Experiment(ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)))
+    data = build_data(;
+        exp1_ctrl = true_ctrl,
+        exp2_val = Experiment(
+            ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+        )
+    )
     @test has_controls(data) == true
     @test controls(data, 1) !== nothing
     @test controls(data, 2) !== nothing
     pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = obs)
-    sol = solve(problem(pe; x0 = [1.2, 1.3]), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300)
+    sol = solve(
+        problem(pe; x0 = [1.2, 1.3]), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300
+    )
     @test SciMLBase.successful_retcode(sol)
     res = estimate_parameters(pe, sol)
     @test isapprox(res.x, [1.0, 1.0]; atol = 0.05)
@@ -131,12 +150,18 @@ end
     # Experiment 2 applies a *different* (wrong) control than the one used to generate its
     # data, so the shared tunable parameters cannot explain both experiments and the joint
     # fit is biased.
-    data = build_data(; exp1_ctrl = true_ctrl,
-        exp2_val = Experiment(ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = 0.3 .* ones(nctrl), bounds = (0.0, 1.0)),)))
+    data = build_data(;
+        exp1_ctrl = true_ctrl,
+        exp2_val = Experiment(
+            ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid, controls = 0.3 .* ones(nctrl), bounds = (0.0, 1.0)),)
+        )
+    )
     pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = obs)
-    sol = solve(problem(pe; x0 = [1.2, 1.3]), GaussNewton();
-        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300)
+    sol = solve(
+        problem(pe; x0 = [1.2, 1.3]), GaussNewton();
+        abstol = 1.0e-8, reltol = 1.0e-8, maxiters = 300
+    )
     res = estimate_parameters(pe, sol)
     # a single shared parameter set cannot fit two experiments driven by different controls
     @test !isapprox(res.x, [1.0, 1.0]; atol = 0.15)
@@ -144,8 +169,10 @@ end
 
 @testset "Validation" begin
     # control entries must be `index => ControlParameter` pairs
-    exp_bad = Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-        controls = (1,))   # entry is an Int, not a Pair
+    exp_bad = Experiment(
+        ts, ones(2, length(ts)); σ = σ, u0 = u0,
+        controls = (1,)
+    )   # entry is an Int, not a Pair
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), ExperimentData(exp_bad); observed = obs)
 
     # control value must be a ControlParameter
@@ -154,19 +181,27 @@ end
 
     # all experiments with controls must control the same parameter indices
     data_bad = ExperimentData(
-        Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)),
-        Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (2 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)),
+        Experiment(
+            ts, ones(2, length(ts)); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+        ),
+        Experiment(
+            ts, ones(2, length(ts)); σ = σ, u0 = u0,
+            controls = (2 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+        ),
     )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad; observed = obs)
 
     # mismatched control discretization length is rejected
     data_bad2 = ExperimentData(
-        Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)),
-        Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid[1:4], controls = ones(4), bounds = (0.0, 1.0)),)),
+        Experiment(
+            ts, ones(2, length(ts)); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+        ),
+        Experiment(
+            ts, ones(2, length(ts)); σ = σ, u0 = u0,
+            controls = (1 => ControlParameter(cgrid[1:4], controls = ones(4), bounds = (0.0, 1.0)),)
+        ),
     )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad2; observed = obs)
 end

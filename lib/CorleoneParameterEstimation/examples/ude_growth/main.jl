@@ -156,8 +156,10 @@ g_single = [nn([u], p_1.net, st_nn)[1][1] for u in ugrid]
 
 u_obs_1 = vec(y1)
 u_lo_1, u_hi_1 = extrema(u_obs_1)
-println("States visited by experiment 1: [", round(u_lo_1; digits = 3), ", ",
-    round(u_hi_1; digits = 3), "]")
+println(
+    "States visited by experiment 1: [", round(u_lo_1; digits = 3), ", ",
+    round(u_hi_1; digits = 3), "]"
+)
 
 function plot_experiment_1(tdata, y1, traj_true1, yfit1, ugrid, g_fit)
     f = Figure(size = (1100, 420))
@@ -168,12 +170,18 @@ function plot_experiment_1(tdata, y1, traj_true1, yfit1, ugrid, g_fit)
         ylabel = "state u",
         title = "Experiment 1 (u₀ = 2.0)",
     )
-    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
-        color = :black, label = "true")
-    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 5,
-        label = "observations")
-    lines!(ax_traj, tdata, vec(yfit1); linewidth = 2.5, color = :crimson,
-        label = "experiment-1 fit")
+    lines!(
+        ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
+        color = :black, label = "true"
+    )
+    scatter!(
+        ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 5,
+        label = "observations"
+    )
+    lines!(
+        ax_traj, tdata, vec(yfit1); linewidth = 2.5, color = :crimson,
+        label = "experiment-1 fit"
+    )
     axislegend(ax_traj; position = :rt)
 
     ax_term = CairoMakie.Axis(
@@ -185,12 +193,18 @@ function plot_experiment_1(tdata, y1, traj_true1, yfit1, ugrid, g_fit)
     u_obs = vec(y1)
     u_lo, u_hi = extrema(u_obs)
 
-    lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
-        label = "g(u) = 0.5 sin(u)")
-    lines!(ax_term, ugrid, g_fit; linewidth = 2.5, color = :crimson,
-        label = "experiment-1 fit ĝ(u)")
-    scatter!(ax_term, u_obs, g_true.(u_obs); color = (:steelblue, 0.45), markersize = 8, marker = :x,
-        label = "visited states")
+    lines!(
+        ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
+        label = "g(u) = 0.5 sin(u)"
+    )
+    lines!(
+        ax_term, ugrid, g_fit; linewidth = 2.5, color = :crimson,
+        label = "experiment-1 fit ĝ(u)"
+    )
+    scatter!(
+        ax_term, u_obs, g_true.(u_obs); color = (:steelblue, 0.45), markersize = 8, marker = :x,
+        label = "visited states"
+    )
     extrapolate = false
     if u_lo > minimum(ugrid)
         extrapolate = true
@@ -255,10 +269,14 @@ weighted_r2(yobs, ypred) = 1 - sum(abs2, yobs .- ypred) /
     sum(abs2, yobs .- sum(yobs) / length(yobs))
 nrmse(yobs, ypred) = sqrt(sum(abs2, (yobs .- ypred) ./ σ_obs) / length(yobs))
 
-println("Weighted R² (experiment 1): experiment-1 fit = ", weighted_r2(y1, single_1),
-    ", joint fit = ", weighted_r2(y1, joint_1))
-println("RMSE/σ (experiment 2):      experiment-1 fit = ", nrmse(y2, single_2),
-    ", joint fit = ", nrmse(y2, joint_2))
+println(
+    "Weighted R² (experiment 1): experiment-1 fit = ", weighted_r2(y1, single_1),
+    ", joint fit = ", weighted_r2(y1, joint_1)
+)
+println(
+    "RMSE/σ (experiment 2):      experiment-1 fit = ", nrmse(y2, single_2),
+    ", joint fit = ", nrmse(y2, joint_2)
+)
 
 # ## What did the joint fit learn?
 #
@@ -270,19 +288,25 @@ g_joint = [nn([u], p_joint.net, st_nn)[1][1] for u in ugrid]
 
 u_obs_all = vcat(vec(y1), vec(y2))
 u_lo, u_hi = extrema(u_obs_all)
-println("States visited by the joint data: [", round(u_lo; digits = 3), ", ",
-    round(u_hi; digits = 3), "]")
-println("Max |ĝ(u) - g(u)| on the joint data range: experiment-1 fit = ",
+println(
+    "States visited by the joint data: [", round(u_lo; digits = 3), ", ",
+    round(u_hi; digits = 3), "]"
+)
+println(
+    "Max |ĝ(u) - g(u)| on the joint data range: experiment-1 fit = ",
     maximum(abs.(g_single[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))),
     ", joint fit = ",
-    maximum(abs.(g_joint[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))))
+    maximum(abs.(g_joint[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi])))
+)
 
 # The left panel shows both experiments together: the experiment-1 fit (crimson) matches
 # experiment 1 but leaves the second experiment, while the joint fit (dark green) follows
 # both. The right panel compares the recovered terms.
 
-function plot_joint_fit(tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
-        ugrid, g_single, g_joint)
+function plot_joint_fit(
+        tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
+        ugrid, g_single, g_joint
+    )
     f = Figure(size = (1200, 440))
 
     ax_traj = CairoMakie.Axis(
@@ -291,16 +315,26 @@ function plot_joint_fit(tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
         ylabel = "state u",
         title = "Both experiments",
     )
-    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
-        color = :black, label = "true")
-    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker =:x,
-        label = "observations (exp 1)")
-    lines!(ax_traj, tdata, vec(joint_1); linewidth = 2, color = :darkgreen,
-        label = "joint fit")
-    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true2.u)); linestyle = :dash,
-        color = :black)
-    scatter!(ax_traj, tdata, vec(y2); color = (:orange, 0.5), markersize = 8, marker =:x,
-        label = "observations (exp 2)")
+    lines!(
+        ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
+        color = :black, label = "true"
+    )
+    scatter!(
+        ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker = :x,
+        label = "observations (exp 1)"
+    )
+    lines!(
+        ax_traj, tdata, vec(joint_1); linewidth = 2, color = :darkgreen,
+        label = "joint fit"
+    )
+    lines!(
+        ax_traj, tdata, vec(reduce(hcat, traj_true2.u)); linestyle = :dash,
+        color = :black
+    )
+    scatter!(
+        ax_traj, tdata, vec(y2); color = (:orange, 0.5), markersize = 8, marker = :x,
+        label = "observations (exp 2)"
+    )
     lines!(ax_traj, tdata, vec(joint_2); linewidth = 2, color = :darkgreen)
     axislegend(ax_traj; position = :rt)
 
@@ -312,17 +346,27 @@ function plot_joint_fit(tdata, y1, y2, traj_true1, traj_true2, joint_1, joint_2,
     )
     u_obs = vcat(vec(y1), vec(y2))
     u_lo, u_hi = extrema(u_obs)
-    
-    lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
-        label = "g(u) = 0.5 sin(u)")
-    lines!(ax_term, ugrid, g_single; linewidth = 2, color = :crimson,
-        label = "experiment-1 fit ĝ(u)")
-    lines!(ax_term, ugrid, g_joint; linewidth = 2, color = :darkgreen,
-        label = "joint fit ĝ(u)")
-    scatter!(ax_term, vec(y1), g_true.(vec(y1)); color = (:steelblue, 0.35), markersize = 8, marker =:x,
-        label = "visited (exp 1)")
-    scatter!(ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker =:x,
-        label = "visited (exp 2)")
+
+    lines!(
+        ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
+        label = "g(u) = 0.5 sin(u)"
+    )
+    lines!(
+        ax_term, ugrid, g_single; linewidth = 2, color = :crimson,
+        label = "experiment-1 fit ĝ(u)"
+    )
+    lines!(
+        ax_term, ugrid, g_joint; linewidth = 2, color = :darkgreen,
+        label = "joint fit ĝ(u)"
+    )
+    scatter!(
+        ax_term, vec(y1), g_true.(vec(y1)); color = (:steelblue, 0.35), markersize = 8, marker = :x,
+        label = "visited (exp 1)"
+    )
+    scatter!(
+        ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker = :x,
+        label = "visited (exp 2)"
+    )
     extrapolate = false
     if u_lo > minimum(ugrid)
         extrapolate = true
@@ -361,13 +405,13 @@ plot_joint_fit(
 # keyword. The `regularization_reference` (shrinkage toward zero by default) and the
 # number of residual rows appended are resolved automatically.
 
-lasso_prob = CorleoneParameterEstimationProblem(pe_joint; regularization = L1Regularizer(1e-4))
+lasso_prob = CorleoneParameterEstimationProblem(pe_joint; regularization = L1Regularizer(1.0e-4))
 println("Regularization residual rows added: ", lasso_prob.n_regularization_residuals)
 
 # We warm-start from the unregularized joint fit and run the same two-stage optimization
 # with the L1 penalty active.
 
-lasso_opt = OptimizationProblem(pe_joint; regularization = L1Regularizer(1e-4))
+lasso_opt = OptimizationProblem(pe_joint; regularization = L1Regularizer(1.0e-4))
 sol_lasso = solve(lasso_opt, Adam(0.01); u0 = sol_joint.u, maxiters = 300)
 sol_lasso = solve(lasso_opt, LBFGSB(); u0 = sol_lasso.u, maxiters = 500)
 p_lasso = ComponentArray(sol_lasso.u, getaxes(p0))
@@ -382,10 +426,14 @@ single_1_l1 = reduce(hcat, ude_traj(p_lasso).u)
 single_2_l1 = reduce(hcat, ude_traj(p_lasso; u0 = u0_2).u)
 
 println("L1-regularized weight vector norm: ", round(norm(Vector(p_lasso.net)); digits = 3))
-println("Weighted R² (experiment 1): joint fit = ",
-    weighted_r2(y1, single_1_l1))
-println("RMSE/σ (experiment 2):      joint fit = ",
-    nrmse(y2, vec(single_2_l1)))
+println(
+    "Weighted R² (experiment 1): joint fit = ",
+    weighted_r2(y1, single_1_l1)
+)
+println(
+    "RMSE/σ (experiment 2):      joint fit = ",
+    nrmse(y2, vec(single_2_l1))
+)
 
 # The learned reaction term stays on top of the truth in the visited region.
 
@@ -393,8 +441,10 @@ g_lasso = [nn([u], p_lasso.net, st_nn)[1][1] for u in ugrid]
 
 u_obs_all = vcat(vec(y1), vec(y2))
 u_lo, u_hi = extrema(u_obs_all)
-println("Max |ĝ(u) - g(u)| on the joint data range (L1 fit): ",
-    maximum(abs.(g_lasso[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi]))))
+println(
+    "Max |ĝ(u) - g(u)| on the joint data range (L1 fit): ",
+    maximum(abs.(g_lasso[u_lo .<= ugrid .<= u_hi] .- g_true.(ugrid[u_lo .<= ugrid .<= u_hi])))
+)
 
 # The final panel compares the true term, the unregularized joint fit and the L1-regularized
 # fit. The regularized fit is the baseline: it is visually indistinguishable from the
@@ -410,12 +460,18 @@ function plot_regularized(tdata, ugrid, g_lasso)
         ylabel = "state u",
         title = "L1-regularized fit",
     )
-    scatter!(ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker =:x,
-        label = "observations (exp 1)")
-    lines!(ax_traj, tdata, vec(single_1_l1); linewidth = 2.5, color = :darkgreen,
-        label = "L1-regularized fit")
-    lines!(ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
-        color = :black, label = "true")
+    scatter!(
+        ax_traj, tdata, vec(y1); color = (:steelblue, 0.5), markersize = 8, marker = :x,
+        label = "observations (exp 1)"
+    )
+    lines!(
+        ax_traj, tdata, vec(single_1_l1); linewidth = 2.5, color = :darkgreen,
+        label = "L1-regularized fit"
+    )
+    lines!(
+        ax_traj, tdata, vec(reduce(hcat, traj_true1.u)); linestyle = :dash,
+        color = :black, label = "true"
+    )
     axislegend(ax_traj; position = :rt)
 
     ax_term = CairoMakie.Axis(
@@ -424,12 +480,18 @@ function plot_regularized(tdata, ugrid, g_lasso)
         ylabel = "unknown term",
         title = "Recovered reaction term",
     )
-    lines!(ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
-        label = "g(u) = 0.5 sin(u)")
-    lines!(ax_term, ugrid, g_lasso; linewidth = 2.5, color = :purple,
-        label = "L1-regularized ĝ(u)")
-    scatter!(ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker =:x,
-        label = "visited (exp 2)")
+    lines!(
+        ax_term, ugrid, g_true.(ugrid); linestyle = :dash, color = :black,
+        label = "g(u) = 0.5 sin(u)"
+    )
+    lines!(
+        ax_term, ugrid, g_lasso; linewidth = 2.5, color = :purple,
+        label = "L1-regularized ĝ(u)"
+    )
+    scatter!(
+        ax_term, vec(y2), g_true.(vec(y2)); color = (:orange, 0.35), markersize = 8, marker = :x,
+        label = "visited (exp 2)"
+    )
     axislegend(ax_term; position = :rb)
 
     return f

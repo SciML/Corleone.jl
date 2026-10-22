@@ -23,8 +23,10 @@ data = ExperimentData(tdata, ydata; σ = σ)
 shooting_points = collect(0.0:1.0:5.0)
 
 @testset "multiple shooting layer construction" begin
-    pe = ParameterEstimationLayer(prob, Tsit5(), data, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     @test pe isa ParameterEstimationLayer
     @test pe.layer[1] isa MultipleShootingLayer
     ls, st = LuxCore.setup(Random.default_rng(), pe)
@@ -43,10 +45,12 @@ shooting_points = collect(0.0:1.0:5.0)
 end
 
 @testset "GaussNewton fit with multiple shooting" begin
-    pe = ParameterEstimationLayer(prob, Tsit5(), data, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     nlls = problem(pe)
-    sol = solve(nlls, GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(nlls, GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
     @test SciMLBase.successful_retcode(sol)
 
     res = estimate_parameters(pe, sol)
@@ -58,8 +62,10 @@ end
 end
 
 @testset "LevenbergMarquardt fit with multiple shooting" begin
-    pe = ParameterEstimationLayer(prob, Tsit5(), data, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     nlls = problem(pe)
     sol = solve(nlls, LevenbergMarquardt())
     @test SciMLBase.successful_retcode(sol)
@@ -67,9 +73,11 @@ end
 end
 
 @testset "fitted trajectory is reconstructed" begin
-    pe = ParameterEstimationLayer(prob, Tsit5(), data, shooting_points;
-        observed = (u, p, t) -> u[1:1])
-    sol = solve(problem(pe), GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
+    sol = solve(problem(pe), GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
     ft = fitted_parameters(pe, sol)
     # single experiment -> a single assembled trajectory covering the whole time span
     @test ft.trajectory isa Trajectory
@@ -89,15 +97,17 @@ end
         ExperimentData(t, y1; σ = σ),
         ExperimentData(t, y2; σ = σ, u0 = [2.0]),
     )
-    pe = ParameterEstimationLayer(prob, Tsit5(), data2, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data2, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     @test n_experiments(pe.data) == 2
 
     nlls = problem(pe)
     # 1 shared parameter + 2 experiments * 4 local states = 9 optimization variables
     @test length(nlls.u0) == 1 + 2 * 4
 
-    sol = solve(nlls, GaussNewton(); abstol = 1e-8, reltol = 1e-8)
+    sol = solve(nlls, GaussNewton(); abstol = 1.0e-8, reltol = 1.0e-8)
     @test SciMLBase.successful_retcode(sol)
     res = estimate_parameters(pe, sol)
     @test isapprox(res.x[1], p_true; atol = 0.05)

@@ -57,8 +57,8 @@ exp = Experiment([prey_times, predator_times], [prey_data, predator_data]; σ = 
 ```
 """
 struct Experiment{
-    P, T<:AbstractVector, Y, S<:Union{Nothing, Number, AbstractVector, AbstractMatrix}, U, C
-}
+        P, T <: AbstractVector, Y, S <: Union{Nothing, Number, AbstractVector, AbstractMatrix}, U, C,
+    }
     "Observation time points (Union grid when per-quantity times are used)"
     t::T
     "Observed values: matrix `n_obs × n_t`, vector `n_t` (single quantity), or vector-of-vectors (per-quantity)"
@@ -99,12 +99,18 @@ function Experiment(
         times::AbstractVector{<:AbstractVector}, ys::AbstractVector{<:AbstractVector};
         σ = nothing, u0 = nothing, controls = nothing
     )
-    length(times) == length(ys) || throw(ArgumentError(
-        "The number of per-quantity time vectors must match the number of value vectors."))
+    length(times) == length(ys) || throw(
+        ArgumentError(
+            "The number of per-quantity time vectors must match the number of value vectors."
+        )
+    )
     length(times) >= 1 || throw(ArgumentError("At least one per-quantity time series is required."))
     for (tk, yk) in zip(times, ys)
-        length(tk) == length(yk) || throw(ArgumentError(
-            "The number of values must match the number of time points for each per-quantity series."))
+        length(tk) == length(yk) || throw(
+            ArgumentError(
+                "The number of values must match the number of time points for each per-quantity series."
+            )
+        )
     end
     t_union = sort(unique(vcat(collect.(times)...)))
     return Experiment(t_union, collect(ys), σ, u0, controls, collect(times))
@@ -152,7 +158,7 @@ data2 = ExperimentData(t2, y2; σ = 0.05, u0 = [2.0])
 data = ExperimentData(data1, data2)
 ```
 """
-struct ExperimentData{N, E<:NTuple{N, Experiment}}
+struct ExperimentData{N, E <: NTuple{N, Experiment}}
     "One [`Experiment`](@ref) per dataset"
     experiments::E
 

@@ -26,7 +26,8 @@ ps, st = LuxCore.setup(rng, true_layer)
 ps = merge(ps, (p = p_true,))
 traj, _ = true_layer(nothing, ps, st)
 pe_data = ParameterEstimationLayer(
-    true_layer, ExperimentData(t, zeros(2, length(t))); observed = obs)
+    true_layer, ExperimentData(t, zeros(2, length(t))); observed = obs
+)
 Y = model_values(pe_data, traj, t)
 data = ExperimentData(t, Y; σ = 0.05)
 
