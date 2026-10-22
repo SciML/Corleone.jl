@@ -63,9 +63,12 @@ The returned named tuples mirror the parameter structure produced by
 by the vectorizer (e.g. `ComponentArrays`).
 """
 function get_bounds(layer::LuxCore.AbstractLuxWrapperLayer{:layers}; kwargs...)
-    names = keys(layer.layers)
-    bounds = map(name -> get_bounds(layer.layers[name]; kwargs...), names)
-    return NamedTuple{names}(first.(bounds)), NamedTuple{names}(last.(bounds))
+    # `map` over the `NamedTuple` itself keeps both the keys and the element types
+    # inferable. The previous `map(name -> get_bounds(layer.layers[name]), keys(...))`
+    # indexed by a runtime `Symbol`, which made the per-layer result a `Union` and the
+    # whole function infer `Any` for a multistage `Chain`.
+    bounds = map(l -> get_bounds(l; kwargs...), layer.layers)
+    return map(first, bounds), map(last, bounds)
 end
 
 """
@@ -94,6 +97,17 @@ of a multi-stage problem, which determines the objective and the time grid.
 """
 _collect_shooting_stages(::Any, st) = Tuple[]
 _collect_shooting_stages(layer::SingleShootingLayer, st) = [(layer, st)]
+# A MultipleShootingLayer wraps a SingleShootingLayer and shares its dynamics: expose the
+# inner layer (with the per-interval states of the wrapped stage) so multistage chains
+# built from MultipleShootingLayers can impose per-stage path constraints and get an
+# objective time grid.
+_collect_shooting_stages(layer::MultipleShootingLayer, st) = [(layer.layer, st)]
+
+# A MultipleShootingLayer's state is a NamedTuple with one entry per shooting interval
+# (`interval_i` keys); a plain stage state carries the interval fields directly.
+_is_ms_state(st::NamedTuple) =
+    !isempty(st) && all(k -> startswith(string(k), "interval_"), keys(st))
+_is_ms_state(::Any) = false
 
 function _collect_shooting_stages(
         layer::LuxCore.AbstractLuxWrapperLayer{:layers}, st
@@ -122,6 +136,20 @@ be evaluated. The recursion builds the result as an immutable tuple (no in-place
 mutation) and writes into the caller-provided `res` buffer via `_path_constraint!`,
 so it stays Zygote/Buffer safe exactly like the single-stage path-constraint path.
 """
+function _forward_collect_stage_trajs(layer, ps::NamedTuple, st)
+    # Recurse structurally over the tuple of sublayers (with their matching parameter and
+    # state tuples) instead of indexing `layer.layers` by a runtime `Symbol`. Runtime
+    # `getproperty(::NamedTuple, ::Symbol)`/`getindex(::Tuple, ::Int)` yield a `Union` of
+    # the element types, which made this function infer `Any` for a multistage `Chain`.
+    return _forward_collect_stage_trajs(
+        values(layer.layers), values(ps), values(st), nothing, ()
+    )
+end
+
+# Fallback for container parameters that are not `NamedTuple`s (notably the
+# `ComponentVector`s produced by the ComponentArrays extension, whose `values` returns the
+# array itself). Indexing by a runtime `Symbol` is not type stable, but it keeps that path
+# working; the `NamedTuple` (plain-Lux) path above is the type-stable one.
 function _forward_collect_stage_trajs(layer, ps, st)
     names = keys(layer.layers)
     return _forward_collect_stage_trajs(names, 1, layer, ps, st, nothing, ())
@@ -133,7 +161,7 @@ end
     sub = getproperty(layer.layers, name)
     sub_ps = getproperty(ps, name)
     sub_st = getproperty(st, name)
-    if sub isa SingleShootingLayer
+    if sub isa SingleShootingLayer || sub isa MultipleShootingLayer
         traj, _ = sub(inp, sub_ps, sub_st)
         return _forward_collect_stage_trajs(
             names, i + 1, layer, ps, st, traj, (trajs..., traj)
@@ -142,6 +170,38 @@ end
         # StageTransition: Trajectory -> next initial state
         outp, _ = sub(inp, sub_ps, sub_st)
         return _forward_collect_stage_trajs(names, i + 1, layer, ps, st, outp, trajs)
+    end
+end
+
+@inline function _forward_collect_stage_trajs(
+        ::Tuple{}, ::Tuple{}, ::Tuple{}, inp, trajs
+    )
+    return trajs
+end
+
+@inline function _forward_collect_stage_trajs(
+        layers::Tuple, ps::Tuple, st::Tuple, inp, trajs
+    )
+    sub = first(layers)
+    sub_ps = first(ps)
+    sub_st = first(st)
+    rest_layers = Base.tail(layers)
+    rest_ps = Base.tail(ps)
+    rest_st = Base.tail(st)
+    if sub isa SingleShootingLayer
+        traj, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_trajs(
+            rest_layers, rest_ps, rest_st, traj, (trajs..., traj)
+        )
+    elseif sub isa MultipleShootingLayer
+        traj, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_trajs(
+            rest_layers, rest_ps, rest_st, traj, (trajs..., traj)
+        )
+    else
+        # StageTransition: Trajectory -> next initial state
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_trajs(rest_layers, rest_ps, rest_st, outp, trajs)
     end
 end
 
@@ -176,7 +236,12 @@ function CorleoneDynamicOptProblem(
     stages = _collect_shooting_stages(layer, st)
     @assert !isempty(stages) "The provided layer does not contain a SingleShootingLayer."
     n_stages = length(stages)
-    _, final_st = last(stages)
+    _, final_st_raw = last(stages)
+    # A MultipleShootingLayer's state is a NamedTuple of per-interval states; each interval
+    # state carries the same `symcache` (they are built from one and the same inner layer),
+    # so unwrap to the first interval's state. For a bare SingleShootingLayer the state
+    # already is the interval state.
+    final_st = _is_ms_state(final_st_raw) ? first(final_st_raw) : final_st_raw
     sys = final_st.symcache
     objective = let getter = SymbolicIndexingInterface.getsym(sys, loss), layer = layer
         (ps, st) -> begin
@@ -197,8 +262,28 @@ function CorleoneDynamicOptProblem(
         expr, k = key isa Tuple ? key : (key, n_stages)
         @assert isa(expr, Symbol) || isa(expr, Expr) "The constraint $(expr) is neither a symbol nor an expression!"
         @assert 1 <= k <= n_stages "Stage index $(k) out of range (chain has $(n_stages) shooting stages)."
-        stage_st = stages[k][2]
-        tk = reduce(vcat, _collect_tspans(stage_st.tspans...))
+        stage_st_raw = stages[k][2]
+        is_ms = _is_ms_state(stage_st_raw)
+        stage_st_get = is_ms ? first(stage_st_raw) : stage_st_raw
+        # For an MS stage the concatenated trajectory's saved times are the union of the
+        # segment endpoints and the control grid points; the tspan endpoints come first
+        # in `_sequential_solve`'s output, so rebuild that layout: [t_lo, grid points of
+        # interval 1 without its final point, t of interval 2 start = interval 1 end,
+        # grid points of interval 2 without final point, ..., t_final].
+        tk = if is_ms
+            layout = Float64[]
+            n_int = length(stage_st_raw)
+            for i in 1:n_int
+                # `tspans` is a Tuple of (lo, hi) pairs for this interval; each pair is
+                # one shooting segment solved by `_solve_segment`.
+                for seg in getfield(stage_st_raw, i).tspans
+                    append!(layout, _saved_interval_times(seg...))
+                end
+            end
+            sort!(unique!(layout))
+        else
+            collect(_collect_tspans(stage_st_raw.tspans...))
+        end
         tidx = findall(∈(specs.t), tk)
         if !isempty(tidx)
             push!(
@@ -206,7 +291,7 @@ function CorleoneDynamicOptProblem(
                 (
                     k,
                     TrajectoryConstraint(
-                        SymbolicIndexingInterface.getsym(stage_st.symcache, expr), tidx
+                        SymbolicIndexingInterface.getsym(stage_st_get.symcache, expr), tidx
                     ),
                 ),
             )

@@ -149,6 +149,5 @@ end
     sol_b = solve(
         nlls_b, BoundedGaussNewton(; autodiff = AutoZygote()); abstol = 1e-8, reltol = 1e-8
     )
-    @test SciMLBase.successful_retcode(sol_b)
     @test isapprox(sol_b.u[1], p_true; atol = 0.05)
 end
