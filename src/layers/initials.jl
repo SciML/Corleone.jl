@@ -14,17 +14,17 @@ function InitialCondition(problem::SciMLBase.AbstractSciMLProblem, definitions..
     definitions = reduce(
         vcat, map(definitions) do def
             process_definition(sys, Val(:variable), def...)
-        end
+        end; init = Pair[]
     )
     missing_defs = setdiff(
         [SymbolicIndexingInterface.variable_index(sys, k) for k in SymbolicIndexingInterface.variable_symbols(sys)],
         first.(definitions)
     )
-    vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.u0)
+    vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.u0)
     missing_defs = [k => vals[k] for k in missing_defs]
     definitions = vcat(definitions, missing_defs)
     sort!(definitions, by = first)
-    fixed = map(Base.Fix1(SymbolicIndexingInterface.variable_index, sys), fixed)
+    fixed = map(k -> k isa Integer ? k : SymbolicIndexingInterface.variable_index(sys, k), fixed)
     free = setdiff(first.(definitions), fixed)
     values = last.(definitions)
     perm = sortperm(vcat(free, fixed))

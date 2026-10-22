@@ -23,9 +23,11 @@ end
 
 function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
     tstops = vcat(
+        collect(T, layer.problem.tspan),
         get_timestops(layer.initialcondition, ps.initialcondition, st.initialcondition, T),
         get_timestops(layer.parameter, ps.parameter, st.parameter, T)
     )
+    filter!(t -> first(layer.problem.tspan) <= t <= last(layer.problem.tspan), tstops)
     sort!(tstops)
     return unique!(tstops)
 end

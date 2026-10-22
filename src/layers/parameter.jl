@@ -119,7 +119,7 @@ function Parameter(
     defintions = reduce(
         vcat, map(defintions) do def
             process_definition(sys, Val(:parameter), def...)
-        end
+        end; init = Pair[]
     )
     # Fill out missings
     missing_defs = setdiff(
@@ -132,7 +132,7 @@ function Parameter(
     psyms = SymbolicIndexingInterface.parameter_symbols(sys)
     psymmap = Dict([SymbolicIndexingInterface.parameter_index(sys, k) => k for k in psyms])
     fixed = map(fixed) do k
-        SymbolicIndexingInterface.parameter_index(sys, k)
+        k isa Integer ? k : SymbolicIndexingInterface.parameter_index(sys, k)
     end
     parameters = map(defintions) do (k, v)
         pname = psymmap[k]
@@ -148,7 +148,7 @@ function get_timestops(pc::Parameter, ps, st, ::Type{T} = Float64) where {T}
     tstops = reduce(
         vcat, map(idxs) do id
             get_timestops(pc.parameters[id], ps.parameters[id], st.parameters[id], T)
-        end
+        end; init = T[]
     )
     sort!(tstops)
     unique!(tstops)

@@ -30,7 +30,9 @@ is_extension_loaded(::Val) = false
 
 
 include("layers/Layers.jl")
-
+export ShootingLayer
+include("deprecation/single_shooting.jl")
+export SingleShootingLayer, ControlParameter
 
 @setup_workload begin
     @compile_workload begin
