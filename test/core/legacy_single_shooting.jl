@@ -26,6 +26,8 @@ using Test
     @test LuxCore.parameterlength(layer) == 4
     sols, _, _ = layer(nothing, ps, st)
     @test [first(sol.prob.tspan) for sol in sols] == [0.0, 0.5, 1.0]
+    @test [sol.t for sol in sols] == [[0.0, 0.5], [0.5, 1.0], [1.0, 2.0]]
+    @test [first(sol.u) for sol in sols] ≈ [[1.0], [3.5], [7.0]]
     @test [sol.prob.p for sol in sols] == [[2.0, 3.0], [2.0, 5.0], [4.0, 5.0]]
     @test last(last(sols).u) ≈ [16.0]
 end
@@ -125,8 +127,10 @@ end
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     sols, residuals, _ = layer(nothing, ps, st)
     @test length(sols) == 2
+    @test [sol.t for sol in sols] == [[0.0, 0.5], [0.5, 1.0]]
     @test isempty(first(residuals))
     @test last(residuals) ≈ [19.0]
     @test last(first(sols).u) ≈ [10.5, 21.0, 31.5]
+    @test first(last(sols).u) == [10.0, 40.0, 30.0]
     @test last(last(sols).u) ≈ [10.5, 41.0, 31.5]
 end

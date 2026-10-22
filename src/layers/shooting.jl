@@ -47,7 +47,7 @@ end
     t0, tinf = tstops[1:2]
     (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
-    sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true)
+    sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true, save_end = true)
     next_st = (; initialcondition = st_ic, parameter = st_p)
     residuals = variable_residuals
     return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end])
@@ -61,8 +61,9 @@ function internal_solve(prob, sol, u0, p, tspan)
     return internal_solve(prob, sol.alg, u0, p, tspan, du0)
 end
 
-internal_solve(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = false)
-internal_solve(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = false)
+# Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
+internal_solve(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+internal_solve(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
 
 
 function mkbuffer(::T, vec::AbstractArray) where {T}
