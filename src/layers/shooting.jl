@@ -91,5 +91,3 @@ end
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
 end
-
-
