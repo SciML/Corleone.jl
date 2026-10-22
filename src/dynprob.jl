@@ -27,6 +27,21 @@ _collect_tspans(x::NTuple{2, <:Number}) = x
 _collect_tspans(x::Tuple, rest...) = (_collect_tspans(x...)..., _collect_tspans(rest...)...)
 _collect_tspans(x::Tuple) = _collect_tspans(x...)
 
+"""
+    _saved_interval_times(lo, hi)
+
+Return the times at which `_solve_segment` saves the solution of a shooting segment
+`[lo, hi]` (apart from the very first segment of a stage, `save_start = false`): the
+segment start, all saved solver steps in `(lo, hi)`, and the segment end. Solver steps
+are unknown before integration, so a constraint time is only *guaranteed* to exist when
+it is a segment endpoint; any other match is opportunistic.
+
+Currently only the endpoints can be reconstructed statically, so this returns `[lo, hi]`.
+"""
+function _saved_interval_times(lo::Real, hi::Real)
+    return [lo, hi]
+end
+
 struct TrajectoryConstraint{G, I}
     getter::G
     idx::I
@@ -79,14 +94,24 @@ function CorleoneDynamicOptProblem(
             last(getter(traj))
         end
     end
-    # Collect all the points due to control etc
+    # Collect all the points due to control etc. For a multiple-shooting layer the merged
+    # `Trajectory` drops the last saved time of every shooting interval except the final
+    # one (the shooting boundary is already the first time of the next interval), so the
+    # time grid used to locate path constraints must apply the same reduction. Otherwise
+    # the duplicated boundary shifts every index and terminal constraints read out of
+    # bounds.
     tpoints = if isa(layer, SingleShootingLayer)
         reduce(vcat, _collect_tspans(st.tspans...))
     else
+        interval_times = map(st) do st_
+            reduce(vcat, _collect_tspans(st_.tspans...))
+        end
         reduce(
-            vcat, map(st) do st_
-                reduce(vcat, _collect_tspans(st_.tspans...))
-            end
+            vcat,
+            ntuple(length(interval_times)) do i
+                i == length(interval_times) ? interval_times[i] :
+                    interval_times[i][1:(end - 1)]
+            end,
         )
     end
     cons = []

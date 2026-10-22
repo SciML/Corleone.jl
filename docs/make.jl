@@ -50,6 +50,8 @@ makedocs(
         "Corleone" => [
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+            "Two stage reactor" => "examples/optimal_control_of_a_two_stage_reactor_system.md",
+            "Rocket booster landing" => "examples/falcon_9_booster_return_and_vertical_landing.md",
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
         ], #"tutorials.md",
         "CorleoneOED" => [
