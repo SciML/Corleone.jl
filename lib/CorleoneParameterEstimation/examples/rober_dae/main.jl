@@ -80,26 +80,28 @@ f = DAEFunction(robertson!; sys = sys)
 # True rates span nine orders of magnitude; the problem is stiff, so we use BDF (`DFBDF`)
 # and give the DAE a consistent `du0` + initialization scheme.
 p0 = [0.04, 3.0e7, 1.0e4]
-prob = DAEProblem(f, du0, u0, (0.0, 500.0), p0; abstol = 1.0e-8, reltol = 1.0e-8,
-    differential_vars = differential_vars, initializealg = BrownFullBasicInit())
+prob = DAEProblem(
+    f, du0, u0, (0.0, 500.0), p0; abstol = 1.0e-8, reltol = 1.0e-8,
+    differential_vars = differential_vars, initializealg = BrownFullBasicInit()
+)
 
 # ## Sampling and data generation
 #
-# We sample sparsely on a logarithmic grid for a modest, realistic total of 25 observation 
+# We sample sparsely on a logarithmic grid for a modest, realistic total of 25 observation
 # times.
 
-t_obs = exp.(range(log(1e-9), log(500.0), length = 25))
+t_obs = exp.(range(log(1.0e-9), log(500.0), length = 25))
 
 sol = solve(prob, DFBDF(); saveat = t_obs)
 M = reduce(hcat, sol.u)
-σ = 1e-4
+σ = 1.0e-4
 M_noisy = M .+ σ .* randn(rng, size(M))
 data = ExperimentData(sol.t, M_noisy; σ = σ)
 
 # ## Estimation
 #
 # Wrap the DAE in a `ParameterEstimationLayer` (starting from a deliberately wrong
-# guess with an error of 50%) and fit the rates on a **logarithmic scale** via the `Log` 
+# guess with an error of 50%) and fit the rates on a **logarithmic scale** via the `Log`
 # transform, so parameters that differ enormously in scale stay numerically well behaved.
 #
 # The `params = [:k1, :k3]` keyword (forwarded to the underlying shooting layer) tells the
@@ -117,8 +119,10 @@ nlls_prob = NonlinearLeastSquaresProblem(pe_log_problem)
 
 println("Initial parameter guess (in log space): ", nlls_prob.u0)
 
-psol = solve(nlls_prob, LevenbergMarquardt();
-    abstol = 1.0e-8, reltol = 1.0e-8, show_trace = Val(false), maxiters = 1000)
+psol = solve(
+    nlls_prob, LevenbergMarquardt();
+    abstol = 1.0e-8, reltol = 1.0e-8, show_trace = Val(false), maxiters = 1000
+)
 println("Fitted parameters (in log space):     ", psol.u)
 
 # ## Results & uncertainty
@@ -136,7 +140,7 @@ println("Condition number of the residual Jacobian: ", round(est.condition_numbe
 # the log space with the delta method, and the (asymmetric) confidence intervals are formed
 # by back-transforming the internal log-space endpoints.
 #
-# The fit recovers `k₁` and `k₃` to ~4 significant digits and  
+# The fit recovers `k₁` and `k₃` to ~4 significant digits and
 # the residual-Jacobian condition number is `≈ 2×10⁶`.
 # Still, the **correlation matrix** reports `k₁` and `k₃` correlated at `≈ 0.99`.
 
@@ -146,15 +150,16 @@ println("Condition number of the residual Jacobian: ", round(est.condition_numbe
 # `CorleoneCairoMakieExtension` recipe. The optimizer solves in *log* space, so we replay
 # the layer on the **problem** `pe_log_problem` (which carries the `Log` transforms) to get
 # a trajectory in natural parameter space — passing the bare `pe` would mistake the log-space
-# solution for natural parameters. 
+# solution for natural parameters.
 #
 result = fitted_parameters(pe_log_problem, psol)
-tick_pos = [1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1e0, 1e1, 1e2, 5e2]
+tick_pos = [1.0e-10, 1.0e-8, 1.0e-6, 1.0e-4, 1.0e-2, 1.0e0, 1.0e1, 1.0e2, 5.0e2]
 tick_lab = ["10⁻¹⁰", "10⁻⁸", "10⁻⁶", "10⁻⁴", "10⁻²", "10⁰", "10¹", "10²", "500"]
 f = CairoMakie.Figure()
-ax = CairoMakie.Axis(f[1, 1];
-    xlabel = "Time t", ylabel = "mole fraction", 
-    xscale = log10, xticks = (tick_pos, tick_lab), 
+ax = CairoMakie.Axis(
+    f[1, 1];
+    xlabel = "Time t", ylabel = "mole fraction",
+    xscale = log10, xticks = (tick_pos, tick_lab),
     title = "Robertson DAE fit (log-time)", xticklabelrotation = pi / 4,
 )
 plot!(ax, result; labels = ["x₁", "x₂", "x₃"])
