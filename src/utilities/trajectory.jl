@@ -14,15 +14,15 @@ queries. Gradients through state values, residuals, and parameter values are
 supported on a fixed time grid; layout and symbolic metadata are not differentiated.
 No interpolation or integration is performed.
 """
-struct Trajectory{S, U, T, R, L, P, ST}
-    sys::S
-    u::U
-    t::T
-    residuals::R
-    reset_indices::Vector{Int}
-    layer::L
-    ps::P
-    st::ST
+@concrete terse struct Trajectory
+    sys
+    u
+    t
+    residuals
+    reset_indices
+    layer
+    ps
+    st
 end
 
 # Keep construction separate from assembly: some downstream constructor rules
