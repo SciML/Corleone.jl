@@ -68,7 +68,7 @@ data = ExperimentData(tsteps, Y; σ = 0.05)
 # from the same problem and solved with `saveat = data.t[i]` automatically, so the model is
 # sampled exactly at the observation times.
 
-pe = ParameterEstimationLayer(remake(prob, p=p_true .+ 0.05 * randn(rng, 4)), Tsit5(), data)
+pe = ParameterEstimationLayer(remake(prob, p = p_true .+ 0.05 * randn(rng, 4)), Tsit5(), data)
 
 # By default only the model parameters are treated as tunable degrees of freedom
 # (the initial conditions and controls are held fixed). Constructing the
@@ -157,8 +157,10 @@ pe_ic = ParameterEstimationLayer(
     SingleShootingLayer(prob, Tsit5(); saveat = unique(tsteps), tunable_ic = [1, 2]),
     data,
 )
-println("Optimization variables when the IC is also tunable: ",
-    length(problem(pe_ic).u0), " (4 parameters + 2 initial-state components)")
+println(
+    "Optimization variables when the IC is also tunable: ",
+    length(problem(pe_ic).u0), " (4 parameters + 2 initial-state components)"
+)
 
 # ## Solving with an Optimization.jl solver (e.g. Ipopt)
 #

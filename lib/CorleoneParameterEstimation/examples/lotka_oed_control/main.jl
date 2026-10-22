@@ -62,7 +62,8 @@ obs_fish = (u, p, t) -> u[1:2]                         # both species are measur
 # information matrix) yields the most informative fishing strategy.
 
 fishing_control = ControlParameter(
-    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid)))
+    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid))
+)
 oed = OEDLayer{false}(
     prob_fish, Tsit5();
     params = [2, 3],
@@ -76,8 +77,10 @@ oed = OEDLayer{false}(
 )
 
 optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
-uopt = solve(optprob, Ipopt.Optimizer(); tol = 1.0e-8,
-    hessian_approximation = "limited-memory", max_iter = 300)
+uopt = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-8,
+    hessian_approximation = "limited-memory", max_iter = 300
+)
 println("OED solve successful: ", SciMLBase.successful_retcode(uopt))
 
 # The optimal design stores the fishing control values first in its `controls` block, so
@@ -117,7 +120,8 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
     ps = merge(ps, (p = fish_p_true, controls = cvals))
     sol, _ = lay(nothing, ps, st)
     dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish)
+        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish
+    )
     M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts) # Prey at w1, predator at w2 (each species measured at its own OED times).
     prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
     predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
@@ -125,12 +129,18 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
 end
 
 prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
-data_control = ExperimentData(Experiment([w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
-    controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)))
+data_control = ExperimentData(
+    Experiment(
+        [w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
+        controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)
+    )
+)
 
 pe_control = ParameterEstimationLayer(prob_fish, Tsit5(), data_control; observed = obs_fish)
-sol_control = solve(problem(pe_control; x0 = [1.3, 0.8]), GaussNewton();
-    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500)
+sol_control = solve(
+    problem(pe_control; x0 = [1.3, 0.8]), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500
+)
 est_control = estimate_parameters(pe_control, sol_control)
 println("With OED control:      fitted p = ", round.(sol_control.u; digits = 3), "  true = ", fish_p_true)
 println("With OED control:      std errors = ", round.(est_control.std_errors; digits = 5))
@@ -144,12 +154,18 @@ println("With OED control:      std errors = ", round.(est_control.std_errors; d
 # comparison -- the only difference is the designed (time-varying) control versus fishing off.
 
 prey_free, pred_free = simulate_species_times(zeros(length(fish_grid)), rng_f)
-data_free = ExperimentData(Experiment([w1, w2], [prey_free, pred_free]; σ = 0.02, u0 = fish_u0,
-    controls = (1 => ControlParameter(fish_grid, controls = zeros(length(fish_grid)), bounds = (0.0, 1.0)),)))
+data_free = ExperimentData(
+    Experiment(
+        [w1, w2], [prey_free, pred_free]; σ = 0.02, u0 = fish_u0,
+        controls = (1 => ControlParameter(fish_grid, controls = zeros(length(fish_grid)), bounds = (0.0, 1.0)),)
+    )
+)
 
 pe_free = ParameterEstimationLayer(prob_fish, Tsit5(), data_free; observed = obs_fish)
-sol_free = solve(problem(pe_free; x0 = [1.3, 0.8]), GaussNewton();
-    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500)
+sol_free = solve(
+    problem(pe_free; x0 = [1.3, 0.8]), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500
+)
 est_free = estimate_parameters(pe_free, sol_free)
 println("Control off (default):  fitted p = ", round.(sol_free.u; digits = 3))
 println("Control off (default):  std errors = ", round.(est_free.std_errors; digits = 5))
@@ -159,10 +175,14 @@ println("Control off (default):  std errors = ", round.(est_free.std_errors; dig
 # means the parameter is better constrained).
 
 println("---")
-println("OED-derived experiment reduces the p[2] std error by ",
-    round(100 * (1 - est_control.std_errors[1] / est_free.std_errors[1]); digits = 1), "%")
-println("and the p[3] std error by ",
-    round(100 * (1 - est_control.std_errors[2] / est_free.std_errors[2]); digits = 1), "%")
+println(
+    "OED-derived experiment reduces the p[2] std error by ",
+    round(100 * (1 - est_control.std_errors[1] / est_free.std_errors[1]); digits = 1), "%"
+)
+println(
+    "and the p[3] std error by ",
+    round(100 * (1 - est_control.std_errors[2] / est_free.std_errors[2]); digits = 1), "%"
+)
 
 # Finally we plot the controlled experiment. The `CorleoneCairoMakieExtension` recipe
 # does this in one call -- it reads the per-quantity observation times from the data and
