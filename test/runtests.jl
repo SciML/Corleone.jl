@@ -35,8 +35,11 @@ else
             @safetestset "Generic layer interface" begin
                 include("core/interface_contracts.jl")
             end
-            return @safetestset "Multiple shooting" begin
+            @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
+            end
+            return @safetestset "Segment state handoff" begin
+                include("core/state_handoff.jl")
             end
         end,
         groups = Dict(

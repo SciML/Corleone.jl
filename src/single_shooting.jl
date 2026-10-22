@@ -455,6 +455,20 @@ end
 
 sequential_solve(args...) = _sequential_solve(args...)
 
+# Slicing can return a different container than `u0`: under ReverseDiff >= 1.17.2 the slice is a
+# `TrackedArray` (the controls are tracked views), which an in-place solve cannot write into.
+# For mutable `u0`, copy the elements into a container like `u0` instead; immutable containers
+# (e.g. `SVector`, `SizedVector`) keep the slice unchanged.
+function _carry_state(u0, x)
+    y = x[eachindex(u0)]
+    (y isa typeof(u0) || !ismutable(u0)) && return y
+    z = similar(u0, eltype(y))
+    for (i, j) in zip(eachindex(z), eachindex(y))
+        z[i] = y[j]
+    end
+    return z
+end
+
 @generated function _sequential_solve(
         problem, alg, u0, param, ps, indexgrids::NTuple{N}, tspans::NTuple{N, Tuple}, sys
     ) where {N}
@@ -477,7 +491,7 @@ sequential_solve(args...) = _sequential_solve(args...)
         if i < N
             push!(u_ret_expr.args, :($(solutions[i]).u[1:(end - 1)]))
             push!(t_ret_expr.args, :($(solutions[i]).t[1:(end - 1)]))
-            push!(ex, :($(u0s[i + 1]) = last($(solutions[i]).u)[eachindex(u0)]))
+            push!(ex, :($(u0s[i + 1]) = _carry_state(u0, last($(solutions[i]).u))))
         else
             push!(u_ret_expr.args, :($(solutions[i]).u))
             push!(t_ret_expr.args, :($(solutions[i]).t))

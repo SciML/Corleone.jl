@@ -1,0 +1,139 @@
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=false NLP_iterations=12 CPU_seconds=93.281382 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=false NLP_iterations=17 CPU_seconds=0.583436 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=14 CPU_seconds=0.402843 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=12 CPU_seconds=0.293533 status=Success
+round=1 n=24 phi_A=-0.005349518471940415 phi_B=-1.9388222116821727 gains=[0.19250068876195603, 0.19152762886409214] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.247686 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=15 CPU_seconds=0.357414 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=13 CPU_seconds=0.292367 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=11 CPU_seconds=0.260921 status=Success
+round=2 n=24 phi_A=0.04219251420704213 phi_B=-1.808090102040395 gains=[0.1701529147627008, 0.13950483062781327] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.226110 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.239334 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=13 CPU_seconds=0.298216 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=8 CPU_seconds=0.198499 status=Success
+round=3 n=24 phi_A=-0.00986282256241719 phi_B=-1.5571568265393896 gains=[0.08175531872737499, 0.11792632464621011] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.223282 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=8 CPU_seconds=0.191696 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=13 CPU_seconds=0.297634 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.172333 status=Success
+round=4 n=24 phi_A=-0.04391926344485578 phi_B=-1.3229462834335852 gains=[0.030653972152078435, 0.07421815415065236] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.255421 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.191631 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=13 CPU_seconds=0.295131 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.180865 status=Success
+round=5 n=24 phi_A=-0.056322075126880616 phi_B=-1.1519515383360137 gains=[0.010362763641286049, 0.040386776274452085] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=11 CPU_seconds=0.261446 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.177105 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=11 CPU_seconds=0.250649 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.170243 status=Success
+round=6 n=24 phi_A=-0.05951848554235151 phi_B=-1.0449348583190912 gains=[0.0033740292460910926, 0.020788712495805717] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.238108 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.169120 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.237961 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.177185 status=Success
+round=7 n=24 phi_A=-0.05978217376825859 phi_B=-0.9906683139486645 gains=[0.0012473162886717792, 0.01048370283786082] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.230435 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.170065 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.230982 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.174444 status=Success
+round=8 n=24 phi_A=-0.05958618359231724 phi_B=-0.9633523736371576 gains=[0.0005145820232363707, 0.005258109291321533] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.229325 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.168520 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.231335 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.174373 status=Success
+round=9 n=24 phi_A=-0.05939724059899154 phi_B=-0.9496466168144848 gains=[0.00023015947660887104, 0.0026326413457073983] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.232022 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.171803 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.229771 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.175004 status=Success
+round=10 n=24 phi_A=-0.05927256774974418 phi_B=-0.9427826244757154 gains=[0.00010837780563091592, 0.0013171791910038255] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.232890 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.175195 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.230411 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.169987 status=Success
+round=11 n=24 phi_A=-0.059198202465087224 phi_B=-0.9393498977329577 gains=[5.255052296809781e-5, 0.0006587889510250022] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.230863 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.175603 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.229057 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.176307 status=Success
+round=12 n=24 phi_A=-0.0591557126099678 phi_B=-0.9376351875806005 gains=[2.5878162344811217e-5, 0.0003294371536101126] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.232446 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.175522 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.231756 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.170373 status=Success
+round=13 n=24 phi_A=-0.05913210825776849 phi_B=-0.9367794693459567 gains=[1.284312225013906e-5, 0.00016472712835013947] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.234627 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.176025 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.230981 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.171409 status=Success
+round=14 n=24 phi_A=-0.05911932193513711 phi_B=-0.9363527082379954 gains=[6.398275710722823e-6, 8.236533774730326e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.233019 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.174862 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.232510 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.171613 status=Success
+round=15 n=24 phi_A=-0.059112568990392134 phi_B=-0.9361399434803515 gains=[3.193429977232931e-6, 4.1183111952003415e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.234333 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.179707 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.232147 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.175251 status=Success
+round=16 n=24 phi_A=-0.059109092638131966 phi_B=-0.9360338648420977 gains=[1.595298039835935e-6, 2.0591690419791142e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.237796 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.173316 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.227918 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.168813 status=Success
+round=17 n=24 phi_A=-0.05910734741825274 phi_B=-0.9359809582248607 gains=[7.972932356548057e-7, 1.0295887708511309e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.234694 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=0.0 warm=false NLP_iterations=16 CPU_seconds=0.384346 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=0.5 warm=false NLP_iterations=12 CPU_seconds=0.283269 status=Success
+OCP player=A shooting=single solver=ipopt n=24 start=1.0 warm=false NLP_iterations=13 CPU_seconds=0.294533 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.170401 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=0.0 warm=false NLP_iterations=13 CPU_seconds=0.283301 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=0.5 warm=false NLP_iterations=8 CPU_seconds=0.194488 status=Success
+OCP player=B shooting=single solver=ipopt n=24 start=1.0 warm=false NLP_iterations=11 CPU_seconds=0.246715 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=false NLP_iterations=9 CPU_seconds=80.847120 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=0.0 warm=false NLP_iterations=15 CPU_seconds=0.895318 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=0.5 warm=false NLP_iterations=12 CPU_seconds=0.713080 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=1.0 warm=false NLP_iterations=13 CPU_seconds=0.755594 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=false NLP_iterations=8 CPU_seconds=0.517187 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=0.0 warm=false NLP_iterations=18 CPU_seconds=0.981250 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=0.5 warm=false NLP_iterations=9 CPU_seconds=0.550068 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=1.0 warm=false NLP_iterations=10 CPU_seconds=0.596266 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.655044 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.442940 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=10 CPU_seconds=0.607351 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.459785 status=Success
+round=1 n=48 phi_A=-0.05897328911173769 phi_B=-0.9360068141663398 gains=[8.420547047358062e-5, 0.00071813813736743] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.557595 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.455820 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.545369 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.456421 status=Success
+round=2 n=48 phi_A=-0.05888251294780336 phi_B=-0.9359621060567016 gains=[2.5286728142476234e-5, 0.0003269269630222782] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.550210 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.451948 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.548449 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.452031 status=Success
+round=3 n=48 phi_A=-0.0588426830514269 phi_B=-0.9359316879259845 gains=[8.184616101941655e-6, 0.0001555179098502446] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.546491 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.448204 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.545465 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.453331 status=Success
+round=4 n=48 phi_A=-0.05883011591808135 phi_B=-0.93591596724522 gains=[2.9100004786952738e-6, 7.58289250690769e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.555520 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.451683 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.544353 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.446631 status=Success
+round=5 n=48 phi_A=-0.05882835457079849 phi_B=-0.935907786447588 gains=[1.1448549256387608e-6, 3.744957124030002e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=1.377307 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.517954 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.669004 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.525299 status=Success
+round=6 n=48 phi_A=-0.05882961524902516 phi_B=-0.9359030803223278 gains=[4.923499913045415e-7, 1.8612259340189397e-5] violations=[0.0, 0.0]
+OCP player=A shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=9 CPU_seconds=0.623890 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=0.0 warm=false NLP_iterations=16 CPU_seconds=0.957953 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=0.5 warm=false NLP_iterations=12 CPU_seconds=0.707152 status=Success
+OCP player=A shooting=single solver=ipopt n=48 start=1.0 warm=false NLP_iterations=13 CPU_seconds=0.752714 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=nothing warm=true NLP_iterations=7 CPU_seconds=0.453083 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=0.0 warm=false NLP_iterations=18 CPU_seconds=0.980545 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=0.5 warm=false NLP_iterations=9 CPU_seconds=0.549787 status=Success
+OCP player=B shooting=single solver=ipopt n=48 start=1.0 warm=false NLP_iterations=10 CPU_seconds=0.585998 status=Success

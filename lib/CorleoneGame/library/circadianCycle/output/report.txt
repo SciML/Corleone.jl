@@ -1,0 +1,12 @@
+CircadianCycle: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 300, 1.0, 2.0e-5, 1.0e-6, 500, 1.0e-9, 4, 8, false, :ipopt, :ipopt, (hessian_approximation = "exact",), NamedTuple(), Float64[], false, false)
+Parameters: Main.CircadianCycle.Parameters((0.4884645232074144, 0.19727176556891227, 0.2725715265391962, 0.40257808568446946, 0.4884645232074144, 0.19727176556891227, 0.2725715265391962, 0.40257808568446946, 0.7156565510581766, 2.0447330030232895), (1.0, 1.0), (0.7, 0.7), (0.2, 0.2), (0.9, 0.9), (2.0, 2.0), (1.0, 1.0), (0.2, 0.2), (8.0, 1.0, 8.0, 1.0), (2.0, 2.0, 2.0, 2.0), 0.6, 0.2, 1.2, 0.6, 0.01, 0.01, 0.01, 4, 0.6, 2.0, 24.13458673765308, (12.0, 36.0), 0.0001, (0.5, 0.5), [0.65 0.2 0.15; 0.45 0.35 0.2], (12.0, 10.0), (5.0, 4.0))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [24.042545561066568]; physical horizon=24.042545561066568
+n=10, converged=true, rounds=6
+objectives=[16.4319051854633, 12.330693773703993], normalized audited gains=[1.54764313364808e-5, 0.0], constraint norms=[1.8217457337099674e-7, 1.8217457337099674e-7]
+n=40, converged=true, rounds=6
+objectives=[16.409214728009985, 11.976471913551926], normalized audited gains=[6.086223947932012e-6, 0.0], constraint norms=[9.946988138720414e-8, 9.946988138720414e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

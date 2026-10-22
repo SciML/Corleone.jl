@@ -1,0 +1,11 @@
+Phage: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Phage.Parameters(8.0, 1.0, 1.0, 0.1, 0.3, 2.0, 1.5, 4.0, 0.3, 0.4, 0.5, 0.75, 0.5, (0.6, 0.02, 0.15, 0.2, 0.2), (0.6, 0.3, 0.1), (0.9, 0.0, 0.1), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0), 1.8, 2.0, nothing, nothing, (1.0, 1.0), (0.2, 0.2))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=15
+objectives=[-2.048184152686275, -0.8131593076923842], normalized audited gains=[3.7813203213055147e-6, 1.4751435709281502e-5], constraint norms=[0.0, 0.0]
+n=40, converged=true, rounds=8
+objectives=[-2.0477673567486665, -0.8131432489511581], normalized audited gains=[8.351192377631378e-7, 1.1756348967884023e-5], constraint norms=[0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

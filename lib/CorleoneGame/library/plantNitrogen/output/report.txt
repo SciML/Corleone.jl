@@ -1,0 +1,11 @@
+PlantNitrogen: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-10, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, true)
+Parameters: Main.PlantNitrogen.Parameters(3, 12.0, [0.1, 0.12000000000000001, 0.14], [1.0, 0.9090909090909091, 0.8333333333333334], [0.3, 0.4, 0.5], [0.08, 0.1, 0.12], 0.2, 2.0, 1.0, 0.1, [2.0, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1], (0.15, 0.8, 0.05), (0.35, 0.55, 0.1), (0.65, 0.25, 0.1), Matrix{Float64}(undef, 0, 3), Union{Nothing, Float64}[4.199999999999999, 4.8, 5.3999999999999995], 0.2, [0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=11
+objectives=[-0.23506809721863692, -0.5233145618682224, -0.9564545525886061], normalized audited gains=[9.733244074605629e-8, 2.4154929090247634e-7, 1.8690200207394092e-5], constraint norms=[1.4304942147491673e-8, 1.4304942147491673e-8, 1.4304942147491673e-8]
+n=40, converged=true, rounds=11
+objectives=[-0.23884704925756564, -0.5236692962584406, -0.9861686844726091], normalized audited gains=[2.4329354922913993e-6, 4.833350157107397e-6, 1.6410328928628815e-5], constraint norms=[0.0, 0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

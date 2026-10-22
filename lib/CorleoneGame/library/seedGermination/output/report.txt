@@ -1,0 +1,12 @@
+SeedGermination: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 300, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), Float64[], false, false)
+Parameters: Main.SeedGermination.Parameters((1.5, 0.15, 0.12, 0.1, 0.0, 0.0, 0.0), 1.0, 0.4, 2.0, 0.2, (1.0, 0.85, 0.7), (0.4, 0.35, 0.3), (0.5, 0.6, 0.7), 0.4, 5.0, (0.1, 20.0), (0.5, 0.45, 0.4), [0.75 0.15 0.1; 0.55 0.3 0.15; 0.45 0.25 0.3], (3.0, 2.2, 1.5), (0.5, 2.4, 2.8))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [3.073191169248223]; physical horizon=3.073191169248223
+n=10, converged=true, rounds=2
+objectives=[2.7015826212016747, 1.8434615625657227, 1.4891985243267343], normalized audited gains=[4.846272450009792e-8, 0.0, 0.0], constraint norms=[1.7030455268240985e-8, 1.7030455268240985e-8, 1.7030455268240985e-8]
+n=40, converged=true, rounds=1
+objectives=[2.7001297773085406, 1.8436777971177793, 1.48941638248753], normalized audited gains=[3.8839069738116905e-8, 0.0, 8.488151737040539e-9], constraint norms=[1.3892845762697448e-8, 1.3892845762697448e-8, 1.3892845762697448e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

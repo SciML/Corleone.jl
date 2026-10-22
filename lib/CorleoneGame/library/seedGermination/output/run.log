@@ -1,0 +1,25 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/seedGermination/output/run.log
+Solving game with 3 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=74.449649 precompile=5.753502 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.133823 precompile=0.151343 status=Success
+Player C start=nothing warm=false NLP_iterations=9 CPU_seconds=0.085058 precompile=0.019778 status=Success
+Player A start=nothing warm=false NLP_iterations=7 CPU_seconds=0.076659 precompile=0.000555 status=Success
+Player B start=nothing warm=false NLP_iterations=6 CPU_seconds=0.063313 precompile=0.000546 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=0.073676 precompile=0.000510 status=Success
+** Round=1 n=10 phi_A=2.701615520246131 phi_B=1.8452018842065718 phi_C=1.4906075583449636 gains=[3.406018608442807e-5, 5.724544052121416e-7, 0.0] violations=[1.6198983043835824e-8, 1.6198983043835824e-8, 1.6198983043835824e-8]
+Player A start=nothing warm=false NLP_iterations=7 CPU_seconds=0.079097 precompile=0.000606 status=Success
+Player B start=nothing warm=false NLP_iterations=6 CPU_seconds=0.078677 precompile=0.000489 status=Success
+Player C start=nothing warm=false NLP_iterations=9 CPU_seconds=0.081123 precompile=0.000476 status=Success
+Player A start=nothing warm=false NLP_iterations=7 CPU_seconds=0.066050 precompile=0.000482 status=Success
+Player B start=nothing warm=false NLP_iterations=5 CPU_seconds=0.052544 precompile=0.000479 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=0.075356 precompile=0.000517 status=Success
+** Round=2 n=10 phi_A=2.7015826212016747 phi_B=1.8434615625657227 phi_C=1.4891985243267343 gains=[4.846272450009792e-8, 0.0, 0.0] violations=[1.7030455268240985e-8, 1.7030455268240985e-8, 1.7030455268240985e-8]
+Solving game with 3 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=8 CPU_seconds=57.468029 precompile=2.266692 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=1.516737 precompile=0.000925 status=Success
+Player C start=nothing warm=false NLP_iterations=9 CPU_seconds=0.595786 precompile=0.000865 status=Success
+Player A start=nothing warm=false NLP_iterations=7 CPU_seconds=1.289278 precompile=0.000861 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=1.382120 precompile=0.000902 status=Success
+Player C start=nothing warm=false NLP_iterations=9 CPU_seconds=0.761053 precompile=0.000991 status=Success
+** Round=1 n=40 phi_A=2.7001297773085406 phi_B=1.8436777971177793 phi_C=1.48941638248753 gains=[3.8839069738116905e-8, 0.0, 8.488151737040539e-9] violations=[1.3892845762697448e-8, 1.3892845762697448e-8, 1.3892845762697448e-8]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/seedGermination/output

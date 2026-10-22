@@ -1,0 +1,34 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/immuneClearance/output/run.log
+Solving game with 2 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=100.153904 precompile=5.734879 status=Success
+Player B start=nothing warm=false NLP_iterations=13 CPU_seconds=0.918416 precompile=0.153938 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.828311 precompile=0.000539 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.668641 precompile=0.000476 status=Success
+** Round=1 n=10 phi_A=2.1502908837492756 phi_B=-1.3235895991965023 gains=[0.05010905120796849, 0.0] violations=[0.009821399681923138, 0.0]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.846397 precompile=0.000651 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.603435 precompile=0.000498 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.803374 precompile=0.000459 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.595253 precompile=0.000483 status=Success
+** Round=2 n=10 phi_A=2.1005521715943676 phi_B=-1.287749555432238 gains=[0.0, 0.0] violations=[0.00030443649729322564, 0.0]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.803853 precompile=0.000503 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.598424 precompile=0.000477 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.805001 precompile=0.000450 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.598828 precompile=0.000450 status=Success
+** Round=3 n=10 phi_A=2.101895981818655 phi_B=-1.2885230420709397 gains=[2.809657188906911e-5, 1.7275070263167436e-13] violations=[6.311141333287251e-6, 0.0]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.805371 precompile=0.000499 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.598525 precompile=0.000445 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.804335 precompile=0.000477 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.602875 precompile=0.000455 status=Success
+** Round=4 n=10 phi_A=2.101868059561812 phi_B=-1.2885071888584199 gains=[0.0, 0.0] violations=[1.3077787788806639e-7, 0.0]
+Solving game with 2 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=104.128522 precompile=1.993632 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=16.618465 precompile=0.000914 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=24.493090 precompile=0.000804 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=17.181054 precompile=0.000793 status=Success
+** Round=1 n=40 phi_A=2.101205149636012 phi_B=-1.2876160988449477 gains=[0.0, 9.938228018313566e-11] violations=[1.8972315803722495e-5, 0.0]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=24.221892 precompile=0.000941 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=17.129134 precompile=0.000787 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=24.396630 precompile=0.000813 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=17.226390 precompile=0.000782 status=Success
+** Round=2 n=40 phi_A=2.101287899999659 phi_B=-1.2876699566471697 gains=[2.506208198749249e-6, 3.355093980417223e-13] violations=[5.633477037636503e-7, 0.0]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/immuneClearance/output

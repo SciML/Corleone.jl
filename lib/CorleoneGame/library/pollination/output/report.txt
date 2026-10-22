@@ -1,0 +1,11 @@
+Pollination: synthetic, uncalibrated forward game
+Players: 4 (A, B, C, D)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Pollination.Parameters(2, 2, 8.0, 0.5, 2.0, 0.4, 0.04, 1.5, 0.5, 0.3, [0.95 0.2; 0.22999999999999998 1.0924999999999998], 1.5, 0.2, 0.06, 0.04, [0.6, 1.5, 0.1, 0.7999999999999999, 0.25, 0.75], [0.88 0.08 0.04; 0.65 0.3 0.05; 0.8 0.06 0.14; 0.5 0.3 0.2], Union{Nothing, Float64}[0.96, 0.32, 1.44, 0.64], Union{Nothing, Float64}[0.12, 0.12, 0.1, 0.1], [0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=12
+objectives=[-1.2661522692759153, -1.2396303374768836, -0.06133569467598233, -0.1615337958729756], normalized audited gains=[1.9255309657850717e-7, 3.9866295620250014e-7, 1.368320256387584e-5, 1.6722510449623806e-5], constraint norms=[0.0, 0.0, 0.0, 0.0]
+n=40, converged=true, rounds=4
+objectives=[-1.2663111276185335, -1.2397243253781904, -0.06254369366739257, -0.16192956156979327], normalized audited gains=[3.2332027388726203e-7, 1.3825654687771305e-7, 1.7296451282011738e-5, 1.1187394170969478e-5], constraint norms=[0.0, 0.0, 0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

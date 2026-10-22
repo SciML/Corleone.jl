@@ -1,0 +1,11 @@
+Avoidance: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.65, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, true)
+Parameters: Main.Avoidance.Parameters(12.0, 0.8, 0.25, 0.9, 0.35, 0.45, 0.6, 1.0, 0.12, 0.08, 0.35, (0.0, 0.0, 0.0, 1.0), (0.2, 0.3), (0.65, 0.15, 0.1, 0.1), (0.25, 0.45, 0.1, 0.2))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=5
+objectives=[-0.42039184729269913, -0.22828357090866314], normalized audited gains=[3.661815725197748e-6, 1.0345853354576384e-6], constraint norms=[0.0, 0.0]
+n=40, converged=true, rounds=2
+objectives=[-0.42140840177933214, -0.22895110492104429], normalized audited gains=[1.4045695564790517e-5, 8.659676826727747e-7], constraint norms=[0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

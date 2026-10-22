@@ -1,0 +1,39 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/avoidance/output/run.log
+Solving game with 2 players. Grid n=10 shooting=single solver=auto
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=27.277425 precompile=8.234179 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.026291 precompile=0.165800 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.023392 precompile=0.052957 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.022021 precompile=0.000630 status=Success
+** Round=1 n=10 phi_A=-0.41052295993790655 phi_B=-0.21636765371892824 gains=[0.006463870635480873, 0.0029451257454790047] violations=[0.0, 0.0]
+Player A start=nothing warm=true NLP_iterations=7 CPU_seconds=0.023089 precompile=0.000628 status=Success
+Player B start=nothing warm=true NLP_iterations=6 CPU_seconds=0.023625 precompile=0.000596 status=Success
+Player A start=nothing warm=true NLP_iterations=7 CPU_seconds=0.025054 precompile=0.000566 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.084860 precompile=0.000532 status=Success
+** Round=2 n=10 phi_A=-0.4181823263558938 phi_B=-0.22462982162789244 gains=[0.0010075375666817599, 0.0003955322437526887] violations=[0.0, 0.0]
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.025172 precompile=0.000538 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.022078 precompile=0.000510 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.024297 precompile=0.000484 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.024130 precompile=0.000479 status=Success
+** Round=3 n=10 phi_A=-0.4198364282609241 phi_B=-0.2271009581662249 gains=[0.00015573375148036916, 5.385543420521888e-5] violations=[0.0, 0.0]
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.030960 precompile=0.000530 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.062192 precompile=0.000486 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.024513 precompile=0.000496 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.022648 precompile=0.000470 status=Success
+** Round=4 n=10 phi_A=-0.4202628533648261 phi_B=-0.2279621260848424 gains=[2.3931646874086887e-5, 7.422628524433872e-6] violations=[0.0, 0.0]
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.024975 precompile=0.000514 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.021492 precompile=0.000485 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.030059 precompile=0.000478 status=Success
+Player B start=nothing warm=true NLP_iterations=7 CPU_seconds=0.040621 precompile=0.000500 status=Success
+** Round=5 n=10 phi_A=-0.42039184729269913 phi_B=-0.22828357090866314 gains=[3.661815725197748e-6, 1.0345853354576384e-6] violations=[0.0, 0.0]
+Solving game with 2 players. Grid n=40 shooting=single solver=auto
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=36.907264 precompile=1.938955 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.197779 precompile=0.000899 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.161610 precompile=0.051724 status=Success
+Player B start=nothing warm=true NLP_iterations=8 CPU_seconds=0.157007 precompile=0.000757 status=Success
+** Round=1 n=40 phi_A=-0.4212817388524722 phi_B=-0.2287863655033017 gains=[0.00011453156117713359, 7.050944694581007e-6] violations=[0.0, 0.0]
+Player A start=nothing warm=true NLP_iterations=9 CPU_seconds=0.157567 precompile=0.000978 status=Success
+Player B start=nothing warm=true NLP_iterations=8 CPU_seconds=0.152943 precompile=0.000806 status=Success
+Player A start=nothing warm=true NLP_iterations=8 CPU_seconds=0.151144 precompile=0.001093 status=Success
+Player B start=nothing warm=true NLP_iterations=8 CPU_seconds=0.151972 precompile=0.000762 status=Success
+** Round=2 n=40 phi_A=-0.42140840177933214 phi_B=-0.22895110492104429 gains=[1.4045695564790517e-5, 8.659676826727747e-7] violations=[0.0, 0.0]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/avoidance/output

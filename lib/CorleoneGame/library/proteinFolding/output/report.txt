@@ -1,0 +1,11 @@
+ProteinFolding: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.ProteinFolding.Parameters((0.2, 0.3), 8.0, 1.5, 0.6, 0.3, 0.02, 0.01, (0.8, 0.5), 2.0, 0.2, 0.2, (0.8, 0.2, 0.0, 1.0), (0.85, 0.15), (0.75, 0.25), (0.4, 0.24), nothing)
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=9
+objectives=[0.19989681292018963, 0.17420416702898517], normalized audited gains=[1.4493891662192837e-5, 8.577454699287834e-8], constraint norms=[0.0, 0.0]
+n=40, converged=true, rounds=3
+objectives=[0.19976176511894386, 0.17403583201617576], normalized audited gains=[1.4088989513716399e-5, 4.4401374446612074e-7], constraint norms=[0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

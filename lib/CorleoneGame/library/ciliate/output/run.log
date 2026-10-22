@@ -1,0 +1,119 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/ciliate/output/run.log
+Solving game with 2 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=54.476892 precompile=6.891271 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.185601 precompile=0.151627 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.183576 precompile=0.000667 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.159493 precompile=0.000747 status=Success
+** Round=1 n=10 phi_A=-1.2557635163623742 phi_B=-0.4667898087544774 gains=[0.058462645733091234, 0.017850543877640956] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.182751 precompile=0.000702 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.184313 precompile=0.000601 status=Success
+Player A start=nothing warm=false NLP_iterations=11 CPU_seconds=0.169983 precompile=0.000595 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.158270 precompile=0.000593 status=Success
+** Round=2 n=10 phi_A=-1.2816026724146463 phi_B=-0.43560499323446594 gains=[0.027745600983811958, 0.00665618046009292] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=11 CPU_seconds=0.195527 precompile=0.000695 status=Success
+Player B start=nothing warm=false NLP_iterations=11 CPU_seconds=0.171069 precompile=0.000591 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157624 precompile=0.000573 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.158389 precompile=0.000580 status=Success
+** Round=3 n=10 phi_A=-1.2925285802238726 phi_B=-0.41977313086043994 gains=[0.013425222975405049, 0.00277608296439541] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.166215 precompile=0.000631 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.158140 precompile=0.000585 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157709 precompile=0.000582 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.144912 precompile=0.000586 status=Success
+** Round=4 n=10 phi_A=-1.2970098926923368 phi_B=-0.4118241563713892 gains=[0.006602171472212204, 0.0012674573568798309] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.165344 precompile=0.000602 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.158759 precompile=0.000588 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157581 precompile=0.000587 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.153103 precompile=0.000591 status=Success
+** Round=5 n=10 phi_A=-1.2987927850547567 phi_B=-0.4078180923257986 gains=[0.003275947108509092, 0.0006061264245223463] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.156955 precompile=0.000636 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.151607 precompile=0.000589 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157119 precompile=0.000582 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145407 precompile=0.000586 status=Success
+** Round=6 n=10 phi_A=-1.2994632237032306 phi_B=-0.40579144228199204 gains=[0.0016321860154957513, 0.0002963752775062001] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.163700 precompile=0.000638 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145108 precompile=0.000594 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.164544 precompile=0.000585 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.146878 precompile=0.000587 status=Success
+** Round=7 n=10 phi_A=-1.2996882862324217 phi_B=-0.4047649642878036 gains=[0.0008145810855482161, 0.00014646449890332036] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.156722 precompile=0.000638 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.152191 precompile=0.000591 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157211 precompile=0.000583 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145185 precompile=0.000590 status=Success
+** Round=8 n=10 phi_A=-1.2997451258171877 phi_B=-0.4042457459994948 gains=[0.0004068067925961927, 7.276190199967392e-5] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.164087 precompile=0.000646 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.144814 precompile=0.000591 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.164324 precompile=0.000589 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145195 precompile=0.000598 status=Success
+** Round=9 n=10 phi_A=-1.2997453584408412 phi_B=-0.4039839427988408 gains=[0.00020322017075979915, 3.624654285999673e-5] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.156787 precompile=0.000646 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.152266 precompile=0.000588 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157391 precompile=0.000587 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145664 precompile=0.000622 status=Success
+** Round=10 n=10 phi_A=-1.2997312924515683 phi_B=-0.40385252317136006 gains=[0.00010153344377217266, 1.808373881589942e-5] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.164147 precompile=0.000676 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.144810 precompile=0.000594 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.166008 precompile=0.000589 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145212 precompile=0.000591 status=Success
+** Round=11 n=10 phi_A=-1.299717188949821 phi_B=-0.40378690612464585 gains=[5.073153461587765e-5, 9.030168347357037e-6] violations=[0.0, 0.0]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157760 precompile=0.000703 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.153314 precompile=0.000585 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.158854 precompile=0.000598 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.152049 precompile=0.000594 status=Success
+** Round=12 n=10 phi_A=-1.2997066491956546 phi_B=-0.4037543386577381 gains=[2.5346810195614466e-5, 4.511737593304588e-6] violations=[4.042256529501742e-8, 4.042256529501742e-8]
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.157166 precompile=0.000642 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.144886 precompile=0.000594 status=Success
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=0.164904 precompile=0.000587 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.145417 precompile=0.000584 status=Success
+** Round=13 n=10 phi_A=-1.2996996783403052 phi_B=-0.40373827677682644 gains=[1.2660573647682583e-5, 2.2550669663834455e-6] violations=[6.542746899818042e-8, 6.542746899818042e-8]
+Solving game with 2 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=16 CPU_seconds=68.414467 precompile=1.925031 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=1.046151 precompile=0.001023 status=Success
+Player A start=nothing warm=false NLP_iterations=16 CPU_seconds=1.247122 precompile=0.000927 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.986128 precompile=0.000930 status=Success
+** Round=1 n=40 phi_A=-1.3119824435796081 phi_B=-0.40060918620215324 gains=[0.01347050633032576, 8.122502087548611e-5] violations=[0.001636864913551861, 0.001636864913551861]
+Player A start=nothing warm=false NLP_iterations=16 CPU_seconds=1.258779 precompile=0.000980 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.981233 precompile=0.000921 status=Success
+Player A start=nothing warm=false NLP_iterations=14 CPU_seconds=1.127358 precompile=0.000914 status=Success
+Player B start=nothing warm=false NLP_iterations=11 CPU_seconds=0.919868 precompile=0.000960 status=Success
+** Round=2 n=40 phi_A=-1.3186970830023845 phi_B=-0.3996907832700583 gains=[0.007043958772787073, 5.501702994403779e-5] violations=[0.0008755284081696235, 0.0008755284081696235]
+Player A start=nothing warm=false NLP_iterations=14 CPU_seconds=1.124098 precompile=0.000937 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.983924 precompile=0.000923 status=Success
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.049442 precompile=0.000908 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.982932 precompile=0.000920 status=Success
+** Round=3 n=40 phi_A=-1.3224514862773076 phi_B=-0.39937759764854547 gains=[0.0035337830965813666, 3.61006853661916e-5] violations=[0.0003288530983304172, 0.0003288530983304172]
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.051078 precompile=0.000946 status=Success
+Player B start=nothing warm=false NLP_iterations=13 CPU_seconds=1.058126 precompile=0.000913 status=Success
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.054982 precompile=0.000904 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=0.981934 precompile=0.000918 status=Success
+** Round=4 n=40 phi_A=-1.3244778840092255 phi_B=-0.3992052165077166 gains=[0.001676024009427568, 1.992820175006349e-5] violations=[0.00010201239420259967, 0.00010201239420259967]
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.063295 precompile=0.000997 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.122929 precompile=0.000914 status=Success
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=1.193995 precompile=0.000912 status=Success
+Player B start=nothing warm=false NLP_iterations=13 CPU_seconds=1.053247 precompile=0.000949 status=Success
+** Round=5 n=40 phi_A=-1.3255121482670762 phi_B=-0.3990772927822679 gains=[0.000745064923379779, 1.0010446286456975e-5] violations=[2.7446600879277305e-5, 2.7446600879277305e-5]
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=1.888521 precompile=0.000956 status=Success
+Player B start=nothing warm=false NLP_iterations=15 CPU_seconds=1.335022 precompile=0.000975 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=1.018298 precompile=0.000914 status=Success
+Player B start=nothing warm=false NLP_iterations=15 CPU_seconds=1.250154 precompile=0.000925 status=Success
+** Round=6 n=40 phi_A=-1.326007000681875 phi_B=-0.3989809493761978 gains=[0.0003076486725515082, 4.839309717119544e-6] violations=[6.578446010152561e-6, 6.578446010152561e-6]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.974856 precompile=0.000994 status=Success
+Player B start=nothing warm=false NLP_iterations=15 CPU_seconds=1.204045 precompile=0.000919 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.982435 precompile=0.000939 status=Success
+Player B start=nothing warm=false NLP_iterations=15 CPU_seconds=1.196057 precompile=0.000910 status=Success
+** Round=7 n=40 phi_A=-1.3262167432777197 phi_B=-0.3989131086529082 gains=[0.00012488367464524863, 2.325488206056381e-6] violations=[1.4742208073181828e-6, 1.4742208073181828e-6]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.984815 precompile=0.000973 status=Success
+Player B start=nothing warm=false NLP_iterations=15 CPU_seconds=1.198785 precompile=0.000912 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.978947 precompile=0.000911 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.129883 precompile=0.000921 status=Success
+** Round=8 n=40 phi_A=-1.3262970024456744 phi_B=-0.3988701322907453 gains=[5.5194357492238666e-5, 1.125156568304586e-6] violations=[3.669462236288723e-7, 3.669462236288723e-7]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.985244 precompile=0.000940 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.125583 precompile=0.000909 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.984170 precompile=0.000971 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.123996 precompile=0.000943 status=Success
+** Round=9 n=40 phi_A=-1.3263304063685672 phi_B=-0.39884550314950307 gains=[2.5784859227773183e-5, 5.51052740382918e-7] violations=[1.4543888335327715e-7, 1.4543888335327715e-7]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.979566 precompile=0.000969 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.130215 precompile=0.000963 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.980433 precompile=0.000915 status=Success
+Player B start=nothing warm=false NLP_iterations=14 CPU_seconds=1.123503 precompile=0.000922 status=Success
+** Round=10 n=40 phi_A=-1.3263451051640311 phi_B=-0.39883201734663004 gains=[1.2441171026056352e-5, 2.7267252811213893e-7] violations=[1.0320416821141265e-7, 1.0320416821141265e-7]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/ciliate/output

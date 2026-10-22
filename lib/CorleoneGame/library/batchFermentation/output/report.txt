@@ -1,0 +1,12 @@
+BatchFermentation: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 300, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, (hessian_approximation = "exact",), NamedTuple(), Float64[], false, false)
+Parameters: Main.BatchFermentation.Parameters((0.4, 0.35, 0.3, 5.0, 0.1, 0.0), 0.8, (0.7, 0.6, 0.5), 0.5, 0.03, (0.8, 0.7, 0.6), 0.7, 0.05, 5.0, (0.1, 20.0), (0.5, 0.45, 0.4), [0.75 0.15 0.1; 0.55 0.3 0.15; 0.45 0.25 0.3], (2.5, 2.0, 1.5), (1.5, 0.2, 0.15))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [4.0739347586353425]; physical horizon=4.0739347586353425
+n=10, converged=true, rounds=3
+objectives=[3.456396834296124, 2.4558678687428723, 2.0848966688561967], normalized audited gains=[3.297257964440803e-7, 3.307186968726228e-9, 2.886579864025407e-14], constraint norms=[8.785889904494582e-9, 8.785889904494582e-9, 8.785889904494582e-9]
+n=40, converged=true, rounds=1
+objectives=[3.453771099717106, 2.4553035812660093, 2.0841434725229293], normalized audited gains=[6.854932919075907e-6, 9.623518426593591e-9, 0.0], constraint norms=[3.4353454525515303e-9, 3.4353454525515303e-9, 3.4353454525515303e-9]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

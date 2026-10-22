@@ -1,0 +1,11 @@
+Mitochondria: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Mitochondria.Parameters((0.2, 0.3), 40.0, 40.0, 0.9, 0.01, (0.1, 0.1), (5.0, 4.0), (0.1, 0.12), 0.08, 0.3, 0.05, (0.5, 0.45), 0.5, 0.1, (3.1288670356712465, 3.1240155532488996, 2.066994657864377, 2.0163420842114115, 0.8547536323004257), (0.7, 0.2, 0.1), (0.45, 0.4, 0.15), (2.0, 4.0), nothing)
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=10
+objectives=[-1.6166165198315345, -0.284916502566001], normalized audited gains=[8.483757685251447e-7, 1.587962871640869e-5], constraint norms=[1.6829493487691138e-7, 1.6829493487691138e-7]
+n=40, converged=true, rounds=11
+objectives=[-1.6194935464336044, -0.4170083161958044], normalized audited gains=[5.240214678181587e-6, 1.5787536811362468e-5], constraint norms=[8.262968664851655e-8, 8.262968664851655e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

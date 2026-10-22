@@ -1,0 +1,11 @@
+PlantWater: synthetic, uncalibrated forward game
+Players: 4 (A, B, C, D)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.PlantWater.Parameters(4, 3, 8.0, [0.25, 0.4, 0.55], 0.8, 0.12, [0.9 0.3 0.3; 0.324 0.9720000000000001 0.324; 0.348 0.348 1.044; 1.116 0.372 0.372], 0.4, 0.9, 0.18, 1.2, 0.05, 0.03, 0.02, [1.8, 0.9, 0.5, 0.12, 0.06, 0.09, 0.06, 0.09, 0.12, 0.09, 0.12, 0.06, 0.12, 0.06, 0.09, 0.6, 0.8, 1.0, 1.2000000000000002], Union{Nothing, Float64}[2.3, 2.7, 3.1, 3.5], [0.85 0.06 0.09; 0.7999999999999999 0.08666666666666667 0.11333333333333333; 0.75 0.11333333333333334 0.13666666666666666; 0.7 0.14 0.16], Union{Nothing, Float64}[nothing, nothing, nothing], [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=27
+objectives=[-0.7637798062067299, -1.0099272736811837, -1.1511932965528195, -1.1107350168881038], normalized audited gains=[7.052873840507345e-10, 0.0, 0.0, 4.18106882449365e-10], constraint norms=[0.0, 7.619693311866627e-7, 4.831033564300924e-7, 0.0]
+n=40, converged=true, rounds=4
+objectives=[-0.7657043135461035, -1.0106705566668288, -1.1521149225767782, -1.1118958352359227], normalized audited gains=[1.4055604810159217e-5, 9.998858285564793e-6, 1.8838825469602583e-5, 1.4079151663626277e-5], constraint norms=[0.0, 0.0, 0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

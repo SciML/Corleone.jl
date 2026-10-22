@@ -1,0 +1,12 @@
+PredatorPrey: synthetic, uncalibrated forward game
+Players: 5 (A, B, C, D, E)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.PredatorPrey.Parameters(3, 2, 0.01, [0.9, 1.0, 1.1], [3.0, 3.0, 3.0], [0.78 0.54 0.66; 0.54 0.66 0.78], 0.5, 0.45, [0.3, 0.35], 0.03, 0.25, 0.12, true, [0.19811849641950602, 1.430316130098483, 1.0998866937687062, 0.8595951089451239, 0.4409164491899876], [0.1988327165668489, 0.9306449028547795, 0.7068407768239765, 1.259519776729533, 0.6566602541452006], 16.582148321859844, (8.291074160929922, 33.16429664371969), [0.65 0.25 0.1; 0.65 0.25 0.1; 0.65 0.25 0.1; 0.75 0.2 0.05; 0.75 0.2 0.05], Union{Nothing, Float64}[0.35, 0.35, 0.35, 0.35, 0.35], Union{Nothing, Float64}[nothing, nothing, nothing, nothing, nothing], [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [17.416604995410513]; physical horizon=17.416604995410513
+n=10, converged=true, rounds=22
+objectives=[-0.8177084178360291, -0.5871409827148195, -0.6238383105186779, -0.8015338795982936, -0.8814022747604465], normalized audited gains=[1.2749646845278129e-5, 1.4787824072270972e-5, 3.831544254095931e-6, 2.968111752932323e-6, 6.661338147750939e-16], constraint norms=[7.20732932779633e-8, 7.175741900677934e-8, 7.204887408907013e-8, 6.209250880129247e-8, 6.209250880129247e-8]
+n=40, converged=true, rounds=2
+objectives=[-0.815940592359667, -0.5877303531993538, -0.6232269314758357, -0.8030886906093934, -0.8824303710407007], normalized audited gains=[3.170528423135366e-7, 1.183084773481724e-7, 5.590006735278763e-8, 7.640871269032345e-9, 0.0], constraint norms=[6.802003527095479e-8, 6.777827615822574e-8, 6.799503754484348e-8, 5.8039143768784385e-8, 5.8039143768784385e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

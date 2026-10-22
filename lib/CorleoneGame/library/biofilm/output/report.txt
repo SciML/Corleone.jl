@@ -1,0 +1,11 @@
+Biofilm: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Biofilm.Parameters(3, 12.0, [1.0, 1.2, 1.4], 0.4, 0.6, 1.5, 0.5, 10.0, 0.08, 0.15, 0.5, 3.0, 2.0, 0.5, [0.2, 0.45, 0.7, 0.01, 0.04, 0.08, 3.0, 2.0], [0.5 0.4 0.1; 0.35 0.5 0.15000000000000002; 0.2 0.6000000000000001 0.2], Union{Nothing, Float64}[0.6000000000000001, 1.0, 1.4000000000000001], Union{Nothing, Float64}[0.5, 0.4], [0.2, 0.1, 0.2, 0.1, 0.2, 0.1])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=12
+objectives=[-0.04075579031356495, -0.16689532992001677, -0.351331939353135], normalized audited gains=[3.6809067411741614e-6, 1.9127196846602246e-5, 1.4745530097504123e-5], constraint norms=[0.0, 0.0, 0.0]
+n=40, converged=true, rounds=5
+objectives=[-0.04102369122341531, -0.16802099135705595, -0.3522778792422247], normalized audited gains=[5.837911725564693e-7, 2.7504207704698302e-6, 9.991614390580938e-6], constraint norms=[0.0, 0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

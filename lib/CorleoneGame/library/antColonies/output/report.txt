@@ -1,0 +1,11 @@
+AntColonies: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 8, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.AntColonies.Parameters(3, 6.0, 0.8, 0.7, 0.15, [0.9, 1.0, 1.1], [0.8833333333333333, 0.8666666666666667, 0.85], 0.4, 6.0, 1.2, 0.6, 0.08, 0.12, 0.08, 0.6, 0.1, 0.8, [3.0, 3.0, 1.0, 1.0, 1.0, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3], [0.15 0.15 0.7; 0.15 0.19999999999999998 0.6499999999999999; 0.15 0.25 0.6], Union{Nothing, Float64}[0.8999999999999999, 0.8999999999999999, 0.8999999999999999], Union{Nothing, Float64}[0.1, 0.1, 0.1], [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=20
+objectives=[-0.5921628154675398, -0.5414686953067545, -0.49046207600175457], normalized audited gains=[0.0, 0.0, 0.0], constraint norms=[4.963308851413384e-7, 2.1908070964304915e-7, 9.885640722684386e-9]
+n=40, converged=true, rounds=35
+objectives=[-0.6221656031545615, -0.5715672418065929, -0.5191505494366764], normalized audited gains=[0.0, 0.0, 0.0], constraint norms=[9.070197479615905e-7, 4.5171400582522114e-7, 4.9650730887806915e-9]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

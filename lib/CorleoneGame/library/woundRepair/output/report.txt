@@ -1,0 +1,12 @@
+WoundRepair: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 300, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), Float64[], false, false)
+Parameters: Main.WoundRepair.Parameters((1.0, 0.2, 0.15, 0.1, 0.8), 0.25, (0.04, 0.12, 0.22), (0.8, 0.6), (0.5, 0.25, 0.08), 0.7, 0.15, 0.5, 0.6, 5.0, (0.1, 20.0), (0.5, 0.45, 0.4), [0.75 0.15 0.1; 0.55 0.3 0.15; 0.45 0.25 0.3], (5.0, 4.0, 3.0), (1.4, 1.6, 0.4))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [7.330422537147167]; physical horizon=7.330422537147167
+n=10, converged=true, rounds=2
+objectives=[6.474267778668556, 4.788189081017553, 4.420576927761038], normalized audited gains=[7.511355093470229e-9, 0.0, 4.440892098500626e-15], constraint norms=[5.726814855666618e-9, 5.726814855666618e-9, 5.726814855666618e-9]
+n=40, converged=true, rounds=1
+objectives=[6.471650990588151, 4.78363434041868, 4.4184498097990375], normalized audited gains=[4.778191327048376e-7, 0.0, 3.0038194154258235e-12], constraint norms=[5.6645925727849544e-9, 5.6645925727849544e-9, 5.6645925727849544e-9]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

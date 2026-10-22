@@ -1,0 +1,25 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/woundRepair/output/run.log
+Solving game with 3 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=11 CPU_seconds=74.071517 precompile=5.753419 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.097220 precompile=0.153449 status=Success
+Player C start=nothing warm=false NLP_iterations=15 CPU_seconds=0.125338 precompile=0.019905 status=Success
+Player A start=nothing warm=false NLP_iterations=8 CPU_seconds=0.076080 precompile=0.000543 status=Success
+Player B start=nothing warm=false NLP_iterations=6 CPU_seconds=0.060142 precompile=0.000487 status=Success
+Player C start=nothing warm=false NLP_iterations=12 CPU_seconds=0.099069 precompile=0.000481 status=Success
+** Round=1 n=10 phi_A=6.474444261831011 phi_B=4.78825392344886 phi_C=4.420696121890971 gains=[0.00012260205261860335, 6.9478197941563735e-6, 6.128431095930864e-14] violations=[5.7258824903705374e-9, 5.7258824903705374e-9, 5.7258824903705374e-9]
+Player A start=nothing warm=false NLP_iterations=8 CPU_seconds=0.084101 precompile=0.000598 status=Success
+Player B start=nothing warm=false NLP_iterations=7 CPU_seconds=0.077616 precompile=0.000466 status=Success
+Player C start=nothing warm=false NLP_iterations=12 CPU_seconds=0.099146 precompile=0.000463 status=Success
+Player A start=nothing warm=false NLP_iterations=8 CPU_seconds=0.065243 precompile=0.000459 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=0.073798 precompile=0.000461 status=Success
+Player C start=nothing warm=false NLP_iterations=12 CPU_seconds=0.096469 precompile=0.000455 status=Success
+** Round=2 n=10 phi_A=6.474267778668556 phi_B=4.788189081017553 phi_C=4.420576927761038 gains=[7.511355093470229e-9, 0.0, 4.440892098500626e-15] violations=[5.726814855666618e-9, 5.726814855666618e-9, 5.726814855666618e-9]
+Solving game with 3 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=11 CPU_seconds=56.287159 precompile=1.993415 status=Success
+Player B start=nothing warm=false NLP_iterations=12 CPU_seconds=1.467072 precompile=0.000904 status=Success
+Player C start=nothing warm=false NLP_iterations=13 CPU_seconds=0.706833 precompile=0.000805 status=Success
+Player A start=nothing warm=false NLP_iterations=9 CPU_seconds=1.254531 precompile=0.000782 status=Success
+Player B start=nothing warm=false NLP_iterations=6 CPU_seconds=0.504910 precompile=0.000887 status=Success
+Player C start=nothing warm=false NLP_iterations=12 CPU_seconds=1.516357 precompile=0.000775 status=Success
+** Round=1 n=40 phi_A=6.471650990588151 phi_B=4.78363434041868 phi_C=4.4184498097990375 gains=[4.778191327048376e-7, 0.0, 3.0038194154258235e-12] violations=[5.6645925727849544e-9, 5.6645925727849544e-9, 5.6645925727849544e-9]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/woundRepair/output

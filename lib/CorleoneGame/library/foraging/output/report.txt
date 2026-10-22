@@ -1,0 +1,11 @@
+Foraging: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-10, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, true)
+Parameters: Main.Foraging.Parameters(3, 10.0, 0.8, 10.0, [0.12, 0.16, 0.2], [0.8, 0.7272727272727273, 0.6666666666666667], [0.6, 0.5454545454545454, 0.5], 0.3, 0.1, [8.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0], (0.3333333333333333, 0.6666666666666666), (0.375, 0.625), (0.8, 0.2), Matrix{Float64}(undef, 0, 2), Union{Nothing, Float64}[3.5, 3.9999999999999996, 4.5], 7.0, [0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=7
+objectives=[-2.737076196610799, -2.364125192947717, -3.222005917626076], normalized audited gains=[1.6934154935643875e-5, 1.1908096786417133e-5, 1.7711135932962918e-5], constraint norms=[0.0, 0.0, 0.0]
+n=40, converged=true, rounds=10
+objectives=[-2.7652780982688, -2.3804131921383154, -3.2567572982099917], normalized audited gains=[1.1982860682824281e-5, 9.30182127456547e-6, 1.9588445941742805e-5], constraint norms=[1.4061967590350832e-7, 1.4061967590350832e-7, 1.4061967590350832e-7]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

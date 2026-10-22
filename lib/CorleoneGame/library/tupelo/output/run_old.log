@@ -1,0 +1,129 @@
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=14 CPU_seconds=86.030375 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=30 CPU_seconds=0.727049 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=12 CPU_seconds=0.393006 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=29 CPU_seconds=1.132076 status=Success
+round=1 n=24 phi_A=-2.36072219 phi_B=-0.433770043 gains=(0.00468,0.00903) violations=(0.0291,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=12 CPU_seconds=0.268881 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=29 CPU_seconds=0.603761 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=11 CPU_seconds=0.212584 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=25 CPU_seconds=0.465181 status=Success
+round=2 n=24 phi_A=-2.42083622 phi_B=-0.430039726 gains=(0.00123,0.00441) violations=(0.0393,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=11 CPU_seconds=0.196007 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.411892 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=13 CPU_seconds=0.246246 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=27 CPU_seconds=0.498456 status=Success
+round=3 n=24 phi_A=-2.4553762 phi_B=-0.430209072 gains=(0.000636,0.00171) violations=(0.0353,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=13 CPU_seconds=0.260302 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=35 CPU_seconds=0.604778 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.197546 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=25 CPU_seconds=0.453541 status=Success
+round=4 n=24 phi_A=-2.44322166 phi_B=-0.429760813 gains=(0.000241,0.000845) violations=(0.00929,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.198344 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=24 CPU_seconds=0.438633 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.198077 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=30 CPU_seconds=0.539810 status=Success
+round=5 n=24 phi_A=-2.4468016 phi_B=-0.430209758 gains=(0.000111,0.000333) violations=(0.00589,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.216605 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=20 CPU_seconds=0.387816 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.184529 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=23 CPU_seconds=0.432568 status=Success
+round=6 n=24 phi_A=-2.45363233 phi_B=-0.430426244 gains=(3.73e-05,0.000167) violations=(0.00633,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.194057 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=25 CPU_seconds=0.471800 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.190473 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.365218 status=Success
+round=7 n=24 phi_A=-2.45253196 phi_B=-0.430418227 gains=(1.95e-05,7.91e-05) violations=(0.00243,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.178327 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=20 CPU_seconds=0.404173 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.167411 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.397856 status=Success
+round=8 n=24 phi_A=-2.45152504 phi_B=-0.430482121 gains=(1.24e-05,3.86e-05) violations=(0.000636,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.181204 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=24 CPU_seconds=0.437389 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.200348 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.373289 status=Success
+round=9 n=24 phi_A=-2.45210681 phi_B=-0.430542 gains=(4.67e-06,1.91e-05) violations=(0.000636,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.196519 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=26 CPU_seconds=0.468083 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.195730 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=18 CPU_seconds=0.347733 status=Success
+round=10 n=24 phi_A=-2.45221276 phi_B=-0.430551584 gains=(2.08e-06,9.45e-06) violations=(0.000372,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.184506 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=23 CPU_seconds=0.410244 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.193894 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.396766 status=Success
+round=11 n=24 phi_A=-2.45208642 phi_B=-0.430552281 gains=(1.37e-06,4.73e-06) violations=(0.00011,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=10 CPU_seconds=0.199411 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.373972 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.177911 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.376933 status=Success
+round=12 n=24 phi_A=-2.45212921 phi_B=-0.430557266 gains=(5.9e-07,2.36e-06) violations=(7.59e-05,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.184465 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.375070 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.180070 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.379692 status=Success
+round=13 n=24 phi_A=-2.45215212 phi_B=-0.430559374 gains=(2.34e-07,1.18e-06) violations=(5.19e-05,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.183289 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=23 CPU_seconds=0.419062 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.162617 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.393951 status=Success
+round=14 n=24 phi_A=-2.45212361 phi_B=-0.430559582 gains=(1.79e-07,5.88e-07) violations=(1.19e-05,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.180645 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.409617 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.167524 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.406137 status=Success
+round=15 n=24 phi_A=-2.45211607 phi_B=-0.430560068 gains=(1.06e-07,2.94e-07) violations=(2.24e-06,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.176955 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.400179 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.187634 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.366254 status=Success
+round=16 n=24 phi_A=-2.45212127 phi_B=-0.430560369 gains=(4.04e-08,1.47e-07) violations=(3.96e-06,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.178575 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.390624 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.167510 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.376715 status=Success
+round=17 n=24 phi_A=-2.45212107 phi_B=-0.430560353 gains=(2.08e-08,7.35e-08) violations=(1.86e-06,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.180234 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=21 CPU_seconds=0.403154 status=Success
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.170937 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.402064 status=Success
+round=18 n=24 phi_A=-2.45212005 phi_B=-0.43056033 gains=(1.29e-08,3.68e-08) violations=(3.77e-07,0)
+OCP player=A shooting=single n=24 start=nothing NLP_iterations=9 CPU_seconds=0.175997 status=Success
+OCP player=A shooting=single n=24 start=0.0 NLP_iterations=14 CPU_seconds=0.262390 status=Success
+OCP player=A shooting=single n=24 start=0.5 NLP_iterations=16 CPU_seconds=0.296312 status=Success
+OCP player=A shooting=single n=24 start=1.0 NLP_iterations=13 CPU_seconds=0.258808 status=Success
+OCP player=B shooting=single n=24 start=nothing NLP_iterations=22 CPU_seconds=0.380699 status=Success
+OCP player=B shooting=single n=24 start=0.0 NLP_iterations=36 CPU_seconds=0.611250 status=Success
+OCP player=B shooting=single n=24 start=0.5 NLP_iterations=29 CPU_seconds=0.510434 status=Success
+OCP player=B shooting=single n=24 start=1.0 NLP_iterations=28 CPU_seconds=0.498109 status=Success
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=13 CPU_seconds=72.637287 status=Success
+OCP player=A shooting=single n=48 start=0.0 NLP_iterations=13 CPU_seconds=0.725600 status=Success
+OCP player=A shooting=single n=48 start=0.5 NLP_iterations=16 CPU_seconds=0.821288 status=Success
+OCP player=A shooting=single n=48 start=1.0 NLP_iterations=15 CPU_seconds=0.786720 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=33 CPU_seconds=1.633850 status=Success
+OCP player=B shooting=single n=48 start=0.0 NLP_iterations=42 CPU_seconds=2.001780 status=Success
+OCP player=B shooting=single n=48 start=0.5 NLP_iterations=40 CPU_seconds=1.942976 status=Success
+OCP player=B shooting=single n=48 start=1.0 NLP_iterations=38 CPU_seconds=1.834025 status=Success
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=13 CPU_seconds=0.714155 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=34 CPU_seconds=1.676012 status=Success
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=12 CPU_seconds=0.649873 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=32 CPU_seconds=1.579630 status=Success
+round=1 n=48 phi_A=-2.45526865 phi_B=-0.430257054 gains=(3.92e-05,0.000104) violations=(0.00126,0)
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=12 CPU_seconds=0.637171 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=40 CPU_seconds=1.942842 status=Success
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=10 CPU_seconds=0.546767 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=27 CPU_seconds=1.346462 status=Success
+round=2 n=48 phi_A=-2.45441511 phi_B=-0.430034129 gains=(1.03e-05,2.82e-05) violations=(1.59e-05,0)
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=10 CPU_seconds=0.553394 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=33 CPU_seconds=1.629509 status=Success
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=10 CPU_seconds=0.549951 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=31 CPU_seconds=1.535992 status=Success
+round=3 n=48 phi_A=-2.4543438 phi_B=-0.429997634 gains=(2.95e-06,7.14e-06) violations=(0,0)
+OCP player=A shooting=single n=48 start=nothing NLP_iterations=10 CPU_seconds=0.558830 status=Success
+OCP player=A shooting=single n=48 start=0.0 NLP_iterations=13 CPU_seconds=0.674602 status=Success
+OCP player=A shooting=single n=48 start=0.5 NLP_iterations=16 CPU_seconds=0.834989 status=Success
+OCP player=A shooting=single n=48 start=1.0 NLP_iterations=15 CPU_seconds=0.829728 status=Success
+OCP player=B shooting=single n=48 start=nothing NLP_iterations=31 CPU_seconds=1.566390 status=Success
+OCP player=B shooting=single n=48 start=0.0 NLP_iterations=43 CPU_seconds=2.178790 status=Success
+OCP player=B shooting=single n=48 start=0.5 NLP_iterations=32 CPU_seconds=1.568456 status=Success
+OCP player=B shooting=single n=48 start=1.0 NLP_iterations=40 CPU_seconds=1.942653 status=Success

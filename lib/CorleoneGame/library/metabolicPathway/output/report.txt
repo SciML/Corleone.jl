@@ -1,0 +1,11 @@
+MetabolicPathway: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.MetabolicPathway.Parameters((0.2, 0.3), 12.0, 12.0, 0.8, 0.01, (1.2, 1.0), (0.4, 0.6), (1.0, 1.0), (0.1, 0.08), 0.4, 3.0, 0.2, (0.8, 0.7), (0.3, 0.25), (1.7737523591883528, 2.2612034026403354, 1.0321725845734169, 1.7212385836246837, 0.5333333333333322, 0.8399999999999984), (0.9, 0.1), (0.7, 0.3), (3.5999999999999996, 3.0), nothing)
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=9
+objectives=[-1.71434438534263, -1.3142801270081939], normalized audited gains=[1.1213844359536651e-5, 7.292316483997752e-8], constraint norms=[1.385758041649865e-8, 1.385758041649865e-8]
+n=40, converged=true, rounds=4
+objectives=[-1.7151505266848515, -1.3150946250130489], normalized audited gains=[1.0074598082887576e-5, 8.893832337264485e-7], constraint norms=[8.588377298224259e-8, 8.588377298224259e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

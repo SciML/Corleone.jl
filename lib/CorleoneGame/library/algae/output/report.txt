@@ -1,0 +1,11 @@
+Algae N=4: synthetic, uncalibrated forward game
+Players: 4 (A, B, C, D)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Algae.Parameters([:HCHH, :HCLH, :LCHH, :LCLH], 60.0, 60.0, 0.9, 0.0001, 1.0, [1.0, 1.0, 40.0, 40.0], [30.0, 1200.0, 30.0, 1200.0], [0.2, 0.2, 0.4, 0.4], [0.2, 0.4, 0.2, 0.4], [1.0, 1.0, 1.0, 1.0], [0.11390889313478779, 0.0632729540737821, 0.0673378029866455, 0.016701863925639288], 0.2, 0.3, 0.01, 2.0, 60.0, [1.0, 1.0, 1.0, 1.0, 1.0465096857477418, 37.025387624328054], [0.45 0.1 0.45; 0.45 0.1 0.45; 0.45 0.1 0.45; 0.45 0.1 0.45], [0.5, 0.5, 0.5, 0.5])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=41
+objectives=[-0.12591020622899862, -0.03552559877037085, -0.03877926371947098, 0.03302088589267987], normalized audited gains=[1.951261473037702e-6, 8.01125390865326e-6, 1.725140044722684e-5, 0.0], constraint norms=[0.0, 0.0, 0.0, 0.0]
+n=40, converged=true, rounds=13
+objectives=[-0.12593199539515162, -0.035774636615691885, -0.040261168420216535, 0.033020736015067005], normalized audited gains=[1.7972180829106676e-6, 6.8705333653648615e-6, 1.5468321377026806e-5, 0.0], constraint norms=[2.610138025715969e-7, 2.610138025715969e-7, 2.610138025715969e-7, 2.610138025715969e-7]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

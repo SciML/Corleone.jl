@@ -1,0 +1,24 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/fishery/output/run.log
+Solving game with 2 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=19 CPU_seconds=69.795611 precompile=6.649520 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.035288 precompile=0.152487 status=Success
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=0.048539 precompile=0.000478 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=0.029621 precompile=0.000531 status=Success
+** Round=1 n=10 phi_A=-0.12570663200809756 phi_B=-0.015921336725058327 gains=[0.0016869613106663406, 0.0] violations=[2.628394979442561e-8, 2.628394979442561e-8]
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=0.092707 precompile=0.000571 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=0.033488 precompile=0.000413 status=Success
+Player A start=nothing warm=false NLP_iterations=14 CPU_seconds=0.049319 precompile=0.000401 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=0.057388 precompile=0.000410 status=Success
+** Round=2 n=10 phi_A=-0.12735202953523378 phi_B=-0.01605991007762153 gains=[7.323166006822923e-6, 0.0] violations=[2.9266810308570257e-8, 2.9266810308570257e-8]
+Solving game with 2 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=15 CPU_seconds=70.784608 precompile=1.919863 status=Success
+Player B start=nothing warm=false NLP_iterations=11 CPU_seconds=0.428655 precompile=0.000701 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.868902 precompile=0.000671 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.249255 precompile=0.000647 status=Success
+** Round=1 n=40 phi_A=-0.12724454171074268 phi_B=-0.01622103704306837 gains=[2.2768717228061064e-5, 0.0] violations=[2.3324869924401526e-8, 2.3324869924401526e-8]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.970644 precompile=0.000700 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.265744 precompile=0.000738 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=0.978703 precompile=0.000635 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=0.281695 precompile=0.000694 status=Success
+** Round=2 n=40 phi_A=-0.12725304391167114 phi_B=-0.01623159362997114 gains=[1.178739314988686e-6, 0.0] violations=[1.1562511947893483e-8, 1.1562511947893483e-8]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/fishery/output

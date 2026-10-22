@@ -1,0 +1,12 @@
+ImmuneClearance: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 300, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, (hessian_approximation = "exact",), NamedTuple(), Float64[], false, false)
+Parameters: Main.ImmuneClearance.Parameters((1.0, 0.2, 2.0, 0.1, 0.1, 0.0), 0.2, 0.25, 0.6, 0.7, 0.8, 0.6, (0.8, 0.6), (0.5, 0.35), (0.2, 0.15), 0.4, 0.8, 0.3, 5.0, (0.1, 20.0), (0.5, 0.45, 0.3), (0.5, 0.3, 0.2), (0.6, 0.4), (2.0, 1.0), (0.5, 0.8))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [2.9339840717930135]; physical horizon=2.9339840717930135
+n=10, converged=true, rounds=4
+objectives=[2.101868059561812, -1.2885071888584199], normalized audited gains=[0.0, 0.0], constraint norms=[1.3077787788806639e-7, 0.0]
+n=40, converged=true, rounds=2
+objectives=[2.101287899999659, -1.2876699566471697], normalized audited gains=[2.506208198749249e-6, 3.355093980417223e-13], constraint norms=[5.633477037636503e-7, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

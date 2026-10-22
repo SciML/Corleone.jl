@@ -1,0 +1,11 @@
+Ciliate: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Ciliate.Parameters(20.0, 20.0, 0.8, 0.01, 1.0, 1.0, 0.15, 2.0, 2.0, 0.5, 0.5, 0.15, 0.1, (0.5055436643883756, 0.3564873025218564), (0.9, 0.08, 0.02), (0.4, 0.5, 0.1), (1.0, 1.0, 1.0), (1.0, 1.0, 1.0), 2.0, 6.0, nothing, nothing, (0.2, 0.5), true, 0.75, 0.25, (0.2, 0.5))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=13
+objectives=[-1.2996996783403052, -0.40373827677682644], normalized audited gains=[1.2660573647682583e-5, 2.2550669663834455e-6], constraint norms=[6.542746899818042e-8, 6.542746899818042e-8]
+n=40, converged=true, rounds=10
+objectives=[-1.3263451051640311, -0.39883201734663004], normalized audited gains=[1.2441171026056352e-5, 2.7267252811213893e-7], constraint norms=[1.0320416821141265e-7, 1.0320416821141265e-7]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

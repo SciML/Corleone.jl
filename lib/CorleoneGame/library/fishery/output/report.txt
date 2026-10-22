@@ -1,0 +1,12 @@
+Fishery: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 1.0, 2.0e-5, 1.0e-6, 300, 1.0e-10, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Fishery.Parameters(0.0001, 0.8, 1.0, (0.7, 0.55), (1.2, 1.0), (0.06, 0.08), (0.5, 0.65), (0.8, 0.2), (0.6, 0.4), (1.0, 1.0), (0.2, 0.07), 0.776875, 6.0, (1.0, 12.0), (0.8, 0.4), 0.4)
+Objectives are minimized. Gains are positive unilateral cost decreases.
+Optimized parameters: ["duration"] = [5.394739436999715]; physical horizon=5.394739436999715
+n=10, converged=true, rounds=2
+objectives=[-0.12735202953523378, -0.01605991007762153], normalized audited gains=[7.323166006822923e-6, 0.0], constraint norms=[2.9266810308570257e-8, 2.9266810308570257e-8]
+n=40, converged=true, rounds=2
+objectives=[-0.12725304391167114, -0.01623159362997114], normalized audited gains=[1.178739314988686e-6, 0.0], constraint norms=[1.1562511947893483e-8, 1.1562511947893483e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

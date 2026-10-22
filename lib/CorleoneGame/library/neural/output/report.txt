@@ -1,0 +1,11 @@
+Neural: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.15, 2.0e-5, 1.0e-6, 500, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Neural.Parameters(100.0, 100.0, 0.2, 0.0001, 16.0, 12.0, 15.0, 3.0, 1.3, 2.0, 4.0, 3.7, 8.0, 8.0, 1.0, 0.0, 0.35, 0.15, 0.2, 2.0, (0.17262880251023957, 0.10727034562050068), (0.5, 0.5), (0.8, 0.1, 0.1), (0.4, 0.5, 0.1))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=31
+objectives=[0.022061243491922903, 0.0024992784078766853], normalized audited gains=[4.942056144204704e-6, 1.5753589489560325e-5], constraint norms=[0.0, 0.0]
+n=40, converged=true, rounds=20
+objectives=[0.02145897508852593, 0.002393708061073313], normalized audited gains=[3.554150011374213e-6, 1.6141128375743961e-6], constraint norms=[0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

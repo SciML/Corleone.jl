@@ -16,4 +16,8 @@ links = InterLinks(
         "https://docs.sciml.ai/Optimization/stable/optimization_packages/mathoptinterface/",
         "https://docs.sciml.ai/Optimization/stable/objects.inv",
     ),
+    "SymbolicUtils" => (
+        "https://docs.sciml.ai/SymbolicUtils/stable/",
+        "https://docs.sciml.ai/SymbolicUtils/stable/objects.inv",
+    ),
 );

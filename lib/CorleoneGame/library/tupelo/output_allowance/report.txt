@@ -1,0 +1,11 @@
+Tupelo: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, false)
+Parameters: Main.Tupelo.Parameters(8.0, 1.0, 1.0, 0.0, 0.55, 0.15, 0.025, 0.1, 0.05, 1.2, 0.65, 0.2, 0.06, 6.0, 9.0, 1.0, 1.0, (0.8130081300813008, 0.06504065040650407, 0.12195121951219512, 0.0), (0.9756097560975611, 0.02439024390243903, 0.0), (1.0, 1.0, 1.0, 1.0), (1.0, 1.0, 1.0), 2.0, 3.5, 1.0, true, false)
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=19
+objectives=[-2.449435312974481, -0.43250756458541434], normalized audited gains=[5.185496609882989e-8, 1.9061531575381707e-8], constraint norms=[1.653441510374165e-7, 0.0]
+n=40, converged=true, rounds=5
+objectives=[-2.454460848389361, -0.43014243015743203], normalized audited gains=[6.8923354064054365e-6, 2.2202667006587795e-6], constraint norms=[0.0, 1.9507842896615557e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

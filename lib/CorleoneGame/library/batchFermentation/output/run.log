@@ -1,0 +1,32 @@
+Running single; log: /home/sager/git/Corleone/corleoneproblems/batchFermentation/output/run.log
+Solving game with 3 players. Grid n=10 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=10 CPU_seconds=115.811251 precompile=6.287460 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=1.377191 precompile=0.170223 status=Success
+Player C start=nothing warm=false NLP_iterations=11 CPU_seconds=1.542297 precompile=0.022764 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=1.629229 precompile=0.000577 status=Success
+Player B start=nothing warm=false NLP_iterations=9 CPU_seconds=1.228283 precompile=0.000535 status=Success
+Player C start=nothing warm=false NLP_iterations=10 CPU_seconds=1.364050 precompile=0.000541 status=Success
+** Round=1 n=10 phi_A=3.475417251565394 phi_B=2.470738319705895 phi_C=2.087321912491058 gains=[0.01838458197007764, 0.00022237980466455198, 1.7725119150213686e-9] violations=[6.680292097271945e-9, 6.680292097271945e-9, 6.680292097271945e-9]
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=1.667496 precompile=0.000694 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=1.100248 precompile=0.000537 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=1.119428 precompile=0.000526 status=Success
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.769008 precompile=0.000552 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=1.088138 precompile=0.000674 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=1.115993 precompile=0.000684 status=Success
+** Round=2 n=10 phi_A=3.456536458729279 phi_B=2.4548875006291926 phi_C=2.084875080074912 gains=[7.612228832476475e-5, 1.5399473212163173e-6, 8.335554468885675e-13] violations=[8.797732875542863e-9, 8.797732875542863e-9, 8.797732875542863e-9]
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.788659 precompile=0.000519 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=1.092438 precompile=0.000800 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=1.133064 precompile=0.000520 status=Success
+Player A start=nothing warm=false NLP_iterations=13 CPU_seconds=1.760409 precompile=0.000535 status=Success
+Player B start=nothing warm=false NLP_iterations=8 CPU_seconds=1.855307 precompile=0.000595 status=Success
+Player C start=nothing warm=false NLP_iterations=8 CPU_seconds=1.061512 precompile=0.000532 status=Success
+** Round=3 n=10 phi_A=3.456396834296124 phi_B=2.4558678687428723 phi_C=2.0848966688561967 gains=[3.297257964440803e-7, 3.307186968726228e-9, 2.886579864025407e-14] violations=[8.785889904494582e-9, 8.785889904494582e-9, 8.785889904494582e-9]
+Solving game with 3 players. Grid n=40 shooting=single solver=ipopt
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=130.054276 precompile=2.452890 status=Success
+Player B start=nothing warm=false NLP_iterations=11 CPU_seconds=37.540250 precompile=0.001731 status=Success
+Player C start=nothing warm=false NLP_iterations=11 CPU_seconds=37.092605 precompile=0.001416 status=Success
+Player A start=nothing warm=false NLP_iterations=12 CPU_seconds=40.433788 precompile=0.001240 status=Success
+Player B start=nothing warm=false NLP_iterations=10 CPU_seconds=34.303295 precompile=0.001284 status=Success
+Player C start=nothing warm=false NLP_iterations=10 CPU_seconds=36.589676 precompile=0.004179 status=Success
+** Round=1 n=40 phi_A=3.453771099717106 phi_B=2.4553035812660093 phi_C=2.0841434725229293 gains=[6.854932919075907e-6, 9.623518426593591e-9, 0.0] violations=[3.4353454525515303e-9, 3.4353454525515303e-9, 3.4353454525515303e-9]
+Finished; converged=true; outputs: /home/sager/git/Corleone/corleoneproblems/batchFermentation/output

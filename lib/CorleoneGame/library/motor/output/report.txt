@@ -1,0 +1,11 @@
+Motor: synthetic, uncalibrated forward game
+Players: 2 (A, B)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-9, 4, 8, false, :auto, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, true)
+Parameters: Main.Motor.Parameters(0.5, (2.0, 2.0), 100.0, 10.0, 0.1, 0.005, 0.005, 0.0025, 0.025, 15.0, (0.0, 0.1), (-0.02, 0.05), (0.02, 0.05), (0.2, 0.4), (0.2, 0.2, 0.2, 0.2, 0.2), (0.2, 0.2, 0.2, 0.2, 0.2), 30.0, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], (0.0, 0.0, 0.0, 0.0))
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=22
+objectives=[10.013809581969538, 3.877149685589171], normalized audited gains=[1.7191549206430068e-5, 7.376475392284476e-6], constraint norms=[0.0, 0.0]
+n=40, converged=true, rounds=13
+objectives=[9.90951035186654, 3.813653840177907], normalized audited gains=[1.2453553738467349e-5, 1.6987596742623623e-6], constraint norms=[0.0, 0.0]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.

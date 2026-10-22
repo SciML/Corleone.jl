@@ -1,0 +1,11 @@
+SexRatio: synthetic, uncalibrated forward game
+Players: 3 (A, B, C)
+Options: Main.CorleoneGame.Options(:single, 10, 40, 10, 200, 0.5, 2.0e-5, 1.0e-6, 300, 1.0e-10, 4, 8, false, :ipopt, :ipopt, NamedTuple(), NamedTuple(), [0.0, 0.5, 1.0], false, true)
+Parameters: Main.SexRatio.Parameters(3, 6.0, [1.0, 0.8695652173913044, 0.7692307692307692], 0.12, 0.2, 0.5, 0.8, 2.0, 0.1, 0.15, 1.0, 0.5, [2.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], (0.8, 0.1, 0.1), (0.65, 0.2, 0.15), (0.7, 0.05, 0.25), Matrix{Float64}(undef, 0, 3), Union{Nothing, Float64}[0.48, 0.78, 1.08], 1.5, [0.2, 0.2, 0.2])
+Objectives are minimized. Gains are positive unilateral cost decreases.
+n=10, converged=true, rounds=10
+objectives=[-1.2497460422320534, -0.9168290197840933, -0.8738558375525391], normalized audited gains=[1.1513780435512544e-5, 9.493394959037005e-10, 3.3599577564658034e-9], constraint norms=[3.7384569662179956e-8, 3.7384569662179956e-8, 3.7384569662179956e-8]
+n=40, converged=true, rounds=3
+objectives=[-1.2494572523882221, -0.9167296172622332, -0.8738164823163763], normalized audited gains=[1.6661328076983395e-5, 1.5082389307474742e-6, 2.067608109168617e-6], constraint norms=[3.7983918899087143e-8, 3.7983918899087143e-8, 3.7983918899087143e-8]
+Local deviation checks do not certify global Nash optimality.
+Path constraints are sampled, with denser independent validation.
