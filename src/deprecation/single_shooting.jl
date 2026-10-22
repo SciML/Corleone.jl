@@ -36,8 +36,9 @@ Translate the legacy single-shooting constructor into a [`ShootingLayer`](@ref).
 conditions outside `tunable_ic` remain fixed; non-control parameters remain tunable.
 Extra keywords remake the underlying problem before translation.
 
-The result uses **the new Lux parameter/state layout and ShootingLayer output**;
-this function does not restore the old trajectory or bounds API. Bounds are used
+The result uses **the new Lux parameter/state layout** and returns `(trajectory, state)`,
+with initial-condition residuals in `trajectory.residuals`. This function does not
+restore the old bounds API. Bounds are used
 for default initialization only. Custom initializers retain the legacy signatures
 `(rng, problem, indices, bounds)` and run during `LuxCore.setup`.
 `quadrature_indices` are validated; they need no special treatment in a single shoot.

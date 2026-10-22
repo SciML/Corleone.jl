@@ -42,6 +42,7 @@ function (pc::PiecewiseConstant)(t, ps, st)
 end
 
 get_timestops(pc::PiecewiseConstant, ps, st, ::Type{T}) where {T} = get_timestops(pc.lookup, ps.lookup, st.lookup, T)
+get_timestops(pc::FixedLayer, ps, st, ::Type{T}) where {T} = get_timestops(pc.layer, st.parameters, st.states, T)
 
 @concrete terse struct Parameter <: LuxCore.AbstractLuxContainerLayer{(:parameters,)}
     ""
@@ -144,9 +145,8 @@ end
 
 
 function get_timestops(pc::Parameter, ps, st, ::Type{T} = Float64) where {T}
-    idxs = findall(x -> typeof(x) <: PiecewiseConstant, pc.parameters)
     tstops = reduce(
-        vcat, map(idxs) do id
+        vcat, map(keys(pc.parameters)) do id
             get_timestops(pc.parameters[id], ps.parameters[id], st.parameters[id], T)
         end; init = T[]
     )

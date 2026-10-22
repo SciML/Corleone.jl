@@ -40,7 +40,8 @@ end
 end
 
 @inline function (x::ShootingLayer)((prob, tstops)::Tuple, ps, st::NamedTuple)
-    return solve_problems(x, prob, ps, st, tstops)
+    solutions, residuals, next_st = solve_problems(x, prob, ps, st, tstops)
+    return Trajectory(x, ps, next_st, solutions, residuals), next_st
 end
 
 @inline function solve_problems(x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
@@ -71,7 +72,7 @@ function mkbuffer(::T, vec::AbstractArray) where {T}
     return is_extension_loaded(Val{:Zygote}()) ? wrapbuffer(buffer) : buffer
 end
 
-wrapbuffer(x) = Zygote.Buffer(x)
+function wrapbuffer end # Implemented by the Zygote extension.
 
 unwrapbuffer(x) = x
 
