@@ -121,6 +121,11 @@ end
 # The landing thrust direction is discretized on a fine grid of 100 uniform control
 # intervals (``\Delta\tau = 0.01``), which lets the optimizer shape ``\theta(\tau)``
 # finely enough to meet the (tight) terminal constraints in a single `Ipopt` solve.
+#
+# There are no state jumps for this single vehicle, so the phases are joined by
+# **identity** `StageLinkage`s: each linkage owns the next phase's initial state `u0` and
+# enforces the exact coupling `u0 = x_f` as a constraint. The interface states are
+# warm-started from a forward pass of the preceding phase.
 
 grid3 = collect(0.0:0.01:0.99)   # 100 uniform control intervals on the landing stage
 u0 = [x₀, y₀, vx₀, vy₀, m₀]
@@ -133,9 +138,14 @@ function make_chain(t₂, t₃, theta₀)
     stage1 = SingleShootingLayer(prob1, Tsit5(); bounds_p = ([t1], [t1]))
     stage2 = SingleShootingLayer(prob2, Tsit5(); bounds_p = ([10.0], [260.0]))
     stage3 = SingleShootingLayer(prob3, Tsit5(); controls = (2 => theta,), bounds_p = ([10.0], [260.0]))
-    trans12 = StageTransition((traj, p) -> last(traj.u))   # identity: no state jump
-    trans23 = StageTransition((traj, p) -> last(traj.u))
-    return Chain(stage1, trans12, stage2, trans23, stage3)
+
+    # Warm-start the identity linkages from a forward pass of the preceding phase.
+    rng = Random.default_rng()
+    s2start = last(stage1(nothing, LuxCore.setup(rng, stage1)...)[1].u)
+    s3start = last(stage2(s2start, LuxCore.setup(rng, stage2)...)[1].u)
+    link12 = StageLinkage(s2start)
+    link23 = StageLinkage(s3start)
+    return Chain(stage1, link12, stage2, link23, stage3)
 end
 
 # ## The Optimization Problem

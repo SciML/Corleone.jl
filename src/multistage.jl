@@ -55,6 +55,128 @@ function (transition::StageTransition)(traj, ps, st)
 end
 
 """
+$(TYPEDEF)
+
+A Lux layer that links consecutive optimal-control stages by an *interface state* that is
+itself a free optimization variable. In contrast to [`StageTransition`](@ref), the phase
+that follows a `StageLinkage` is **not** started at the value computed from the preceding
+phase. Instead the linkage owns the next phase's initial state `u0` and imposes a residual
+
+```math
+\\Delta x_{\\min} \\le u_0 - m\\big(x_f^{\\mathrm{prev}}, \\theta\\big) \\le \\Delta x_{\\max}
+```
+
+so that the two phases are coupled through a constraint rather than by substitution. This
+breaks the end-to-end sensitivity chain of generalized single shooting and is what makes
+multiple-shooting phases scale to larger multiphase problems.
+
+The map `m` may be
+
+- the identity (default, `StageLinkage(u0)`),
+- an affine map `m(x, \theta) = A x + B \theta + c` (`StageLinkage(A, B, c)`), or
+- an arbitrary callable `m(x, \theta)` returning the next initial state
+  (`StageLinkage(m; u0 = ...)`), which supports genuinely nonlinear boundary jumps such as
+the dilution/reaction switch of the two-stage reactor.
+
+The linkage carries its own tunable parameters: the interface state `u0` (bounded by
+`bounds_u0`) and, optionally, the jump parameters `θ` (bounded by `bounds_θ`). The
+residual bounds default to `(zeros, zeros)`, i.e. an exact linkage; pass e.g.
+`bounds = ([0.0], [Inf])` for an allowed range.
+
+# Fields
+$(FIELDS)
+"""
+struct StageLinkage{F, U, BU, T, BT, B} <: LuxCore.AbstractLuxLayer
+    "Map `(x_previous_final, θ) -> x_next_initial` used in the linkage residual"
+    f::F
+    "Initial values of the free interface state (the next phase's initial state)"
+    u0::U
+    "Lower and upper bounds `(lb, ub)` of the interface state"
+    bounds_u0::BU
+    "Initial values of the linkage/jump parameters"
+    θ::T
+    "Lower and upper bounds `(lb, ub)` of the linkage/jump parameters"
+    bounds_θ::BT
+    "Lower and upper bounds `(lb, ub)` of the linkage residual `u0 - m(x_f, θ)`"
+    bounds::B
+end
+
+function StageLinkage(
+        f::F;
+        u0::AbstractVector,
+        bounds_u0::Union{Nothing, Tuple{<:AbstractVector, <:AbstractVector}} = nothing,
+        θ::AbstractVector = Float64[],
+        bounds_θ::Union{Nothing, Tuple{<:AbstractVector, <:AbstractVector}} = nothing,
+        bounds::Union{Nothing, Tuple{<:AbstractVector, <:AbstractVector}} = nothing,
+    ) where {F}
+    n = length(u0)
+    isnothing(bounds_u0) && (bounds_u0 = (fill(-Inf, n), fill(Inf, n)))
+    m = length(θ)
+    isnothing(bounds_θ) && (bounds_θ = (fill(-Inf, m), fill(Inf, m)))
+    isnothing(bounds) && (bounds = (zeros(n), zeros(n)))
+    @assert length(first(bounds_u0)) == n == length(last(bounds_u0)) "The interface-state bounds must match the length of `u0`."
+    @assert length(first(bounds_θ)) == m == length(last(bounds_θ)) "The linkage-parameter bounds must match the length of `θ`."
+    @assert length(first(bounds)) == n == length(last(bounds)) "The linkage-residual bounds must match the length of `u0`."
+    return StageLinkage{F, typeof(u0), typeof(bounds_u0), typeof(θ), typeof(bounds_θ), typeof(bounds)}(
+        f, u0, bounds_u0, θ, bounds_θ, bounds
+    )
+end
+
+"""
+    StageLinkage(u0; kwargs...)
+
+Create an identity linkage: the next phase starts at the free interface state `u0`, which
+is coupled to the previous phase's final state by `u0 - x_f = 0`.
+"""
+function StageLinkage(u0::AbstractVector; kwargs...)
+    return StageLinkage((x, θ) -> x; u0 = u0, kwargs...)
+end
+
+"""
+    StageLinkage(A, B, c; u0 = c, kwargs...)
+
+Create an affine linkage `m(x, θ) = A * x + B * θ + c`. This covers projections onto the
+next phase's state (dimension changes across stages) as well as linear, tunable jumps.
+"""
+function StageLinkage(
+        A::AbstractMatrix, B::AbstractMatrix, c::AbstractVector; u0::AbstractVector = collect(c), kwargs...
+    )
+    f = let A = A, B = B, c = c
+        (x, θ) -> A * x .+ B * θ .+ c
+    end
+    return StageLinkage(f; u0 = u0, kwargs...)
+end
+
+function LuxCore.initialparameters(::Random.AbstractRNG, linkage::StageLinkage)
+    return (u0 = copy(linkage.u0), θ = copy(linkage.θ))
+end
+
+LuxCore.initialstates(::Random.AbstractRNG, ::StageLinkage) = NamedTuple()
+LuxCore.parameterlength(linkage::StageLinkage) = length(linkage.u0) + length(linkage.θ)
+
+function get_bounds(linkage::StageLinkage; kwargs...)
+    return (
+        (u0 = first(linkage.bounds_u0), θ = first(linkage.bounds_θ)),
+        (u0 = last(linkage.bounds_u0), θ = last(linkage.bounds_θ)),
+    )
+end
+
+# The linkage outputs its free interface state; the residual is collected separately.
+function (linkage::StageLinkage)(traj, ps, st)
+    return ps.u0, st
+end
+
+"""
+    linkage_residual(linkage, ps, prev_traj)
+
+Residual `u0 - m(x_f, θ)` of a `StageLinkage`, where `x_f` is the final state of the
+preceding phase's trajectory.
+"""
+function linkage_residual(linkage::StageLinkage, ps, prev_traj)
+    return ps.u0 .- linkage.f(last(prev_traj.u), ps.θ)
+end
+
+"""
     get_bounds(layer::LuxCore.AbstractLuxWrapperLayer{:layers}; kwargs...)
 
 Recursively collect the optimization-variable bounds of all sublayers of a `Lux.Chain`.
@@ -85,8 +207,44 @@ function get_number_of_shooting_constraints(layer::LuxCore.AbstractLuxWrapperLay
     )
 end
 
-# A transition does not contribute any shooting constraints.
+# Neither a transition nor a linkage contributes any shooting constraints.
 get_number_of_shooting_constraints(::StageTransition) = 0
+get_number_of_shooting_constraints(::StageLinkage) = 0
+
+"""
+    get_number_of_linkage_constraints(layer)
+
+Return the total number of linkage constraints contributed by `layer` (one per component of
+every `StageLinkage`'s interface state).
+"""
+get_number_of_linkage_constraints(::Any) = 0
+get_number_of_linkage_constraints(linkage::StageLinkage) = length(linkage.u0)
+function get_number_of_linkage_constraints(
+        layer::LuxCore.AbstractLuxWrapperLayer{:layers}
+    )
+    return sum(
+        name -> get_number_of_linkage_constraints(layer.layers[name]),
+        keys(layer.layers);
+        init = 0,
+    )
+end
+
+"""
+    linkage_constraint_bounds(layer)
+
+Collect the lower and upper linkage-residual bounds of all `StageLinkage`s in `layer`, in
+application order.
+"""
+linkage_constraint_bounds(::Any) = (Float64[], Float64[])
+function linkage_constraint_bounds(linkage::StageLinkage)
+    return (collect(first(linkage.bounds)), collect(last(linkage.bounds)))
+end
+function linkage_constraint_bounds(layer::LuxCore.AbstractLuxWrapperLayer{:layers})
+    parts = map(l -> linkage_constraint_bounds(l), layer.layers)
+    lb = reduce(vcat, map(first, parts); init = Float64[])
+    ub = reduce(vcat, map(last, parts); init = Float64[])
+    return (lb, ub)
+end
 
 """
 $(SIGNATURES)
@@ -173,6 +331,111 @@ end
     end
 end
 
+"""
+$(SIGNATURES)
+
+Like [`_forward_collect_stage_trajs`](@ref), but additionally collects the linkage residuals
+of every `StageLinkage` in application order. Returns a tuple `(trajs, residuals)` where
+`trajs` is the tuple of stage trajectories (as before) and `residuals` is a tuple with one
+residual vector per linkage.
+"""
+function _forward_collect_stage_info(layer, ps::NamedTuple, st)
+    return _forward_collect_stage_info(
+        values(layer.layers), values(ps), values(st), nothing, (), ()
+    )
+end
+
+function _forward_collect_stage_info(layer, ps, st)
+    names = keys(layer.layers)
+    return _forward_collect_stage_info(names, 1, layer, ps, st, nothing, (), ())
+end
+
+@inline function _forward_collect_stage_info(names, i, layer, ps, st, inp, trajs, resids)
+    i > length(names) && return (trajs, resids)
+    name = names[i]
+    sub = getproperty(layer.layers, name)
+    sub_ps = getproperty(ps, name)
+    sub_st = getproperty(st, name)
+    if sub isa SingleShootingLayer || sub isa MultipleShootingLayer
+        traj, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(
+            names, i + 1, layer, ps, st, traj, (trajs..., traj), resids
+        )
+    elseif sub isa StageLinkage
+        r = linkage_residual(sub, sub_ps, inp)
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(
+            names, i + 1, layer, ps, st, outp, trajs, (resids..., r)
+        )
+    else
+        # StageTransition: Trajectory -> next initial state
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(names, i + 1, layer, ps, st, outp, trajs, resids)
+    end
+end
+
+@inline function _forward_collect_stage_info(
+        ::Tuple{}, ::Tuple{}, ::Tuple{}, inp, trajs, resids
+    )
+    return (trajs, resids)
+end
+
+@inline function _forward_collect_stage_info(
+        layers::Tuple, ps::Tuple, st::Tuple, inp, trajs, resids
+    )
+    isempty(layers) && return (trajs, resids)
+    sub = first(layers)
+    sub_ps = first(ps)
+    sub_st = first(st)
+    rest_layers = Base.tail(layers)
+    rest_ps = Base.tail(ps)
+    rest_st = Base.tail(st)
+    if sub isa SingleShootingLayer || sub isa MultipleShootingLayer
+        traj, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(
+            rest_layers, rest_ps, rest_st, traj, (trajs..., traj), resids
+        )
+    elseif sub isa StageLinkage
+        r = linkage_residual(sub, sub_ps, inp)
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(
+            rest_layers, rest_ps, rest_st, outp, trajs, (resids..., r)
+        )
+    else
+        # StageTransition: Trajectory -> next initial state
+        outp, _ = sub(inp, sub_ps, sub_st)
+        return _forward_collect_stage_info(rest_layers, rest_ps, rest_st, outp, trajs, resids)
+    end
+end
+
+"""
+    _append_shooting_constraints!(res, trajs, start)
+
+Write the shooting/matching constraints of *every* stage trajectory in `trajs` into `res`
+starting after `start`, and return the index of the last written entry. Stages without
+matching conditions (single shooting) contribute nothing.
+"""
+function _append_shooting_constraints!(res, trajs, start::Integer)
+    pos = start
+    for traj in trajs
+        pos = _append_shooting_constraints!(res, traj, pos)
+    end
+    return pos
+end
+
+function _append_shooting_constraints!(
+        res, traj::Trajectory{S, U, P, T, SH}, pos::Integer
+    ) where {S, U, P, T, SH <: NamedTuple}
+    for kind in (:u0, :p, :controls), key in keys(traj.shooting)
+        for v in traj.shooting[key][kind]
+            res[pos += 1] = v
+        end
+    end
+    return pos
+end
+
+_append_shooting_constraints!(res, traj::Trajectory, pos::Integer) = pos
+
 @inline function _forward_collect_stage_trajs(
         ::Tuple{}, ::Tuple{}, ::Tuple{}, inp, trajs
     )
@@ -224,7 +487,7 @@ trajectory of the final stage.
 """
 function CorleoneDynamicOptProblem(
         layer::LuxCore.AbstractLuxWrapperLayer{:layers},
-        loss::Union{Symbol, Expr},
+        loss::Union{Symbol, Expr, Tuple, AbstractVector},
         constraints::Pair{<:Any, <:NamedTuple{(:t, :bounds)}}...;
         rng::Random.AbstractRNG = Random.default_rng(),
         parameter_constraints::Union{
@@ -243,10 +506,32 @@ function CorleoneDynamicOptProblem(
     # already is the interval state.
     final_st = _is_ms_state(final_st_raw) ? first(final_st_raw) : final_st_raw
     sys = final_st.symcache
-    objective = let getter = SymbolicIndexingInterface.getsym(sys, loss), layer = layer
+
+    # The objective is a sum of per-stage terms. Each term is either a bare
+    # `Symbol`/`Expr` (applied to the trajectory of the final stage, for backwards
+    # compatibility) or a tuple `(expr, k)` pinning it to the `k`-th shooting stage.
+    # This replaces the manual "carry the accumulated cost in a state" convention.
+    loss_terms = loss isa Union{Tuple, AbstractVector} ? collect(loss) : Any[loss]
+    getters = Tuple{Any, Int}[]
+    for term in loss_terms
+        expr, k = term isa Tuple ? term : (term, n_stages)
+        @assert isa(expr, Symbol) || isa(expr, Expr) "The objective $(expr) is neither a symbol nor an expression!"
+        @assert 1 <= k <= n_stages "Objective stage index $(k) out of range (chain has $(n_stages) shooting stages)."
+        stage_st_raw = stages[k][2]
+        stage_st_get = _is_ms_state(stage_st_raw) ? first(stage_st_raw) : stage_st_raw
+        push!(
+            getters,
+            (SymbolicIndexingInterface.getsym(stage_st_get.symcache, expr), k),
+        )
+    end
+    objective = let getters = tuple(getters...), layer = layer
         (ps, st) -> begin
-            traj, _ = layer(nothing, ps, st)
-            last(getter(traj))
+            stage_trajs = _forward_collect_stage_trajs(layer, ps, st)
+            val = zero(eltype(last(stage_trajs[1].u)))
+            for (getter, k) in getters
+                val += last(getter(stage_trajs[k]))
+            end
+            return val
         end
     end
 
@@ -302,8 +587,12 @@ function CorleoneDynamicOptProblem(
     end
     n_path = length(path_lb)
 
-    # Shooting constraints are contributed by the individual shooting layers.
+    # Shooting constraints are contributed by the individual shooting layers, and the
+    # linkage constraints by the `StageLinkage`s. Both are collected from *all* stages.
     n_shoot = get_number_of_shooting_constraints(layer)
+    n_link = get_number_of_linkage_constraints(layer)
+    link_lb, link_ub = linkage_constraint_bounds(layer)
+    @assert length(link_lb) == n_link == length(link_ub)
 
     # Parameter constraints act directly on the (concatenated) parameter vector, which
     # makes it possible to couple quantities of different stages, e.g. their durations.
@@ -318,40 +607,46 @@ function CorleoneDynamicOptProblem(
     end
     n_param = length(param_lb)
 
-    if n_path + n_shoot + n_param > 0
+    if n_path + n_shoot + n_link + n_param > 0
         constraints = let path_cons = tuple(path_cons...), layer = layer, n_path = n_path,
-                n_shoot = n_shoot, param_fun = param_fun, n_param = n_param,
+                n_shoot = n_shoot, n_link = n_link, param_fun = param_fun, n_param = n_param,
                 n_path_cons = length(path_cons)
             (res, ps, st) -> begin
                 # Run the whole chain forward once, threading the state through the
-                # `StageTransition` layers, and capture the trajectory of every
-                # shooting stage so per-stage path constraints can be evaluated.
-                stage_trajs = _forward_collect_stage_trajs(layer, ps, st)
+                # `StageTransition`/`StageLinkage` layers, and capture the trajectory of
+                # every shooting stage plus the linkage residuals.
+                stage_trajs, linkage_resids = _forward_collect_stage_info(layer, ps, st)
                 # Path-constraint values are written into `res` starting at index 1
                 # (the Zygote/Buffer-safe in-place convention used by
                 # `_path_constraint!`; `pos` tracks 1 + cumulative count).
-                pos = 1
+                pos = 0
                 @inbounds for i in 1:n_path_cons
                     k, con = path_cons[i]
-                    _path_constraint!(res, stage_trajs[k], con.getter, con.idx, pos)
+                    _path_constraint!(res, stage_trajs[k], con.getter, con.idx, pos + 1)
                     pos += length(con) # length(con) == length(con.idx)
                 end
-                traj = stage_trajs[n_stages]
                 if n_shoot > 0
-                    # Shooting constraints watch the full `res` at an offset so the
-                    # writes stay Buffer/Zygote-safe (no `@views` slicing).
-                    shooting_constraints!(res, traj, n_path)
+                    # Matching conditions of *every* (multiple-)shooting stage, at an
+                    # offset so the writes stay Buffer/Zygote-safe.
+                    pos = _append_shooting_constraints!(res, stage_trajs, pos)
+                end
+                if n_link > 0
+                    @inbounds for r in linkage_resids
+                        for v in r
+                            res[pos += 1] = v
+                        end
+                    end
                 end
                 if n_param > 0
                     @inbounds for (k, v) in enumerate(param_fun(ps))
-                        res[n_path + n_shoot + k] = v
+                        res[n_path + n_shoot + n_link + k] = v
                     end
                 end
                 return res
             end
         end
-        lcons = vcat(path_lb, zeros(n_shoot), param_lb)
-        ucons = vcat(path_ub, zeros(n_shoot), param_ub)
+        lcons = vcat(path_lb, zeros(n_shoot), link_lb, param_lb)
+        ucons = vcat(path_ub, zeros(n_shoot), link_ub, param_ub)
     else
         constraints = lcons = ucons = nothing
     end
@@ -363,7 +658,7 @@ end
 function SciMLBase.OptimizationProblem(
         layer::LuxCore.AbstractLuxWrapperLayer{:layers},
         ad::SciMLBase.ADTypes.AbstractADType, vectorizer;
-        loss::Union{Symbol, Expr},
+        loss::Union{Symbol, Expr, Tuple, AbstractVector},
         constraints = [],
         parameter_constraints = nothing,
         kwargs...

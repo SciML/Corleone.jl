@@ -104,7 +104,7 @@ function stage2!(du, u, p, t)
     return
 end
 
-# ### Switch: the mixing operation
+# ### Interface linkage: the mixing operation
 #
 # At the switching time ``t_s`` the mixing equations of the paper apply:
 #
@@ -116,13 +116,20 @@ end
 #
 # with ``V_2 = V_1 + S`` and the same (dilution) relation for ``c_D, c_E, c_F``. The amount
 # of ``D`` (``x_7``) is unchanged and ``x_8`` is set to ``V_2``.
+#
+# The map is affine in the state ``x`` but **nonlinear in the added volume** ``S`` (the
+# dilution factor is ``V_1/(V_1+S)`` and the jump term is ``S\,c_B^s/(V_1+S)``), so it is
+# expressed as a general `StageLinkage` map ``m(x, \theta)`` with ``\theta = [S]``. The
+# interface state ``u_0`` (the second stage's initial concentration vector) is a free
+# optimization variable and is coupled to the first stage's final state by the linkage
+# residual ``u_0 - m(x_f, \theta) = 0``.
 
 const V1 = 0.1
 const c_b_s = 600.0
 
-function switch_at_ts(traj, p)
-    A, B, C, D, E, F, D_amount, V2 = last(traj.u)
-    S = p[1]
+function switch_at_ts(x, θ)
+    A, B, C, D, E, F, D_amount, V2 = x
+    S = θ[1]
     V2_new = V1 + S
     return [
         V1 * A / V2_new, (V1 * B + S * c_b_s) / V2_new, V1 * C / V2_new,
@@ -163,11 +170,19 @@ stage1 = SingleShootingLayer(
 )
 stage2 = SingleShootingLayer(prob2, Tsit5(); bounds_p = ([10.0], [170.0]))
 
-# The transition is created with an initial added volume of ``S = 0.1\,\mathrm{m^3}`` and
-# bounded to ``[0, 0.1]``.
+# The linkage owns the second stage's initial state. It is initialized consistently with
+# the first stage's forward solution for ``S = 0.1``, so the residual starts at zero, and
+# the added volume ``S`` is bounded to ``[0, 0.1]``.
+let ps1, st1
+    ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
+    traj1, _ = stage1(nothing, ps1, st1)
+    global u0_linkage = switch_at_ts(last(traj1.u), [0.1])
+end
 
-transition = StageTransition(switch_at_ts; p = [0.1], bounds = ([0.0], [0.1]))
-chain = Chain(stage1, transition, stage2)
+linkage = StageLinkage(
+    switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
+)
+chain = Chain(stage1, linkage, stage2)
 
 # ## The Optimization Problem
 
@@ -208,7 +223,7 @@ ps_opt = uopt + zero(ComponentArray(ps))
 
 println("J0 = V2*c_D(t_P) = ", -uopt.objective)
 println("t_s = T1 = ", ps_opt.layer_1.p[1], " min,  T2 = ", ps_opt.layer_3.p[1], " min")
-println("S = ", ps_opt.layer_2.p[1], " m^3")
+println("S = ", ps_opt.layer_2.θ[1], " m^3")
 println("c_D(t_P) = ", last((chain(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
 
 # ### Simulating and plotting
@@ -221,7 +236,7 @@ stage1 = SingleShootingLayer(
 )
 stage2 = SingleShootingLayer(remake(prob2, saveat = 0.001), Tsit5(); bounds_p = ([10.0], [170.0]))
 
-chain = Chain(stage1, transition, stage2)
+chain = Chain(stage1, linkage, stage2)
 traj, _ = chain(nothing, ps_opt, st)
 traj_stage1, _ = stage1(nothing, ps_opt.layer_1, st.layer_1)
 
