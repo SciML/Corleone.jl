@@ -26,6 +26,15 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
+            @safetestset "Annotations" begin
+                include("core/annotations.jl")
+            end
+            @safetestset "Per-variable initial conditions" begin
+                include("core/initial_conditions.jl")
+            end
+            @safetestset "Initial-condition differentiation" begin
+                include("core/initial_conditions_ad.jl")
+            end
             @safetestset "Legacy single-shooting constructor" begin
                 include("core/legacy_single_shooting.jl")
             end

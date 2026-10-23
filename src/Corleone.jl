@@ -29,13 +29,10 @@ mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
 # Extensions
 is_extension_loaded(::Val) = false
 
+include("utilities/Utilities.jl")
 
 include("layers/Layers.jl")
 export ShootingLayer
-include("utilities/trajectory.jl")
-export Trajectory
-include("deprecation/single_shooting.jl")
-export SingleShootingLayer, ControlParameter
 
 @setup_workload begin
     @compile_workload begin

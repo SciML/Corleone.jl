@@ -2,15 +2,17 @@
     name
     problem
     alg
+    ensemblealg
     initialcondition
     parameter
     sys
 end
 
 # Resolve symbolic metadata once, outside the forward/AD path. Keep the existing
-# five-argument constructor for callers that replace the problem or sublayers.
-ShootingLayer(name, problem, alg, initialcondition, parameter) =
-    ShootingLayer(name, problem, alg, initialcondition, parameter, get_symbolic_container(problem))
+# positional constructor for callers that replace the problem or sublayers.
+ShootingLayer(name, problem, alg, ensemblealg, initialcondition, parameter) =
+    ShootingLayer(name, problem, alg, ensemblealg, initialcondition, parameter, get_symbolic_container(problem))
+
 
 function ShootingLayer(
         problem::SciMLBase.AbstractSciMLProblem,
@@ -18,13 +20,17 @@ function ShootingLayer(
         definitions...;
         name = nothing,
         fixed_parameters = [],
+        ensemblealg = EnsembleSerial(),
     )
     definitions = collect(definitions)
-    ic_defs = findall(Base.Fix2(isa, Pair{<:Number, <:NamedTuple}), definitions)
+    ic_defs = findall(definitions) do definition
+        annotation = definition isa Pair ? first(definition) : definition
+        annotation isa AbstractAnnotation && is_variable(annotation)
+    end
     p_defs = setdiff(eachindex(definitions), ic_defs)
     ics = InitialConditions(problem, definitions[ic_defs]...)
     params = Parameter(problem, definitions[p_defs]...; fixed = fixed_parameters)
-    return ShootingLayer(name, problem, alg, ics, params)
+    return ShootingLayer(name, problem, alg, ensemblealg, ics, params)
 end
 
 function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
@@ -46,11 +52,13 @@ end
 end
 
 @inline function (x::ShootingLayer)((prob, tstops)::Tuple, ps, st::NamedTuple)
-    solutions, residuals, next_st = solve_problems(x, prob, ps, st, tstops)
+    solutions, residuals, next_st = solve_problems(x.ensemblealg, x, prob, ps, st, tstops)
     return build_trajectory(x, ps, next_st, solutions, residuals), next_st
 end
 
-@inline function solve_problems(x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
+solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError("Unsupported algorithm $(alg). Currently only EnsembleSerial(), EnsembleThreads(), and EnsembleDistributed() are supported."))
+
+@inline function solve_problems(::EnsembleSerial, x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
     t0, tinf = tstops[1:2]
     (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
@@ -95,7 +103,7 @@ terminal_state(sol::Base.AbstractVecOrTuple) = last(sol)
 terminal_state(sol::AbstractArray) = sol[:, end]
 
 @inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops)
-    for i in Base.OneTo(length(tstops) - 1)
+    @inbounds for i in Base.OneTo(length(tstops) - 1)
         (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
         sols[i + 1] = internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1]))

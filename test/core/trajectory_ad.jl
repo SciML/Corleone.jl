@@ -28,7 +28,7 @@ using Zygote
 @testset "Assembly gradients across backends and reset boundaries" begin
     for reset in (false, true)
         prob = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [2.0])
-        defs = reset ? (1.0 => (; variables = (1 => 1.0,)),) : ()
+        defs = reset ? (Tunable(1; kind = Val(:variable), default = 1.0) => [1.0],) : ()
         layer = ShootingLayer(prob, Tsit5(), defs..., 1 => [1.0])
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         with_rates(q) = merge(ps, (; parameter = (; parameters = (; p₁ = (; lookup = (;), parameter = (; ps = q))))))

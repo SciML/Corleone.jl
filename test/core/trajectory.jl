@@ -43,7 +43,8 @@ end
         # At t=1 the incoming value is 2, so one reset has exactly zero mismatch.
         layer = ShootingLayer(
             prob, Tsit5(), 1 => [2.0],
-            1.0 => (; variables = (1 => reset_value,), fixed),
+            (isempty(fixed) ? Tunable : Constant)(1;
+                kind = Val(:variable), default = reset_value) => [1.0],
         )
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         traj, _ = layer(nothing, ps, st)
@@ -53,7 +54,11 @@ end
         @test traj.u[3] == [reset_value]
         @test last(traj.u) ≈ [reset_value + 2]
         @test length(traj.residuals) == 3
-        @test isempty(traj.residuals[2]) == !isempty(fixed)
+        if isempty(fixed)
+            @test traj.residuals[2] ≈ [reset_value - 2.0] atol = 1e-12
+        else
+            @test isempty(traj.residuals[2])
+        end
         @test isempty(traj.residuals[3])
         # State-only boundaries do not add knots to the parameter history.
         @test SII.parameter_timeseries(traj, 1) == [0.0, 2.0]

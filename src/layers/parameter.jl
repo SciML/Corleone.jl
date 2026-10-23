@@ -53,62 +53,6 @@ get_timestops(pc::FixedLayer, ps, st, ::Type{T}) where {T} = get_timestops(pc.la
     parameters
 end
 
-function __get_symbolic_container(x)
-    hasmethod(SymbolicIndexingInterface.symbolic_container, Tuple{typeof(x)}) || return x
-    y = SymbolicIndexingInterface.symbolic_container(x)
-    y != x && return __get_symbolic_container(y)
-    return x
-end
-
-get_symbolic_container(x) = x
-
-function get_symbolic_container(x::SciMLBase.AbstractSciMLProblem)
-    indp = __get_symbolic_container(x)
-    isa(indp, SymbolCache{Nothing, Nothing, Nothing, Nothing}) || return indp
-    return make_default_sys(x)
-end
-
-_subscript(i::Integer) = (i |> digits |> reverse .|> dgt -> Char(0x2080 + dgt)) |> join
-
-function make_default_sys(x::SciMLBase.AbstractDEProblem)
-    default_vars = map(eachindex(IndexLinear(), x.u0)) do i
-        Symbol(:u, _subscript(i)) => x.u0[i]
-    end
-    default_params = map(eachindex(IndexLinear(), x.p)) do i
-        Symbol(:p, _subscript(i)) => x.p[i]
-    end
-
-    defaults = Dict(vcat(default_vars, default_params))
-
-    return SymbolCache(
-        first.(default_vars),
-        first.(default_params),
-        :t;
-        defaults
-    )
-end
-
-process_definition(::Any, ::Val{X}, k::Int, v) where {X} = k => v
-
-process_definition(y, x::Val{X}, ks::Tuple, v) where {X} = reduce(
-    vcat, map(ks) do k
-        process_definition(y, x, k, v)
-    end
-)
-
-process_definition(y, x::Val{X}, ks::AbstractArray, v) where {X} = map(ks) do k
-    process_definition(y, x, k, v)
-end
-
-function process_definition(indep, ::Val{X}, k::Any, v) where {X}
-    idx = if X === :parameter
-        SymbolicIndexingInterface.parameter_index(indep, k)
-    elseif X === :variable
-        SymbolicIndexingInterface.variable_index(indep, k)
-    end
-    return idx => v
-end
-
 function Parameter(
         prob::SciMLBase.AbstractSciMLProblem,
         defintions...;
@@ -116,29 +60,26 @@ function Parameter(
         fixed = [],
     )
     sys = get_symbolic_container(prob)
-    # Int => Timepoints
-    defintions = reduce(
-        vcat, map(defintions) do def
-            process_definition(sys, Val(:parameter), def...)
-        end; init = Pair[]
-    )
-    # Fill out missings
-    missing_defs = setdiff(
-        [SymbolicIndexingInterface.parameter_index(sys, k) for k in SymbolicIndexingInterface.parameter_symbols(sys)],
-        first.(defintions)
-    ) .=> nothing
-    defintions = vcat(defintions, missing_defs)
-    sort!(defintions, by = first)
+    definitions = reduce(vcat, map(defintions) do definition
+        process_definition(sys, Val(:parameter), definition...)
+    end; init = Pair[])
+    indices = map(definition -> get_index(first(definition)), definitions)
+    allunique(indices) || throw(ArgumentError("Define each parameter only once."))
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-    psyms = SymbolicIndexingInterface.parameter_symbols(sys)
-    psymmap = Dict([SymbolicIndexingInterface.parameter_index(sys, k) => k for k in psyms])
-    fixed = map(fixed) do k
-        k isa Integer ? k : SymbolicIndexingInterface.parameter_index(sys, k)
-    end
-    parameters = map(defintions) do (k, v)
-        pname = psymmap[k]
-        layer = PiecewiseConstant(v, vals[k]; name = pname)
-        Symbol(pname) => k ∈ fixed ? FixedLayer(layer) : layer
+    symbols = SymbolicIndexingInterface.parameter_symbols(sys)
+    fixed_indices = map(k -> k isa Integer ? k : SymbolicIndexingInterface.parameter_index(sys, k), fixed)
+    parameters = map(eachindex(vals)) do i
+        sym = only(filter(s -> SymbolicIndexingInterface.parameter_index(sys, s) == i, symbols))
+        position = findfirst(==(i), indices)
+        if isnothing(position)
+            layer = PiecewiseConstant(nothing, vals[i]; name = sym)
+            tunable = true
+        else
+            annotation, grid = definitions[position]
+            layer = PiecewiseConstant(grid, get_default(annotation); name = sym)
+            tunable = is_tunable(annotation)
+        end
+        Symbol(sym) => (tunable && i ∉ fixed_indices ? layer : FixedLayer(layer))
     end |> NamedTuple
     return Parameter(name, repack, parameters)
 end

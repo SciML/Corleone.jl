@@ -42,6 +42,15 @@ assertions**, but the default ReverseDiff sensitivity path still failed on
 `sol.alg`. Rerun the backend matrix after further changes; the historical passing
 matrix does not replace regression checks on a new implementation.
 
+The per-variable `InitialConditions` implementation has focused regression tests
+in `test/core/initial_conditions_ad.jl` for ForwardDiff, ReverseDiff, and Zygote.
+These check stored values, pass-through state values, residuals, and numeric values
+held in Lux state. A full-solver ForwardDiff regression covers the first lifted
+value occurring after the simulation starts: pass-through must retain the numeric
+type required by later lifted values so the preallocated buffers remain compatible.
+The other full-solver configurations in the historical matrix have not been rerun
+for this representation.
+
 ## Configuring the solver and backend
 
 ### Full specialization and pass-through

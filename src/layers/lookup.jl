@@ -1,14 +1,14 @@
 """
 $(SIGNATURES)
 
-A function to perform a lookup. 
+A function to perform a lookup.
 
 - `cache` is a cache for storing already looked up keys. In case of `nothing` the caching is skipped.
 - `collection` either an `AbstractVector` or `AbstractDict` used for the lookup
-- `key` the key. 
+- `key` the key.
 
-If used with an `AbstractVector` and `Number`, lookup defaults to piecewise constant interpolation using 
-`searchsortedfirst`. 
+If used with an `AbstractVector` and `Number`, lookup defaults to piecewise constant interpolation using
+`searchsortedfirst`.
 """
 function lookup!(cache, collection, key::T) where {T}
     return get!(cache, key) do
@@ -21,7 +21,7 @@ function lookup!(::Nothing, collection::AbstractVector{T}, key::V) where {T, V}
 end
 
 function lookup!(::Nothing, collection::AbstractDict{T, V}, key::K) where {T, V, K}
-    return get(collection, T(key), typemax(V))
+    return get(collection, key, typemax(V))
 end
 
 function lookup!(::Nothing, collection::AbstractDict{Any, Any}, key::K) where {K}
@@ -60,6 +60,10 @@ function LuxCore.apply(::LookUp, t::T, ::Any, st::NamedTuple) where {T <: Real}
     idx = lookup!(cache, collection, t)
     return (idx, any(idx == inserted)), st
 end
+
+Base.haskey(::LookUp, k, ps, st) = _haskey(st.collection, k)
+_haskey(x::Base.AbstractDict, k) = haskey(x, k)
+_haskey(::Any, ::Any) = false
 
 get_timestops(::LookUp, ps, st, ::Type{T} = Float64) where {T} = get_timestops(st.collection, T)
 get_timestops(x::AbstractDict, ::Type{T}) where {T} = T.(collect(keys(x)))
