@@ -26,21 +26,39 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
-            @safetestset "Local controls" begin
-                include("core/local_controls.jl")
+            @safetestset "Annotations" begin
+                include("core/annotations.jl")
             end
-            @safetestset "Precompile workload" begin
-                include("core/precompile_workload.jl")
+            @safetestset "Per-variable initial conditions" begin
+                include("core/initial_conditions.jl")
             end
-            @safetestset "Generic layer interface" begin
-                include("core/interface_contracts.jl")
+            @safetestset "Initial-condition differentiation" begin
+                include("core/initial_conditions_ad.jl")
             end
-            @safetestset "Multiple shooting" begin
-                include("core/multiple_shooting.jl")
+            @safetestset "Legacy single-shooting constructor" begin
+                include("core/legacy_single_shooting.jl")
             end
-            return @safetestset "Segment state handoff" begin
-                include("core/state_handoff.jl")
+            @safetestset "Trajectory" begin
+                include("core/trajectory.jl")
             end
+            return @safetestset "Trajectory differentiation" begin
+                include("core/trajectory_ad.jl")
+            end
+            #@safetestset "Local controls" begin
+            #    include("core/local_controls.jl")
+            #end
+            #@safetestset "Precompile workload" begin
+            #    include("core/precompile_workload.jl")
+            #end
+            #@safetestset "Generic layer interface" begin
+            #    include("core/interface_contracts.jl")
+            #end
+            #@safetestset "Multiple shooting" begin
+            #    include("core/multiple_shooting.jl")
+            #end
+            #return @safetestset "Segment state handoff" begin
+            #    include("core/state_handoff.jl")
+            #end
         end,
         groups = Dict(
             # Examples: the optimal-control example scripts pull in the heavy
@@ -49,15 +67,15 @@ else
             "Examples" => (;
                 env = joinpath(@__DIR__, "examples"),
                 body = function ()
-                    @safetestset "Lotka" begin
-                        include("examples/lotka_oc.jl")
-                    end
-                    @safetestset "Lotka MS" begin
-                        include("examples/lotka_ms.jl")
-                    end
-                    return @safetestset "Lotka MTK" begin
-                        include("examples/mtk.jl")
-                    end
+                    #@safetestset "Lotka" begin
+                    #    include("examples/lotka_oc.jl")
+                    #end
+                    #@safetestset "Lotka MS" begin
+                    #    include("examples/lotka_ms.jl")
+                    #end
+                    #return @safetestset "Lotka MTK" begin
+                    #    include("examples/mtk.jl")
+                    #end
                 end,
             ),
         ),

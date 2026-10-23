@@ -1,16 +1,17 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 version = "1.0.1"
+authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
 OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
@@ -24,42 +25,44 @@ ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [extensions]
-CorleoneMakieExtension = "Makie"
-CorleoneComponentArraysExtension = ["ComponentArrays"]
-CorleoneModelingToolkitExtension = "ModelingToolkit"
+CorleoneZygoteExtension = "Zygote"
 
 [compat]
 ChainRulesCore = "1.25.1"
 ComponentArrays = "0.15"
+ConcreteStructs = "0.2.8"
 Distributed = "1"
+ForwardDiff = "1"
 DocStringExtensions = "0.9.3"
-Functors = "0.5"
 LinearAlgebra = "1"
 LuxCore = "1.4"
 Makie = "0.24"
 ModelingToolkit = "11.22.0"
 OhMyThreads = "0.8"
-PrecompileTools = "1.2.1"
 Optimization = "5"
 OrdinaryDiffEqTsit5 = "2"
 Pkg = "1"
+PrecompileTools = "1.2.1"
 Random = "1"
 RecursiveArrayTools = "4"
 Reexport = "1.2.2"
 ReverseDiff = "1.17.2"
 SafeTestsets = "0.1"
-StaticArrays = "1.9.8"
-StableRNGs = "1"
 SciMLBase = "3"
 SciMLStructures = "1.7"
 SciMLTesting = "2.6"
+StableRNGs = "1"
+StaticArrays = "1.9.8"
 SymbolicIndexingInterface = "0.3.43"
 Test = "1"
+Zygote = "0.7.13"
 julia = "1.10"
 
 [extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
@@ -70,6 +73,7 @@ SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["ComponentArrays", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays"]
+test = ["ForwardDiff", "ComponentArrays", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]

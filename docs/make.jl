@@ -54,6 +54,7 @@ makedocs(
             "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
         ], #"tutorials.md",
+        "Automatic Differentiation" => "automatic_differentiation.md",
         "References" => "references.md",
         "API" => "api.md",
         #tutorials,

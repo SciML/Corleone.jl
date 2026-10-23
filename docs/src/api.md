@@ -2,6 +2,23 @@
 
 ## Corleone
 
+`ShootingLayer` (including the legacy `SingleShootingLayer` constructor) returns
+`(trajectory, state)`. Saved states and times are available as `trajectory.u` and
+`trajectory.t`, and initial-condition matching residuals as `trajectory.residuals`.
+Continuous segment handoffs are stored once; reset boundaries retain both sides,
+with `trajectory.reset_indices` pointing to the outgoing states.
+
+The trajectory retains the supplied `layer`, `ps`, and `st` directly. Parameter
+queries evaluate `layer.parameter` using those objects, preserving differentiation
+through the parameters. In-place changes to them affect subsequent parameter queries.
+`SymbolicIndexingInterface.parameter_values_at_time(trajectory, trajectory, t)`
+evaluates parameters at a time, and `getp(trajectory, symbol)(trajectory)` retrieves
+a parameter's history on the combined parameter-change grid. No parameter-history
+object is stored in the trajectory.
+
+For tested backend configurations, solver settings, limitations, and validation
+results, see [Automatic differentiation backends](automatic_differentiation.md).
+
 ```@docs
 Corleone.Trajectory
 Corleone.ControlParameter
