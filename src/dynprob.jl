@@ -14,6 +14,7 @@ struct CorleoneDynamicOptProblem{L, G, O, C, CB}
     "The objective function"
     objective::O
     "The constraint function"
+    "The constraints concatenated into the output vector."
     constraints::C
     "Lower bounds for the constraints"
     lcons::CB
@@ -27,8 +28,18 @@ _collect_tspans(x::NTuple{2, <:Number}) = x
 _collect_tspans(x::Tuple, rest...) = (_collect_tspans(x...)..., _collect_tspans(rest...)...)
 _collect_tspans(x::Tuple) = _collect_tspans(x...)
 
+"""
+$(TYPEDEF)
+
+A trajectory getter restricted to selected saved sample indices.
+
+# Fields
+$(FIELDS)
+"""
 struct TrajectoryConstraint{G, I}
+    "The symbolic getter evaluated on a trajectory."
     getter::G
+    "The saved sample indices included in this constraint."
     idx::I
 end
 
@@ -36,6 +47,14 @@ end
 (x::TrajectoryConstraint)(res, traj) = res .= x.getter(traj)[x.idx]
 Base.length(x::TrajectoryConstraint) = length(x.idx)
 
+"""
+$(TYPEDEF)
+
+A collection of trajectory constraints evaluated in their stored order.
+
+# Fields
+$(FIELDS)
+"""
 struct TrajectoryConstraintEvaluator{C}
     constraints::C
 end

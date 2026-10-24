@@ -256,7 +256,7 @@ end
 
 #=
 """
-    linear_initializer(u0, u_inf, t, tspan)
+$(SIGNATURES)
 
 Linearly interpolates u0 and u_inf for t with tspan[1] < t < tspan[2].
 """
@@ -290,7 +290,7 @@ struct LinearInterpolationInitialization{T<:AbstractDict} <: AbstractNodeInitial
 end
 
 """
-    (f::LinearInterpolationInitialization)(rng, layer)
+$(SIGNATURES)
 
 Initialize shooting nodes of `layer` using linearly interpolated values between initial values
 of underlying problem and terminal values given in `f.terminal_values`.
@@ -341,7 +341,7 @@ struct CustomInitialization{I<:AbstractDict} <: AbstractNodeInitialization
 end
 
 """
-    (f::CustomtInitialization)(rng, layer)
+$(SIGNATURES)
 
 Initialize shooting nodes of `layer` using custom values specified in `f.initial_values`.
 """
@@ -389,7 +389,7 @@ struct ConstantInitialization{I<:AbstractDict} <: AbstractNodeInitialization
 end
 
 """
-    (f::ConstantInitialization)(rng, layer)
+$(SIGNATURES)
 
 Initialize shooting nodes of `layer` using constant values specified in `f.initial_values`.
 """
@@ -440,7 +440,7 @@ struct HybridInitialization{P<:Dict} <: AbstractNodeInitialization
 end
 
 """
-    (f::HybridInitialization)(rng, layer)
+$(SIGNATURES)
 
 Initialize the shooting nodes of `layer` in a hybrid method consisting of different
 `AbstractNodeInitialization` methods applied to different subsets of the variables.

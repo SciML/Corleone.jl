@@ -1,84 +1,53 @@
 using Pkg
 
-# These packages are bundled in this repository. Develop the local sources so that
-# the manual always documents the same Corleone and sublibrary revisions.
-Pkg.develop(
-    [
-        PackageSpec(path = joinpath(@__DIR__, "..")),
-        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
-        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
-    ]
-)
+# Document the checked-out root package, independently of the sibling libraries.
+Pkg.develop(PackageSpec(path = joinpath(@__DIR__, "..")))
 
-using Documenter, Corleone, CorleoneOED, OptimalControlBenchmarks
-using DocumenterInterLinks
+using Documenter, Corleone
 using DocumenterCitations
 using Literate
 using Dates
-using YAML, JSON
+using YAML
 
-
-# Include the interlinks
-include("interlinks.jl")
-# Process the tutorials
 include("process_tutorials.jl")
-# Include the bibliography
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
+    root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
+    modules = [Corleone],
     format = Documenter.HTML(
-        assets = ["assets/favicon.ico"],
+        edit_link = "main",
+        repolink = "https://github.com/SciML/Corleone.jl",
         canonical = "https://docs.sciml.ai/Corleone/stable/",
-        size_threshold = 1_500_000,  # bytes
+        size_threshold = 1_500_000,
     ),
     doctest = true,
     checkdocs = :exports,
-    linkcheck = true,
-    #DocumenterVitepress.MarkdownVitepress(
-    #    repo = "github.com/SciML/Corleone.jl",
-    #    devbranch = "main", # or master, trunk, ...
-    #    devurl = "dev",
-    # if you use something else than yourname.github.io/YourPackage.jl
-    #),
+    linkcheck = get(ENV, "DOCS_LINKCHECK", "false") == "true",
     pages = [
         "Home" => "index.md",
-        "Getting Started" => "examples/the_linear_quadratic_regulator.md",
         "Tutorials" => [
+            "Overview" => "tutorials.md",
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
-            "Optimal Experimental Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
-            "Discrete measurements" => "examples/compartmental_oed_problem.md",
-            "Multiexperiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
-            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
-        ], #"tutorials.md",
+        ],
         "Automatic Differentiation" => "automatic_differentiation.md",
         "Parallel Shooting" => "parallel_shooting.md",
         "Symbolic Bookkeeping" => "symbolic_metadata.md",
         "References" => "references.md",
         "API" => "api.md",
-        #tutorials,
-        #"Examples" => [#"Optimal Control" => "./examples/lotka.md",
-        #"Multiple Shooting" => "./examples/multiple_shooting.md",
-        # "Optimal Experimental Design" => "./examples/lotka_oed.md",
-        #"Multiexperiments" => "./examples/multiexperiments.md"
-        #],
-        # "API Reference" => "api.md",
     ],
     remotes = nothing,
-    plugins = [links, bib],
+    plugins = [bib],
 )
 
-deploydocs(
-    repo = "github.com/SciML/Corleone.jl";
-    push_preview = true
-)
-#DocumenterVitepress.deploydocs(;
-#    repo="github.com/SciML/Corleone.jl",
-#    target=joinpath(@__DIR__, "build"),
-#    branch="gh-pages",
-#    devbranch="main", # or master, trunk, ...
-#    push_preview=true,
-#)
+# Local documentation builds never publish the site.
+if get(ENV, "CI", "false") == "true"
+    deploydocs(
+        repo = "github.com/SciML/Corleone.jl";
+        devbranch = "main",
+        push_preview = true,
+    )
+end

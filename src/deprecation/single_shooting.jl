@@ -2,8 +2,19 @@ include("controls.jl")
 
 # Keep initialization callbacks at the whole-vector level: calling one per scalar
 # parameter would change the order and number of draws from the supplied RNG.
+"""
+$(TYPEDEF)
+
+A legacy whole-vector initializer wrapper that preserves the callback's RNG draw
+order while delegating evaluation to its inner layer.
+
+# Fields
+$(FIELDS)
+"""
 struct LegacyInitializer{L, F} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    "The inner layer evaluated with the initialized parameters."
     layer::L
+    "The callback called with the RNG to initialize the complete parameter vector."
     initialize::F
 end
 
@@ -27,9 +38,7 @@ function legacy_check_bounds(bounds, n, description)
 end
 
 """
-    SingleShootingLayer(prob, alg; controls=[], tunable_ic=Int[], bounds_ic=nothing,
-        state_initialization, bounds_p=nothing, parameter_initialization,
-        quadrature_indices=Int[], kwargs...)
+$(SIGNATURES)
 
 Translate the legacy single-shooting constructor into a [`ShootingLayer`](@ref).
 `controls` contains `parameter_index => ControlParameter(...)` pairs. Initial

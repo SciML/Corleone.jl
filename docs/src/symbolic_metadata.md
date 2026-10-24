@@ -71,6 +71,20 @@ Corleone.get_bounds(cache, :p₁) # (0.0, 1.0)
 The trajectory shares the layer's cache, including its subset vectors and bounds
 dictionary. Updates to that metadata are visible through either object.
 
-```@docs
-ControlSymbolCache
+The wrapper preserves the parent's indices:
+
+```jldoctest
+julia> using Corleone, SymbolicIndexingInterface
+
+julia> parent = SymbolCache([:x, :cost], [:rate, :control], :t);
+
+julia> cache = ControlSymbolCache(parent; controls = [:control], quadratures = [:cost]);
+
+julia> (control_indices(cache), quadrature_indices(cache))
+([2], [2])
+
+julia> (is_parameter(cache, :control), is_variable(cache, :control))
+(true, false)
 ```
+
+See [`ControlSymbolCache`](@ref) for the constructor and field reference.
