@@ -1,5 +1,15 @@
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
 
+@testset "Fixed-layer Lux sizes" begin
+    inner = Corleone.ParameterCollection((rng, n) -> ones(n), 3)
+    layer = Corleone.FixedLayer(inner)
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    @test ps == (;)
+    @test LuxCore.parameterlength(layer) == 0
+    @test LuxCore.statelength(layer) == 3
+    @test st.parameters.ps == ones(3)
+end
+
 @testset "Single-variable initial conditions" begin
     for grid in ([1, 3], [1.0, 3.0])
         layer = Corleone.InitialCondition(grid, (rng, n) -> [10.0, 30.0])
@@ -36,6 +46,7 @@ end
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test keys(layer.initialconditions) == (:u₁, :u₂, :u₃)
+    @test LuxCore.parameterlength(layer) == 2
     @test length(ps.initialconditions.u₁.parameter.ps) == 2
     @test ps.initialconditions.u₂ == (;)
     @test st.initialconditions.u₂.parameters.parameter.ps == [20.0]

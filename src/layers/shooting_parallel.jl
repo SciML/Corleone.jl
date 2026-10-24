@@ -1,16 +1,17 @@
 # Scheduling depends on exact grid membership, including fixed initial conditions;
 # the residual activity mask deliberately excludes those fixed conditions.
-resets_variable(::PassThrough, ps, st, t) = false
-resets_variable(ic::InitialCondition, ps, st, t) = haskey(ic.lookup, t, ps.lookup, st.lookup)
-resets_variable(ic::FixedLayer, ps, st, t) = resets_variable(ic.layer, st.parameters, st.states, t)
+resets_variable(::PassThrough, st, t) = false
+resets_variable(ic::InitialCondition, st, t) = haskey(ic.lookup, t, nothing, st.lookup)
+resets_variable(ic::FixedLayer, st, t) = resets_variable(ic.layer, st.states, t)
 
 function shooting_blocks(x::ShootingLayer, ps, st, tstops)
     ics = x.initialcondition.initialconditions
     starts = [firstindex(tstops)]
     for i in (firstindex(tstops) + 1):(lastindex(tstops) - 1)
-        resets = map(values(ics), values(ps.initialcondition.initialconditions),
-                values(st.initialcondition.initialconditions)) do ic, parameters, state
-            resets_variable(ic, parameters, state, tstops[i])
+        # Only state owns the grids. Do not iterate parameter values here:
+        # ComponentArray.values flattens its numeric storage rather than fields.
+        resets = map(values(ics), values(st.initialcondition.initialconditions)) do ic, state
+            resets_variable(ic, state, tstops[i])
         end
         all(resets) && push!(starts, i)
     end

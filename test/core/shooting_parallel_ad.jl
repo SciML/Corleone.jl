@@ -1,4 +1,5 @@
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ForwardDiff, Zygote
+using ComponentArrays
 
 @testset "Shared shooting parameters and values held in state" begin
     prob = ODEProblem((u, p, t) -> [p[1] * u[1], p[1] + u[1]],
@@ -9,11 +10,12 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ForwardDiff, Zygote
     ps, st = LuxCore.setup(MersenneTwister(1), serial)
     threaded = ShootingLayer(serial.name, prob, serial.alg, EnsembleThreads(),
         serial.initialcondition, serial.parameter)
-    function objective(layer, q)
+    function objective(layer, q, parameter_container)
         params = (;
             initialcondition = (; initialconditions = (;
                 u₁ = (; lookup = (;), parameter = (; ps = q[2:3])), u₂ = (;))),
             parameter = (; parameters = (; p₁ = (; lookup = (;), parameter = (; ps = q[1:1])))))
+        params = parameter_container(params)
         fixed_state = merge(st.initialcondition.initialconditions.u₂, (;
             parameters = (; lookup = (;), parameter = (; ps = [q[4], q[4]]))))
         children = merge(st.initialcondition.initialconditions, (; u₂ = fixed_state))
@@ -23,15 +25,16 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ForwardDiff, Zygote
         return sum(u -> sum(abs2, u), traj.u) +
             0.3 * sum(r -> sum(abs2, r), traj.residuals)
     end
-    for q in ([0.2, 1.5, 2.5, 3.0], [0.3, 2.0, 3.5, 4.0])
-        f = q -> objective(threaded, q)
-        expected = ForwardDiff.gradient(q -> objective(serial, q), q)
+    for parameter_container in (identity, ComponentArray),
+            q in ([0.2, 1.5, 2.5, 3.0], [0.3, 2.0, 3.5, 4.0])
+        f = q -> objective(threaded, q, parameter_container)
+        expected = ForwardDiff.gradient(q -> objective(serial, q, parameter_container), q)
         finite_difference = map(eachindex(q)) do i
             delta = zeros(length(q))
             delta[i] = 1e-5
             (f(q + delta) - f(q - delta)) / 2e-5
         end
-        @test f(q) ≈ objective(serial, q)
+        @test f(q) ≈ objective(serial, q, parameter_container)
         @test ForwardDiff.gradient(f, q) ≈ expected
         @test expected ≈ finite_difference rtol = 1e-7
     end

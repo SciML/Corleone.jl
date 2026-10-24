@@ -10,7 +10,8 @@
 
 # ## [Linear Quadratic Regulator](@id linear_quad_reg)
 
-# Let’s start by modeling the [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator). This example is one of the simplest optimal control problems. Lets assume we want to It reads as
+# We model a [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator)
+# that drives the state toward a setpoint of three while penalizing control effort:
 
 # ```math
 # \begin{aligned}
@@ -37,6 +38,7 @@ using Optimization
 using OptimizationLBFGSB
 using ForwardDiff
 using ComponentArrays
+using SymbolicIndexingInterface
 using CairoMakie
 
 # ## LQR Dynamics
@@ -57,15 +59,15 @@ lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 # ## [Optimal Control Problem](@id control_lqr)
 # To convert this into an optimal control problem, we want to apply a piecewise constant control
 
-control_function = ControlParameter(
-    0.0:0.1:11.9, name = :input
-)
-
-predictor = SingleShootingLayer(
+control_grid = collect(0.1:0.1:11.9)
+predictor = ShootingLayer(
     lqr_problem, Tsit5(),
-    controls = (3 => control_function,),
-    bounds_p = ([-1.0, 1.0], [-1.0, 1.0])
+    Tunable(3; kind = Val(:parameter), default = 0.0) => control_grid,
+    Constant(1; kind = Val(:parameter)) => nothing,
+    Constant(2; kind = Val(:parameter)) => nothing,
 )
+# A grid contains switching times: 119 interior times give 120 control values.
+# Constants live in Lux state and do not become optimization variables.
 
 # Lets solve the problem to have a look at its initial behavior.
 
@@ -76,12 +78,14 @@ solution, _ = predictor(nothing, ps, st)
 function plot_lqr_solution(solution; show_setpoint = true)
     f = Figure()
     axes = [CairoMakie.Axis(f[i, 1], xlabel = i == 3 ? "t" : "") for i in 1:3]
-    plot!(axes[1], solution, vars = [:x₁])
+    lines!(axes[1], solution.t, solution[:u₁], label = "state")
     if show_setpoint
         hlines!(axes[1], [3.0], color = :black, linestyle = :dash)
     end
-    stairs!(axes[2], solution, vars = [:input])
-    plot!(axes[3], solution, vars = [:x₂])
+    controls = [SymbolicIndexingInterface.parameter_values_at_time(solution, solution, t)[3]
+        for t in solution.t]
+    stairs!(axes[2], solution.t, controls, label = "input", step = :post)
+    lines!(axes[3], solution.t, solution[:u₂], label = "cost")
     for (i, title) in enumerate(["State", "Control", "Costs"])
         f[i, 2] = Legend(f, axes[i], title, framevisible = false)
     end
@@ -91,14 +95,24 @@ end
 plot_lqr_solution(solution)
 
 # ## Optimize
-# Transforming the given layer into an [`SciMLBase.OptimizationProblem`](@extref) is a one liner. We simply give in the predictor and the cost to minimize.
-optprob = OptimizationProblem(
-    predictor, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₂
-);
+# Flatten the Lux parameters for Optimization.jl and retain their axes so each
+# objective call can reconstruct the parameter layout. The second state integrates
+# the running cost, so its final value is the objective.
+initial_parameters = ComponentArray(ps)
+parameter_axes = getaxes(initial_parameters)
+function lqr_objective(q, state)
+    parameters = ComponentArray(q, parameter_axes)
+    trajectory, _ = predictor(nothing, parameters, state)
+    return last(trajectory.u)[2]
+end
+optfun = OptimizationFunction(lqr_objective, AutoForwardDiff())
+optprob = OptimizationProblem(optfun, initial_parameters, st;
+    lb = fill(-Inf, length(initial_parameters)), ub = fill(Inf, length(initial_parameters)))
 # And solve it using [`OptimizationLBFGSB.LBFGSB`](@extref)
 uopt = solve(
     optprob, OptimizationLBFGSB.LBFGSB()
 );
 # Finally, lets have a look at the optimized solution.
-optimized_solution, _ = predictor(nothing, uopt + zero(ComponentArray(ps)), st)
+optimized_parameters = ComponentArray(uopt.u, parameter_axes)
+optimized_solution, _ = predictor(nothing, optimized_parameters, st)
 plot_lqr_solution(optimized_solution)
