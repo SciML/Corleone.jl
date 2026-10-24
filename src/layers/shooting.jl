@@ -11,7 +11,30 @@ end
 # Resolve symbolic metadata once, outside the forward/AD path. Keep the existing
 # positional constructor for callers that replace the problem or sublayers.
 ShootingLayer(name, problem, alg, ensemblealg, initialcondition, parameter) =
-    ShootingLayer(name, problem, alg, ensemblealg, initialcondition, parameter, get_symbolic_container(problem))
+    ShootingLayer(name, problem, alg, ensemblealg, initialcondition, parameter, ControlSymbolCache(problem))
+
+SymbolicIndexingInterface.symbolic_container(layer::ShootingLayer) = layer.sys
+
+# Retain effective annotation bounds, which would otherwise be discarded after
+# constructing the numerical sublayers. Explicit annotations override defaults.
+function shooting_metadata(problem, definitions, ic_defs; controls, lagrange_variables, bounds)
+    parent = ControlSymbolCache(problem)
+    cache = ControlSymbolCache(parent;
+        controls = isnothing(controls) ? parent.controls : controls,
+        lagrange_variables = isnothing(lagrange_variables) ? parent.lagrange_variables : lagrange_variables,
+        bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds))
+    effective_bounds = nothing
+    for (i, definition) in enumerate(definitions)
+        annotation = definition isa Pair ? first(definition) : definition
+        annotation isa AbstractAnnotation || continue
+        has_lowerbound(annotation) || has_upperbound(annotation) || continue
+        kind = i in ic_defs ? Val(:variable) : Val(:parameter)
+        annotation = update_annotation(set_kind(annotation, kind), cache)
+        isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
+        effective_bounds[get_sym(annotation)] = get_bounds(annotation)
+    end
+    return isnothing(effective_bounds) ? cache : ControlSymbolCache(cache; bounds = effective_bounds)
+end
 
 
 function ShootingLayer(
@@ -21,16 +44,21 @@ function ShootingLayer(
         name = nothing,
         fixed_parameters = [],
         ensemblealg = EnsembleSerial(),
+        controls = nothing,
+        lagrange_variables = nothing,
+        bounds = nothing,
     )
-    definitions = collect(definitions)
+    # ReverseDiff treats bottom-typed empty arrays as tracked broadcast inputs.
+    definitions = isempty(definitions) ? Any[] : collect(definitions)
     ic_defs = findall(definitions) do definition
         annotation = definition isa Pair ? first(definition) : definition
         annotation isa AbstractAnnotation && is_variable(annotation)
     end
     p_defs = setdiff(eachindex(definitions), ic_defs)
-    ics = InitialConditions(problem, definitions[ic_defs]...)
-    params = Parameter(problem, definitions[p_defs]...; fixed = fixed_parameters)
-    return ShootingLayer(name, problem, alg, ensemblealg, ics, params)
+    sys = shooting_metadata(problem, definitions, ic_defs; controls, lagrange_variables, bounds)
+    ics = InitialConditions(problem, definitions[ic_defs]...; sys)
+    params = Parameter(problem, definitions[p_defs]...; fixed = fixed_parameters, sys)
+    return ShootingLayer(name, problem, alg, ensemblealg, ics, params, sys)
 end
 
 function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))

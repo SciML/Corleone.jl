@@ -84,8 +84,8 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::InitialConditions
     )
 end
 
-function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions...; name=nothing)
-    sys = get_symbolic_container(problem)
+function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions...;
+        name=nothing, sys=get_symbolic_container(problem))
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.u0)
     processed = reduce(vcat, map(definitions) do definition
         process_definition(sys, Val(:variable), definition...)

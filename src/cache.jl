@@ -1,205 +1,72 @@
 """
-$(TYPEDEF)
+    ControlSymbolCache(sys; controls=(), lagrange_variables=(), bounds=default_bounds(sys))
 
-A `ControlSymbolCache` is a wrapper around a `SymbolCache` that allows for the inclusion of control symbols. It provides methods for querying the properties of the symbols, such as whether they are variables or parameters, and their indices.
+Wrap a SymbolicIndexingInterface symbolic container with bookkeeping metadata.
+`controls` selects parameters; `lagrange_variables` selects states that integrate
+running costs. Selections accept symbols or original indices. All symbols retain
+their original kind, index and ordering. Controls remain parameters.
 
-Quadrature symbols are state variables that represent running cost integrals. They are kept at their natural variable indices and tracked separately so that they can be reported as cumulative totals across piecewise segments and ensemble shooting intervals.
-
-# Fields
-$(FIELDS)
+`bounds` maps state or parameter symbols to `(lower, upper)` pairs. The parent
+container and supplied bounds dictionary are retained by reference, just as the
+parent's defaults are. Index-provider queries delegate through `symbolic_container`.
+A differential equation problem can also be supplied in place of `sys`.
 """
 @concrete terse struct ControlSymbolCache
-    "Symbolic cache of the underlying differential equation"
     sys
-    "Non-quadrature state symbols mapped to their original state indices"
-    variables
-    "Control symbols mapped to appended state and original parameter indices"
     controls
-    "Quadrature symbols mapped to their original state indices"
-    quadratures
-    "Ordinary parameter symbols mapped to their original parameter indices"
-    parameters
-    "Bounds for the variables"
+    lagrange_variables
     bounds
 end
 
-"""$(SIGNATURES)
-
-Build a control-aware cache from a symbolic container and selected controls and quadratures.
-"""
-function ControlSymbolCache(
-        sys; controls = [], quadratures = [],
-        bounds = Dict(), kwargs...
-    )
-    control_param_indices = filter!(!isnothing, map(Base.Fix1(parameter_index, sys), controls))
-    parameter_indices = setdiff(parameter_symbols(sys), controls)
-    var_offset = maximum(variable_symbols(sys); init = 0) do v
-        maximum(variable_index(sys, v); init = 0)
+function metadata_subset(sys, selected, kind)
+    symbols, indexof = kind == :parameter ?
+        (parameter_symbols(sys), parameter_index) : (variable_symbols(sys), variable_index)
+    selectors = selected isa Union{AbstractArray, Tuple} ? selected : (selected,)
+    subset = map(selectors) do selector
+        position = findfirst(symbols) do sym
+            selector isa Integer ? isequal(indexof(sys, sym), selector) : isequal(sym, selector)
+        end
+        isnothing(position) && throw(ArgumentError("Unknown $kind selection: $selector"))
+        symbols[position]
     end
-    control_var_indices = var_offset .+ (1:length(controls))
-
-    control_indices = OrderedDict(zip(controls, zip(control_var_indices, control_param_indices)))
-    parameter_indices = OrderedDict([sym => parameter_index(sys, sym) for sym in parameter_indices])
-    quadrature_indices = OrderedDict([sym => variable_index(sys, sym) for sym in quadratures])
-    variable_indices = OrderedDict([sym => variable_index(sys, sym) for sym in setdiff(variable_symbols(sys), quadratures)])
-    return ControlSymbolCache(sys, variable_indices, control_indices, quadrature_indices, parameter_indices, bounds)
+    allunique(subset) || throw(ArgumentError("Duplicate $kind selections."))
+    return collect(eltype(symbols), subset)
 end
 
-"""$(SIGNATURES)
-
-Return the symbols treated as controls.
-"""
-control_symbols(csys::ControlSymbolCache) = keys(csys.controls)
-"""$(SIGNATURES)
-
-Return the symbols treated as quadrature states.
-"""
-quadrature_symbols(csys::ControlSymbolCache) = keys(csys.quadratures)
-"""$(SIGNATURES)
-
-Return the state symbols excluding quadratures and promoted controls.
-"""
-minimal_variable_symbols(csys::ControlSymbolCache) = keys(csys.variables)
-SymbolicIndexingInterface.parameter_symbols(csys::ControlSymbolCache) = keys(csys.parameters)
-
-@non_differentiable control_symbols(sys)
-@non_differentiable quadrature_symbols(sys)
-@non_differentiable minimal_variable_symbols(sys)
-
-"""$(SIGNATURES)
-
-Return appended state indices for controls.
-"""
-control_indices(csys::ControlSymbolCache) = first.(values(csys.controls)) |> collect
-original_control_indices(cache::ControlSymbolCache) = last.(values(cache.controls)) |> collect
-"""$(SIGNATURES)
-
-Return the original state indices of quadratures.
-"""
-quadrature_indices(csys::ControlSymbolCache) = values(csys.quadratures) |> collect
-"""$(SIGNATURES)
-
-Return the original state indices of non-quadrature variables.
-"""
-minimal_variable_indices(csys::ControlSymbolCache) = values(csys.variables) |> collect
-
-__state_permutation(cache::ControlSymbolCache) = vcat(
-    minimal_variable_indices(cache), quadrature_indices(cache), control_indices(cache)
-)
-
-@non_differentiable control_indices(sys)
-@non_differentiable original_control_indices(sys)
-@non_differentiable quadrature_indices(sys)
-@non_differentiable minimal_variable_indices(sys)
-@non_differentiable __state_permutation(sys)
-
-
-subscript(i) = begin
-    join(Char(0x2080 + digit) for digit in reverse(digits(i)))
-end
-
-function default_cache(prob::P where {P <: SciMLBase.AbstractDEProblem})
-    defaults = Dict{Symbol, Base.promote_eltype(prob.u0, prob.p)}()
-    varsyms = Symbol[]
-    for (i, u0) in enumerate(prob.u0)
-        varsym = Symbol(:x, subscript(i))
-        defaults[varsym] = u0
-        push!(varsyms, varsym)
+function ControlSymbolCache(sys; controls = (), lagrange_variables = (), bounds = default_bounds(sys))
+    controls = metadata_subset(sys, controls, :parameter)
+    lagrange_variables = metadata_subset(sys, lagrange_variables, :variable)
+    for (sym, interval) in bounds
+        (is_variable(sys, sym) || is_parameter(sys, sym)) ||
+            throw(ArgumentError("Bounds refer to an unknown state or parameter: $sym"))
+        symbolic_type(sym) == NotSymbolic() &&
+            throw(ArgumentError("Bounds must be keyed by symbols, not numeric indices."))
+        interval isa Union{Tuple, AbstractVector} && length(interval) == 2 ||
+            throw(ArgumentError("Bounds for $sym must contain a lower and upper bound."))
+        first(interval) <= last(interval) || throw(ArgumentError("Lower bound exceeds upper bound for $sym."))
     end
-    psyms = []
-    for (i, p0) in enumerate(prob.p)
-        psym = Symbol(:p, subscript(i))
-        defaults[psym] = p0
-        push!(psyms, psym)
-    end
-    tsym = :t
-    return SymbolCache(
-        varsyms, psyms, tsym; defaults
-    )
+    return ControlSymbolCache(sys, controls, lagrange_variables, bounds)
 end
 
-get_symbolic_container(prob::P where {P <: SciMLBase.AbstractDEProblem}) = begin
-    sys = symbolic_container(prob.f)
-    if typeof(sys) <: SymbolCache{Nothing, Nothing, Nothing, Nothing, Dict{Any, Any}}
-        return default_cache(prob)
-    end
-    return sys
+ControlSymbolCache(prob::SciMLBase.AbstractSciMLProblem; kwargs...) =
+    ControlSymbolCache(get_symbolic_container(prob); kwargs...)
+
+function ControlSymbolCache(cache::ControlSymbolCache;
+        controls = cache.controls, lagrange_variables = cache.lagrange_variables, bounds = cache.bounds)
+    controls === cache.controls && lagrange_variables === cache.lagrange_variables &&
+        bounds === cache.bounds && return cache
+    return ControlSymbolCache(cache.sys; controls, lagrange_variables, bounds)
 end
 
-maybegetme(ps, index::Base.AbstractVecOrTuple) = map(Base.Fix1(maybegetme, ps), index)
-maybegetme(ps, index) = begin
-    @assert index ∈ ps "$index not in collection!"
-    index
-end
-maybegetme(ps, index::Union{<:Int, UnitRange}) = ps[index]
+# SII already forwards its entire index-provider interface through this hook.
+SymbolicIndexingInterface.symbolic_container(cache::ControlSymbolCache) = cache.sys
+# Corleone's recursive problem lookup must retain the bookkeeping wrapper.
+__get_symbolic_container(cache::ControlSymbolCache) = cache
 
-"""$(SIGNATURES)
-
-Build a cache for a differential equation problem; controls and quadratures may be symbols or indices.
-"""
-function ControlSymbolCache(
-        prob::P where {P <: SciMLBase.AbstractDEProblem};
-        controls::AbstractVector = [],
-        quadratures::AbstractVector = [],
-        kwargs...
-    )
-    sys = get_symbolic_container(prob)
-    ps = parameter_symbols(sys)
-    sort!(ps, by = Base.Fix1(parameter_index, sys))
-    us = variable_symbols(sys)
-    sort!(us, by = Base.Fix1(variable_index, sys))
-    controls = reduce(vcat, map(Base.Fix1(maybegetme, ps), controls), init = eltype(ps)[])
-    quadratures = reduce(vcat, map(Base.Fix1(maybegetme, us), quadratures), init = eltype(us)[])
-    return ControlSymbolCache(sys; controls, quadratures)
-end
-
-SymbolicIndexingInterface.is_independent_variable(sys::ControlSymbolCache, var) = is_independent_variable(sys.sys, var)
-
-SymbolicIndexingInterface.independent_variable_symbols(sys::ControlSymbolCache) = independent_variable_symbols(sys.sys)
-
-function SymbolicIndexingInterface.is_variable(cache::ControlSymbolCache, sym)
-    return haskey(cache.controls, sym) || is_variable(cache.sys, sym)
-end
-
-SymbolicIndexingInterface.constant_structure(cache::ControlSymbolCache) = constant_structure(cache.sys)
-
-SymbolicIndexingInterface.all_variable_symbols(cache::ControlSymbolCache) = union(all_variable_symbols(cache.sys), keys(cache.controls))
-
-SymbolicIndexingInterface.all_symbols(cache::ControlSymbolCache) = all_symbols(cache.sys)
-
-SymbolicIndexingInterface.default_values(cache::ControlSymbolCache) =
-    default_values(cache.sys)
-
-SymbolicIndexingInterface.is_time_dependent(cache::ControlSymbolCache) = is_time_dependent(cache.sys)
-
-function SymbolicIndexingInterface.variable_index(cache::ControlSymbolCache, sym)
-    if haskey(cache.controls, sym)
-        return cache.controls[sym][1]
-    else
-        return variable_index(cache.sys, sym)
-    end
-end
-
-function SymbolicIndexingInterface.variable_symbols(csys::ControlSymbolCache)
-    return union(variable_symbols(csys.sys), keys(csys.controls))
-end
-
-function SymbolicIndexingInterface.is_parameter(csys::ControlSymbolCache, sym)
-    return !haskey(csys.controls, sym) && is_parameter(csys.sys, sym)
-end
-
-function SymbolicIndexingInterface.parameter_index(csys::ControlSymbolCache, sym)
-    if haskey(csys.controls, sym)
-        return nothing
-    else
-        return get(csys.parameters, sym, nothing)
-    end
-end
-
-function SymbolicIndexingInterface.is_timeseries_parameter(csys::ControlSymbolCache, sym)
-    return is_parameter(csys, sym) && is_timeseries_parameter(csys.sys, sym)
-end
-
-bounds(csys::ControlSymbolCache, var) = get(csys.bounds, var, (-Inf, Inf))
-upperbounds(csys::ControlSymbolCache, var) = map(last, bounds(csys, var))
-lowerbounds(csys::ControlSymbolCache, var) = map(first, bounds(csys, var))
+default_bounds(cache::ControlSymbolCache) = cache.bounds
+# These bookkeeping queries belong to this wrapper, not the SII interface.
+get_bounds(cache::ControlSymbolCache, sym) = get(cache.bounds, sym, (-Inf, Inf))
+control_symbols(cache::ControlSymbolCache) = cache.controls
+control_indices(cache::ControlSymbolCache) = map(sym -> parameter_index(cache, sym), cache.controls)
+lagrange_symbols(cache::ControlSymbolCache) = cache.lagrange_variables
+lagrange_indices(cache::ControlSymbolCache) = map(sym -> variable_index(cache, sym), cache.lagrange_variables)

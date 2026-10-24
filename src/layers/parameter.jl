@@ -58,8 +58,8 @@ function Parameter(
         defintions...;
         name = nothing,
         fixed = [],
+        sys = get_symbolic_container(prob),
     )
-    sys = get_symbolic_container(prob)
     definitions = reduce(vcat, map(defintions) do definition
         process_definition(sys, Val(:parameter), definition...)
     end; init = Pair[])

@@ -29,6 +29,9 @@ else
             @safetestset "Annotations" begin
                 include("core/annotations.jl")
             end
+            @safetestset "Symbolic bookkeeping" begin
+                include("core/symbolic_metadata.jl")
+            end
             @safetestset "Per-variable initial conditions" begin
                 include("core/initial_conditions.jl")
             end

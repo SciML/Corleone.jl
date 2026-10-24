@@ -56,6 +56,7 @@ makedocs(
         ], #"tutorials.md",
         "Automatic Differentiation" => "automatic_differentiation.md",
         "Parallel Shooting" => "parallel_shooting.md",
+        "Symbolic Bookkeeping" => "symbolic_metadata.md",
         "References" => "references.md",
         "API" => "api.md",
         #tutorials,

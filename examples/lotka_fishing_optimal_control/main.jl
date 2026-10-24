@@ -34,7 +34,7 @@ using CairoMakie
 
 # ## Lotka Volterrra Dynamics
 
-# First, in the ODEProblem has to be defined in a standard way.
+# First, the ODEProblem has to be defined in a standard way.
 
 function lotka_dynamics(du, u, p, t)
     du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
@@ -58,7 +58,8 @@ physical_parameters = (
     Constant(2; kind = Val(:parameter)) => nothing,
     Constant(3; kind = Val(:parameter)) => nothing,
 )
-layer = ShootingLayer(prob, Tsit5(), control, physical_parameters...)
+layer = ShootingLayer(prob, Tsit5(), control, physical_parameters...;
+    controls = [1], lagrange_variables = [3])
 ps, st = LuxCore.setup(MersenneTwister(42), layer)
 initial_parameters = ComponentArray(ps)
 parameter_axes = getaxes(initial_parameters)
@@ -115,7 +116,8 @@ initial_conditions = (
     Tunable(i; kind = Val(:variable)) => shooting_points for i in 1:3
 )
 mslayer = ShootingLayer(prob, Tsit5(), control, physical_parameters...,
-    initial_conditions...; ensemblealg = EnsembleThreads())
+    initial_conditions...; ensemblealg = EnsembleThreads(),
+    controls = [1], lagrange_variables = [3])
 msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 
 # Seed the lifted values from a continuous forward trajectory. Here we reuse the
