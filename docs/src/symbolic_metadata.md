@@ -1,7 +1,7 @@
 # Symbolic bookkeeping
 
 `ControlSymbolCache` wraps a SymbolicIndexingInterface index provider with control,
-Lagrange-state, and bounds metadata. Controls are a subset of parameters; Lagrange
+quadrature-state, and bounds metadata. Controls are a subset of parameters; quadrature
 variables are a subset of states representing running-cost integrals. Both keep
 their original kind, index, and ordering. The numerical state and parameter
 layouts are those of the underlying problem.
@@ -13,13 +13,13 @@ prob = ODEProblem((u, p, t) -> [p[1], u[1]^2],
     [1.0, 0.0], (0.0, 2.0), [0.5])
 layer = ShootingLayer(prob, Tsit5(),
     Tunable(1; kind = Val(:parameter), lowerbound = 0.0, upperbound = 1.0) => [1.0];
-    controls = [1], lagrange_variables = [2])
+    controls = [1], quadratures = [2])
 
 sys = symbolic_container(layer)
 control_symbols(sys)       # [:p₁]
 control_indices(sys)       # [1], the original parameter index
-lagrange_symbols(sys)      # [:u₂]
-lagrange_indices(sys)      # [2], the original state index
+quadrature_symbols(sys)      # [:u₂]
+quadrature_indices(sys)      # [2], the original state index
 default_bounds(sys)       # Dict(:p₁ => (0.0, 1.0))
 is_parameter(sys, :p₁)     # true
 variable_symbols(sys)     # the original state symbols
@@ -36,7 +36,7 @@ explicit bounds are supplied. The layer retains the effective annotation bounds
 in its symbolic cache. Keys must be state or parameter symbols, since a numeric
 index alone would not distinguish states from parameters.
 
-You can construct `ControlSymbolCache(container; controls, lagrange_variables,
+You can construct `ControlSymbolCache(container; controls, quadratures,
 bounds)` separately, or pass a differential equation problem as its first
 argument. Standalone construction retains the parent and bounds dictionary by
 reference. `default_values(cache)` accesses the parent's mutable defaults.
@@ -51,7 +51,7 @@ The trajectory exposes the same wrapper as its layer through
 `symbolic_container(trajectory)`. Metadata is resolved during layer construction;
 the forward solve uses the existing numerical buffers and arithmetic.
 
-The control and Lagrange-symbol queries are Corleone methods defined only for
+The control and quadrature-symbol queries are Corleone methods defined only for
 `ControlSymbolCache`. They are separate from SII's standard index-provider
 interface. Retrieve the wrapper before querying its bookkeeping data:
 
@@ -62,8 +62,8 @@ trajectory, _ = layer(nothing, ps, st)
 cache = symbolic_container(trajectory)
 control_symbols(cache)        # [:p₁]
 control_indices(cache)        # [1]
-lagrange_symbols(cache)       # [:u₂]
-lagrange_indices(cache)       # [2]
+quadrature_symbols(cache)       # [:u₂]
+quadrature_indices(cache)       # [2]
 default_bounds(cache)         # the same dictionary as default_bounds(layer.sys)
 Corleone.get_bounds(cache, :p₁) # (0.0, 1.0)
 ```

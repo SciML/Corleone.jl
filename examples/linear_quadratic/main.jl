@@ -65,7 +65,7 @@ predictor = ShootingLayer(
     Tunable(3; kind = Val(:parameter), default = 0.0) => control_grid,
     Constant(1; kind = Val(:parameter)) => nothing,
     Constant(2; kind = Val(:parameter)) => nothing;
-    controls = [3], lagrange_variables = [2],
+    controls = [3], quadratures = [2],
 )
 # A grid contains switching times: 119 interior times give 120 control values.
 # Constants live in Lux state and do not become optimization variables.

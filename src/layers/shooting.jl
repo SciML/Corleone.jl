@@ -17,11 +17,11 @@ SymbolicIndexingInterface.symbolic_container(layer::ShootingLayer) = layer.sys
 
 # Retain effective annotation bounds, which would otherwise be discarded after
 # constructing the numerical sublayers. Explicit annotations override defaults.
-function shooting_metadata(problem, definitions, ic_defs; controls, lagrange_variables, bounds)
+function shooting_metadata(problem, definitions, ic_defs; controls, quadratures, bounds)
     parent = ControlSymbolCache(problem)
     cache = ControlSymbolCache(parent;
         controls = isnothing(controls) ? parent.controls : controls,
-        lagrange_variables = isnothing(lagrange_variables) ? parent.lagrange_variables : lagrange_variables,
+        quadratures = isnothing(quadratures) ? parent.quadratures : quadratures,
         bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds))
     effective_bounds = nothing
     for (i, definition) in enumerate(definitions)
@@ -45,7 +45,7 @@ function ShootingLayer(
         fixed_parameters = [],
         ensemblealg = EnsembleSerial(),
         controls = nothing,
-        lagrange_variables = nothing,
+        quadratures = nothing,
         bounds = nothing,
     )
     # ReverseDiff treats bottom-typed empty arrays as tracked broadcast inputs.
@@ -55,7 +55,7 @@ function ShootingLayer(
         annotation isa AbstractAnnotation && is_variable(annotation)
     end
     p_defs = setdiff(eachindex(definitions), ic_defs)
-    sys = shooting_metadata(problem, definitions, ic_defs; controls, lagrange_variables, bounds)
+    sys = shooting_metadata(problem, definitions, ic_defs; controls, quadratures, bounds)
     ics = InitialConditions(problem, definitions[ic_defs]...; sys)
     params = Parameter(problem, definitions[p_defs]...; fixed = fixed_parameters, sys)
     return ShootingLayer(name, problem, alg, ensemblealg, ics, params, sys)

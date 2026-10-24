@@ -59,7 +59,7 @@ physical_parameters = (
     Constant(3; kind = Val(:parameter)) => nothing,
 )
 layer = ShootingLayer(prob, Tsit5(), control, physical_parameters...;
-    controls = [1], lagrange_variables = [3])
+    controls = [1], quadratures = [3])
 ps, st = LuxCore.setup(MersenneTwister(42), layer)
 initial_parameters = ComponentArray(ps)
 parameter_axes = getaxes(initial_parameters)
@@ -117,7 +117,7 @@ initial_conditions = (
 )
 mslayer = ShootingLayer(prob, Tsit5(), control, physical_parameters...,
     initial_conditions...; ensemblealg = EnsembleThreads(),
-    controls = [1], lagrange_variables = [3])
+    controls = [1], quadratures = [3])
 msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 
 # Seed the lifted values from a continuous forward trajectory. Here we reuse the

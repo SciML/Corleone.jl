@@ -3,12 +3,12 @@ using ComponentArrays
 
 @testset "Metadata-only construction with AD backends loaded" begin
     prob = ODEProblem((u, p, t) -> [p[1], u[1]^2], [1.0, 0.0], (0.0, 1.0), [0.5])
-    layer = ShootingLayer(prob, Tsit5(); controls = [1], lagrange_variables = [2])
+    layer = ShootingLayer(prob, Tsit5(); controls = [1], quadratures = [2])
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     trajectory, _ = layer(nothing, ps, st)
     @test last(trajectory.u)[1] ≈ 1.5
     @test control_indices(layer.sys) == [1]
-    @test lagrange_indices(layer.sys) == [2]
+    @test quadrature_indices(layer.sys) == [2]
 end
 
 @testset "Shared shooting parameters and values held in state" begin

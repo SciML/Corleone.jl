@@ -13,7 +13,7 @@ are shared with the input solutions. Mutating `ps` or `st` changes subsequent pa
 queries. Gradients through state values, residuals, and parameter values are
 supported on a fixed time grid; layout and symbolic metadata are not differentiated.
 The symbolic cache is shared with `layer.sys` and exposed through
-`SymbolicIndexingInterface.symbolic_container`. Query controls, Lagrange states,
+`SymbolicIndexingInterface.symbolic_container`. Query controls, quadrature states,
 and bounds on that `ControlSymbolCache` wrapper.
 No interpolation or integration is performed.
 """

@@ -11,16 +11,16 @@ SymbolicIndexingInterface.symbolic_container(provider::MetadataProvider) = provi
         defaults = Dict(:x => 1.0, :y => 2.0, :cost => 0.0, :input => 0.5, :rate => 1.0),
         timeseries_parameters = Dict(:input => ParameterTimeseriesIndex(1, 1)))
     limits = Dict(:input => (0.0, 1.0), :x => (-2.0, Inf))
-    cache = ControlSymbolCache(parent; controls = [1], lagrange_variables = [:cost], bounds = limits)
+    cache = ControlSymbolCache(parent; controls = [1], quadratures = [:cost], bounds = limits)
     @test symbolic_container(cache) === parent
     @test cache.sys === parent
     @test control_symbols(cache) == [:input]
     @test control_indices(cache) == [1]
-    @test lagrange_symbols(cache) == [:cost]
-    @test lagrange_indices(cache) == [3]
+    @test quadrature_symbols(cache) == [:cost]
+    @test quadrature_indices(cache) == [3]
     # SII's standard queries forward; bookkeeping is specific to the cache.
     provider = MetadataProvider(cache)
-    for query in (control_symbols, control_indices, lagrange_symbols, lagrange_indices)
+    for query in (control_symbols, control_indices, quadrature_symbols, quadrature_indices)
         @test_throws MethodError query(parent)
         @test_throws MethodError query(provider)
     end
@@ -60,10 +60,10 @@ SymbolicIndexingInterface.symbolic_container(provider::MetadataProvider) = provi
     @test inherited.sys === parent
     @test inherited.bounds === limits
     @test inherited.controls == cache.controls
-    @test inherited.lagrange_variables == cache.lagrange_variables
+    @test inherited.quadratures == cache.quadratures
     for kwargs in ((; controls = [:missing]), (; controls = [:x]),
-            (; lagrange_variables = [:input]), (; lagrange_variables = [10]),
-            (; controls = [1, :input]), (; lagrange_variables = [:cost, 3]),
+            (; quadratures = [:input]), (; quadratures = [10]),
+            (; controls = [1, :input]), (; quadratures = [:cost, 3]),
             (; bounds = Dict(:missing => (0, 1))), (; bounds = Dict(1 => (0, 1))),
             (; bounds = Dict(:x => (2, 1))), (; bounds = Dict(:x => (0,))))
         @test_throws ArgumentError ControlSymbolCache(parent; kwargs...)
@@ -76,10 +76,10 @@ end
     layer = ShootingLayer(prob, Tsit5(),
         Tunable(1; kind = Val(:parameter), lowerbound = 0.0, upperbound = 1.0) => [1.0],
         Tunable(1; kind = Val(:variable), upperbound = 3.0) => [1.0];
-        controls = [1], lagrange_variables = [2], bounds = limits)
+        controls = [1], quadratures = [2], bounds = limits)
     @test symbolic_container(layer) === layer.sys
     @test control_symbols(layer.sys) == [:p₁]
-    @test lagrange_symbols(layer.sys) == [:u₂]
+    @test quadrature_symbols(layer.sys) == [:u₂]
     @test default_bounds(layer.sys) == Dict(:p₁ => (0.0, 1.0), :u₁ => (-2.0, 3.0))
     @test limits == Dict(:p₁ => (-1.0, 2.0), :u₁ => (-2.0, 5.0))
     @test Corleone.get_symbolic_container(prob) isa SymbolCache
@@ -90,12 +90,12 @@ end
     @test trajectory.sys === layer.sys
     @test control_symbols(metadata) === control_symbols(layer.sys)
     @test control_indices(metadata) == [1]
-    @test lagrange_symbols(metadata) === lagrange_symbols(layer.sys)
-    @test lagrange_indices(metadata) == [2]
+    @test quadrature_symbols(metadata) === quadrature_symbols(layer.sys)
+    @test quadrature_indices(metadata) == [2]
     @test default_bounds(metadata) === default_bounds(layer.sys)
     @test Corleone.get_bounds(metadata, :p₁) == (0.0, 1.0)
     @test Corleone.get_bounds(metadata, :u₂) == (-Inf, Inf)
-    for query in (control_symbols, control_indices, lagrange_symbols, lagrange_indices)
+    for query in (control_symbols, control_indices, quadrature_symbols, quadrature_indices)
         @test_throws MethodError query(trajectory)
         @test_throws MethodError query(layer)
     end
@@ -111,21 +111,21 @@ end
         Tunable(1; kind = Val(:variable)) => [1.0])
     expected, _ = plain(nothing, ps, st)
     @test isempty(control_symbols(symbolic_container(expected)))
-    @test isempty(lagrange_symbols(symbolic_container(expected)))
+    @test isempty(quadrature_symbols(symbolic_container(expected)))
     @test isempty(default_bounds(symbolic_container(expected)))
     @test trajectory.u ≈ expected.u
     @test trajectory.residuals ≈ expected.residuals
     @test parameter_index(layer.sys, :p₁) == 1
     @test !is_variable(layer.sys, :p₁)
 
-    cache = ControlSymbolCache(prob; controls = 1, lagrange_variables = 2, bounds = limits)
+    cache = ControlSymbolCache(prob; controls = 1, quadratures = 2, bounds = limits)
     wrapped = remake(prob; f = ODEFunction(prob.f.f; sys = cache))
     @test Corleone.get_symbolic_container(wrapped) === cache
     inherited = ShootingLayer(wrapped, Tsit5())
     @test inherited.sys.sys === cache.sys
     @test inherited.sys.bounds === limits
     @test inherited.sys.controls == cache.controls
-    @test inherited.sys.lagrange_variables == cache.lagrange_variables
+    @test inherited.sys.quadratures == cache.quadratures
     # Bounds supplied by the container participate in annotation validation.
     @test_throws ArgumentError ShootingLayer(prob, Tsit5(),
         Tunable(1; kind = Val(:parameter), default = 3.0) => [1.0]; bounds = limits)

@@ -1,8 +1,8 @@
 """
-    ControlSymbolCache(sys; controls=(), lagrange_variables=(), bounds=default_bounds(sys))
+    ControlSymbolCache(sys; controls=(), quadratures=(), bounds=default_bounds(sys))
 
 Wrap a SymbolicIndexingInterface symbolic container with bookkeeping metadata.
-`controls` selects parameters; `lagrange_variables` selects states that integrate
+`controls` selects parameters; `quadratures` selects states that integrate
 running costs. Selections accept symbols or original indices. All symbols retain
 their original kind, index and ordering. Controls remain parameters.
 
@@ -14,7 +14,7 @@ A differential equation problem can also be supplied in place of `sys`.
 @concrete terse struct ControlSymbolCache
     sys
     controls
-    lagrange_variables
+    quadratures
     bounds
 end
 
@@ -33,9 +33,9 @@ function metadata_subset(sys, selected, kind)
     return collect(eltype(symbols), subset)
 end
 
-function ControlSymbolCache(sys; controls = (), lagrange_variables = (), bounds = default_bounds(sys))
+function ControlSymbolCache(sys; controls = (), quadratures = (), bounds = default_bounds(sys))
     controls = metadata_subset(sys, controls, :parameter)
-    lagrange_variables = metadata_subset(sys, lagrange_variables, :variable)
+    quadratures = metadata_subset(sys, quadratures, :variable)
     for (sym, interval) in bounds
         (is_variable(sys, sym) || is_parameter(sys, sym)) ||
             throw(ArgumentError("Bounds refer to an unknown state or parameter: $sym"))
@@ -45,17 +45,17 @@ function ControlSymbolCache(sys; controls = (), lagrange_variables = (), bounds 
             throw(ArgumentError("Bounds for $sym must contain a lower and upper bound."))
         first(interval) <= last(interval) || throw(ArgumentError("Lower bound exceeds upper bound for $sym."))
     end
-    return ControlSymbolCache(sys, controls, lagrange_variables, bounds)
+    return ControlSymbolCache(sys, controls, quadratures, bounds)
 end
 
 ControlSymbolCache(prob::SciMLBase.AbstractSciMLProblem; kwargs...) =
     ControlSymbolCache(get_symbolic_container(prob); kwargs...)
 
 function ControlSymbolCache(cache::ControlSymbolCache;
-        controls = cache.controls, lagrange_variables = cache.lagrange_variables, bounds = cache.bounds)
-    controls === cache.controls && lagrange_variables === cache.lagrange_variables &&
+        controls = cache.controls, quadratures = cache.quadratures, bounds = cache.bounds)
+    controls === cache.controls && quadratures === cache.quadratures &&
         bounds === cache.bounds && return cache
-    return ControlSymbolCache(cache.sys; controls, lagrange_variables, bounds)
+    return ControlSymbolCache(cache.sys; controls, quadratures, bounds)
 end
 
 # SII already forwards its entire index-provider interface through this hook.
@@ -68,5 +68,5 @@ default_bounds(cache::ControlSymbolCache) = cache.bounds
 get_bounds(cache::ControlSymbolCache, sym) = get(cache.bounds, sym, (-Inf, Inf))
 control_symbols(cache::ControlSymbolCache) = cache.controls
 control_indices(cache::ControlSymbolCache) = map(sym -> parameter_index(cache, sym), cache.controls)
-lagrange_symbols(cache::ControlSymbolCache) = cache.lagrange_variables
-lagrange_indices(cache::ControlSymbolCache) = map(sym -> variable_index(cache, sym), cache.lagrange_variables)
+quadrature_symbols(cache::ControlSymbolCache) = cache.quadratures
+quadrature_indices(cache::ControlSymbolCache) = map(sym -> variable_index(cache, sym), cache.quadratures)
