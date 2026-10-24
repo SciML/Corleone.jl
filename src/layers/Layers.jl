@@ -8,6 +8,7 @@ include("./parameter.jl")
 export Parameter
 
 include("./shooting.jl")
+include("./shooting_parallel.jl")
 export ShootingLayer
 
 @non_differentiable get_timestops(layer, ps, st, type)

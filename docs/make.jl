@@ -55,6 +55,7 @@ makedocs(
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
         ], #"tutorials.md",
         "Automatic Differentiation" => "automatic_differentiation.md",
+        "Parallel Shooting" => "parallel_shooting.md",
         "References" => "references.md",
         "API" => "api.md",
         #tutorials,

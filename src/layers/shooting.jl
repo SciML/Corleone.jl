@@ -56,7 +56,7 @@ end
     return build_trajectory(x, ps, next_st, solutions, residuals), next_st
 end
 
-solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError("Unsupported algorithm $(alg). Currently only EnsembleSerial(), EnsembleThreads(), and EnsembleDistributed() are supported."))
+solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError("Unsupported shooting algorithm $(alg) for $(typeof(prob)). Parallel shooting currently supports ODE problems with EnsembleThreads() or EnsembleDistributed()."))
 
 @inline function solve_problems(::EnsembleSerial, x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
     t0, tinf = tstops[1:2]

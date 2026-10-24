@@ -1,0 +1,109 @@
+# Scheduling depends on exact grid membership, including fixed initial conditions;
+# the residual activity mask deliberately excludes those fixed conditions.
+resets_variable(::PassThrough, ps, st, t) = false
+resets_variable(ic::InitialCondition, ps, st, t) = haskey(ic.lookup, t, ps.lookup, st.lookup)
+resets_variable(ic::FixedLayer, ps, st, t) = resets_variable(ic.layer, st.parameters, st.states, t)
+
+function shooting_blocks(x::ShootingLayer, ps, st, tstops)
+    ics = x.initialcondition.initialconditions
+    starts = [firstindex(tstops)]
+    for i in (firstindex(tstops) + 1):(lastindex(tstops) - 1)
+        resets = map(values(ics), values(ps.initialcondition.initialconditions),
+                values(st.initialcondition.initialconditions)) do ic, parameters, state
+            resets_variable(ic, parameters, state, tstops[i])
+        end
+        all(resets) && push!(starts, i)
+    end
+    return [starts[i]:(i == length(starts) ? lastindex(tstops) : starts[i + 1])
+        for i in eachindex(starts)]
+end
+@non_differentiable shooting_blocks(::Any, ::Any, ::Any, ::Any)
+
+# Copy scheduling buffers only. In particular, FixedLayer.parameters and all
+# differentiable numeric values in Lux state retain their original references.
+copy_shooting_cache(x) = copy(x)
+copy_shooting_cache(::Nothing) = nothing
+@non_differentiable copy_shooting_cache(::Any)
+
+private_shooting_state(::Union{PassThrough, ParameterCollection}, st) = st
+private_shooting_state(::LookUp, st) = merge(st, (;
+    inserted = copy_shooting_cache(st.inserted), cache = copy_shooting_cache(st.cache)))
+private_shooting_state(ic::FixedLayer, st) = (;
+    states = private_shooting_state(ic.layer, st.states), parameters = st.parameters)
+private_shooting_state(ic::Union{InitialCondition, PiecewiseConstant}, st) =
+    merge(st, (; lookup = private_shooting_state(ic.lookup, st.lookup)))
+function private_shooting_state(layer::InitialConditions, st)
+    children = map(keys(layer.initialconditions)) do key
+        private_shooting_state(layer.initialconditions[key], st.initialconditions[key])
+    end
+    return (; initialconditions = NamedTuple{keys(layer.initialconditions)}(Tuple(children)),
+        active = copy_shooting_cache(st.active))
+end
+function private_shooting_state(layer::Parameter, st)
+    children = map(keys(layer.parameters)) do key
+        private_shooting_state(layer.parameters[key], st.parameters[key])
+    end
+    return (; parameters = NamedTuple{keys(layer.parameters)}(Tuple(children)))
+end
+private_shooting_state(x::ShootingLayer, st) = (;
+    initialcondition = private_shooting_state(x.initialcondition, st.initialcondition),
+    parameter = private_shooting_state(x.parameter, st.parameter))
+
+shooting_map(f, alg, blocks) = mythreadmap(alg, f, blocks)
+
+# Record and execute reverse-mode solves serially until task-local AD contexts
+# and cotangent reduction are available. This uses one forward solve per block;
+# ordinary forward execution (including ForwardDiff) still uses the ensemble map.
+function ChainRulesCore.rrule(config::RuleConfig{>:HasReverseMode},
+        ::typeof(shooting_map), f, alg, blocks)
+    output, pullback = rrule_via_ad(config, map, f, blocks)
+    function shooting_map_pullback(delta)
+        _, df, dblocks = pullback(delta)
+        return NoTangent(), df, NoTangent(), dblocks
+    end
+    return output, shooting_map_pullback
+end
+
+# Extract once so the solution, residual and state paths do not accumulate a mix
+# of native tuple cotangents and ProjectTo-generated Tangent{Tuple}s in Zygote.
+unpack_shooting_results(results) = (map(first, results), map(r -> r[2], results), last(results)[3])
+
+function ChainRulesCore.rrule(::typeof(unpack_shooting_results), results)
+    output = unpack_shooting_results(results)
+    function unpack_results_pullback(delta)
+        delta = unthunk(delta)
+        delta isa AbstractZero && return NoTangent(), ZeroTangent()
+        dsolutions, dresiduals, dst = unthunk(delta[1]), unthunk(delta[2]), unthunk(delta[3])
+        dresults = map(eachindex(results)) do i
+            ds = dsolutions isa AbstractZero ? ZeroTangent() : dsolutions[i]
+            dr = dresiduals isa AbstractZero ? ZeroTangent() : dresiduals[i]
+            (ds, dr, i == lastindex(results) ? dst : ZeroTangent())
+        end
+        return NoTangent(), dresults
+    end
+    return output, unpack_results_pullback
+end
+
+function solve_problems(ensemblealg::Union{EnsembleThreads, EnsembleDistributed},
+        x::ShootingLayer, prob::SciMLBase.AbstractODEProblem, ps, st, tstops)
+    blocks = shooting_blocks(x, ps, st, tstops)
+    # No independent restart: retain the serial solver and its buffers.
+    length(blocks) == 1 && return solve_problems(EnsembleSerial(), x, prob, ps, st, tstops)
+    results = shooting_map(ensemblealg, blocks) do indices
+        local_st = private_shooting_state(x, st)
+        solve_problems(EnsembleSerial(), x, prob, ps, local_st, tstops[indices])
+    end
+    solution_blocks, residual_blocks, next_st = unpack_shooting_results(results)
+    solutions = reduce(vcat, solution_blocks)
+    # A block can solve from its fully assigned start without its predecessor.
+    # Its first residual cannot: reconnect that edge after all solves complete.
+    residuals = map(eachindex(residual_blocks)) do i
+        block_residuals = residual_blocks[i]
+        i == 1 && return block_residuals
+        incoming = terminal_state(last(solution_blocks[i - 1]))
+        (_, boundary_residual), _ = x.initialcondition((incoming, tstops[first(blocks[i])]),
+            ps.initialcondition, private_shooting_state(x.initialcondition, st.initialcondition))
+        vcat([boundary_residual], block_residuals[2:end])
+    end
+    return solutions, reduce(vcat, residuals), next_st
+end

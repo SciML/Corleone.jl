@@ -35,6 +35,12 @@ else
             @safetestset "Initial-condition differentiation" begin
                 include("core/initial_conditions_ad.jl")
             end
+            @safetestset "Parallel shooting" begin
+                include("core/shooting_parallel.jl")
+            end
+            @safetestset "Parallel shooting differentiation" begin
+                include("core/shooting_parallel_ad.jl")
+            end
             @safetestset "Legacy single-shooting constructor" begin
                 include("core/legacy_single_shooting.jl")
             end
