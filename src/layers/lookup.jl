@@ -1,14 +1,16 @@
 """
 $(SIGNATURES)
 
-A function to perform a lookup.
+Look up the interval or entry for `key`, optionally caching the result.
 
 - `cache` is a cache for storing already looked up keys. In case of `nothing` the caching is skipped.
 - `collection` either an `AbstractVector` or `AbstractDict` used for the lookup
 - `key` the key.
 
 If used with an `AbstractVector` and `Number`, lookup defaults to piecewise constant interpolation using
-`searchsortedfirst`.
+`searchsortedfirst(collection, key; lt = <=)`: a switching time belongs to the
+following interval. Dictionary lookup requires an exact key and returns
+`typemax` of its value type when absent. A `nothing` collection returns index 1.
 """
 function lookup!(cache, collection, key::T) where {T}
     return get!(cache, key) do
@@ -35,16 +37,17 @@ lookup!(::Nothing, ::Nothing, ::T) where {T} = 1
 """
 $(TYPEDEF)
 
-A layer to enable a time-based lookup using [`lookup!`](#ref).
+A time-based lookup layer using [`lookup!`](@ref). Its collection, optional cache,
+and inserted-index buffer are stored in Lux state during setup.
 
 # Fields
 $(FIELDS)
 
 """
 @concrete terse struct LookUp <: LuxCore.AbstractLuxLayer
-    "The (initial) collection of timepoints"
+    "The initial switching-time vector, exact-time dictionary, or `nothing`."
     collection
-    "The (optional) cache"
+    "The optional dictionary used to cache time lookups, or `nothing`."
     cache
 end
 

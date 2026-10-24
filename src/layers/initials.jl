@@ -1,4 +1,14 @@
+"""
+$(TYPEDEF)
+
+A single-variable layer that returns the incoming value and Lux state unchanged.
+It has no trainable values or scheduled reset times.
+
+# Fields
+$(FIELDS)
+"""
 @concrete terse struct PassThrough <: LuxCore.AbstractLuxLayer
+    "The optional name of the state variable."
     name
 end
 
@@ -6,20 +16,33 @@ end
 get_timestops(::PassThrough, ps, st, ::Type{T}) where {T} = T[]
 
 """
-    InitialCondition(timegrid, default; name=nothing, cache=nothing)
+$(TYPEDEF)
 
 Values for a single state variable at the specified times. There is one value per
 entry in `timegrid`, initialized from `default` or an initializer `(rng, n) -> values`.
 Calling the layer with `(incoming_value, t)` returns the value at the matching grid
 index, or `incoming_value` when no time matches. A `nothing` grid is pass-through
 and allocates no trainable values.
+
+# Fields
+$(FIELDS)
 """
 @concrete terse struct InitialCondition <: LuxCore.AbstractLuxContainerLayer{(:lookup, :parameter)}
+    "The optional name of the state variable."
     name
+    "Exact-time lookup mapping each scheduled reset time to its value index."
     lookup
+    "The collection of values assigned at the scheduled reset times."
     parameter
 end
 
+"""
+$(SIGNATURES)
+
+Construct reset values for one state variable on `timegrid`. `default` is a scalar
+or an initializer `(rng, n) -> values`. Times must be unique; `nothing` selects an
+empty reset grid. `cache` is an optional lookup cache.
+"""
 function InitialCondition(timegrid::AbstractVector{<:Real}, default; name=nothing, cache=nothing)
     return InitialCondition(timegrid, (rng, n) -> fill(default, n); name, cache)
 end
@@ -58,7 +81,7 @@ get_timestops(layer::InitialCondition, ps, st, ::Type{T}) where {T} =
     get_timestops(layer.lookup, ps.lookup, st.lookup, T)
 
 """
-    InitialConditions(problem, definitions...; name=nothing)
+$(TYPEDEF)
 
 A collection of single-variable `InitialCondition` layers, analogous to `Parameter`.
 Definitions are `annotation => timegrid` pairs; plain indices and symbols are also
@@ -70,10 +93,16 @@ are assigned values minus the corresponding incoming values, in state index
 order. Only active, non-fixed layers contribute residuals.
 The Boolean vector `st.active` is allocated during setup and reused on each call.
 Updating this scheduling metadata is non-differentiable; residual arithmetic is not.
+
+# Fields
+$(FIELDS)
 """
 @concrete terse struct InitialConditions <: LuxCore.AbstractLuxContainerLayer{(:initialconditions,)}
+    "The optional name of the initial-condition collection."
     name
+    "Reconstructs the problem state from its canonical tunable values."
     repack
+    "A NamedTuple of per-variable reset or pass-through layers in state index order."
     initialconditions
 end
 
@@ -84,6 +113,14 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::InitialConditions
     )
 end
 
+"""
+$(SIGNATURES)
+
+Construct per-variable initial conditions from `annotation => timegrid` definitions.
+Annotations of kind `Val(:variable)` select state entries. Unspecified variables
+pass through their incoming values; `Constant` definitions store reset values in
+Lux state. `sys` supplies symbols, defaults, and annotation bounds.
+"""
 function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions...;
         name=nothing, sys=get_symbolic_container(problem))
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.u0)
@@ -118,6 +155,14 @@ end
 
 is_active(::InitialCondition, st) = st.active
 
+"""
+$(SIGNATURES)
+
+Update the preallocated residual activity mask from per-variable layers and their
+new Lux states. Only active, non-fixed initial conditions contribute residuals.
+This scheduling update is non-differentiable; an all-`PassThrough` tuple clears
+the mask without checking individual layers.
+"""
 function update_active_ics!(active, initial_conditions::Tuple, new_st::Tuple)
     foreach(initial_conditions, new_st, eachindex(active)) do ic, state, i
         active[i] = ic isa InitialCondition && is_active(ic, state)

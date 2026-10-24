@@ -1,5 +1,12 @@
 import SymbolicIndexingInterface: is_parameter, is_variable
 
+"""
+$(TYPEDEF)
+
+Metadata for a state or parameter definition, including its selector, default,
+bounds, kind, and integrality. Concrete annotations are resolved against a symbolic
+index provider before numerical layers are constructed.
+"""
 abstract type AbstractAnnotation end
 
 for f in (:index, :sym, :default, :upperbound, :lowerbound, :kind, :integer)
@@ -40,9 +47,23 @@ function is_minimum_specified(x::AbstractAnnotation)
         (is_parameter(x) || is_variable(x))
 end
 
+"""
+$(SIGNATURES)
+
+Return the dictionary of default `(lower, upper)` bounds keyed by symbols.
+The fallback returns an empty dictionary; [`ControlSymbolCache`](@ref) returns
+its stored bounds dictionary by reference.
+"""
 default_bounds(::Any) = Dict()
 is_integer_variable(::Any) = false
 
+"""
+$(SIGNATURES)
+
+Resolve an annotation against symbolic index provider `indep`. Fill missing
+index, symbol, default, bounds, and integrality metadata. Reject unknown selectors,
+inconsistent symbol/index pairs, reversed bounds, and defaults outside bounds.
+"""
 function update_annotation(x::AbstractAnnotation, indep)
     is_minimum_specified(x) || throw(ArgumentError(
         "Provide an index or symbol and a parameter or variable kind for $x."
@@ -78,20 +99,31 @@ function update_annotation(x::AbstractAnnotation, indep)
     return remake(x; index, sym, default, lowerbound, upperbound, integer)
 end
 
+"""
+$(TYPEDEF)
+
+A state or parameter annotation. The type parameter `T` selects tunable (`true`)
+or fixed (`false`) values. Missing metadata is represented by `nothing`, except
+for the unknown kind `Val(:unknown)`. Use [`Tunable`](@ref) or [`Constant`](@ref)
+to construct annotations.
+
+# Fields
+$(FIELDS)
+"""
 @concrete terse struct DynamicVariable{T} <: AbstractAnnotation
-    "The index"
+    "The original state or parameter index, or `nothing` before resolution."
     index
-    "The variable"
+    "The state or parameter symbol, or `nothing` before resolution."
     sym
-    "The kind"
+    "The annotation kind: `Val(:variable)`, `Val(:parameter)`, or `Val(:unknown)`."
     kind
-    "Default value"
+    "The initial value, or `nothing` to inherit the symbolic default."
     default
-    "Lower bound"
+    "The lower bound, or `nothing` to inherit the symbolic bound."
     lowerbound
-    "Upper bound"
+    "The upper bound, or `nothing` to inherit the symbolic bound."
     upperbound
-    "Integer valued variable"
+    "Whether the value is integer-valued, or `nothing` to inherit symbol metadata."
     integer
 end
 
@@ -121,6 +153,17 @@ function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where T
     print(io, output)
 end
 
+"""
+$(SIGNATURES)
+
+Construct an annotation whose values are stored in Lux parameters. Supply an
+index or symbol, a positional `selector => default` pair, or the `index`/`sym`
+keywords. Optional keywords are `kind`, `default`, `lowerbound`, `upperbound`,
+and `integer`. Missing metadata is resolved from the symbolic container.
+
+Use `kind = Val(:variable)` for initial-condition resets and `Val(:parameter)`
+for parameter definitions. Pair the annotation with its time grid to define a layer.
+"""
 function Tunable(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))
@@ -137,6 +180,13 @@ end
 
 Tunable(x::Pair; kwargs...) = Tunable(first(x); default = last(x), kwargs...)
 
+"""
+$(SIGNATURES)
+
+Construct a fixed-value annotation with the same selectors and metadata keywords
+as [`Tunable`](@ref). Values are stored in Lux state through [`FixedLayer`](@ref),
+and active fixed initial conditions do not contribute shooting residuals.
+"""
 function Constant(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))

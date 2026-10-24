@@ -1,5 +1,5 @@
 """
-    ControlSymbolCache(sys; controls=(), quadratures=(), bounds=default_bounds(sys))
+$(TYPEDEF)
 
 Wrap a SymbolicIndexingInterface symbolic container with bookkeeping metadata.
 `controls` selects parameters; `quadratures` selects states that integrate
@@ -10,11 +10,18 @@ their original kind, index and ordering. Controls remain parameters.
 container and supplied bounds dictionary are retained by reference, just as the
 parent's defaults are. Index-provider queries delegate through `symbolic_container`.
 A differential equation problem can also be supplied in place of `sys`.
+
+# Fields
+$(FIELDS)
 """
 @concrete terse struct ControlSymbolCache
+    "The original symbolic index provider, retained by reference."
     sys
+    "The subset of parameter symbols designated as controls."
     controls
+    "The subset of state symbols designated as running-cost integrals."
     quadratures
+    "State and parameter symbols mapped to `(lower, upper)` bounds, retained by reference."
     bounds
 end
 
@@ -33,6 +40,14 @@ function metadata_subset(sys, selected, kind)
     return collect(eltype(symbols), subset)
 end
 
+"""
+$(SIGNATURES)
+
+Construct a bookkeeping wrapper from a symbolic index provider. `controls` and
+`quadratures` accept symbols or original indices; `bounds` must be keyed by symbols.
+The parent and bounds dictionary are retained by reference. Passing an existing
+cache without overrides returns that same cache.
+"""
 function ControlSymbolCache(sys; controls = (), quadratures = (), bounds = default_bounds(sys))
     controls = metadata_subset(sys, controls, :parameter)
     quadratures = metadata_subset(sys, quadratures, :variable)
@@ -65,8 +80,38 @@ __get_symbolic_container(cache::ControlSymbolCache) = cache
 
 default_bounds(cache::ControlSymbolCache) = cache.bounds
 # These bookkeeping queries belong to this wrapper, not the SII interface.
+"""
+$(SIGNATURES)
+
+Return the stored `(lower, upper)` bound pair for `sym`, or `(-Inf, Inf)`
+when no bounds are stored for that symbol.
+"""
 get_bounds(cache::ControlSymbolCache, sym) = get(cache.bounds, sym, (-Inf, Inf))
+"""
+$(SIGNATURES)
+
+Return the parameter symbols designated as controls in `cache`.
+This bookkeeping query is defined only for [`ControlSymbolCache`](@ref).
+"""
 control_symbols(cache::ControlSymbolCache) = cache.controls
+"""
+$(SIGNATURES)
+
+Return the original parameter indices of the controls in `cache`.
+This bookkeeping query is defined only for [`ControlSymbolCache`](@ref).
+"""
 control_indices(cache::ControlSymbolCache) = map(sym -> parameter_index(cache, sym), cache.controls)
+"""
+$(SIGNATURES)
+
+Return the state symbols designated as quadratures in `cache`.
+This bookkeeping query is defined only for [`ControlSymbolCache`](@ref).
+"""
 quadrature_symbols(cache::ControlSymbolCache) = cache.quadratures
+"""
+$(SIGNATURES)
+
+Return the original state indices of the quadratures in `cache`.
+This bookkeeping query is defined only for [`ControlSymbolCache`](@ref).
+"""
 quadrature_indices(cache::ControlSymbolCache) = map(sym -> variable_index(cache, sym), cache.quadratures)

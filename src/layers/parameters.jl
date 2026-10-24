@@ -1,17 +1,17 @@
 """
 $(TYPEDEF)
 
-A layer to store tunable parameters.
+A layer storing tunable values initialized during Lux setup.
 
 # Fields
 $(FIELDS)
 
-It is callable with the signature `index, ps, st`.
+Calling with `(index, ps, st)` returns `(ps.ps[index], st)`.
 """
 @concrete terse struct ParameterCollection <: LuxCore.AbstractLuxLayer
-    "Initializer for the parameters `params = init_parameters(rng, out_dims)`"
+    "The initializer called as `init_parameters(rng, out_dims)` during Lux setup."
     init_parameters
-    "Dimension of the parameters"
+    "The number of stored parameter values."
     out_dims
 end
 
@@ -25,13 +25,15 @@ end
 """
 $(TYPEDEF)
 
-A layer which moves tunable parameters into the state.
+A wrapper that stores the inner layer's parameters and state in Lux state.
+The wrapper has no trainable parameters. Calling it forwards its stored values
+to the inner layer and retains that layer's updated state.
 
 # Fields
 $(FIELDS)
 """
 @concrete terse struct FixedLayer <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    "Internal layer"
+    "The inner layer whose parameters are held fixed in Lux state."
     layer
 end
 

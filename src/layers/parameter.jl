@@ -1,15 +1,29 @@
 """
 $(TYPEDEF)
+
+A single piecewise-constant parameter. Lookup times separate intervals, so a grid
+of `n` switching times stores `n + 1` values. A `nothing` grid stores one constant
+value. Calling with `(t, ps, st)` returns `(value, next_st)`.
+
+# Fields
+$(FIELDS)
 """
 @concrete terse struct PiecewiseConstant <: LuxCore.AbstractLuxContainerLayer{(:lookup, :parameter)}
-    ""
+    "The optional name of the parameter."
     name
-    ""
+    "The time lookup selecting a piecewise-constant interval."
     lookup
-    ""
+    "The collection of parameter values, one per interval."
     parameter
 end
 
+"""
+$(SIGNATURES)
+
+Construct interval values on `timegrid` from a scalar default or an initializer
+`(rng, n) -> values`. Each switching time belongs to the following interval.
+A `nothing` grid creates one value; `cache` optionally caches time lookups.
+"""
 function PiecewiseConstant(timegrid::AbstractVector{<:Number}, default; name = nothing, cache = nothing, kwargs...)
     lookup = LookUp(timegrid, cache)
     parameters = ParameterCollection((rng, outdims) -> fill(default, outdims), length(timegrid) + 1)
@@ -44,15 +58,33 @@ end
 get_timestops(pc::PiecewiseConstant, ps, st, ::Type{T}) where {T} = get_timestops(pc.lookup, ps.lookup, st.lookup, T)
 get_timestops(pc::FixedLayer, ps, st, ::Type{T}) where {T} = get_timestops(pc.layer, st.parameters, st.states, T)
 
+"""
+$(TYPEDEF)
+
+A collection of per-parameter piecewise-constant layers. Calling with `(t, ps, st)`
+returns the reconstructed problem parameters and updated Lux state. Fixed values
+are held in Lux state through [`FixedLayer`](@ref).
+
+# Fields
+$(FIELDS)
+"""
 @concrete terse struct Parameter <: LuxCore.AbstractLuxContainerLayer{(:parameters,)}
-    ""
+    "The optional name of the parameter collection."
     name
-    ""
+    "Reconstructs the problem parameters from their canonical tunable values."
     repack
-    ""
+    "A NamedTuple of per-parameter layers in canonical parameter index order."
     parameters
 end
 
+"""
+$(SIGNATURES)
+
+Construct parameter layers from `annotation => timegrid` definitions. Unspecified
+parameters receive one tunable value initialized from the problem. `Constant`
+annotations and entries selected by `fixed` store values in Lux state. `sys`
+supplies symbols, defaults, and annotation bounds.
+"""
 function Parameter(
         prob::SciMLBase.AbstractSciMLProblem,
         defintions...;

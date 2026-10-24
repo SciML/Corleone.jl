@@ -1,10 +1,34 @@
+"""
+$(TYPEDEF)
+
+A Lux layer that solves a differential equation in segments separated by parameter
+switches and initial-condition resets. Calling with `(input, ps, st)` returns
+`(trajectory, next_st)`, with reset residuals stored in `trajectory.residuals`.
+A differential equation problem can be supplied as `input`; other inputs use the
+stored problem. A `(problem, tstops)` tuple supplies an explicit segment grid.
+
+`EnsembleSerial()` solves sequentially. For ODE problems, `EnsembleThreads()` and
+`EnsembleDistributed()` solve independent blocks starting at interior full-state
+resets. Partial resets remain sequential within a block. Reverse-mode rules
+record block solves serially; ordinary forward execution uses the ensemble map.
+
+# Fields
+$(FIELDS)
+"""
 @concrete terse struct ShootingLayer <: LuxCore.AbstractLuxContainerLayer{(:initialcondition, :parameter)}
+    "The optional name of the shooting layer."
     name
+    "The differential equation problem used when no replacement problem is supplied."
     problem
+    "The differential equation solver algorithm for each segment."
     alg
+    "The ensemble algorithm selecting serial, threaded, or distributed block execution."
     ensemblealg
+    "Per-variable initial-condition layers and their reset schedules."
     initialcondition
+    "Per-parameter layers supplying parameter values for each segment."
     parameter
+    "The ControlSymbolCache shared with trajectories for symbolic bookkeeping."
     sys
 end
 
@@ -37,6 +61,19 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
 end
 
 
+"""
+$(SIGNATURES)
+
+Construct a shooting layer from a problem, solver, and `annotation => timegrid`
+definitions. Variable annotations define initial-condition resets; remaining
+definitions configure parameters. `fixed_parameters` selects parameters held in
+Lux state.
+
+`controls` and `quadratures` select parameter and state subsets by symbol or original
+index. `bounds` maps symbols to bound pairs used as annotation defaults. Omitted
+metadata inherits from the problem cache; explicit annotation bounds take precedence.
+Metadata does not alter numerical state or parameter layouts.
+"""
 function ShootingLayer(
         problem::SciMLBase.AbstractSciMLProblem,
         alg::SciMLBase.AbstractSciMLAlgorithm,
@@ -61,6 +98,13 @@ function ShootingLayer(
     return ShootingLayer(name, problem, alg, ensemblealg, ics, params, sys)
 end
 
+"""
+$(SIGNATURES)
+
+Return sorted, unique segment boundaries from the problem time span and the
+initial-condition and parameter schedules in Lux state. Layer boundaries outside
+the problem time span are excluded. The result has element type `T`.
+"""
 function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
     tstops = vcat(
         collect(T, layer.problem.tspan),
@@ -126,6 +170,12 @@ function buffered_solve(x::ShootingLayer, prob, sol::T, res::R, ps, st, tstops) 
     return buffered_solve!(solbuff, x, prob, resbuff, ps, st, tstops)
 end
 
+"""
+$(SIGNATURES)
+
+Return the final state from a time-series solution, a sequence of saved states,
+or a matrix whose columns are saved states. Supports solver and AD return formats.
+"""
 terminal_state(sol::SciMLBase.AbstractTimeseriesSolution) = last(sol.u)
 terminal_state(sol::Base.AbstractVecOrTuple) = last(sol)
 terminal_state(sol::AbstractArray) = sol[:, end]

@@ -1,5 +1,5 @@
 """
-    Trajectory(layer, ps, st, solutions, residuals)
+$(TYPEDEF)
 
 Assemble saved segment solutions into a trajectory. Continuous handoffs occur once;
 initial-condition boundaries retain both the incoming endpoint and outgoing start,
@@ -16,20 +16,38 @@ The symbolic cache is shared with `layer.sys` and exposed through
 `SymbolicIndexingInterface.symbolic_container`. Query controls, quadrature states,
 and bounds on that `ControlSymbolCache` wrapper.
 No interpolation or integration is performed.
+
+# Fields
+$(FIELDS)
 """
 @concrete terse struct Trajectory
+    "The symbolic bookkeeping cache shared with the shooting layer."
     sys
+    "Saved state samples, sharing their numerical arrays with the segment solutions."
     u
+    "The actual saved solution times, including both sides of reset boundaries."
     t
+    "Initial-condition residual vectors, one per segment start."
     residuals
+    "Indices in `u` and `t` of outgoing samples at initial-condition reset boundaries."
     reset_indices
+    "The shooting layer used to evaluate parameter values on demand."
     layer
+    "The supplied Lux parameters, retained by reference for parameter queries and AD."
     ps
+    "The supplied Lux state, retained by reference for parameter queries and AD."
     st
 end
 
 # Keep construction separate from assembly: some downstream constructor rules
 # dispatch too broadly on parametric type constructors.
+"""
+$(SIGNATURES)
+
+Assemble saved segment solutions and residuals into a [`Trajectory`](@ref).
+Remove duplicate samples at continuous handoffs while retaining both sides of
+initial-condition resets. Saved state arrays, parameters, and Lux state are shared.
+"""
 Trajectory(layer, ps, st, solutions::AbstractVector, residuals) =
     build_trajectory(layer, ps, st, solutions, residuals)
 
