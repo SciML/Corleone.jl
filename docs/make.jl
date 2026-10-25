@@ -33,6 +33,7 @@ makedocs(
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
         ],
+        "Initialization" => "initialization.md",
         "Automatic Differentiation" => "automatic_differentiation.md",
         "Parallel Shooting" => "parallel_shooting.md",
         "Symbolic Bookkeeping" => "symbolic_metadata.md",

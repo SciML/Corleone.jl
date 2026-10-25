@@ -92,11 +92,49 @@ function update_annotation(x::AbstractAnnotation, indep)
     lowerbound = has_lowerbound(x) ? get_lowerbound(x) : fallback_lower
     upperbound = has_upperbound(x) ? get_upperbound(x) : fallback_upper
     lowerbound <= upperbound || throw(ArgumentError("Lower bound exceeds upper bound."))
-    lowerbound <= default <= upperbound || throw(ArgumentError("Default value is outside the annotation bounds."))
+    validate_annotation_default(default, lowerbound, upperbound)
     # Keep unbounded integer annotations representable; bounds need not have the
     # same type as the default. Explicit false must also override model metadata.
     integer = has_integer(x) ? get_integer(x) : is_integer_variable(sym)
     return remake(x; index, sym, default, lowerbound, upperbound, integer)
+end
+
+# Callbacks are checked after evaluation, without drawing from their RNG twice.
+validate_annotation_default(default, lower, upper) = default
+function validate_annotation_default(default::Number, lower, upper)
+    lower <= default <= upper || throw(ArgumentError("Default value is outside the annotation bounds."))
+    return default
+end
+function validate_annotation_default(default::AbstractVector, lower, upper)
+    all(value -> value isa Number && lower <= value <= upper, default) ||
+        throw(ArgumentError("Default values must be numbers within the annotation bounds."))
+    return default
+end
+
+"""
+$(SIGNATURES)
+
+Initialize `n` scalar values from a scalar, vector, or callback. Count callbacks
+`(rng, n::Int)` take precedence, preserving untyped callbacks. Otherwise a callback
+accepting `(rng, times::AbstractVector)` receives the supplied initialization times.
+Validate the result's shape and bounds once, without reevaluating the callback.
+Supplied vectors and callback results are retained by reference.
+"""
+function initialize_annotation_values(default, rng, n::Int, times, bounds)
+    values = if default isa Number
+        fill(default, n)
+    elseif default isa AbstractVector
+        default
+    elseif applicable(default, rng, n)
+        default(rng, n)
+    elseif times isa AbstractVector && applicable(default, rng, times)
+        default(rng, times)
+    else
+        throw(ArgumentError("Default must be a scalar, a vector, or an initializer accepting (rng, n::Int) or (rng, times::AbstractVector). Time-based initializers require initialization times."))
+    end
+    values isa AbstractVector || throw(ArgumentError("An initializer must return an AbstractVector."))
+    length(values) == n || throw(DimensionMismatch("Expected $n initial values, got $(length(values))."))
+    return validate_annotation_default(values, bounds...)
 end
 
 """
@@ -117,7 +155,7 @@ $(FIELDS)
     sym
     "The annotation kind: `Val(:variable)`, `Val(:parameter)`, or `Val(:unknown)`."
     kind
-    "The initial value, or `nothing` to inherit the symbolic default."
+    "A scalar, vector, count/timepoint initializer, or `nothing` to inherit the symbolic default."
     default
     "The lower bound, or `nothing` to inherit the symbolic bound."
     lowerbound
@@ -163,6 +201,18 @@ and `integer`. Missing metadata is resolved from the symbolic container.
 
 Use `kind = Val(:variable)` for initial-condition resets and `Val(:parameter)`
 for parameter definitions. Pair the annotation with its time grid to define a layer.
+
+`default` accepts a scalar, a vector, or a callback `(rng, n::Int) -> values` or
+`(rng, times::AbstractVector) -> values`. Untyped callbacks retain the count-based
+interpretation; the count signature wins if both are applicable. State defaults
+have one value per reset time, in supplied grid order. Parameter defaults have one
+value per interval; time-based callbacks receive `[tspan[1]; switching_times]`.
+A parameter without switching times has one value at `tspan[1]`.
+
+Scalar and vector bounds are checked when resolving annotations. Callback output
+length and bounds are checked during Lux setup. Vectors and callback results are
+retained by reference; use a callback that allocates when independent setup arrays
+are needed.
 """
 function Tunable(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
     isnothing(index) && isnothing(sym) &&

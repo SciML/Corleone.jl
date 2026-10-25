@@ -20,32 +20,22 @@ end
 """
 $(SIGNATURES)
 
-Construct interval values on `timegrid` from a scalar default or an initializer
-`(rng, n) -> values`. Each switching time belongs to the following interval.
-A `nothing` grid creates one value; `cache` optionally caches time lookups.
+Construct interval values on `timegrid` from a scalar, vector, or count/timepoint
+initializer as described by [`Tunable`](@ref). Each switching time belongs to the
+following interval. A `nothing` grid creates one value. Time-based callbacks require
+`initialization_times`, one per interval; `Parameter` supplies the problem start
+followed by the switching times. `cache` optionally caches time lookups. Output
+length and `bounds` are checked during Lux setup.
 """
-function PiecewiseConstant(timegrid::AbstractVector{<:Number}, default; name = nothing, cache = nothing, kwargs...)
+function PiecewiseConstant(timegrid::Union{AbstractVector{<:Number}, Nothing}, default;
+        name = nothing, cache = nothing, initialization_times = nothing,
+        bounds = (-Inf, Inf), kwargs...)
     lookup = LookUp(timegrid, cache)
-    parameters = ParameterCollection((rng, outdims) -> fill(default, outdims), length(timegrid) + 1)
-    return PiecewiseConstant(name, lookup, parameters)
-end
-
-function PiecewiseConstant(timegrid::AbstractVector{<:Number}, default::Base.Callable; name = nothing, cache = nothing, kwargs...)
-    lookup = LookUp(timegrid, cache)
-    parameters = ParameterCollection(default, length(timegrid) + 1)
-    return PiecewiseConstant(name, lookup, parameters)
-end
-
-function PiecewiseConstant(timegrid::Nothing, default::Base.Callable; name = nothing, cache = nothing, kwargs...)
-    lookup = LookUp(timegrid, cache)
-    parameters = ParameterCollection(default, 1)
-    return PiecewiseConstant(name, lookup, parameters)
-end
-
-function PiecewiseConstant(timegrid::Nothing, default; name = nothing, cache = nothing, kwargs...)
-    lookup = LookUp(timegrid, cache)
-    parameters = ParameterCollection((rng, outdims) -> fill(default, outdims), 1)
-    return PiecewiseConstant(name, lookup, parameters)
+    n = isnothing(timegrid) ? 1 : length(timegrid) + 1
+    isnothing(initialization_times) || length(initialization_times) == n ||
+        throw(DimensionMismatch("Expected $n parameter initialization times."))
+    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, initialization_times, bounds)
+    return PiecewiseConstant(name, lookup, ParameterCollection(initialize, n))
 end
 
 function (pc::PiecewiseConstant)(t, ps, st)
@@ -108,7 +98,9 @@ function Parameter(
             tunable = true
         else
             annotation, grid = definitions[position]
-            layer = PiecewiseConstant(grid, get_default(annotation); name = sym)
+            times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
+            layer = PiecewiseConstant(grid, get_default(annotation); name = sym,
+                initialization_times = times, bounds = get_bounds(annotation))
             tunable = is_tunable(annotation)
         end
         Symbol(sym) => (tunable && i ∉ fixed_indices ? layer : FixedLayer(layer))

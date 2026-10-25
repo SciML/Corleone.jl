@@ -17,6 +17,9 @@ end
 
 LuxCore.initialparameters(rng::Random.AbstractRNG, x::ParameterCollection) = (; ps = x.init_parameters(rng, x.out_dims))
 LuxCore.initialstates(::Random.AbstractRNG, ::ParameterCollection) = (;)
+# Shape queries must not execute user initializers or consume RNG values.
+LuxCore.parameterlength(x::ParameterCollection) = x.out_dims
+LuxCore.statelength(::ParameterCollection) = 0
 
 function (::ParameterCollection)(index, ps, st::NamedTuple)
     return getindex(ps.ps, index), st

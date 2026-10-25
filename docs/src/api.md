@@ -19,6 +19,9 @@ Tunable
 Constant
 ```
 
+See [Initializing shooting variables](initialization.md) for scalar, vector, and
+count/timepoint callback defaults.
+
 ## Trajectories
 
 Saved states and times are available as `trajectory.u` and `trajectory.t`, and

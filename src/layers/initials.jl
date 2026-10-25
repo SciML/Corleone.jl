@@ -19,7 +19,9 @@ get_timestops(::PassThrough, ps, st, ::Type{T}) where {T} = T[]
 $(TYPEDEF)
 
 Values for a single state variable at the specified times. There is one value per
-entry in `timegrid`, initialized from `default` or an initializer `(rng, n) -> values`.
+entry in `timegrid`, initialized from a scalar, vector, or callback accepting
+`(rng, n::Int)` or `(rng, times::AbstractVector)`. Count callbacks take precedence;
+time-based callbacks receive the grid in its supplied order.
 Calling the layer with `(incoming_value, t)` returns the value at the matching grid
 index, or `incoming_value` when no time matches. A `nothing` grid is pass-through
 and allocates no trainable values.
@@ -39,22 +41,21 @@ end
 """
 $(SIGNATURES)
 
-Construct reset values for one state variable on `timegrid`. `default` is a scalar
-or an initializer `(rng, n) -> values`. Times must be unique; `nothing` selects an
-empty reset grid. `cache` is an optional lookup cache.
+Construct reset values for one state variable on `timegrid`. `default` is a scalar,
+vector, or count/timepoint initializer as described by [`Tunable`](@ref). Times must
+be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
+cache. Output length and `bounds` are checked during Lux setup.
 """
-function InitialCondition(timegrid::AbstractVector{<:Real}, default; name=nothing, cache=nothing)
-    return InitialCondition(timegrid, (rng, n) -> fill(default, n); name, cache)
-end
-
-function InitialCondition(timegrid::AbstractVector{<:Real}, initialize::Base.Callable; name=nothing, cache=nothing)
+function InitialCondition(timegrid::AbstractVector{<:Real}, default;
+        name = nothing, cache = nothing, bounds = (-Inf, Inf))
     allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
     lookup = LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache)
+    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, bounds)
     return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid)))
 end
 
-function InitialCondition(::Nothing, default; name=nothing, cache=nothing)
-    return InitialCondition(Float64[], default; name, cache)
+function InitialCondition(::Nothing, default; kwargs...)
+    return InitialCondition(Float64[], default; kwargs...)
 end
 
 
@@ -137,7 +138,7 @@ function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions.
             layer = PassThrough(sym)
         else
             annotation, grid = processed[position]
-            layer = InitialCondition(grid, get_default(annotation); name=sym)
+            layer = InitialCondition(grid, get_default(annotation); name=sym, bounds=get_bounds(annotation))
             layer = is_tunable(annotation) ? layer : FixedLayer(layer)
         end
         return Symbol(sym) => layer

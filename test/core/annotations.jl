@@ -1,6 +1,6 @@
 # Load annotations in isolation so mock metadata hooks do not affect other tests.
 module AnnotationTests
-using Test, ConcreteStructs, SciMLBase, SymbolicIndexingInterface
+using Test, ConcreteStructs, SciMLBase, SymbolicIndexingInterface, DocStringExtensions
 include(joinpath(@__DIR__, "../../src/utilities/annotations.jl"))
 
 # Supply model metadata through the same hooks used by symbolic extensions.
