@@ -142,8 +142,11 @@ trajectory, next_st = layer((layer.problem, segment_times), ps, st)
 
 This is distinct from preparing a gradient: all backend checks used
 `DI.prepare_gradient`, while these two also prepared the segment schedule.
-Recompute the schedule after changing the grid. Gradient preparations may also
-need rebuilding when dimensions, types, or traced control flow change.
+The current layer also caches segment times in `st.timestops` during setup;
+ordinary forward calls reuse that cache. After changing schedules, refresh it
+with `st = merge(st, (; timestops = Corleone.get_timestops(layer, nothing, st)))`.
+Gradient preparations may also need rebuilding when dimensions, types, or traced
+control flow change.
 
 Mooncake used `DI.AutoMooncake()` and passed the shooting-state case. An initial
 180-second worker limit was too short and was inconclusive. The full-trajectory

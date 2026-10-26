@@ -7,6 +7,12 @@ switches and initial-condition resets. Calling with `(input, ps, st)` returns
 A differential equation problem can be supplied as `input`; other inputs use the
 stored problem. A `(problem, tstops)` tuple supplies an explicit segment grid.
 
+Segment boundaries are computed once during setup and stored in `st.timestops`.
+Forward calls reuse that vector and preserve it in the returned state. After
+changing a schedule, explicitly refresh the cached grid before solving; see
+[`get_timestops`](@ref). For a replacement problem with a different time span,
+supply its matching grid through the `(problem, tstops)` call.
+
 `EnsembleSerial()` solves sequentially. For ODE problems, `EnsembleThreads()` and
 `EnsembleDistributed()` solve independent blocks starting at interior full-state
 resets. Partial resets remain sequential within a block. Reverse-mode rules
@@ -103,28 +109,44 @@ $(SIGNATURES)
 
 Return sorted, unique segment boundaries from the problem time span and the
 initial-condition and parameter schedules in Lux state. Layer boundaries outside
-the problem time span are excluded. The result has element type `T`.
+the problem time span are excluded. The result has element type `T`. Schedules
+are read exclusively from Lux state, so `ps` may be `nothing`. To refresh a layer's
+cached grid after changing schedules, use
+`merge(st, (; timestops = get_timestops(layer, nothing, st)))`. Forward evaluation
+uses `st.timestops` directly rather than invoking this function.
 """
 function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
     tstops = vcat(
         collect(T, layer.problem.tspan),
-        get_timestops(layer.initialcondition, ps.initialcondition, st.initialcondition, T),
-        get_timestops(layer.parameter, ps.parameter, st.parameter, T)
+        get_timestops(layer.initialcondition, nothing, st.initialcondition, T),
+        get_timestops(layer.parameter, nothing, st.parameter, T)
     )
     filter!(t -> first(layer.problem.tspan) <= t <= last(layer.problem.tspan), tstops)
     sort!(tstops)
     return unique!(tstops)
 end
 
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ShootingLayer)
+    st = (;
+        initialcondition = LuxCore.initialstates(rng, layer.initialcondition),
+        parameter = LuxCore.initialstates(rng, layer.parameter)
+    )
+    tstops = get_timestops(layer, nothing, st)
+    return merge(st, (; timestops = tstops))
+end
+
 (x::ShootingLayer)(::Any, ps, st) = x(x.problem, ps, st)
 
 @inline function (x::ShootingLayer)(prob::SciMLBase.AbstractSciMLProblem, ps, st::NamedTuple)
-    tstops = get_timestops(x, ps, st)
-    return x((prob, tstops), ps, st)
+    return x((prob, st.timestops), ps, st)
 end
 
 @inline function (x::ShootingLayer)((prob, tstops)::Tuple, ps, st::NamedTuple)
-    solutions, residuals, next_st = solve_problems(x.ensemblealg, x, prob, ps, st, tstops)
+    # Explicit grids become the returned state's cache, just like setup grids.
+    state = merge(st, (; timestops = tstops))
+    solutions, residuals, next_st = solve_problems(x.ensemblealg, x, prob, ps, state, tstops)
+    # Distributed results contain serialized metadata; retain the caller's cache.
+    next_st = merge(next_st, (; timestops = tstops))
     return build_trajectory(x, ps, next_st, solutions, residuals), next_st
 end
 
@@ -135,7 +157,7 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
     sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true, save_end = true)
-    next_st = (; initialcondition = st_ic, parameter = st_p)
+    next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     residuals = variable_residuals
     return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end])
 end
@@ -185,7 +207,7 @@ terminal_state(sol::AbstractArray) = sol[:, end]
         (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
         sols[i + 1] = internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1]))
-        st = (; initialcondition = st_ic, parameter = st_p)
+        st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
 end

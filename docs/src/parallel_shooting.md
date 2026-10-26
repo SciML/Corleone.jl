@@ -10,8 +10,17 @@ scheduled initial condition. Both tunable and constant assignments count. Partia
 resets and control changes stay inside a block and run sequentially, using the
 existing solution buffers. A reset at the final time does not create a block.
 With no independent interior restart, the layer uses the serial solve directly.
-The schedule is rebuilt from Lux state each call, so changing grids does not
-require reconstructing the layer.
+The segment grid is computed during setup and stored in `st.timestops`. Changing
+schedules does not require reconstructing the layer, but requires explicitly
+refreshing that cache before the next evaluation:
+
+```julia
+st = merge(st, (; timestops = Corleone.get_timestops(layer, nothing, st)))
+```
+
+Forward calls retain this vector in the returned state. The independent block
+partition is still derived from the cached grid and current reset schedules on
+each call.
 
 Each independent block solves from its assigned start values. Once those solves
 finish, the layer computes each block's first residual against the preceding

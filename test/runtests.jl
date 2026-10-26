@@ -41,6 +41,9 @@ else
             @safetestset "Initial-condition differentiation" begin
                 include("core/initial_conditions_ad.jl")
             end
+            @safetestset "Cached shooting timestops" begin
+                include("core/shooting_timestops.jl")
+            end
             @safetestset "Parallel shooting" begin
                 include("core/shooting_parallel.jl")
             end

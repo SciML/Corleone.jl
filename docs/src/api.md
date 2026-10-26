@@ -6,7 +6,10 @@
 initial conditions split the solve into segments. Only active, non-fixed initial
 conditions contribute matching residuals. See [Parallel shooting](parallel_shooting.md)
 for independent block execution and [Automatic differentiation backends](automatic_differentiation.md)
-for tested gradient configurations.
+for tested gradient configurations. Segment boundaries are cached in
+`st.timestops` during setup and retained in the returned state. After changing a
+schedule, refresh the cache with
+`st = merge(st, (; timestops = Corleone.get_timestops(layer, nothing, st)))`.
 
 ```@docs
 ShootingLayer

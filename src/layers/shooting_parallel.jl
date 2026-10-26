@@ -46,9 +46,9 @@ function private_shooting_state(layer::Parameter, st)
     end
     return (; parameters = NamedTuple{keys(layer.parameters)}(Tuple(children)))
 end
-private_shooting_state(x::ShootingLayer, st) = (;
+private_shooting_state(x::ShootingLayer, st) = merge(st, (;
     initialcondition = private_shooting_state(x.initialcondition, st.initialcondition),
-    parameter = private_shooting_state(x.parameter, st.parameter))
+    parameter = private_shooting_state(x.parameter, st.parameter)))
 
 shooting_map(f, alg, blocks) = mythreadmap(alg, f, blocks)
 

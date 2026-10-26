@@ -45,7 +45,7 @@ function (pc::PiecewiseConstant)(t, ps, st)
     return params, (; lookup = lookup_st, parameter = parameter_st)
 end
 
-get_timestops(pc::PiecewiseConstant, ps, st, ::Type{T}) where {T} = get_timestops(pc.lookup, ps.lookup, st.lookup, T)
+get_timestops(pc::PiecewiseConstant, ps, st, ::Type{T}) where {T} = get_timestops(pc.lookup, nothing, st.lookup, T)
 get_timestops(pc::FixedLayer, ps, st, ::Type{T}) where {T} = get_timestops(pc.layer, st.parameters, st.states, T)
 
 """
@@ -112,7 +112,7 @@ end
 function get_timestops(pc::Parameter, ps, st, ::Type{T} = Float64) where {T}
     tstops = reduce(
         vcat, map(keys(pc.parameters)) do id
-            get_timestops(pc.parameters[id], ps.parameters[id], st.parameters[id], T)
+            get_timestops(pc.parameters[id], nothing, st.parameters[id], T)
         end; init = T[]
     )
     sort!(tstops)

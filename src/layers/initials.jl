@@ -79,7 +79,7 @@ end
 istypemax(x::V) where {V} = x === typemax(V)
 
 get_timestops(layer::InitialCondition, ps, st, ::Type{T}) where {T} =
-    get_timestops(layer.lookup, ps.lookup, st.lookup, T)
+    get_timestops(layer.lookup, nothing, st.lookup, T)
 
 """
 $(TYPEDEF)
@@ -148,7 +148,7 @@ end
 
 function get_timestops(layer::InitialConditions, ps, st, ::Type{T}) where {T}
     times = reduce(vcat, map(keys(layer.initialconditions)) do key
-        get_timestops(layer.initialconditions[key], ps.initialconditions[key], st.initialconditions[key], T)
+        get_timestops(layer.initialconditions[key], nothing, st.initialconditions[key], T)
     end; init=T[])
     return sort!(unique!(times))
 end

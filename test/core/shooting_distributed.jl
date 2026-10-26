@@ -20,6 +20,11 @@ using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
         @test actual.residuals ≈ expected.residuals
         @test actual.reset_indices == expected.reset_indices
         @test actual_st == expected_st
+        @test actual_st.timestops === st.timestops
+        repeated, repeated_st = distributed(nothing, ps, actual_st)
+        @test repeated.u ≈ expected.u
+        @test repeated.t == expected.t
+        @test repeated_st.timestops === st.timestops
     finally
         rmprocs(added)
     end

@@ -15,6 +15,7 @@ with_ensemble(layer, alg) = ShootingLayer(layer.name, layer.problem, layer.alg, 
     stops = Corleone.get_timestops(layer, ps, st)
     @test Corleone.shooting_blocks(layer, ps, st, stops) == [1:5, 5:9]
     local_st = Corleone.private_shooting_state(layer, st)
+    @test local_st.timestops === st.timestops
     @test local_st.initialcondition.active !== st.initialcondition.active
     @test local_st.initialcondition.initialconditions.u₂.parameters ===
         st.initialcondition.initialconditions.u₂.parameters
@@ -28,6 +29,7 @@ with_ensemble(layer, alg) = ShootingLayer(layer.name, layer.problem, layer.alg, 
         @test actual.residuals ≈ serial.residuals
         @test actual.reset_indices == serial.reset_indices
         @test actual_st == serial_st
+        @test actual_st.timestops === st.timestops
         @test actual.ps === ps
         @test st.initialcondition.active == before
         @test actual_st.initialcondition.active !== st.initialcondition.active
@@ -44,12 +46,17 @@ with_ensemble(layer, alg) = ShootingLayer(layer.name, layer.problem, layer.alg, 
     changed_st = merge(st, (; initialcondition = merge(st.initialcondition,
         (; initialconditions = children))))
     changed_stops = Corleone.get_timestops(threaded, ps, changed_st)
+    changed_st = merge(changed_st, (; timestops = changed_stops))
     @test Corleone.shooting_blocks(threaded, ps, changed_st, changed_stops) == [1:7, 7:9]
     expected, _ = layer(nothing, ps, changed_st)
     actual, _ = threaded(nothing, ps, changed_st)
     @test actual.u ≈ expected.u
     @test actual.t == expected.t
     @test actual.residuals ≈ expected.residuals
+    _, updated = threaded(nothing, ps, changed_st)
+    repeated, _ = threaded(nothing, ps, updated)
+    @test repeated.u ≈ expected.u
+    @test updated.timestops === changed_stops
 end
 
 @testset "Partial resets remain sequential" begin
