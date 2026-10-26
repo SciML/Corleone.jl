@@ -14,12 +14,13 @@
 # We will use `Corleone` to define our optimal control problem.
 using Corleone
 
-# Additionally, we will need the following packages
-# - [`LuxCore`]() and [`Random`]() for basic setup functions
-# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`SymbolicIndexingInterface`]() to conveniently access variables and controls of the solution
-# - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
-# - [`CairoMakie`]() to plot the solution
+# Additionally, we will need the following packages:
+# - `LuxCore` and `Random` for layer initialization
+# - `OrdinaryDiffEqTsit5` to solve the differential equation
+# - `SymbolicIndexingInterface` to access trajectory variables and controls
+# - `Optimization`, `OptimizationMOI`, `Ipopt`, and `ComponentArrays` to set up and solve the optimization problem
+# - `ForwardDiff` to differentiate the objective and constraints
+# - `CairoMakie` to plot the solution
 
 using LuxCore
 using Random
@@ -32,7 +33,7 @@ using ComponentArrays
 using ForwardDiff
 using CairoMakie
 
-# ## Lotka Volterrra Dynamics
+# ## Lotka–Volterra Dynamics
 
 # First, the ODEProblem has to be defined in a standard way.
 
@@ -81,18 +82,32 @@ function plot_lotka(sol)
     return f
 end
 
-# The third state integrates the running cost. Construct the objective and bounds
-# explicitly: annotations describe the definitions, while Optimization.jl receives
-# the flattened numerical bounds. Only fishing controls are tunable here.
-function fishing_objective(q, state)
-    parameters = ComponentArray(q, parameter_axes)
-    trajectory, _ = layer(nothing, parameters, state)
-    return last(trajectory.u)[3]
+# The third state integrates the running cost. The callbacks capture the concrete
+# layer and parameter axes. The objective's scalar type assertion gives the
+# optimizer an inferable return type, including ForwardDiff Dual numbers.
+# The constraint callback writes state and parameter matching residuals directly
+# into the optimizer's buffer.
+function shooting_callbacks(layer, parameter_axes)
+    function objective(q, state)
+        trajectory, _ = layer(nothing, ComponentArray(q, parameter_axes), state)
+        return last(trajectory.u)[3]::eltype(q)
+    end
+    function constraints!(res, q, state)
+        trajectory, _ = layer(nothing, ComponentArray(q, parameter_axes), state)
+        shooting_constraints!(res, trajectory)
+        return nothing
+    end
+    return objective, constraints!
 end
+
+# Bounds follow the annotations and the initialized Lux parameter structure.
+# Vectorize them with the same layout used for the optimizer parameters.
+lower, upper = get_bounds(layer, ps, st)
+fishing_objective, _ = shooting_callbacks(layer, parameter_axes)
 optfun = OptimizationFunction(fishing_objective, AutoForwardDiff())
 optprob = OptimizationProblem(
     optfun, initial_parameters, st;
-    lb = zeros(length(initial_parameters)), ub = ones(length(initial_parameters))
+    lb = ComponentArray(lower), ub = ComponentArray(upper)
 )
 uopt = solve(
     optprob, Ipopt.Optimizer(),
@@ -117,54 +132,50 @@ plot_lotka(optsol)
 # Full-state resets also permit independent blocks to run with `EnsembleThreads()`.
 # Start Julia with `--threads=4` (or your desired count) to use several threads.
 
-shooting_points = [3.0, 6.0, 9.0]
+# Use a coarser control grid with quarter-unit intervals for multiple shooting.
+# The first two shooting points split control intervals; the last already coincides
+# with a control switch. This demonstrates both inserted and existing switches.
+shooting_points = [3.4, 6.1, 9.75]
 initial_conditions = (
-    Tunable(i; kind = Val(:variable)) => shooting_points for i in 1:3
+    Tunable(i; kind = Val(:variable), lowerbound = 0.0) => shooting_points for i in 1:3
 )
 mslayer = ShootingLayer(
-    prob, Tsit5(), control, physical_parameters...,
+    prob, Tsit5(), first(control) => collect(0.25:0.25:11.75), physical_parameters...,
     initial_conditions...; ensemblealg = EnsembleThreads(),
     controls = [1], quadratures = [3]
 )
+
+# Setup initializes controls to one and each lifted state to the corresponding
+# initial value of the problem.
 msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 
-# Seed the lifted values from a continuous forward trajectory. Here we reuse the
-# single-shooting result, including its optimized control values.
-msps.parameter.parameters.p₁.parameter.ps .= optimized_parameters.parameter.parameters.p₁.parameter.ps
-for (i, ic) in enumerate(values(msps.initialcondition.initialconditions))
-    ic.parameter.ps .= [optsol.u[findfirst(==(t), optsol.t)][i] for t in shooting_points]
-end
+# Split control intervals at the first two shooting points. Each new interval
+# duplicates its predecessor's value; the existing switch at 9.75 stays unchanged.
+msps, msst = add_parameter_segments!(mslayer, msps, msst)
+
+# Build optimizer storage after splitting, so its axes include the inserted values.
 ms_initial_parameters = ComponentArray(msps)
 ms_parameter_axes = getaxes(ms_initial_parameters)
 
-function ms_objective(q, state)
-    trajectory, _ = mslayer(nothing, ComponentArray(q, ms_parameter_axes), state)
-    return last(trajectory.u)[3]
-end
-function continuity_constraints!(res, q, state)
-    trajectory, _ = mslayer(nothing, ComponentArray(q, ms_parameter_axes), state)
-    res .= reduce(vcat, trajectory.residuals)
-    return nothing
-end
+ms_objective, continuity_constraints! = shooting_callbacks(mslayer, ms_parameter_axes)
 
-# Bound lifted population/cost values below by zero; only fishing has an upper
-# bound of one. The first initial state stays fixed because there is no lift at t=0.
-ms_lower = zero(ms_initial_parameters)
-ms_upper = similar(ms_initial_parameters)
-fill!(ms_upper, Inf)
-ms_upper.parameter.parameters.p₁.parameter.ps .= 1.0
-nconstraints = length(u0) * length(shooting_points)
+# Annotation bounds cover lifted states and control values, including inserted
+# copies. The count includes nine state and two parameter matching residuals.
+# Constraint callbacks compute parameter differences on demand from the trajectory.
+ms_lower, ms_upper = get_bounds(mslayer, msps, msst)
+nconstraints = get_number_of_shooting_constraints(mslayer, msps, msst)
 ms_optfun = OptimizationFunction(ms_objective, AutoForwardDiff(); cons = continuity_constraints!)
 ms_optprob = OptimizationProblem(
     ms_optfun, ms_initial_parameters, msst;
-    lb = ms_lower, ub = ms_upper,
+    lb = ComponentArray(ms_lower), ub = ComponentArray(ms_upper),
     lcons = zeros(nconstraints), ucons = zeros(nconstraints)
 )
 ms_uopt = solve(
     ms_optprob, Ipopt.Optimizer(),
-    tol = 1.0e-5,
+    tol = 1.0e-6,
     hessian_approximation = "limited-memory",
     max_iter = 300,
+    print_level = 3,
 )
-mssol, _ = mslayer(nothing, ComponentArray(ms_uopt.u, ms_parameter_axes), msst)
-plot_lotka(mssol)
+mssol, _ = mslayer(nothing, ComponentArray(ms_uopt.u, ms_parameter_axes), msst);
+plot_lotka(mssol);
