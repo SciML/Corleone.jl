@@ -158,3 +158,84 @@ end
 
 (layer::Parameter)(prob::SciMLBase.AbstractDEProblem, ps, st) = layer(first(prob.tspan), ps, st)
 (layer::Parameter)(sol::SciMLBase.AbstractTimeseriesSolution, ps, st) = layer(last(current_time(sol)), ps, st)
+
+# Rebuild only changed parameter fields; extensions can preserve their own axes.
+replace_parameter_fields(ps::NamedTuple, fields::NamedTuple) = merge(ps, fields)
+
+function parameter_segment_layout(collection, inserted, times)
+    added = filter(t -> isnothing(collection) || t ∉ collection, times)
+    isempty(added) && return nothing
+    grid = sort!(unique!(isnothing(collection) ? collect(added) : vcat(collection, added)))
+    source = vcat(1, [isnothing(collection) ? 1 : searchsortedlast(collection, t) + 1 for t in grid])
+    marked = [
+        i + 1 for (i, t) in enumerate(grid)
+            if t in added || (!isnothing(collection) && searchsortedlast(collection, t) + 1 in inserted)
+    ]
+    return grid, source, marked
+end
+ChainRulesCore.@non_differentiable parameter_segment_layout(collection, inserted, times)
+
+function add_parameter_segments!(layer::PiecewiseConstant, ps, st, times)
+    layout = parameter_segment_layout(st.lookup.collection, st.lookup.inserted, times)
+    isnothing(layout) && return ps, st
+    grid, source, inserted = layout
+    parameters = replace_parameter_fields(ps.parameter, (; ps = ps.parameter.ps[source]))
+    next_ps = replace_parameter_fields(ps, (; parameter = parameters))
+    lookup = merge(
+        st.lookup, (;
+            collection = grid, inserted,
+            cache = isnothing(st.lookup.cache) ? nothing : empty(st.lookup.cache),
+        )
+    )
+    return next_ps, merge(st, (; lookup))
+end
+
+add_parameter_segments!(::FixedLayer, ps, st, times) = (ps, st)
+
+function add_parameter_segments!(layer::Parameter, ps, st, times)
+    names = keys(layer.parameters)
+    updated = map(names) do name
+        add_parameter_segments!(layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name], times)
+    end
+    parameters = NamedTuple{names}(map(first, updated))
+    states = NamedTuple{names}(map(last, updated))
+    return replace_parameter_fields(ps, (; parameters)), merge(st, (; parameters = states))
+end
+
+number_of_parameter_constraints(layer::PiecewiseConstant, st) = length(st.lookup.inserted)
+number_of_parameter_constraints(::FixedLayer, st) = 0
+function number_of_parameter_constraints(layer::Parameter, st)
+    return sum(keys(layer.parameters); init = 0) do name
+        number_of_parameter_constraints(layer.parameters[name], st.parameters[name])
+    end
+end
+ChainRulesCore.@non_differentiable number_of_parameter_constraints(layer, st)
+
+parameter_constraint_values(::FixedLayer, ps, st, template) = similar(template, 0)
+function parameter_constraint_values(::PiecewiseConstant, ps, st, template)
+    values = ps.parameter.ps
+    return [values[i] - values[i - 1] for i in st.lookup.inserted]
+end
+function append_parameter_constraints(layer::Parameter, ps, st, residuals)
+    number_of_parameter_constraints(layer, st) == 0 && return residuals
+    parts = map(keys(layer.parameters)) do name
+        parameter_constraint_values(layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name], residuals)
+    end
+    return vcat(residuals, parts...)
+end
+
+write_parameter_constraints!(res, index, ::FixedLayer, ps, st) = index
+function write_parameter_constraints!(res, index, ::PiecewiseConstant, ps, st)
+    values = ps.parameter.ps
+    for i in st.lookup.inserted
+        res[index] = values[i] - values[i - 1]
+        index += 1
+    end
+    return index
+end
+function write_parameter_constraints!(res, index, layer::Parameter, ps, st)
+    for name in keys(layer.parameters)
+        index = write_parameter_constraints!(res, index, layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name])
+    end
+    return index
+end

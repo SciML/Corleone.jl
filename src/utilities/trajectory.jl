@@ -198,18 +198,22 @@ shooting_violations(traj::Trajectory) = traj.residuals
 """
 $(SIGNATURES)
 
-Return the scalar initial-condition matching residuals in chronological segment
-order, with variables in canonical state index order within each segment. The
+Return scalar state matching residuals followed by parameter matching residuals.
+State residuals use chronological segment order, with variables in canonical
+state index order within each segment. The
 values are assigned states minus incoming states, as stored in
-`trajectory.residuals`. Fixed assignments do not contribute residuals.
+`trajectory.residuals`. Parameter residuals are computed on demand from the stored
+layer, parameters, and state. Each inserted right-hand interval index `i` contributes
+`values[i] - values[i - 1]`, in canonical parameter order and then increasing index.
+Original parameter switches and fixed assignments do not contribute residuals.
 
 These are equality-constraint values; matching constraint bounds are zero.
 Numerical derivatives flow through the residual values. Use [`shooting_constraints!`](@ref)
 to write directly into an existing optimizer buffer.
 """
 function shooting_constraints(trajectory::Trajectory)
-    isempty(trajectory.residuals) && return similar(first(trajectory.u), 0)
-    return reduce(vcat, trajectory.residuals)
+    residuals = isempty(trajectory.residuals) ? similar(first(trajectory.u), 0) : reduce(vcat, trajectory.residuals)
+    return append_parameter_constraints(trajectory.layer.parameter, trajectory.ps.parameter, trajectory.st.parameter, residuals)
 end
 
 """
@@ -223,7 +227,8 @@ number types. Backends that do not support array mutation should use the allocat
 `shooting_constraints` form instead.
 """
 function shooting_constraints!(res::AbstractVector, trajectory::Trajectory)
-    expected = sum(length, trajectory.residuals; init = 0)
+    expected = sum(length, trajectory.residuals; init = 0) +
+        number_of_parameter_constraints(trajectory.layer.parameter, trajectory.st.parameter)
     length(res) == expected || throw(
         DimensionMismatch(
             "Expected a shooting-constraint buffer of length $expected, got $(length(res))."
@@ -236,5 +241,6 @@ function shooting_constraints!(res::AbstractVector, trajectory::Trajectory)
             index += 1
         end
     end
+    write_parameter_constraints!(res, index, trajectory.layer.parameter, trajectory.ps.parameter, trajectory.st.parameter)
     return res
 end

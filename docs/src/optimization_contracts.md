@@ -77,15 +77,18 @@ trajectory, next_st = layer(nothing, ps, st)
 residuals = shooting_constraints(trajectory)
 ```
 
-The count is computed from schedules and `st.timestops` without a solve. Only
-**tunable, active** state assignments contribute, including assignments at the
+The count is computed from schedules and `st.timestops` without a solve. State
+residuals come from **tunable, active** state assignments, including assignments at the
 problem start. Fixed assignments and assignments at the final endpoint contribute
 none. After changing schedules, refresh `st.timestops` and recompute the count
 before allocating optimizer buffers.
 
-The residual vector uses chronological segment order, then canonical state index
-order within each segment. Each value is the assigned state minus the incoming
-state. It has length `n`, including the zero-constraint case. Equality-constraint
+The residual vector starts with state residuals in chronological segment order,
+then canonical state index order within each segment. Each value is the assigned
+state minus the incoming state. Parameter matching residuals follow in canonical
+parameter order, then increasing inserted interval index. Each inserted interval
+contributes `values[i] - values[i - 1]` exactly once; original switches and fixed
+parameters contribute none. It has length `n`, including the zero-constraint case. Equality-constraint
 bounds are therefore `lcons = zeros(n)` and `ucons = zeros(n)`.
 
 Use the allocating form for a differentiable vector-valued function:
@@ -107,6 +110,31 @@ includes Dual numbers. Backends without array-mutation support should use the
 allocating form. Scheduling/count metadata is non-differentiable; residual values
 retain derivatives through assigned and incoming states.
 
+## Parameter segments
+
+To split tunable parameter intervals at interior full-state resets, call
+`ps, st = add_parameter_segments!(layer, ps, st)` after setup and before creating
+optimizer vectors or bounds. The helper reuses the layer and returns expanded
+parameters and state, preserving their current numerical signal. Each new interval
+starts with a duplicate of the previously active value. Original switches and
+fixed parameters stay unchanged. Partial-state resets do not split parameters.
+
+New right-hand interval indices are recorded in each parameter's
+`st.parameter.parameters.<name>.lookup.inserted`. These markers distinguish
+artificial splits from original switches. Repeated calls are idempotent. Changed
+arrays and grids are newly allocated, affected lookup caches are cleared, and
+`st.timestops` is refreshed from the current schedules. ComponentArray inputs
+receive rebuilt axes. The layer's setup dimensions remain those of the original
+layout; use the returned `ps` to size optimizer storage. Setup restores the original
+layout.
+
+Parameter matching residuals are computed on demand by `shooting_constraints` and
+`shooting_constraints!` from the trajectory's stored layer, parameters, and state.
+They are included in `get_number_of_shooting_constraints` but are not stored in
+`trajectory.residuals`, which continues to hold the forward pass's state residuals.
+Changing the stored parameter values changes the parameter differences on the next
+constraint query; no additional solve is needed to compute those differences.
+
 ## Scope of the contract
 
 The optimizer-facing mapping is deliberately explicit:
@@ -120,7 +148,7 @@ The optimizer-facing mapping is deliberately explicit:
 | Objective and path constraints | User callbacks operating on the trajectory |
 
 These helpers do not add path/terminal constraints automatically, infer an objective
-from quadrature metadata, or introduce per-block parameter copies. Wrappers in
+from quadrature metadata, or automatically split parameter intervals. Wrappers in
 sibling packages can delegate to the underlying layer using their own nested
 parameter/state locations. Automatic objective/path-constraint construction and
 an OptimizationProblem bridge are separate follow-up work. Block structure belongs

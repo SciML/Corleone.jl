@@ -47,6 +47,12 @@ else
             @safetestset "Optimization contract differentiation" begin
                 include("core/optimization_contracts_ad.jl")
             end
+            @safetestset "Parameter shooting segments" begin
+                include("core/parameter_segments.jl")
+            end
+            @safetestset "Parameter segment differentiation" begin
+                include("core/parameter_segments_ad.jl")
+            end
             @safetestset "Cached shooting timestops" begin
                 include("core/shooting_timestops.jl")
             end

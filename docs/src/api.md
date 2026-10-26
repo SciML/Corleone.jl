@@ -107,6 +107,7 @@ variable bounds, constraint ordering, and optimizer buffer requirements. The
 get_lower_bound
 get_upper_bound
 get_number_of_shooting_constraints
+add_parameter_segments!
 shooting_constraints
 shooting_constraints!
 ```

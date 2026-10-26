@@ -61,7 +61,7 @@ LuxCore.initialstates(::Random.AbstractRNG, x::LookUp) = (;
 function LuxCore.apply(::LookUp, t::T, ::Any, st::NamedTuple) where {T <: Real}
     (; collection, cache, inserted) = st
     idx = lookup!(cache, collection, t)
-    return (idx, any(idx == inserted)), st
+    return (idx, idx in inserted), st
 end
 
 Base.haskey(::LookUp, k, ps, st) = _haskey(st.collection, k)

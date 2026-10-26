@@ -160,7 +160,10 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
     sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true, save_end = true)
     next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
-    residuals = variable_residuals
+    # Parameters can first introduce AD scalars in the solve, after the initial
+    # (possibly empty) residual vector has already been constructed.
+    residual_type = promote_type(eltype(variable_residuals), eltype(terminal_state(sol)))
+    residuals = residual_type === eltype(variable_residuals) ? variable_residuals : residual_type.(variable_residuals)
     return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end])
 end
 
@@ -251,10 +254,12 @@ end
 """
 $(SIGNATURES)
 
-Count scalar initial-condition matching residuals for the cached segment grid in
+Count scalar state and parameter matching residuals for the cached segment grid in
 `st.timestops`, without running the model. Each tunable initial condition contributes
 one residual at each matching segment start, including the problem start when
-scheduled. Fixed assignments and resets at the final endpoint contribute none.
+scheduled. Each inserted interval of a tunable parameter adds one matching residual,
+counted once regardless of other segment boundaries within that interval. Original
+parameter switches, fixed assignments, and resets at the final endpoint contribute none.
 
 The count uses scheduling metadata in Lux state; `ps` may be `nothing`. Refresh
 `st.timestops` after changing schedules, then recompute this count before allocating
@@ -270,7 +275,36 @@ function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
             n += resets_variable(ic, state, st.timestops[i])
         end
     end
-    return n
+    return n + number_of_parameter_constraints(layer.parameter, st.parameter)
 end
 
 ChainRulesCore.@non_differentiable get_number_of_shooting_constraints(layer, ps, st)
+
+"""
+$(SIGNATURES)
+
+Split tunable parameter intervals at interior full-state resets and return updated
+`(ps, st)` for the same layer. New interval values duplicate the previously active
+value. Their right-hand interval indices are recorded in `st`'s per-parameter
+`lookup.inserted` vectors, for subsequent parameter matching constraints.
+
+Existing parameter switches remain unconstrained, and fixed parameters are unchanged.
+Repeated calls do not insert additional entries. The input arrays and layer are
+retained unchanged; changed parameter arrays and lookup grids are newly allocated,
+and affected lookup caches are cleared. Segment boundaries are read from the current
+initial-condition schedules and the stored problem span; the returned state's cached
+timestops are refreshed. No solve, initialization, or constraint construction occurs.
+
+The layer's setup dimensions remain unchanged. Use the returned parameters to size
+optimizer storage and query bounds; calling setup again restores the original layout.
+"""
+function add_parameter_segments!(layer::ShootingLayer, ps, st)
+    tstops = get_timestops(layer, nothing, st)
+    blocks = shooting_blocks(layer, nothing, st, tstops)
+    times = [tstops[first(block)] for block in blocks[2:end]]
+    isempty(times) && return ps, merge(st, (; timestops = tstops))
+    parameters, state = add_parameter_segments!(layer.parameter, ps.parameter, st.parameter, times)
+    next_ps = replace_parameter_fields(ps, (; parameter = parameters))
+    next_st = merge(st, (; parameter = state, timestops = tstops))
+    return next_ps, next_st
+end

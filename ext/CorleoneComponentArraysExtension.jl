@@ -21,4 +21,11 @@ Corleone.empty_parameter_structure(ps::ComponentVector) =
 Corleone.unbounded_parameter_bounds(ps::ComponentVector, value) =
     Corleone.parameter_bound_tree(ps, value)
 
+# Splitting intervals changes axes, so rebuild structured parameter storage.
+function Corleone.replace_parameter_fields(ps::ComponentVector, fields::NamedTuple)
+    names = propertynames(ps)
+    tree = NamedTuple{names}(map(name -> getproperty(ps, name), names))
+    return ComponentArray(merge(tree, fields))
+end
+
 end
