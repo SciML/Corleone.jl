@@ -43,7 +43,7 @@ function is_fully_specified(x::AbstractAnnotation)
 end
 
 function is_minimum_specified(x::AbstractAnnotation)
-    (has_index(x) || has_sym(x)) &&
+    return (has_index(x) || has_sym(x)) &&
         (is_parameter(x) || is_variable(x))
 end
 
@@ -65,9 +65,11 @@ index, symbol, default, bounds, and integrality metadata. Reject unknown selecto
 inconsistent symbol/index pairs, reversed bounds, and defaults outside bounds.
 """
 function update_annotation(x::AbstractAnnotation, indep)
-    is_minimum_specified(x) || throw(ArgumentError(
-        "Provide an index or symbol and a parameter or variable kind for $x."
-    ))
+    is_minimum_specified(x) || throw(
+        ArgumentError(
+            "Provide an index or symbol and a parameter or variable kind for $x."
+        )
+    )
     indexof = is_parameter(x) ? SymbolicIndexingInterface.parameter_index :
         SymbolicIndexingInterface.variable_index
     symbols = is_parameter(x) ? SymbolicIndexingInterface.parameter_symbols(indep) :
@@ -168,14 +170,15 @@ end
 is_tunable(::DynamicVariable{T}) where {T} = T
 
 # Preserve the tunability type parameter while allowing field types to change.
-function SciMLBase.remake(x::DynamicVariable{T};
+function SciMLBase.remake(
+        x::DynamicVariable{T};
         index = x.index, sym = x.sym, kind = x.kind, default = x.default,
         lowerbound = x.lowerbound, upperbound = x.upperbound, integer = x.integer,
     ) where {T}
     return DynamicVariable{T}(index, sym, kind, default, lowerbound, upperbound, integer)
 end
 
-function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where T
+function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where {T}
     output = has_sym(f) ? string(SymbolicIndexingInterface.getname(f.sym)) * "=" : ""
     if has_default(f)
         output *= string(get_default(f))
@@ -188,7 +191,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where T
     else
         output *= ")"
     end
-    print(io, output)
+    return print(io, output)
 end
 
 """
@@ -217,11 +220,11 @@ are needed.
 function Tunable(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))
-    DynamicVariable{true}(index, sym, kind, default, lowerbound,  upperbound, integer)
+    return DynamicVariable{true}(index, sym, kind, default, lowerbound, upperbound, integer)
 end
 
 function Tunable(index_or_sym; kwargs...)
-    if SymbolicIndexingInterface.symbolic_type(index_or_sym) == SymbolicIndexingInterface.NotSymbolic()
+    return if SymbolicIndexingInterface.symbolic_type(index_or_sym) == SymbolicIndexingInterface.NotSymbolic()
         Tunable(; index = index_or_sym, kwargs...)
     else
         Tunable(; sym = index_or_sym, kwargs...)
@@ -240,11 +243,11 @@ and active fixed initial conditions do not contribute shooting residuals.
 function Constant(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))
-    DynamicVariable{false}(index, sym, kind, default, lowerbound,  upperbound, integer)
+    return DynamicVariable{false}(index, sym, kind, default, lowerbound, upperbound, integer)
 end
 
 function Constant(index_or_sym; kwargs...)
-    if SymbolicIndexingInterface.symbolic_type(index_or_sym) == SymbolicIndexingInterface.NotSymbolic()
+    return if SymbolicIndexingInterface.symbolic_type(index_or_sym) == SymbolicIndexingInterface.NotSymbolic()
         Constant(; index = index_or_sym, kwargs...)
     else
         Constant(; sym = index_or_sym, kwargs...)
@@ -259,13 +262,13 @@ process_definition(y, x::Val, ks::Tuple, v) = reduce(
     end
 )
 
-process_definition(y, x::Val, ks::AbstractArray, v)  = map(ks) do k
+process_definition(y, x::Val, ks::AbstractArray, v) = map(ks) do k
     process_definition(y, x, k, v)
 end
 
 function process_definition(indep, kind::Val, k, v)
-    var = Tunable(k,  kind = kind)
-    update_annotation(var, indep) => v
+    var = Tunable(k, kind = kind)
+    return update_annotation(var, indep) => v
 end
 
 function process_definition(indep, kind::Val, annotation::AbstractAnnotation, grid)

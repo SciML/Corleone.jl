@@ -13,9 +13,11 @@ function extract_metadata(file_path)
 end
 
 function preprocess_script(content)
-    content = replace(content, "TODAY" => string(Date(now())),
+    content = replace(
+        content, "TODAY" => string(Date(now())),
         "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
-            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)")
+            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)"
+    )
     content *= """
             # ## Appendix
             # ```@raw html

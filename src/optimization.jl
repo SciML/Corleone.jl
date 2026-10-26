@@ -38,8 +38,10 @@ arrays such as ComponentArrays are supported; flatten all three trees with the
 same vectorization outside this API. `st` is optional. Flat optimizer vectors must
 be reconstructed before requesting bounds for a container layer.
 """
-function get_bounds(layer::Union{LuxCore.AbstractLuxLayer, NamedTuple, Tuple, AbstractArray, Nothing},
-        ps::Union{NamedTuple, Tuple, AbstractArray}, st = nothing)
+function get_bounds(
+        layer::Union{LuxCore.AbstractLuxLayer, NamedTuple, Tuple, AbstractArray, Nothing},
+        ps::Union{NamedTuple, Tuple, AbstractArray}, st = nothing
+    )
     return get_lower_bound(layer, ps, st), get_upper_bound(layer, ps, st)
 end
 
@@ -50,13 +52,17 @@ for (operation, unbounded) in ((:get_lower_bound, -Inf), (:get_upper_bound, Inf)
         $(operation)(::Union{LuxCore.AbstractLuxLayer, Nothing}, ps, st = nothing) =
             unbounded_parameter_bounds(ps, $unbounded)
 
-        function $(operation)(layer::LuxCore.AbstractLuxContainerLayer{fields}, ps,
-                st = nothing) where {fields}
+        function $(operation)(
+                layer::LuxCore.AbstractLuxContainerLayer{fields}, ps,
+                st = nothing
+            ) where {fields}
             return container_parameter_bounds($(operation), layer, ps, st, fields)
         end
 
-        function $(operation)(layer::LuxCore.AbstractLuxWrapperLayer{field}, ps,
-                st = nothing) where {field}
+        function $(operation)(
+                layer::LuxCore.AbstractLuxWrapperLayer{field}, ps,
+                st = nothing
+            ) where {field}
             # Wrappers may move all inner parameters into state (e.g. FixedLayer).
             # An empty supplied subtree has no optimization entries to traverse.
             empty_parameter_structure(ps) && return (;)
@@ -65,9 +71,11 @@ for (operation, unbounded) in ((:get_lower_bound, -Inf), (:get_upper_bound, Inf)
 
         function $(operation)(layers::NamedTuple, ps, st = nothing)
             names = optimization_parameter_names(ps, keys(layers))
-            return NamedTuple{names}(map(names) do name
-                $(operation)(layers[name], getproperty(ps, name), bound_child_state(st, name))
-            end)
+            return NamedTuple{names}(
+                map(names) do name
+                    $(operation)(layers[name], getproperty(ps, name), bound_child_state(st, name))
+                end
+            )
         end
 
         function $(operation)(layers::Tuple, ps::Tuple, st = nothing)
@@ -91,9 +99,11 @@ bound_child_state(st, i::Union{Integer, CartesianIndex}) = isnothing(st) ? nothi
 
 function container_parameter_bounds(operation, layer, ps, st, fields)
     names = optimization_parameter_names(ps, fields)
-    return NamedTuple{names}(map(names) do name
-        operation(getfield(layer, name), getproperty(ps, name), bound_child_state(st, name))
-    end)
+    return NamedTuple{names}(
+        map(names) do name
+            operation(getfield(layer, name), getproperty(ps, name), bound_child_state(st, name))
+        end
+    )
 end
 
 empty_parameter_structure(ps) = isempty(ps)

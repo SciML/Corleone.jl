@@ -15,8 +15,10 @@ function shooting_blocks(x::ShootingLayer, ps, st, tstops)
         end
         all(resets) && push!(starts, i)
     end
-    return [starts[i]:(i == length(starts) ? lastindex(tstops) : starts[i + 1])
-        for i in eachindex(starts)]
+    return [
+        starts[i]:(i == length(starts) ? lastindex(tstops) : starts[i + 1])
+            for i in eachindex(starts)
+    ]
 end
 @non_differentiable shooting_blocks(::Any, ::Any, ::Any, ::Any)
 
@@ -27,18 +29,24 @@ copy_shooting_cache(::Nothing) = nothing
 @non_differentiable copy_shooting_cache(::Any)
 
 private_shooting_state(::Union{PassThrough, ParameterCollection}, st) = st
-private_shooting_state(::LookUp, st) = merge(st, (;
-    inserted = copy_shooting_cache(st.inserted), cache = copy_shooting_cache(st.cache)))
+private_shooting_state(::LookUp, st) = merge(
+    st, (;
+        inserted = copy_shooting_cache(st.inserted), cache = copy_shooting_cache(st.cache),
+    )
+)
 private_shooting_state(ic::FixedLayer, st) = (;
-    states = private_shooting_state(ic.layer, st.states), parameters = st.parameters)
+    states = private_shooting_state(ic.layer, st.states), parameters = st.parameters,
+)
 private_shooting_state(ic::Union{InitialCondition, PiecewiseConstant}, st) =
     merge(st, (; lookup = private_shooting_state(ic.lookup, st.lookup)))
 function private_shooting_state(layer::InitialConditions, st)
     children = map(keys(layer.initialconditions)) do key
         private_shooting_state(layer.initialconditions[key], st.initialconditions[key])
     end
-    return (; initialconditions = NamedTuple{keys(layer.initialconditions)}(Tuple(children)),
-        active = copy_shooting_cache(st.active))
+    return (;
+        initialconditions = NamedTuple{keys(layer.initialconditions)}(Tuple(children)),
+        active = copy_shooting_cache(st.active),
+    )
 end
 function private_shooting_state(layer::Parameter, st)
     children = map(keys(layer.parameters)) do key
@@ -46,17 +54,22 @@ function private_shooting_state(layer::Parameter, st)
     end
     return (; parameters = NamedTuple{keys(layer.parameters)}(Tuple(children)))
 end
-private_shooting_state(x::ShootingLayer, st) = merge(st, (;
-    initialcondition = private_shooting_state(x.initialcondition, st.initialcondition),
-    parameter = private_shooting_state(x.parameter, st.parameter)))
+private_shooting_state(x::ShootingLayer, st) = merge(
+    st, (;
+        initialcondition = private_shooting_state(x.initialcondition, st.initialcondition),
+        parameter = private_shooting_state(x.parameter, st.parameter),
+    )
+)
 
 shooting_map(f, alg, blocks) = mythreadmap(alg, f, blocks)
 
 # Record and execute reverse-mode solves serially until task-local AD contexts
 # and cotangent reduction are available. This uses one forward solve per block;
 # ordinary forward execution (including ForwardDiff) still uses the ensemble map.
-function ChainRulesCore.rrule(config::RuleConfig{>:HasReverseMode},
-        ::typeof(shooting_map), f, alg, blocks)
+function ChainRulesCore.rrule(
+        config::RuleConfig{>:HasReverseMode},
+        ::typeof(shooting_map), f, alg, blocks
+    )
     output, pullback = rrule_via_ad(config, map, f, blocks)
     function shooting_map_pullback(delta)
         _, df, dblocks = pullback(delta)
@@ -85,8 +98,10 @@ function ChainRulesCore.rrule(::typeof(unpack_shooting_results), results)
     return output, unpack_results_pullback
 end
 
-function solve_problems(ensemblealg::Union{EnsembleThreads, EnsembleDistributed},
-        x::ShootingLayer, prob::SciMLBase.AbstractODEProblem, ps, st, tstops)
+function solve_problems(
+        ensemblealg::Union{EnsembleThreads, EnsembleDistributed},
+        x::ShootingLayer, prob::SciMLBase.AbstractODEProblem, ps, st, tstops
+    )
     blocks = shooting_blocks(x, ps, st, tstops)
     # No independent restart: retain the serial solver and its buffers.
     length(blocks) == 1 && return solve_problems(EnsembleSerial(), x, prob, ps, st, tstops)
@@ -102,8 +117,10 @@ function solve_problems(ensemblealg::Union{EnsembleThreads, EnsembleDistributed}
         block_residuals = residual_blocks[i]
         i == 1 && return block_residuals
         incoming = terminal_state(last(solution_blocks[i - 1]))
-        (_, boundary_residual), _ = x.initialcondition((incoming, tstops[first(blocks[i])]),
-            ps.initialcondition, private_shooting_state(x.initialcondition, st.initialcondition))
+        (_, boundary_residual), _ = x.initialcondition(
+            (incoming, tstops[first(blocks[i])]),
+            ps.initialcondition, private_shooting_state(x.initialcondition, st.initialcondition)
+        )
         vcat([boundary_residual], block_residuals[2:end])
     end
     return solutions, reduce(vcat, residuals), next_st

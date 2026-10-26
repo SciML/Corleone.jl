@@ -15,8 +15,10 @@ end
         layer = Corleone.InitialCondition(grid, (rng, n) -> [10.0, 30.0])
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         @test length(ps.parameter.ps) == length(grid)
-        for (t, expected) in ((0.0, 7.0), (0.5, 7.0), (1.0, 10.0),
-                (2.0, 7.0), (3.0, 30.0), (4.0, 7.0))
+        for (t, expected) in (
+                (0.0, 7.0), (0.5, 7.0), (1.0, 10.0),
+                (2.0, 7.0), (3.0, 30.0), (4.0, 7.0),
+            )
             value, next_st = layer((7.0, t), ps, st)
             @test value == expected
             @test next_st.lookup == st.lookup
@@ -40,7 +42,8 @@ end
 
 @testset "Independent variable grids and pass-through" begin
     prob = ODEProblem((u, p, t) -> ones(3), [1.0, 2.0, 3.0], (0.0, 4.0), [0.0])
-    layer = InitialConditions(prob,
+    layer = InitialConditions(
+        prob,
         Tunable(1; default = 10.0) => [1.0, 3.0],
         Constant(2; default = 20.0) => [2.0],
     )
@@ -85,7 +88,8 @@ end
 
 @testset "Scheduled initial conditions through ShootingLayer" begin
     prob = ODEProblem((u, p, t) -> [p[1], 1.0], [1.0, 2.0], (0.0, 3.0), [1.0])
-    layer = ShootingLayer(prob, Tsit5(),
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:variable), default = 10.0) => [1.0, 2.0],
         Constant(1; kind = Val(:parameter), default = 2.0) => nothing,
     )
@@ -94,8 +98,10 @@ end
     traj, _ = layer(nothing, ps, st)
     @test traj.t == [0.0, 1.0, 1.0, 2.0, 2.0, 3.0]
     @test traj.reset_indices == [3, 5]
-    @test traj.u ≈ [[1.0, 2.0], [3.0, 3.0], [10.0, 3.0],
-        [12.0, 4.0], [20.0, 4.0], [22.0, 5.0]]
+    @test traj.u ≈ [
+        [1.0, 2.0], [3.0, 3.0], [10.0, 3.0],
+        [12.0, 4.0], [20.0, 4.0], [22.0, 5.0],
+    ]
     @test isempty(traj.residuals[1])
     @test traj.residuals[2] ≈ [7.0]
     @test traj.residuals[3] ≈ [8.0]

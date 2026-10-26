@@ -27,9 +27,11 @@ following interval. A `nothing` grid creates one value. Time-based callbacks req
 followed by the switching times. `cache` optionally caches time lookups. Output
 length and `bounds` are checked during Lux setup.
 """
-function PiecewiseConstant(timegrid::Union{AbstractVector{<:Number}, Nothing}, default;
+function PiecewiseConstant(
+        timegrid::Union{AbstractVector{<:Number}, Nothing}, default;
         name = nothing, cache = nothing, initialization_times = nothing,
-        bounds = (-Inf, Inf), kwargs...)
+        bounds = (-Inf, Inf), kwargs...
+    )
     lookup = LookUp(timegrid, cache)
     n = isnothing(timegrid) ? 1 : length(timegrid) + 1
     isnothing(initialization_times) || length(initialization_times) == n ||
@@ -82,9 +84,11 @@ function Parameter(
         fixed = [],
         sys = get_symbolic_container(prob),
     )
-    definitions = reduce(vcat, map(defintions) do definition
-        process_definition(sys, Val(:parameter), definition...)
-    end; init = Pair[])
+    definitions = reduce(
+        vcat, map(defintions) do definition
+            process_definition(sys, Val(:parameter), definition...)
+        end; init = Pair[]
+    )
     indices = map(definition -> get_index(first(definition)), definitions)
     allunique(indices) || throw(ArgumentError("Define each parameter only once."))
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
@@ -99,8 +103,10 @@ function Parameter(
         else
             annotation, grid = definitions[position]
             times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
-            layer = PiecewiseConstant(grid, get_default(annotation); name = sym,
-                initialization_times = times, bounds = get_bounds(annotation))
+            layer = PiecewiseConstant(
+                grid, get_default(annotation); name = sym,
+                initialization_times = times, bounds = get_bounds(annotation)
+            )
             tunable = is_tunable(annotation)
         end
         Symbol(sym) => (tunable && i ∉ fixed_indices ? layer : FixedLayer(layer))

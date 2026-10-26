@@ -7,11 +7,13 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
         fill(1.0, n)
     end
     prob = ODEProblem((u, p, t) -> zero(u), [1.0, 2.0, 3.0], (0.0, 3.0), [1.0, 2.0, 3.0])
-    layer = ShootingLayer(prob, Tsit5(),
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:variable), default = initialize, lowerbound = 0.0, upperbound = 4.0) => [0.0, 1.0],
         Constant(2; kind = Val(:variable), lowerbound = 0.0, upperbound = 10.0) => [1.0],
         Tunable(1; kind = Val(:parameter), default = initialize, lowerbound = -1.0, upperbound = 2.0) => [1.0, 2.0],
-        Constant(2; kind = Val(:parameter), lowerbound = 0.0, upperbound = 5.0) => nothing)
+        Constant(2; kind = Val(:parameter), lowerbound = 0.0, upperbound = 5.0) => nothing
+    )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test calls[] == 2
     lower, upper = get_bounds(layer, ps, st)
@@ -35,10 +37,15 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
     @test ps.initialcondition.initialconditions.u₁.parameter.ps == ones(2)
     # Optimizer ordering follows the supplied parameter tree, not symbol names
     # or the layer's constructor order.
-    reversed = (; parameter = (; parameters = (;
-        p₃ = ps.parameter.parameters.p₃,
-        p₁ = ps.parameter.parameters.p₁,
-        p₂ = ps.parameter.parameters.p₂)), initialcondition = ps.initialcondition)
+    reversed = (;
+        parameter = (;
+            parameters = (;
+                p₃ = ps.parameter.parameters.p₃,
+                p₁ = ps.parameter.parameters.p₁,
+                p₂ = ps.parameter.parameters.p₂,
+            ),
+        ), initialcondition = ps.initialcondition,
+    )
     reordered_lower, reordered_upper = get_bounds(layer, reversed, st)
     @test keys(reordered_lower) == keys(reordered_upper) == keys(reversed)
     @test keys(reordered_lower.parameter.parameters) == (:p₃, :p₁, :p₂)
@@ -77,10 +84,12 @@ end
 @testset "Shooting constraint count, order, and buffers" begin
     prob = ODEProblem((u, p, t) -> [1.0, 2.0, 3.0], [1.0, 2.0, 3.0], (0.0, 3.0), Float64[])
     for alg in (EnsembleSerial(), EnsembleThreads())
-        layer = ShootingLayer(prob, Tsit5(),
+        layer = ShootingLayer(
+            prob, Tsit5(),
             Tunable(1; kind = Val(:variable), default = [10.0, 20.0, 99.0]) => [0.0, 1.0, 3.0],
             Constant(2; kind = Val(:variable), default = 7.0) => [1.0, 2.0],
-            Tunable(3; kind = Val(:variable), default = [30.0, 40.0]) => [1.0, 2.0]; ensemblealg = alg)
+            Tunable(3; kind = Val(:variable), default = [30.0, 40.0]) => [1.0, 2.0]; ensemblealg = alg
+        )
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         @test get_number_of_shooting_constraints(layer, ps, st) == 4
         @test get_number_of_shooting_constraints(layer, nothing, st) == 4
@@ -138,14 +147,19 @@ end
     calls = Ref(0)
     leaf = BoundsTestLeaf(calls)
     prob = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [0.2])
-    shooter = ShootingLayer(prob, Tsit5(),
+    shooter = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:variable), lowerbound = 0.0, upperbound = 4.0) => [1.0],
-        Tunable(1; kind = Val(:parameter), lowerbound = -0.5, upperbound = 0.5) => [1.0])
-    model = BoundsTestContainer((;
-        dense = leaf,
-        shooting = BoundsTestWrapper(shooter),
-        fixed = Corleone.FixedLayer(leaf),
-        optional = nothing))
+        Tunable(1; kind = Val(:parameter), lowerbound = -0.5, upperbound = 0.5) => [1.0]
+    )
+    model = BoundsTestContainer(
+        (;
+            dense = leaf,
+            shooting = BoundsTestWrapper(shooter),
+            fixed = Corleone.FixedLayer(leaf),
+            optional = nothing,
+        )
+    )
     ps, st = LuxCore.setup(MersenneTwister(1), model)
     @test calls[] == 2
     lower = get_lower_bound(model, ps, st)
@@ -188,8 +202,10 @@ end
     # Preserve named zero-length parameter fields through transparent wrappers,
     # even when a ComponentArray's flattened storage is empty.
     empty_prob = ODEProblem((u, p, t) -> zero(u), [1.0], (0.0, 1.0), Float64[])
-    empty_shooter = ShootingLayer(empty_prob, Tsit5(),
-        Tunable(1; kind = Val(:variable)) => Float64[])
+    empty_shooter = ShootingLayer(
+        empty_prob, Tsit5(),
+        Tunable(1; kind = Val(:variable)) => Float64[]
+    )
     empty_ps, empty_st = LuxCore.setup(MersenneTwister(1), empty_shooter)
     empty_lower, empty_upper = get_bounds(empty_shooter, empty_ps, empty_st)
     @test empty_lower.initialcondition.initialconditions.u₁.parameter.ps == Float64[]

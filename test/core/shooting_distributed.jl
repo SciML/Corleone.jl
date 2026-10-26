@@ -8,10 +8,14 @@ using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
     try
         @everywhere added using Corleone, LuxCore, OrdinaryDiffEqTsit5
         prob = ODEProblem((u, p, t) -> [p[1] * u[1]], [1.0], (0.0, 3.0), [0.2])
-        serial = ShootingLayer(prob, Tsit5(),
-            Tunable(1; kind = Val(:variable)) => [1.0, 2.0])
-        distributed = ShootingLayer(serial.name, prob, serial.alg, EnsembleDistributed(),
-            serial.initialcondition, serial.parameter)
+        serial = ShootingLayer(
+            prob, Tsit5(),
+            Tunable(1; kind = Val(:variable)) => [1.0, 2.0]
+        )
+        distributed = ShootingLayer(
+            serial.name, prob, serial.alg, EnsembleDistributed(),
+            serial.initialcondition, serial.parameter
+        )
         ps, st = LuxCore.setup(MersenneTwister(1), serial)
         expected, expected_st = serial(nothing, ps, st)
         actual, actual_st = distributed(nothing, ps, st)

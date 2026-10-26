@@ -8,9 +8,11 @@ using ComponentArrays
 function Corleone.parameter_bound_tree(ps::ComponentVector, value)
     names = propertynames(ps)
     isempty(names) && !isempty(ps) && return fill(value, size(ps))
-    return NamedTuple{names}(map(names) do name
-        Corleone.parameter_bound_tree(getproperty(ps, name), value)
-    end)
+    return NamedTuple{names}(
+        map(names) do name
+            Corleone.parameter_bound_tree(getproperty(ps, name), value)
+        end
+    )
 end
 
 Corleone.empty_parameter_structure(ps::ComponentVector) =

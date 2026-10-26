@@ -46,8 +46,10 @@ vector, or count/timepoint initializer as described by [`Tunable`](@ref). Times 
 be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
 cache. Output length and `bounds` are checked during Lux setup.
 """
-function InitialCondition(timegrid::AbstractVector{<:Real}, default;
-        name = nothing, cache = nothing, bounds = (-Inf, Inf))
+function InitialCondition(
+        timegrid::AbstractVector{<:Real}, default;
+        name = nothing, cache = nothing, bounds = (-Inf, Inf)
+    )
     allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
     lookup = LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache)
     initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, bounds)
@@ -60,20 +62,20 @@ end
 
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, x::InitialCondition)
-    (;
-        lookup=LuxCore.initialstates(rng, x.lookup),
-        parameter=LuxCore.initialstates(rng, x.parameter),
-        active=false
+    return (;
+        lookup = LuxCore.initialstates(rng, x.lookup),
+        parameter = LuxCore.initialstates(rng, x.parameter),
+        active = false,
     )
 
 end
 
 function (layer::InitialCondition)((incoming, t)::Tuple, ps, st)
     T = promote_type(typeof(incoming), eltype(ps.parameter.ps))
-    haskey(layer.lookup, t, ps.lookup, st.lookup) || return T(incoming), merge(st, (; active=false))
+    haskey(layer.lookup, t, ps.lookup, st.lookup) || return T(incoming), merge(st, (; active = false))
     (index, _), lookup_st = LuxCore.apply(layer.lookup, t, ps.lookup, st.lookup)
     value, parameter_st = LuxCore.apply(layer.parameter, index, ps.parameter, st.parameter)
-    return value, (; lookup=lookup_st, parameter=parameter_st, active=true)
+    return value, (; lookup = lookup_st, parameter = parameter_st, active = true)
 end
 
 istypemax(x::V) where {V} = x === typemax(V)
@@ -109,8 +111,8 @@ end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::InitialConditions)
     return (;
-        initialconditions=map(ic -> LuxCore.initialstates(rng, ic), layer.initialconditions),
-        active=fill(false, length(layer.initialconditions)),
+        initialconditions = map(ic -> LuxCore.initialstates(rng, ic), layer.initialconditions),
+        active = fill(false, length(layer.initialconditions)),
     )
 end
 
@@ -122,12 +124,16 @@ Annotations of kind `Val(:variable)` select state entries. Unspecified variables
 pass through their incoming values; `Constant` definitions store reset values in
 Lux state. `sys` supplies symbols, defaults, and annotation bounds.
 """
-function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions...;
-        name=nothing, sys=get_symbolic_container(problem))
+function InitialConditions(
+        problem::SciMLBase.AbstractSciMLProblem, definitions...;
+        name = nothing, sys = get_symbolic_container(problem)
+    )
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.u0)
-    processed = reduce(vcat, map(definitions) do definition
-        process_definition(sys, Val(:variable), definition...)
-    end; init=Pair[])
+    processed = reduce(
+        vcat, map(definitions) do definition
+            process_definition(sys, Val(:variable), definition...)
+        end; init = Pair[]
+    )
     indices = map(definition -> get_index(first(definition)), processed)
     allunique(indices) || throw(ArgumentError("Define each initial-condition variable only once."))
     symbols = SymbolicIndexingInterface.variable_symbols(sys)
@@ -138,7 +144,7 @@ function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions.
             layer = PassThrough(sym)
         else
             annotation, grid = processed[position]
-            layer = InitialCondition(grid, get_default(annotation); name=sym, bounds=get_bounds(annotation))
+            layer = InitialCondition(grid, get_default(annotation); name = sym, bounds = get_bounds(annotation))
             layer = is_tunable(annotation) ? layer : FixedLayer(layer)
         end
         return Symbol(sym) => layer
@@ -147,9 +153,11 @@ function InitialConditions(problem::SciMLBase.AbstractSciMLProblem, definitions.
 end
 
 function get_timestops(layer::InitialConditions, ps, st, ::Type{T}) where {T}
-    times = reduce(vcat, map(keys(layer.initialconditions)) do key
-        get_timestops(layer.initialconditions[key], nothing, st.initialconditions[key], T)
-    end; init=T[])
+    times = reduce(
+        vcat, map(keys(layer.initialconditions)) do key
+            get_timestops(layer.initialconditions[key], nothing, st.initialconditions[key], T)
+        end; init = T[]
+    )
     return sort!(unique!(times))
 end
 
@@ -180,10 +188,10 @@ function (layer::InitialConditions)((incoming, t)::Tuple, ps, st)
     out, new_st = apply_ics(layer.initialconditions, incoming, t, ps.initialconditions, st.initialconditions)
     active = update_active_ics!(st.active, values(layer.initialconditions), values(new_st))
     residuals = [out[i] - incoming[i] for i in eachindex(out) if active[i]]
-    return (layer.repack(out), residuals), (; initialconditions=new_st, active)
+    return (layer.repack(out), residuals), (; initialconditions = new_st, active)
 end
 
-@generated function apply_ics(ics::NamedTuple{names}, vals, t, ps, st::NamedTuple{names}) where names
+@generated function apply_ics(ics::NamedTuple{names}, vals, t, ps, st::NamedTuple{names}) where {names}
     outs = Symbol[]
     sts = Symbol[]
     exprs = Expr[]

@@ -49,10 +49,12 @@ SymbolicIndexingInterface.symbolic_container(layer::ShootingLayer) = layer.sys
 # constructing the numerical sublayers. Explicit annotations override defaults.
 function shooting_metadata(problem, definitions, ic_defs; controls, quadratures, bounds)
     parent = ControlSymbolCache(problem)
-    cache = ControlSymbolCache(parent;
+    cache = ControlSymbolCache(
+        parent;
         controls = isnothing(controls) ? parent.controls : controls,
         quadratures = isnothing(quadratures) ? parent.quadratures : quadratures,
-        bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds))
+        bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds)
+    )
     effective_bounds = nothing
     for (i, definition) in enumerate(definitions)
         annotation = definition isa Pair ? first(definition) : definition
@@ -129,7 +131,7 @@ end
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ShootingLayer)
     st = (;
         initialcondition = LuxCore.initialstates(rng, layer.initialcondition),
-        parameter = LuxCore.initialstates(rng, layer.parameter)
+        parameter = LuxCore.initialstates(rng, layer.parameter),
     )
     tstops = get_timestops(layer, nothing, st)
     return merge(st, (; timestops = tstops))
@@ -221,13 +223,20 @@ function shooting_parameter_bounds(operation, select, layer, ps, st)
     # Build the parameter tree through the same generic Lux recursion. Applying
     # symbolic metadata is the only ShootingLayer-specific part of this protocol.
     bounds = container_parameter_bounds(operation, layer, ps, st, (:initialcondition, :parameter))
-    variable_bounds = symbolic_parameter_bounds(bounds.initialcondition.initialconditions,
-        layer.sys, variable_symbols(layer.sys), select)
-    parameter_bounds = symbolic_parameter_bounds(bounds.parameter.parameters,
-        layer.sys, parameter_symbols(layer.sys), select)
-    return merge(bounds, (;
-        initialcondition = merge(bounds.initialcondition, (; initialconditions = variable_bounds)),
-        parameter = merge(bounds.parameter, (; parameters = parameter_bounds))))
+    variable_bounds = symbolic_parameter_bounds(
+        bounds.initialcondition.initialconditions,
+        layer.sys, variable_symbols(layer.sys), select
+    )
+    parameter_bounds = symbolic_parameter_bounds(
+        bounds.parameter.parameters,
+        layer.sys, parameter_symbols(layer.sys), select
+    )
+    return merge(
+        bounds, (;
+            initialcondition = merge(bounds.initialcondition, (; initialconditions = variable_bounds)),
+            parameter = merge(bounds.parameter, (; parameters = parameter_bounds)),
+        )
+    )
 end
 
 function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select)

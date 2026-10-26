@@ -213,9 +213,11 @@ number types. Backends that do not support array mutation should use the allocat
 """
 function shooting_constraints!(res::AbstractVector, trajectory::Trajectory)
     expected = sum(length, trajectory.residuals; init = 0)
-    length(res) == expected || throw(DimensionMismatch(
-        "Expected a shooting-constraint buffer of length $expected, got $(length(res))."
-    ))
+    length(res) == expected || throw(
+        DimensionMismatch(
+            "Expected a shooting-constraint buffer of length $expected, got $(length(res))."
+        )
+    )
     index = firstindex(res)
     for residual in trajectory.residuals
         for value in residual

@@ -3,16 +3,20 @@ using ForwardDiff, ReverseDiff, Zygote
 
 @testset "Shooting constraint value derivatives" begin
     prob = ODEProblem((u, p, t) -> [p[1] + zero(u[1])], [1.0], (0.0, 2.0), [1.0])
-    layer = ShootingLayer(prob, Tsit5(),
-        Tunable(1; kind = Val(:variable)) => [0.0, 1.0])
+    layer = ShootingLayer(
+        prob, Tsit5(),
+        Tunable(1; kind = Val(:variable)) => [0.0, 1.0]
+    )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     function trajectory(q)
         solutions = [
             (; u = [[q[1]], [q[1] + q[3]]], t = [0.0, 1.0], prob),
             (; u = [[q[2]], [q[2] + q[3]]], t = [1.0, 2.0], prob),
         ]
-        return Trajectory(layer, ps, st, solutions,
-            [[q[1] - 1], [q[2] - q[1] - q[3]]])
+        return Trajectory(
+            layer, ps, st, solutions,
+            [[q[1] - 1], [q[2] - q[1] - q[3]]]
+        )
     end
     loss(q) = sum(abs2, shooting_constraints(trajectory(q)))
     inplace_loss(q) = begin
@@ -30,10 +34,17 @@ using ForwardDiff, ReverseDiff, Zygote
     end
 
     function full_solve_loss(q)
-        variable = merge(ps.initialcondition.initialconditions.u₁,
-            (; parameter = (; ps = q)))
-        parameters = merge(ps, (; initialcondition = (;
-            initialconditions = (; u₁ = variable))))
+        variable = merge(
+            ps.initialcondition.initialconditions.u₁,
+            (; parameter = (; ps = q))
+        )
+        parameters = merge(
+            ps, (;
+                initialcondition = (;
+                    initialconditions = (; u₁ = variable),
+                ),
+            )
+        )
         traj, _ = layer(nothing, parameters, st)
         return sum(abs2, shooting_constraints(traj))
     end

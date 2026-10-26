@@ -14,8 +14,12 @@ SymbolicIndexingInterface.variable_index(m::AnnotatedModel, s) = SymbolicIndexin
 SymbolicIndexingInterface.default_values(m::AnnotatedModel) = SymbolicIndexingInterface.default_values(m.cache)
 default_bounds(::AnnotatedModel) = Dict(:p => (-2, 5))
 is_integer_variable(::Symbol) = true
-model = AnnotatedModel(SymbolCache([:x, :y], [:p, :q], :t;
-    defaults = Dict(:x => 1, :y => 2, :p => 3, :q => 4)))
+model = AnnotatedModel(
+    SymbolCache(
+        [:x, :y], [:p, :q], :t;
+        defaults = Dict(:x => 1, :y => 2, :p => 3, :q => 4)
+    )
+)
 
 @testset "Annotation construction and setters" begin
     @test_throws ArgumentError Tunable()

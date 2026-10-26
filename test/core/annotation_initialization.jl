@@ -9,11 +9,14 @@ struct BothInitializerSignatures end
     grid = [3.0, 1.0] # Values follow the supplied order, rather than sorted times.
     supplied = [30.0, 10.0]
     for constructor in (Tunable, Constant), default in (
-            2.0, supplied, (rng, n::Int) -> fill(4.0, n),
-            (rng, times::AbstractVector) -> 10 .* times,
-            (rng, n) -> fill(5.0, n), BothInitializerSignatures())
-        layer = InitialConditions(prob,
-            constructor(1; default, lowerbound = 0.0, upperbound = 40.0) => grid)
+                2.0, supplied, (rng, n::Int) -> fill(4.0, n),
+                (rng, times::AbstractVector) -> 10 .* times,
+                (rng, n) -> fill(5.0, n), BothInitializerSignatures(),
+            )
+        layer = InitialConditions(
+            prob,
+            constructor(1; default, lowerbound = 0.0, upperbound = 40.0) => grid
+        )
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         values = constructor === Tunable ? ps.initialconditions.u₁.parameter.ps :
             st.initialconditions.u₁.parameters.parameter.ps
@@ -32,8 +35,10 @@ struct BothInitializerSignatures end
         calls[] += 1
         times .+ rand(rng, length(times))
     end
-    layer = InitialConditions(prob, Tunable(1; default = initialize) => grid,
-        Tunable(2; default = (rng, times::AbstractVector) -> times.^2) => [2.0])
+    layer = InitialConditions(
+        prob, Tunable(1; default = initialize) => grid,
+        Tunable(2; default = (rng, times::AbstractVector) -> times .^ 2) => [2.0]
+    )
     @test LuxCore.parameterlength(layer) == 3
     @test calls[] == 0
     ps, st = LuxCore.setup(MersenneTwister(42), layer)
@@ -46,10 +51,14 @@ struct BothInitializerSignatures end
     @test calls[] == 2 # No initialization on the forward path.
 
     fixed_calls = Ref(0)
-    fixed = InitialConditions(prob, Constant(1; default = (rng, times::AbstractVector) -> begin
-        fixed_calls[] += 1
-        ones(length(times))
-    end) => grid)
+    fixed = InitialConditions(
+        prob, Constant(
+            1; default = (rng, times::AbstractVector) -> begin
+                fixed_calls[] += 1
+                ones(length(times))
+            end
+        ) => grid
+    )
     @test LuxCore.parameterlength(fixed) == 0
     @test LuxCore.statelength(fixed) > 0
     @test fixed_calls[] == 0
@@ -57,8 +66,10 @@ struct BothInitializerSignatures end
     @test fixed_calls[] == 1
 
     for grid in (nothing, Float64[])
-        layer = InitialConditions(prob,
-            Tunable(1; default = (rng, times::AbstractVector) -> zero.(times)) => grid)
+        layer = InitialConditions(
+            prob,
+            Tunable(1; default = (rng, times::AbstractVector) -> zero.(times)) => grid
+        )
         ps, _ = LuxCore.setup(MersenneTwister(1), layer)
         @test isempty(ps.initialconditions.u₁.parameter.ps)
     end
@@ -68,15 +79,17 @@ end
     prob = ODEProblem((u, p, t) -> zero(u), [1.0], (2.0, 6.0), [0.5])
     for constructor in (Tunable, Constant), grid in (nothing, [3.0, 5.0])
         times = isnothing(grid) ? [2.0] : [2.0, 3.0, 5.0]
-        for default in (times, (rng, times::AbstractVector) -> times,
-                (rng, n::Int) -> collect(1.0:n), (rng, n) -> ones(n))
+        for default in (
+                times, (rng, times::AbstractVector) -> times,
+                (rng, n::Int) -> collect(1.0:n), (rng, n) -> ones(n),
+            )
             layer = Parameter(prob, constructor(1; default) => grid)
             ps, st = LuxCore.setup(MersenneTwister(1), layer)
             stored = constructor === Tunable ? ps.parameters.p₁.parameter.ps :
                 st.parameters.p₁.parameters.parameter.ps
             expected = default isa AbstractVector ? default :
                 applicable(default, MersenneTwister(1), length(times)) ?
-                    default(MersenneTwister(1), length(times)) : times
+                default(MersenneTwister(1), length(times)) : times
             @test stored == expected
             @test first(layer(2.0, ps, st)) == [first(expected)]
             if !isnothing(grid)
@@ -90,26 +103,40 @@ end
 @testset "Initializer validation and error propagation" begin
     prob = ODEProblem((u, p, t) -> zero(u), [1.0], (0.0, 4.0), [0.5])
     for constructor in (Tunable, Constant)
-        @test_throws ArgumentError InitialConditions(prob,
-            constructor(1; default = [-1.0, 1.0], lowerbound = 0.0) => [1.0, 2.0])
-        @test_throws ArgumentError Parameter(prob,
-            constructor(1; default = [0.0, 2.0], upperbound = 1.0) => [1.0])
-        for default in ([1.0], (rng, n::Int) -> ones(n + 1),
-                (rng, times::AbstractVector) -> ones(length(times) + 1))
+        @test_throws ArgumentError InitialConditions(
+            prob,
+            constructor(1; default = [-1.0, 1.0], lowerbound = 0.0) => [1.0, 2.0]
+        )
+        @test_throws ArgumentError Parameter(
+            prob,
+            constructor(1; default = [0.0, 2.0], upperbound = 1.0) => [1.0]
+        )
+        for default in (
+                [1.0], (rng, n::Int) -> ones(n + 1),
+                (rng, times::AbstractVector) -> ones(length(times) + 1),
+            )
             layer = InitialConditions(prob, constructor(1; default) => [1.0, 2.0])
             @test_throws DimensionMismatch LuxCore.setup(MersenneTwister(1), layer)
         end
-        for default in ((rng, n::Int) -> fill(-1.0, n),
+        for default in (
+                (rng, n::Int) -> fill(-1.0, n),
                 (rng, times::AbstractVector) -> fill(2.0, length(times)),
                 (rng, n) -> fill(NaN, n), (rng, n) -> ones(1, n),
-                (rng, n) -> 0.0, (rng,) -> [0.0])
-            layer = InitialConditions(prob,
-                constructor(1; default, lowerbound = 0.0, upperbound = 1.0) => [1.0, 2.0])
+                (rng, n) -> 0.0, (rng) -> [0.0],
+            )
+            layer = InitialConditions(
+                prob,
+                constructor(1; default, lowerbound = 0.0, upperbound = 1.0) => [1.0, 2.0]
+            )
             @test_throws ArgumentError LuxCore.setup(MersenneTwister(1), layer)
         end
-        layer = Parameter(prob,
-            constructor(1; default = (rng, times::AbstractVector) -> -times,
-                lowerbound = 0.0) => [1.0])
+        layer = Parameter(
+            prob,
+            constructor(
+                1; default = (rng, times::AbstractVector) -> -times,
+                lowerbound = 0.0
+            ) => [1.0]
+        )
         @test_throws ArgumentError LuxCore.setup(MersenneTwister(1), layer)
     end
     # An exception inside a valid callback must propagate, rather than triggering
@@ -121,9 +148,11 @@ end
 
 @testset "Shooting solves with initialized reset and control values" begin
     prob = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 3.0), [1.0])
-    layer = ShootingLayer(prob, Tsit5(),
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:variable), default = (rng, times::AbstractVector) -> 10 .* times) => [1.0, 2.0],
-        Constant(1; kind = Val(:parameter), default = [1.0, 2.0, 3.0]) => [1.0, 2.0])
+        Constant(1; kind = Val(:parameter), default = [1.0, 2.0, 3.0]) => [1.0, 2.0]
+    )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     trajectory, _ = layer(nothing, ps, st)
     @test last(trajectory.u) ≈ [23.0]

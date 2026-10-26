@@ -91,7 +91,7 @@ else
                     @safetestset "Lotka" begin
                         include("examples/lotka_oc.jl")
                     end
-                    @safetestset "Lotka MS" begin
+                    return @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
                     end
                     #return @safetestset "Lotka MTK" begin

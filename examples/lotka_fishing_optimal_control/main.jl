@@ -44,7 +44,7 @@ end
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
 p0 = [0.0, 1.0, 1.0]
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1e-9, reltol = 1e-9)
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-9, reltol = 1.0e-9)
 
 # ## Single Shooting Approach
 
@@ -52,14 +52,18 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1e-9, reltol = 1e-9)
 # constants. The grid contains interior switching times; there is one more
 # control value than grid entries. Initial states pass through unchanged.
 cgrid = collect(0.1:0.1:11.9)
-control = Tunable(1; kind = Val(:parameter), default = 1.0,
-    lowerbound = 0.0, upperbound = 1.0) => cgrid
+control = Tunable(
+    1; kind = Val(:parameter), default = 1.0,
+    lowerbound = 0.0, upperbound = 1.0
+) => cgrid
 physical_parameters = (
     Constant(2; kind = Val(:parameter)) => nothing,
     Constant(3; kind = Val(:parameter)) => nothing,
 )
-layer = ShootingLayer(prob, Tsit5(), control, physical_parameters...;
-    controls = [1], quadratures = [3])
+layer = ShootingLayer(
+    prob, Tsit5(), control, physical_parameters...;
+    controls = [1], quadratures = [3]
+)
 ps, st = LuxCore.setup(MersenneTwister(42), layer)
 initial_parameters = ComponentArray(ps)
 parameter_axes = getaxes(initial_parameters)
@@ -86,8 +90,10 @@ function fishing_objective(q, state)
     return last(trajectory.u)[3]
 end
 optfun = OptimizationFunction(fishing_objective, AutoForwardDiff())
-optprob = OptimizationProblem(optfun, initial_parameters, st;
-    lb = zeros(length(initial_parameters)), ub = ones(length(initial_parameters)))
+optprob = OptimizationProblem(
+    optfun, initial_parameters, st;
+    lb = zeros(length(initial_parameters)), ub = ones(length(initial_parameters))
+)
 uopt = solve(
     optprob, Ipopt.Optimizer(),
     tol = 1.0e-6,
@@ -115,9 +121,11 @@ shooting_points = [3.0, 6.0, 9.0]
 initial_conditions = (
     Tunable(i; kind = Val(:variable)) => shooting_points for i in 1:3
 )
-mslayer = ShootingLayer(prob, Tsit5(), control, physical_parameters...,
+mslayer = ShootingLayer(
+    prob, Tsit5(), control, physical_parameters...,
     initial_conditions...; ensemblealg = EnsembleThreads(),
-    controls = [1], quadratures = [3])
+    controls = [1], quadratures = [3]
+)
 msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 
 # Seed the lifted values from a continuous forward trajectory. Here we reuse the
@@ -147,9 +155,11 @@ fill!(ms_upper, Inf)
 ms_upper.parameter.parameters.p₁.parameter.ps .= 1.0
 nconstraints = length(u0) * length(shooting_points)
 ms_optfun = OptimizationFunction(ms_objective, AutoForwardDiff(); cons = continuity_constraints!)
-ms_optprob = OptimizationProblem(ms_optfun, ms_initial_parameters, msst;
+ms_optprob = OptimizationProblem(
+    ms_optfun, ms_initial_parameters, msst;
     lb = ms_lower, ub = ms_upper,
-    lcons = zeros(nconstraints), ucons = zeros(nconstraints))
+    lcons = zeros(nconstraints), ucons = zeros(nconstraints)
+)
 ms_uopt = solve(
     ms_optprob, Ipopt.Optimizer(),
     tol = 1.0e-5,

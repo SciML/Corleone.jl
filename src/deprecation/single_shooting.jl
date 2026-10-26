@@ -12,16 +12,20 @@ The return value uses the new Lux parameter/state layout, with residuals in
 `trajectory.residuals`. Legacy whole-vector initialization callbacks are not
 supported; set annotation defaults using count or timepoint callbacks instead.
 """
-function SingleShootingLayer(prob::SciMLBase.AbstractDEProblem,
-        alg::SciMLBase.AbstractSciMLAlgorithm; kwargs...)
+function SingleShootingLayer(
+        prob::SciMLBase.AbstractDEProblem,
+        alg::SciMLBase.AbstractSciMLAlgorithm; kwargs...
+    )
     Base.depwarn("SingleShootingLayer is deprecated; use ShootingLayer with Tunable/Constant annotations. The returned layer uses the new parameter/state layout and trajectory.residuals.", :SingleShootingLayer)
     return legacy_shooting_layer(prob, alg; kwargs...)
 end
 
-function legacy_shooting_layer(prob, alg; controls = (), tunable_ic = Int[],
+function legacy_shooting_layer(
+        prob, alg; controls = (), tunable_ic = Int[],
         bounds_ic = nothing, bounds_p = nothing, quadrature_indices = Int[],
         state_initialization = nothing, parameter_initialization = nothing,
-        name = nothing, kwargs...)
+        name = nothing, kwargs...
+    )
     isnothing(state_initialization) && isnothing(parameter_initialization) ||
         throw(ArgumentError("Legacy whole-vector initialization callbacks are unsupported. Use annotation default vectors or (rng, n::Int)/(rng, times::AbstractVector) initializers."))
     prob = remake(prob; kwargs...)
@@ -54,23 +58,39 @@ function legacy_shooting_layer(prob, alg; controls = (), tunable_ic = Int[],
     end
     allunique(control_indices) || throw(ArgumentError("Define each control parameter only once."))
     ordinary = setdiff(eachindex(pvals), control_indices)
-    plower, pupper = legacy_bounds(isnothing(bounds_p) ? (-Inf, Inf) : bounds_p,
-        length(ordinary), "parameter")
-    ulower, uupper = legacy_bounds(isnothing(bounds_ic) ? (-Inf, Inf) : bounds_ic,
-        length(uvals), "initial-condition")
+    plower, pupper = legacy_bounds(
+        isnothing(bounds_p) ? (-Inf, Inf) : bounds_p,
+        length(ordinary), "parameter"
+    )
+    ulower, uupper = legacy_bounds(
+        isnothing(bounds_ic) ? (-Inf, Inf) : bounds_ic,
+        length(uvals), "initial-condition"
+    )
     for (k, index) in enumerate(ordinary)
-        push!(definitions, Tunable(index; kind = Val(:parameter),
-            default = clamp(pvals[index], plower[k], pupper[k]),
-            lowerbound = plower[k], upperbound = pupper[k]) => nothing)
+        push!(
+            definitions, Tunable(
+                index; kind = Val(:parameter),
+                default = clamp(pvals[index], plower[k], pupper[k]),
+                lowerbound = plower[k], upperbound = pupper[k]
+            ) => nothing
+        )
     end
     for index in conditions
-        push!(definitions, Tunable(index; kind = Val(:variable),
-            default = clamp(uvals[index], ulower[index], uupper[index]),
-            lowerbound = ulower[index], upperbound = uupper[index]) => [first(prob.tspan)])
+        push!(
+            definitions, Tunable(
+                index; kind = Val(:variable),
+                default = clamp(uvals[index], ulower[index], uupper[index]),
+                lowerbound = ulower[index], upperbound = uupper[index]
+            ) => [first(prob.tspan)]
+        )
     end
     # Retain state bounds even for initial conditions that pass through u0.
-    bounds = Dict(sym => (ulower[variable_index(sys, sym)], uupper[variable_index(sys, sym)])
-        for sym in variable_symbols(sys))
-    return ShootingLayer(prob, alg, definitions...; name, controls = control_indices,
-        quadratures = qindices, bounds)
+    bounds = Dict(
+        sym => (ulower[variable_index(sys, sym)], uupper[variable_index(sys, sym)])
+            for sym in variable_symbols(sys)
+    )
+    return ShootingLayer(
+        prob, alg, definitions...; name, controls = control_indices,
+        quadratures = qindices, bounds
+    )
 end

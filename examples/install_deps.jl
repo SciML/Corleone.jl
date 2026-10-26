@@ -1,10 +1,12 @@
 using Pkg
 
 Pkg.activate(@__DIR__)
-Pkg.develop([
-    PackageSpec(path = joinpath(@__DIR__, "..")),
-    PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
-])
+Pkg.develop(
+    [
+        PackageSpec(path = joinpath(@__DIR__, "..")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
+    ]
+)
 
 # Add missing direct dependencies to new and existing example environments.
 # ModelingToolkit examples use their separately managed symbolic dependencies.

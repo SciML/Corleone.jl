@@ -12,8 +12,10 @@ cannot be represented by the current annotation bounds and are rejected. Pass th
 returned definition directly to `ShootingLayer`, or use `index => definition` in a
 deprecated shooting constructor to select a parameter independently of `name`.
 """
-function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w),
-        controls = nothing, bounds = (-Inf, Inf))
+function ControlParameter(
+        t::AbstractVector; name::Symbol = gensym(:w),
+        controls = nothing, bounds = (-Inf, Inf)
+    )
     Base.depwarn("ControlParameter is deprecated; use Tunable(parameter; default, lowerbound, upperbound) => switching_times. The new grid contains interval boundaries, excluding the first interval start.", :ControlParameter)
     isempty(t) && throw(ArgumentError("A legacy control grid must contain at least one interval start."))
     issorted(t) && allunique(t) || throw(ArgumentError("Control times must be sorted and unique."))
@@ -37,8 +39,10 @@ function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w),
         end
         return out
     end
-    return Tunable(name; kind = Val(:parameter), default = initialize,
-        lowerbound = first(lower), upperbound = first(upper)) => t[2:end]
+    return Tunable(
+        name; kind = Val(:parameter), default = initialize,
+        lowerbound = first(lower), upperbound = first(upper)
+    ) => t[2:end]
 end
 
 function legacy_bounds(bounds, n, description)

@@ -83,8 +83,10 @@ function plot_lqr_solution(solution; show_setpoint = true)
     if show_setpoint
         hlines!(axes[1], [3.0], color = :black, linestyle = :dash)
     end
-    controls = [SymbolicIndexingInterface.parameter_values_at_time(solution, solution, t)[3]
-        for t in solution.t]
+    controls = [
+        SymbolicIndexingInterface.parameter_values_at_time(solution, solution, t)[3]
+            for t in solution.t
+    ]
     stairs!(axes[2], solution.t, controls, label = "input", step = :post)
     lines!(axes[3], solution.t, solution[:u₂], label = "cost")
     for (i, title) in enumerate(["State", "Control", "Costs"])
@@ -107,8 +109,10 @@ function lqr_objective(q, state)
     return last(trajectory.u)[2]
 end
 optfun = OptimizationFunction(lqr_objective, AutoForwardDiff())
-optprob = OptimizationProblem(optfun, initial_parameters, st;
-    lb = fill(-Inf, length(initial_parameters)), ub = fill(Inf, length(initial_parameters)))
+optprob = OptimizationProblem(
+    optfun, initial_parameters, st;
+    lb = fill(-Inf, length(initial_parameters)), ub = fill(Inf, length(initial_parameters))
+)
 # And solve it using [`OptimizationLBFGSB.LBFGSB`](@extref)
 uopt = solve(
     optprob, OptimizationLBFGSB.LBFGSB()

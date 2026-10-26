@@ -66,8 +66,10 @@ end
 ControlSymbolCache(prob::SciMLBase.AbstractSciMLProblem; kwargs...) =
     ControlSymbolCache(get_symbolic_container(prob); kwargs...)
 
-function ControlSymbolCache(cache::ControlSymbolCache;
-        controls = cache.controls, quadratures = cache.quadratures, bounds = cache.bounds)
+function ControlSymbolCache(
+        cache::ControlSymbolCache;
+        controls = cache.controls, quadratures = cache.quadratures, bounds = cache.bounds
+    )
     controls === cache.controls && quadratures === cache.quadratures &&
         bounds === cache.bounds && return cache
     return ControlSymbolCache(cache.sys; controls, quadratures, bounds)

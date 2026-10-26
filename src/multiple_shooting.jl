@@ -11,17 +11,21 @@ matching residuals. Parameters and controls remain shared across shooting blocks
 Legacy stage-parameter/control lifting and whole-layer `initialization` callbacks
 are not restored; express initial guesses through annotation defaults instead.
 """
-function MultipleShootingLayer(prob::SciMLBase.AbstractDEProblem,
+function MultipleShootingLayer(
+        prob::SciMLBase.AbstractDEProblem,
         alg::SciMLBase.AbstractSciMLAlgorithm, times...;
-        ensemble_alg = EnsembleSerial(), initialization = nothing, kwargs...)
+        ensemble_alg = EnsembleSerial(), initialization = nothing, kwargs...
+    )
     Base.depwarn("MultipleShootingLayer is deprecated; use ShootingLayer with scheduled variable annotations and ensemblealg. All states, including quadratures, use native continuity residuals.", :MultipleShootingLayer)
     isnothing(initialization) || throw(ArgumentError("Use annotation defaults instead of a legacy multiple-shooting initialization callback."))
     layer = legacy_shooting_layer(prob, alg; kwargs...)
     return legacy_lift_states(layer, times, ensemble_alg)
 end
 
-function MultipleShootingLayer(layer::ShootingLayer, times...;
-        ensemble_alg = layer.ensemblealg, initialization = nothing)
+function MultipleShootingLayer(
+        layer::ShootingLayer, times...;
+        ensemble_alg = layer.ensemblealg, initialization = nothing
+    )
     Base.depwarn("MultipleShootingLayer is deprecated; define scheduled variable annotations on ShootingLayer and select ensemblealg.", :MultipleShootingLayer)
     isnothing(initialization) || throw(ArgumentError("Use annotation defaults instead of a legacy multiple-shooting initialization callback."))
     return legacy_lift_states(layer, times, ensemble_alg)
@@ -51,8 +55,12 @@ function legacy_lift_states(layer, times, ensemblealg)
         end
         return InitialCondition(grid, initialize; name = ic.name, bounds)
     end
-    initialcondition = InitialConditions(layer.initialcondition.name, layer.initialcondition.repack,
-        NamedTuple{keys(layer.initialcondition.initialconditions)}(Tuple(children)))
-    return ShootingLayer(layer.name, layer.problem, layer.alg, ensemblealg,
-        initialcondition, layer.parameter, layer.sys)
+    initialcondition = InitialConditions(
+        layer.initialcondition.name, layer.initialcondition.repack,
+        NamedTuple{keys(layer.initialcondition.initialconditions)}(Tuple(children))
+    )
+    return ShootingLayer(
+        layer.name, layer.problem, layer.alg, ensemblealg,
+        initialcondition, layer.parameter, layer.sys
+    )
 end

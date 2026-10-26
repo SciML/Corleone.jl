@@ -6,10 +6,12 @@ end
 SymbolicIndexingInterface.symbolic_container(provider::MetadataProvider) = provider.sys
 
 @testset "Symbolic bookkeeping preserves the index provider" begin
-    parent = SymbolCache(Dict(:cost => 3, :y => 2, :x => 1),
+    parent = SymbolCache(
+        Dict(:cost => 3, :y => 2, :x => 1),
         Dict(:rate => 2, :input => 1), :t;
         defaults = Dict(:x => 1.0, :y => 2.0, :cost => 0.0, :input => 0.5, :rate => 1.0),
-        timeseries_parameters = Dict(:input => ParameterTimeseriesIndex(1, 1)))
+        timeseries_parameters = Dict(:input => ParameterTimeseriesIndex(1, 1))
+    )
     limits = Dict(:input => (0.0, 1.0), :x => (-2.0, Inf))
     cache = ControlSymbolCache(parent; controls = [1], quadratures = [:cost], bounds = limits)
     @test symbolic_container(cache) === parent
@@ -61,11 +63,13 @@ SymbolicIndexingInterface.symbolic_container(provider::MetadataProvider) = provi
     @test inherited.bounds === limits
     @test inherited.controls == cache.controls
     @test inherited.quadratures == cache.quadratures
-    for kwargs in ((; controls = [:missing]), (; controls = [:x]),
+    for kwargs in (
+            (; controls = [:missing]), (; controls = [:x]),
             (; quadratures = [:input]), (; quadratures = [10]),
             (; controls = [1, :input]), (; quadratures = [:cost, 3]),
             (; bounds = Dict(:missing => (0, 1))), (; bounds = Dict(1 => (0, 1))),
-            (; bounds = Dict(:x => (2, 1))), (; bounds = Dict(:x => (0,))))
+            (; bounds = Dict(:x => (2, 1))), (; bounds = Dict(:x => (0,))),
+        )
         @test_throws ArgumentError ControlSymbolCache(parent; kwargs...)
     end
 end
@@ -73,10 +77,12 @@ end
 @testset "Shooting metadata and annotation bounds" begin
     prob = ODEProblem((u, p, t) -> [p[1], u[1]^2], [1.0, 0.0], (0.0, 2.0), [0.5])
     limits = Dict(:p₁ => (-1.0, 2.0), :u₁ => (-2.0, 5.0))
-    layer = ShootingLayer(prob, Tsit5(),
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:parameter), lowerbound = 0.0, upperbound = 1.0) => [1.0],
         Tunable(1; kind = Val(:variable), upperbound = 3.0) => [1.0];
-        controls = [1], quadratures = [2], bounds = limits)
+        controls = [1], quadratures = [2], bounds = limits
+    )
     @test symbolic_container(layer) === layer.sys
     @test control_symbols(layer.sys) == [:p₁]
     @test quadrature_symbols(layer.sys) == [:u₂]
@@ -106,9 +112,11 @@ end
     @test trajectory[:p₁] == [0.5, 0.5]
     @test trajectory[:u₂][end] > 0
     # Wrapping changes metadata, not the numerical solve or parameter layout.
-    plain = ShootingLayer(prob, Tsit5(),
+    plain = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:parameter)) => [1.0],
-        Tunable(1; kind = Val(:variable)) => [1.0])
+        Tunable(1; kind = Val(:variable)) => [1.0]
+    )
     expected, _ = plain(nothing, ps, st)
     @test isempty(control_symbols(symbolic_container(expected)))
     @test isempty(quadrature_symbols(symbolic_container(expected)))
@@ -127,6 +135,8 @@ end
     @test inherited.sys.controls == cache.controls
     @test inherited.sys.quadratures == cache.quadratures
     # Bounds supplied by the container participate in annotation validation.
-    @test_throws ArgumentError ShootingLayer(prob, Tsit5(),
-        Tunable(1; kind = Val(:parameter), default = 3.0) => [1.0]; bounds = limits)
+    @test_throws ArgumentError ShootingLayer(
+        prob, Tsit5(),
+        Tunable(1; kind = Val(:parameter), default = 3.0) => [1.0]; bounds = limits
+    )
 end

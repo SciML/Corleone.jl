@@ -9,11 +9,13 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
         end
     end
     prob = ODEProblem((u, p, t) -> p, [1.0, 2.0], (0.0, 2.0), [1.0, 2.0])
-    layer = ShootingLayer(prob, Tsit5(),
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:variable), default = initializer(1)) => [-1.0, 1.0, 3.0],
         Constant(2; kind = Val(:variable), default = initializer(3)) => [1.5],
         Tunable(1; kind = Val(:parameter), default = initializer(2)) => [0.5, 1.5],
-        Constant(2; kind = Val(:parameter), default = initializer(4)) => nothing)
+        Constant(2; kind = Val(:parameter), default = initializer(4)) => nothing
+    )
     st = LuxCore.initialstates(MersenneTwister(42), layer)
     @test calls == [0, 0, 1, 1]
     @test st.timestops == [0.0, 0.5, 1.0, 1.5, 2.0]
@@ -41,8 +43,10 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
 end
 
 @testset "Cached grids survive serial, threaded, and fallback state handoff" begin
-    prob = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [2.0];
-        saveat = [0.25, 1.25])
+    prob = ODEProblem(
+        (u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [2.0];
+        saveat = [0.25, 1.25]
+    )
     for alg in (EnsembleSerial(), EnsembleThreads()), resets in (false, true)
         definitions = resets ? (Tunable(1; kind = Val(:variable), default = [10.0]) => [1.0],) : ()
         layer = ShootingLayer(prob, Tsit5(), definitions...; ensemblealg = alg)

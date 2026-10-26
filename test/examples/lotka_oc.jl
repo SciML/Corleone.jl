@@ -9,12 +9,16 @@ using SymbolicIndexingInterface
         du[3] = (u[1] - 1)^2 + (u[2] - 1)^2
         return nothing
     end
-    prob = ODEProblem(dynamics!, [0.5, 0.7, 0.0], (0.0, 12.0), [0.0, 1.0, 1.0];
-        abstol = 1e-9, reltol = 1e-9)
-    layer = ShootingLayer(prob, Tsit5(),
+    prob = ODEProblem(
+        dynamics!, [0.5, 0.7, 0.0], (0.0, 12.0), [0.0, 1.0, 1.0];
+        abstol = 1.0e-9, reltol = 1.0e-9
+    )
+    layer = ShootingLayer(
+        prob, Tsit5(),
         Tunable(1; kind = Val(:parameter)) => collect(0.1:0.1:11.9),
         Constant(2; kind = Val(:parameter)) => nothing,
-        Constant(3; kind = Val(:parameter)) => nothing)
+        Constant(3; kind = Val(:parameter)) => nothing
+    )
     ps, st = LuxCore.setup(MersenneTwister(42), layer)
     trajectory, _ = layer(nothing, ps, st)
     @test trajectory[:u₁] == first.(trajectory.u)
@@ -22,20 +26,24 @@ using SymbolicIndexingInterface
     @test allunique(trajectory.t)
     @test all(isempty, trajectory.residuals)
     @test LuxCore.parameterlength(layer) == 120
-    @test last(trajectory.u)[3] ≈ 6.062277454291031 atol = 1e-5
+    @test last(trajectory.u)[3] ≈ 6.062277454291031 atol = 1.0e-5
 
     initial = ComponentArray(ps)
     axes = getaxes(initial)
     objective(q, state) = last(first(layer(nothing, ComponentArray(q, axes), state)).u)[3]
     optfun = OptimizationFunction(objective, AutoForwardDiff())
-    optprob = OptimizationProblem(optfun, initial, st;
-        lb = zeros(length(initial)), ub = ones(length(initial)))
+    optprob = OptimizationProblem(
+        optfun, initial, st;
+        lb = zeros(length(initial)), ub = ones(length(initial))
+    )
     @test optprob.f(optprob.u0, optprob.p) ≈ last(trajectory.u)[3]
-    result = solve(optprob, Ipopt.Optimizer(); max_iter = 300, tol = 1e-6,
-        hessian_approximation = "limited-memory", print_level = 0)
+    result = solve(
+        optprob, Ipopt.Optimizer(); max_iter = 300, tol = 1.0e-6,
+        hessian_approximation = "limited-memory", print_level = 0
+    )
     @test SciMLBase.successful_retcode(result)
-    @test result.objective ≈ 1.344336 atol = 1e-4
+    @test result.objective ≈ 1.344336 atol = 1.0e-4
     optimized, _ = layer(nothing, ComponentArray(result.u, axes), st)
     @test last(optimized.u)[3] ≈ result.objective
-    @test all(x -> -1e-7 <= x <= 1 + 1e-7, result.u)
+    @test all(x -> -1.0e-7 <= x <= 1 + 1.0e-7, result.u)
 end

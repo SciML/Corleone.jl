@@ -6,8 +6,10 @@ import SymbolicIndexingInterface as SII
     @test SingleShootingLayer isa Function
     @test MultipleShootingLayer isa Function
     @test !isdefined(Corleone, :LegacyInitializer)
-    definition = @test_deprecated r"ControlParameter" ControlParameter([0.0, 1.0];
-        name = :p₁, controls = [2.0, 4.0], bounds = (0.0, 5.0))
+    definition = @test_deprecated r"ControlParameter" ControlParameter(
+        [0.0, 1.0];
+        name = :p₁, controls = [2.0, 4.0], bounds = (0.0, 5.0)
+    )
     @test definition isa Pair
     @test first(definition) isa Corleone.AbstractAnnotation
     @test last(definition) == [1.0]
@@ -46,9 +48,11 @@ end
 
 @testset "Bounds, tunable starts, and remade problems" begin
     prob = ODEProblem((u, p, t) -> p .* u, [1.0, 2.0], (0.0, 1.0), [3.0, 4.0])
-    layer = SingleShootingLayer(prob, Tsit5(); tunable_ic = [2],
+    layer = SingleShootingLayer(
+        prob, Tsit5(); tunable_ic = [2],
         bounds_ic = ([0.0, 5.0], [10.0, 6.0]), bounds_p = ([0.0, 0.0], [1.0, 2.0]),
-        quadrature_indices = [2], tspan = (0.0, 0.5), saveat = [0.25])
+        quadrature_indices = [2], tspan = (0.0, 0.5), saveat = [0.25]
+    )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test ps.initialcondition.initialconditions.u₂.parameter.ps == [5.0]
     @test ps.initialcondition.initialconditions.u₁ == (;)
@@ -59,7 +63,7 @@ end
     @test only(traj.residuals) == [3.0]
     @test 0.25 in traj.t
     @test last(traj.t) == 0.5
-    @test last(traj.u) ≈ [exp(0.5), 5exp(1.0)] rtol = 1e-3
+    @test last(traj.u) ≈ [exp(0.5), 5exp(1.0)] rtol = 1.0e-3
     @test quadrature_indices(layer.sys) == [2]
     @test Corleone.get_bounds(layer.sys, :u₂) == (5.0, 6.0)
     @test Corleone.get_bounds(layer.sys, :p₂) == (0.0, 2.0)
@@ -68,13 +72,15 @@ end
 @testset "Legacy control callbacks and repeated setup" begin
     prob = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 1.0), [0.0])
     calls = Ref(0)
-    c = ControlParameter([0.25, 0.5, 1.0]; bounds = (0.0, 1.0),
+    c = ControlParameter(
+        [0.25, 0.5, 1.0]; bounds = (0.0, 1.0),
         controls = (rng, t, bounds) -> begin
             calls[] += 1
             @test t == [0.25, 0.5]
             @test bounds == ([0.0, 0.0], [1.0, 1.0])
             rand(rng, length(t))
-        end)
+        end
+    )
     layer = SingleShootingLayer(prob, Tsit5(); controls = [1 => c])
     @test calls[] == 0
     @test LuxCore.parameterlength(layer) == 2
@@ -115,12 +121,14 @@ end
     @test last(a.u)[1] ≈ 5.0
     other = MultipleShootingLayer(prob, Tsit5(), 1.0, 2.0; controls = [1 => control])
     @test other isa ShootingLayer
-    @test Corleone.get_timestops(other.initialcondition,
+    @test Corleone.get_timestops(
+        other.initialcondition,
         LuxCore.initialparameters(MersenneTwister(1), other).initialcondition,
-        LuxCore.initialstates(MersenneTwister(1), other).initialcondition, Float64) == [1.0, 2.0]
+        LuxCore.initialstates(MersenneTwister(1), other).initialcondition, Float64
+    ) == [1.0, 2.0]
     empty = SingleShootingLayer(ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0), Float64[]), Tsit5())
     p0, s0 = LuxCore.setup(MersenneTwister(1), empty)
-    @test last(first(empty(nothing, p0, s0)).u) ≈ [exp(-1)] rtol = 1e-3
+    @test last(first(empty(nothing, p0, s0)).u) ≈ [exp(-1)] rtol = 1.0e-3
 end
 
 @testset "Legacy translation rejects unsupported or invalid definitions" begin
