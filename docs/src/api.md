@@ -81,3 +81,15 @@ Corleone.AbstractAnnotation
 Corleone.DynamicVariable
 Corleone.update_annotation
 ```
+
+## Deprecated constructor functions
+
+These functions return native definitions and layers. See
+[Deprecated constructors](legacy_constructors.md) for the translation rules and
+unsupported legacy options.
+
+```@docs
+ControlParameter
+SingleShootingLayer
+MultipleShootingLayer
+```

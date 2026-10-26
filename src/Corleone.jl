@@ -34,6 +34,11 @@ include("utilities/Utilities.jl")
 include("layers/Layers.jl")
 export ShootingLayer
 
+include("deprecation/controls.jl")
+include("deprecation/single_shooting.jl")
+include("multiple_shooting.jl")
+export ControlParameter, SingleShootingLayer, MultipleShootingLayer
+
 @setup_workload begin
     @compile_workload begin
     end

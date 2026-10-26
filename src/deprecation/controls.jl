@@ -1,124 +1,54 @@
 """
-$(TYPEDEF)
-Implements a piecewise constant control discretization.
-
-# Fields
-$(FIELDS)
-"""
-struct ControlParameter{T, C, B}
-    "The name of the control"
-    name::Symbol
-    "The timepoints at which discretized variables are introduced"
-    t::T
-    "The initial values for the controls. Either a vector or a function (rng,t,bounds) -> u"
-    controls::C
-    "The bounds as a tuple"
-    bounds::B
-end
-
-default_u(rng, t, bounds) = zeros(eltype(t), size(t))
-default_bounds(t::AbstractVector{T}) where {T <: Real} = (fill(typemin(T), size(t)), fill(typemax(T), size(t)))
-
-"""
 $(SIGNATURES)
 
-Constructs a `ControlParameter` with piecewise constant discretizations introduced at
-timepoints `t`. Optionally
+Deprecated constructor for a piecewise-constant control. Return a
+`Tunable(name; kind = Val(:parameter), ...) => switching_times` definition.
+Legacy `t` contains the start of each control interval, so the first entry is
+removed from the returned switching grid. `controls` may be a vector, scalar, or
+legacy callback `(rng, times, bounds) -> values`. Callbacks run during Lux setup.
 
-```julia-repl
-julia> ControlParameter(0:1.0:4.0, name=:c)
-ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, typeof(Corleone.default_u), typeof(Corleone.default_bounds)}(:c, 0.0:1.0:10.0, Corleone.default_u, Corleone.default_bounds)
-```
-
-```julia-repl
-julia> ControlParameter(0.0:1.0:4.0, name=:c, controls = zeros(5))
-ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, typeof(Corleone.default_bounds)}(:c, 0.0:1.0:4.0, [0.0, 0.0, 0.0, 0.0, 0.0], Corleone.default_bounds)
-```
-
-
-```julia-repl
-julia> ControlParameter(0:1.0:9.0, name=:c1, controls=zeros(5), bounds=(0.0,1.0))
-ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, Tuple{Float64, Float64}}(:c1, 0.0:1.0:9.0, [0.0, 0.0, 0.0, 0.0, 0.0], (0.0, 1.0))
-```
-The latter is functionally equivalent to the following example, specifying all bounds individually:
-```julia-repl
-julia> ControlParameter(0:1.0:9.0, name=:c1, controls=zeros(5), bounds=(zeros(5),ones(5)))
-ControlParameter{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}, Vector{Float64}, Tuple{Vector{Float64}, Vector{Float64}}}(:c1, 0.0:1.0:9.0, [0.0, 0.0, 0.0, 0.0, 0.0], ([0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]))
-```
+Scalar bounds and uniform bound vectors are supported. Nonuniform per-time bounds
+cannot be represented by the current annotation bounds and are rejected. Pass the
+returned definition directly to `ShootingLayer`, or use `index => definition` in a
+deprecated shooting constructor to select a parameter independently of `name`.
 """
-function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w), controls = default_u, bounds = default_bounds)
-    return ControlParameter{typeof(t), typeof(controls), typeof(bounds)}(name, t, controls, bounds)
-end
-
-"""
-$(SIGNATURES)
-
-Return the control time points inside `tspan`. The returned points retain the order
-of the control parameter grid and exclude the right endpoint of a finite interval.
-"""
-get_timegrid(parameters::ControlParameter, tspan = (-Inf, Inf)) = begin
-    (; t) = parameters
-    idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-    t[idx]
-end
-
-"""
-$(SIGNATURES)
-
-Computes the number of discretized controls restricted to given `tspan`.
-"""
-function control_length(parameters::ControlParameter; tspan = nothing, kwargs...)
-    (; t) = parameters
-    idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-    return size(idx, 1)
-end
-
-"""
-$(SIGNATURES)
-
-Returns discretized controls of ControlParameter `params` restricted to given `tspan`.
-"""
-function get_controls(::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:AbstractArray}; raw = false, tspan = nothing, kwargs...)
-    (; t, controls) = parameters
-    raw && return controls
-    idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-    return controls[idx]
-end
-
-function get_controls(rng::Random.AbstractRNG, parameters::ControlParameter{<:Any, <:Function}; raw = false, tspan = nothing, kwargs...)
-    (; t) = parameters
-    bounds = get_bounds(parameters; tspan, kwargs...)
-    idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-    return parameters.controls(rng, t[idx], bounds)
-end
-
-"""
-$(SIGNATURES)
-
-Returns bounds of discretized controls restricted to given `tspan`.
-"""
-function get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Tuple}; tspan = nothing, kwargs...)
-    (; t) = parameters
-    idx = isnothing(tspan) ? eachindex(t) : findall(tspan[1] .<= t .< tspan[2])
-    nc = size(idx, 1)
-    _bounds = parameters.bounds
-    if length(_bounds[1]) == length(_bounds[2]) == 1
-        return (repeat([_bounds[1]], nc), repeat([_bounds[2]], nc))
-    elseif length(_bounds[1]) == length(_bounds[2]) == length(t)
-        return (_bounds[1][idx], _bounds[2][idx])
+function ControlParameter(t::AbstractVector; name::Symbol = gensym(:w),
+        controls = nothing, bounds = (-Inf, Inf))
+    Base.depwarn("ControlParameter is deprecated; use Tunable(parameter; default, lowerbound, upperbound) => switching_times. The new grid contains interval boundaries, excluding the first interval start.", :ControlParameter)
+    isempty(t) && throw(ArgumentError("A legacy control grid must contain at least one interval start."))
+    issorted(t) && allunique(t) || throw(ArgumentError("Control times must be sorted and unique."))
+    limits = bounds isa Tuple ? bounds : bounds(t)
+    lower, upper = legacy_bounds(limits, length(t), "control")
+    all(==(first(lower)), lower) && all(==(first(upper)), upper) ||
+        throw(ArgumentError("Nonuniform per-time control bounds cannot be translated to scalar annotation bounds. Use the new API and construct optimizer bounds explicitly."))
+    controls isa AbstractVector && length(controls) != length(t) &&
+        throw(DimensionMismatch("Expected $(length(t)) legacy control values."))
+    values = isnothing(controls) ? zero(float(first(t))) : controls
+    initialize = function (rng, times::AbstractVector)
+        indices = [max(firstindex(t), searchsortedlast(t, time)) for time in times]
+        selected_times = t[indices]
+        selected_bounds = (lower[indices], upper[indices])
+        out = if values isa Number
+            fill(values, length(times))
+        elseif values isa AbstractVector
+            values[indices]
+        else
+            values(rng, selected_times, selected_bounds)
+        end
+        return out
     end
-    throw("Incompatible control bound definition. Got $(length(_bounds[1])) elements, expected $(length(t)).")
+    return Tunable(name; kind = Val(:parameter), default = initialize,
+        lowerbound = first(lower), upperbound = first(upper)) => t[2:end]
 end
 
-get_bounds(parameters::ControlParameter{<:Any, <:Any, <:Function}; tspan = (-Inf, Inf), kwargs...) = parameters.bounds(get_timegrid(parameters, tspan; kwargs...))
-
-function check_consistency(rng::Random.AbstractRNG, parameters::ControlParameter)
-    grid = get_timegrid(parameters)
-    u = get_controls(rng, parameters; raw = true)
-    lb, ub = get_bounds(parameters)
-    @assert issorted(grid) "Time grid is not sorted."
-    @assert get_timegrid(parameters) == unique(grid) "Time grid is not unique."
-    @assert all(lb .<= ub) "Bounds are inconsistent"
-    @assert size(lb) == size(ub) == size(u) == size(grid) "Sizes are inconsistent"
-    return @assert all(lb .<= u .<= ub) "Initial values are inconsistent"
+function legacy_bounds(bounds, n, description)
+    bounds isa Tuple && length(bounds) == 2 ||
+        throw(ArgumentError("$description bounds must be a (lower, upper) tuple."))
+    lower, upper = map(bounds) do side
+        side isa Number ? fill(side, n) : side
+    end
+    lower isa AbstractVector && upper isa AbstractVector && length(lower) == length(upper) == n ||
+        throw(ArgumentError("Inconsistent $description bounds; expected $n entries."))
+    all(lower .<= upper) || throw(ArgumentError("Inconsistent $description bounds."))
+    return lower, upper
 end

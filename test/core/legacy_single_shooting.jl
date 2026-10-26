@@ -1,143 +1,146 @@
-using Corleone
-using LuxCore
-using OrdinaryDiffEqTsit5
-using Random
-using Test
+using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
 import SymbolicIndexingInterface as SII
 
-@testset "Legacy constructor returns ShootingLayer" begin
+@testset "Legacy constructors are functions returning native objects" begin
+    @test ControlParameter isa Function
+    @test SingleShootingLayer isa Function
+    @test MultipleShootingLayer isa Function
+    @test !isdefined(Corleone, :LegacyInitializer)
+    definition = @test_deprecated r"ControlParameter" ControlParameter([0.0, 1.0];
+        name = :p₁, controls = [2.0, 4.0], bounds = (0.0, 5.0))
+    @test definition isa Pair
+    @test first(definition) isa Corleone.AbstractAnnotation
+    @test last(definition) == [1.0]
+    prob = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 2.0), [1.0])
+    direct = ShootingLayer(prob, Tsit5(), definition)
+    ps, st = LuxCore.setup(MersenneTwister(1), direct)
+    @test ps.parameter.parameters.p₁.parameter.ps == [2.0, 4.0]
+    @test last(first(direct(nothing, ps, st)).u) ≈ [6.0]
+    layer = @test_deprecated r"SingleShootingLayer" SingleShootingLayer(prob, Tsit5())
+    @test layer isa ShootingLayer
+    layer = @test_deprecated r"MultipleShootingLayer" MultipleShootingLayer(prob, Tsit5(), 1.0)
+    @test layer isa ShootingLayer
+end
+
+@testset "Legacy single-shooting translation" begin
     prob = ODEProblem((u, p, t) -> [p[1] + p[2]], [1.0], (0.0, 2.0), [2.0, 3.0])
     layer = SingleShootingLayer(prob, Tsit5())
-    @test layer isa ShootingLayer
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    @test keys(ps) == (:initialcondition, :parameter)
-    @test isempty(only(ps.initialcondition.initialconditions))
+    @test ps.initialcondition.initialconditions.u₁ == (;)
     traj, _ = layer(nothing, ps, st)
-    residuals = traj.residuals
-    @test first(traj.t) == 0.0
-    @test last(traj.t) == 2.0
     @test last(traj.u) ≈ [11.0]
-    @test all(isempty, residuals)
+    @test all(isempty, traj.residuals)
 
-    # Input order differs from the underlying parameter order. The second
-    # control changes before the first; the grids omit the final endpoint.
     c1 = ControlParameter([0.0, 1.0, 2.0]; controls = [2.0, 4.0, 100.0])
     c2 = ControlParameter([0.0, 0.5]; controls = [3.0, 5.0])
     layer = SingleShootingLayer(prob, Tsit5(); controls = [2 => c2, 1 => c1])
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test LuxCore.parameterlength(layer) == 4
+    @test ps.parameter.parameters.p₁.parameter.ps == [2.0, 4.0]
+    @test ps.parameter.parameters.p₂.parameter.ps == [3.0, 5.0]
     traj, _ = layer(nothing, ps, st)
-    @test traj isa Trajectory
-    @test SII.parameter_timeseries(traj, 1) == [0.0, 0.5, 1.0]
     @test traj.t == [0.0, 0.5, 1.0, 2.0]
     @test traj.u ≈ [[1.0], [3.5], [7.0], [16.0]]
-    @test SII.state_values(only(SII.get_parameter_timeseries_collection(traj))) == [[2.0, 3.0], [2.0, 5.0], [4.0, 5.0]]
-    @test last(traj.u) ≈ [16.0]
+    @test control_indices(layer.sys) == [2, 1]
 end
 
-@testset "Initialization and constructor keywords" begin
+@testset "Bounds, tunable starts, and remade problems" begin
     prob = ODEProblem((u, p, t) -> p .* u, [1.0, 2.0], (0.0, 1.0), [3.0, 4.0])
-    seen = Symbol[]
-    init_ic = (rng, prob, indices, bounds) -> begin
-        push!(seen, :ic)
-        @test indices == [2, 1]
-        [8.0, 7.0]
-    end
-    init_p = (rng, prob, indices, bounds) -> begin
-        push!(seen, :p)
-        @test indices == [1, 2]
-        [5.0, 6.0]
-    end
-    layer = SingleShootingLayer(
-        prob, Tsit5(); tunable_ic = [2, 1],
-        state_initialization = init_ic, parameter_initialization = init_p,
-        tspan = (0.0, 0.5), quadrature_indices = [2]
-    )
-    @test isempty(seen)
+    layer = SingleShootingLayer(prob, Tsit5(); tunable_ic = [2],
+        bounds_ic = ([0.0, 5.0], [10.0, 6.0]), bounds_p = ([0.0, 0.0], [1.0, 2.0]),
+        quadrature_indices = [2], tspan = (0.0, 0.5), saveat = [0.25])
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    @test seen == [:ic, :p]
-    @test collect(values(only(ps.initialcondition.initialconditions))) == [7.0, 8.0]
+    @test ps.initialcondition.initialconditions.u₂.parameter.ps == [5.0]
+    @test ps.initialcondition.initialconditions.u₁ == (;)
+    @test ps.parameter.parameters.p₁.parameter.ps == [1.0]
+    @test ps.parameter.parameters.p₂.parameter.ps == [2.0]
     traj, _ = layer(nothing, ps, st)
-    residuals = traj.residuals
-    @test only(residuals) == [6.0, 6.0]
-    @test first(traj.u) == [7.0, 8.0]
-    @test last(traj.t) == 0.5
-    @test last(traj.u) ≈ [7exp(2.5), 8exp(3.0)] rtol = 1.0e-3
-
-    layer = SingleShootingLayer(
-        prob, Tsit5(); tunable_ic = [2],
-        bounds_ic = ([0.0, 5.0], [10.0, 6.0]), bounds_p = ([0.0, 0.0], [1.0, 2.0])
-    )
-    ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    @test only(values(only(ps.initialcondition.initialconditions))) == 5.0
-    traj, _ = layer(nothing, ps, st)
-    residuals = traj.residuals
-    @test only(residuals) == [3.0]
     @test first(traj.u) == [1.0, 5.0]
-    @test SII.parameter_values(traj) == [1.0, 2.0]
-
-    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); tunable_ic = [3])
-    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); quadrature_indices = [3])
-    c = ControlParameter([0.0]; controls = [1.0])
-    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); controls = [1 => c, 1 => c])
-    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); bounds_p = ([0.0], [1.0]))
+    @test only(traj.residuals) == [3.0]
+    @test 0.25 in traj.t
+    @test last(traj.t) == 0.5
+    @test last(traj.u) ≈ [exp(0.5), 5exp(1.0)] rtol = 1e-3
+    @test quadrature_indices(layer.sys) == [2]
+    @test Corleone.get_bounds(layer.sys, :u₂) == (5.0, 6.0)
+    @test Corleone.get_bounds(layer.sys, :p₂) == (0.0, 2.0)
 end
 
-@testset "Control initializers and empty parameters" begin
+@testset "Legacy control callbacks and repeated setup" begin
     prob = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 1.0), [0.0])
     calls = Ref(0)
-    c = ControlParameter(
-        [0.25, 0.5, 1.0]; bounds = (0.0, 1.0),
+    c = ControlParameter([0.25, 0.5, 1.0]; bounds = (0.0, 1.0),
         controls = (rng, t, bounds) -> begin
             calls[] += 1
             @test t == [0.25, 0.5]
             @test bounds == ([0.0, 0.0], [1.0, 1.0])
             rand(rng, length(t))
-        end
-    )
-    layer = SingleShootingLayer(prob, Tsit5(); controls = (1 => c,))
-    rng = MersenneTwister(42)
-    expected = rand(copy(rng), 2)
-    ps, st = LuxCore.setup(rng, layer)
+        end)
+    layer = SingleShootingLayer(prob, Tsit5(); controls = [1 => c])
+    @test calls[] == 0
+    @test LuxCore.parameterlength(layer) == 2
+    @test calls[] == 0
+    ps, st = LuxCore.setup(MersenneTwister(42), layer)
     @test calls[] == 1
+    expected = rand(MersenneTwister(42), 2)
     @test ps.parameter.parameters.p₁.parameter.ps == expected
+    again, _ = LuxCore.setup(MersenneTwister(42), layer)
+    @test calls[] == 2
+    @test again == ps
     traj, _ = layer(nothing, ps, st)
     @test last(traj.u) ≈ [sum(expected) / 2]
-
-    prob = ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0), Float64[])
-    layer = SingleShootingLayer(prob, Tsit5())
-    ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    traj, _ = layer(nothing, ps, st)
-    @test last(traj.u) ≈ [exp(-1)] rtol = 1.0e-3
-    @test isempty(ps.parameter.parameters)
+    @test calls[] == 2
 end
 
-
-@testset "Shooting constraints use tunable state indices" begin
-    prob = ODEProblem((u, p, t) -> [1.0, 2.0, 3.0], [10.0, 20.0, 30.0], (0.0, 1.0), Float64[])
-    ic = Corleone.InitialCondition(prob; fixed = [1, 3])
-    ps, st = LuxCore.setup(MersenneTwister(1), ic)
-    (u0, residuals), next_st = ic([100.0, 7.0, 300.0], ps, st)
-    @test u0 == [10.0, 20.0, 30.0]
-    @test residuals == [13.0]
-    @test next_st == st
-
-    # At an interior shooting point, compare only the tunable state with the
-    # previous segment endpoint, using the physical state order after repacking.
-    layer = ShootingLayer(
-        prob, Tsit5(),
-        0.0 => (; fixed = [1, 2, 3]),
-        0.5 => (; variables = (2 => 40.0,), fixed = [1, 3]),
-    )
+@testset "Legacy multiple shooting uses native reset schedules" begin
+    prob = ODEProblem((u, p, t) -> [p[1], u[1]], [1.0, 0.0], (0.0, 3.0), [2.0])
+    control = ControlParameter([0.0, 1.0, 2.0]; controls = [2.0, 3.0, 4.0])
+    base = SingleShootingLayer(prob, Tsit5(); controls = [1 => control], tunable_ic = [1], quadrature_indices = [2])
+    layer = MultipleShootingLayer(base, [0.0, 1.0, 2.0, 3.0]; ensemble_alg = EnsembleThreads())
+    @test layer isa ShootingLayer
+    @test layer.parameter === base.parameter
+    @test layer.sys === base.sys
+    @test layer.ensemblealg isa EnsembleThreads
+    @test quadrature_indices(layer.sys) == [2]
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    traj, _ = layer(nothing, ps, st)
-    residuals = traj.residuals
-    @test length(traj.residuals) == 2
-    @test traj.t == [0.0, 0.5, 0.5, 1.0]
-    @test traj.reset_indices == [3]
-    @test isempty(first(residuals))
-    @test last(residuals) ≈ [19.0]
-    @test traj.u[2] ≈ [10.5, 21.0, 31.5]
-    @test traj.u[3] == [10.0, 40.0, 30.0]
-    @test last(traj.u) ≈ [10.5, 41.0, 31.5]
+    @test ps.initialcondition.initialconditions.u₁.parameter.ps == [1.0, 1.0, 1.0]
+    @test ps.initialcondition.initialconditions.u₂.parameter.ps == [0.0, 0.0]
+    serial = ShootingLayer(layer.name, prob, layer.alg, EnsembleSerial(), layer.initialcondition, layer.parameter, layer.sys)
+    a, _ = layer(nothing, ps, st)
+    b, _ = serial(nothing, ps, st)
+    @test a.u ≈ b.u
+    @test a.t == b.t
+    @test a.residuals ≈ b.residuals
+    @test a.reset_indices == [3, 5]
+    @test length.(a.residuals) == [1, 2, 2]
+    @test last(a.u)[1] ≈ 5.0
+    other = MultipleShootingLayer(prob, Tsit5(), 1.0, 2.0; controls = [1 => control])
+    @test other isa ShootingLayer
+    @test Corleone.get_timestops(other.initialcondition,
+        LuxCore.initialparameters(MersenneTwister(1), other).initialcondition,
+        LuxCore.initialstates(MersenneTwister(1), other).initialcondition, Float64) == [1.0, 2.0]
+    empty = SingleShootingLayer(ODEProblem((u, p, t) -> -u, [1.0], (0.0, 1.0), Float64[]), Tsit5())
+    p0, s0 = LuxCore.setup(MersenneTwister(1), empty)
+    @test last(first(empty(nothing, p0, s0)).u) ≈ [exp(-1)] rtol = 1e-3
+end
+
+@testset "Legacy translation rejects unsupported or invalid definitions" begin
+    prob = ODEProblem((u, p, t) -> p, [1.0], (0.0, 2.0), [1.0])
+    @test_throws ArgumentError ControlParameter(Float64[])
+    @test_throws ArgumentError ControlParameter([1.0, 0.0])
+    @test_throws ArgumentError ControlParameter([0.0, 0.0])
+    @test_throws ArgumentError ControlParameter([0.0, 1.0]; bounds = ([0.0, 0.5], [1.0, 1.0]))
+    @test_throws DimensionMismatch ControlParameter([0.0, 1.0]; controls = [0.0])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); tunable_ic = [2])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); tunable_ic = [1, 1])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); quadrature_indices = [2])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); controls = [2 => ControlParameter([0.0])])
+    c = ControlParameter([0.0])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); controls = [1 => c, 1 => c])
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); bounds_p = ([], []))
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); state_initialization = identity)
+    @test_throws ArgumentError SingleShootingLayer(prob, Tsit5(); parameter_initialization = identity)
+    @test_throws ArgumentError MultipleShootingLayer(prob, Tsit5(), 1.0; initialization = identity)
+    @test_throws ArgumentError MultipleShootingLayer(prob, Tsit5(), -1.0)
+    fixed = ShootingLayer(prob, Tsit5(), Constant(1; kind = Val(:variable)) => [0.0])
+    @test_throws ArgumentError MultipleShootingLayer(fixed, 1.0)
 end

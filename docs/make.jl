@@ -39,6 +39,7 @@ makedocs(
         "Symbolic Bookkeeping" => "symbolic_metadata.md",
         "References" => "references.md",
         "API" => "api.md",
+        "Deprecated Constructors" => "legacy_constructors.md",
     ],
     remotes = nothing,
     plugins = [bib],

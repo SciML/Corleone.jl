@@ -1,118 +1,76 @@
-include("controls.jl")
-
-# Keep initialization callbacks at the whole-vector level: calling one per scalar
-# parameter would change the order and number of draws from the supplied RNG.
-"""
-$(TYPEDEF)
-
-A legacy whole-vector initializer wrapper that preserves the callback's RNG draw
-order while delegating evaluation to its inner layer.
-
-# Fields
-$(FIELDS)
-"""
-struct LegacyInitializer{L, F} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    "The inner layer evaluated with the initialized parameters."
-    layer::L
-    "The callback called with the RNG to initialize the complete parameter vector."
-    initialize::F
-end
-
-LuxCore.parameterlength(x::LegacyInitializer{<:InitialCondition}) = LuxCore.parameterlength(x.layer.tunable)
-
-LuxCore.initialparameters(rng::Random.AbstractRNG, x::LegacyInitializer) = x.initialize(rng)
-LuxCore.initialstates(rng::Random.AbstractRNG, x::LegacyInitializer) = LuxCore.initialstates(rng, x.layer)
-(x::LegacyInitializer)(input, ps, st) = x.layer(input, ps, st)
-get_timestops(x::LegacyInitializer, ps, st, T) = get_timestops(x.layer, ps, st, T)
-
-legacy_default_u0(rng, prob, indices, bounds) = clamp.(prob.u0[indices], first(bounds)[indices], last(bounds)[indices])
-function legacy_default_p0(rng, prob, indices, bounds)
-    vals, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-    return clamp.(vals[indices], bounds...)
-end
-
-function legacy_check_bounds(bounds, n, description)
-    length(first(bounds)) == length(last(bounds)) == n || throw(ArgumentError("Inconsistent $description bounds"))
-    all(first(bounds) .<= last(bounds)) || throw(ArgumentError("Inconsistent $description bounds"))
-    return bounds
-end
-
 """
 $(SIGNATURES)
 
-Translate the legacy single-shooting constructor into a [`ShootingLayer`](@ref).
-`controls` contains `parameter_index => ControlParameter(...)` pairs. Initial
-conditions outside `tunable_ic` remain fixed; non-control parameters remain tunable.
-Extra keywords remake the underlying problem before translation.
+Deprecated single-shooting constructor returning a [`ShootingLayer`](@ref).
+Translate `controls = [index => ControlParameter(...), ...]`, `tunable_ic`,
+`bounds_ic`, `bounds_p`, and `quadrature_indices` into native annotations and
+symbolic bookkeeping. Initial conditions in `tunable_ic` are tunable at the problem
+start; other initial conditions pass through `problem.u0`. Non-control parameters
+remain tunable. Extra keywords remake the differential equation problem.
 
-The result uses **the new Lux parameter/state layout** and returns `(trajectory, state)`,
-with initial-condition residuals in `trajectory.residuals`. This function does not
-restore the old bounds API. Bounds are used
-for default initialization only. Custom initializers retain the legacy signatures
-`(rng, problem, indices, bounds)` and run during `LuxCore.setup`.
-`quadrature_indices` are validated; they need no special treatment in a single shoot.
+The return value uses the new Lux parameter/state layout, with residuals in
+`trajectory.residuals`. Legacy whole-vector initialization callbacks are not
+supported; set annotation defaults using count or timepoint callbacks instead.
 """
-function SingleShootingLayer(
-        prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractSciMLAlgorithm;
-        controls = [], tunable_ic = Int[], bounds_ic = nothing,
-        state_initialization = legacy_default_u0, bounds_p = nothing,
-        parameter_initialization = legacy_default_p0, quadrature_indices = Int[],
-        kwargs...,
-    )
-    prob = remake(prob; kwargs...)
-    vals, _... = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-    controls = collect(controls)
-    indices = Int[first(c) for c in controls]
-    tunable_ic = Int[tunable_ic...]
-    allunique(indices) || throw(ArgumentError("Control parameter indices must be unique"))
-    allunique(tunable_ic) || throw(ArgumentError("Tunable initial-condition indices must be unique"))
-    all(i -> checkbounds(Bool, vals, i), indices) || throw(ArgumentError("Invalid control parameter index"))
-    all(i -> checkbounds(Bool, prob.u0, i), tunable_ic) || throw(ArgumentError("Invalid tunable initial-condition index"))
-    all(i -> checkbounds(Bool, prob.u0, i), quadrature_indices) || throw(ArgumentError("Invalid quadrature index"))
-    p_indices = setdiff(eachindex(vals), indices)
-    ic_bounds = isnothing(bounds_ic) ? (fill(-Inf, size(prob.u0)), fill(Inf, size(prob.u0))) : bounds_ic
-    p_bounds = isnothing(bounds_p) ? (fill(-Inf, length(p_indices)), fill(Inf, length(p_indices))) : bounds_p
-    legacy_check_bounds(ic_bounds, length(prob.u0), "initial-condition")
-    legacy_check_bounds(p_bounds, length(p_indices), "parameter")
+function SingleShootingLayer(prob::SciMLBase.AbstractDEProblem,
+        alg::SciMLBase.AbstractSciMLAlgorithm; kwargs...)
+    Base.depwarn("SingleShootingLayer is deprecated; use ShootingLayer with Tunable/Constant annotations. The returned layer uses the new parameter/state layout and trajectory.residuals.", :SingleShootingLayer)
+    return legacy_shooting_layer(prob, alg; kwargs...)
+end
 
-    grids = map(controls) do (_, control)
-        issorted(control.t) && allunique(control.t) || throw(ArgumentError("Control grids must be sorted and unique"))
-        grid = collect(get_timegrid(control, prob.tspan))
-        isempty(grid) && throw(ArgumentError("Each control needs a time point inside the problem time span"))
-        grid
+function legacy_shooting_layer(prob, alg; controls = (), tunable_ic = Int[],
+        bounds_ic = nothing, bounds_p = nothing, quadrature_indices = Int[],
+        state_initialization = nothing, parameter_initialization = nothing,
+        name = nothing, kwargs...)
+    isnothing(state_initialization) && isnothing(parameter_initialization) ||
+        throw(ArgumentError("Legacy whole-vector initialization callbacks are unsupported. Use annotation default vectors or (rng, n::Int)/(rng, times::AbstractVector) initializers."))
+    prob = remake(prob; kwargs...)
+    sys = get_symbolic_container(prob)
+    pvals, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
+    uvals, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.u0)
+    conditions = collect(tunable_ic)
+    allunique(conditions) && all(i -> i isa Integer && checkbounds(Bool, uvals, i), conditions) ||
+        throw(ArgumentError("Tunable initial-condition indices must be valid and unique."))
+    qindices = collect(quadrature_indices)
+    allunique(qindices) && all(i -> i isa Integer && checkbounds(Bool, uvals, i), qindices) ||
+        throw(ArgumentError("Quadrature indices must be valid and unique."))
+    definitions = Pair[]
+    control_indices = Int[]
+    for entry in controls
+        entry isa Pair && last(entry) isa Pair && first(last(entry)) isa AbstractAnnotation ||
+            throw(ArgumentError("Legacy controls must be parameter_index => (annotation => switching_times) pairs, as returned by ControlParameter."))
+        selector, definition = entry
+        index = selector isa Integer ? selector : parameter_index(sys, selector)
+        index isa Integer && checkbounds(Bool, pvals, index) ||
+            throw(ArgumentError("Invalid control parameter: $selector"))
+        push!(control_indices, index)
+        annotation, grid = definition
+        is_variable(annotation) && throw(ArgumentError("A control must select a parameter."))
+        # The first selected interval is active at the problem start. Endpoints
+        # do not introduce zero-length segments or unused final control values.
+        times = filter(t -> first(prob.tspan) < t < last(prob.tspan), grid)
+        annotation = remake(annotation; index, sym = nothing, kind = Val(:parameter))
+        push!(definitions, annotation => times)
     end
-    # The legacy first value is active at tspan[1], even when its grid starts later.
-    # New PiecewiseConstant stores only the boundaries between successive values.
-    definitions = [indices[i] => grids[i][2:end] for i in eachindex(indices)]
-    fixed_ic = setdiff(eachindex(prob.u0), tunable_ic)
-    layer = ShootingLayer(prob, alg, first(prob.tspan) => (; fixed = fixed_ic), definitions...)
-    ic = only(layer.initialcondition.initialconditions)
-    initialize_ic = function (rng)
-        values = state_initialization(rng, prob, tunable_ic, ic_bounds)
-        length(values) == length(tunable_ic) || throw(DimensionMismatch("Initial-condition initializer returned the wrong number of values"))
-        # InitialCondition stores tunables in state-index order, rather than the
-        # order supplied by the legacy caller.
-        return NamedTuple{keys(ic.tunable)}(Tuple(values[sortperm(tunable_ic)]))
+    allunique(control_indices) || throw(ArgumentError("Define each control parameter only once."))
+    ordinary = setdiff(eachindex(pvals), control_indices)
+    plower, pupper = legacy_bounds(isnothing(bounds_p) ? (-Inf, Inf) : bounds_p,
+        length(ordinary), "parameter")
+    ulower, uupper = legacy_bounds(isnothing(bounds_ic) ? (-Inf, Inf) : bounds_ic,
+        length(uvals), "initial-condition")
+    for (k, index) in enumerate(ordinary)
+        push!(definitions, Tunable(index; kind = Val(:parameter),
+            default = clamp(pvals[index], plower[k], pupper[k]),
+            lowerbound = plower[k], upperbound = pupper[k]) => nothing)
     end
-    conditions = InitialConditions(
-        layer.initialcondition.name, layer.initialcondition.lookup,
-        (LegacyInitializer(ic, initialize_ic),),
-    )
-    parameter = layer.parameter
-    initialize_parameter = function (rng)
-        p = parameter_initialization(rng, prob, p_indices, p_bounds)
-        length(p) == length(p_indices) || throw(DimensionMismatch("Parameter initializer returned the wrong number of values"))
-        control_values = map(controls) do (_, control)
-            values = get_controls(rng, control; tspan = prob.tspan)
-            length(values) == control_length(control; tspan = prob.tspan) || throw(DimensionMismatch("Control initializer returned the wrong number of values"))
-            values
-        end
-        parameters = map(enumerate(values(parameter.parameters))) do (i, pc)
-            c = findfirst(==(i), indices)
-            v = isnothing(c) ? [p[findfirst(==(i), p_indices)]] : control_values[c]
-            (; lookup = (;), parameter = (; ps = v))
-        end
-        return (; parameters = NamedTuple{keys(parameter.parameters)}(Tuple(parameters)))
+    for index in conditions
+        push!(definitions, Tunable(index; kind = Val(:variable),
+            default = clamp(uvals[index], ulower[index], uupper[index]),
+            lowerbound = ulower[index], upperbound = uupper[index]) => [first(prob.tspan)])
     end
-    return ShootingLayer(layer.name, prob, alg, conditions, LegacyInitializer(parameter, initialize_parameter))
+    # Retain state bounds even for initial conditions that pass through u0.
+    bounds = Dict(sym => (ulower[variable_index(sys, sym)], uupper[variable_index(sys, sym)])
+        for sym in variable_symbols(sys))
+    return ShootingLayer(prob, alg, definitions...; name, controls = control_indices,
+        quadratures = qindices, bounds)
 end
