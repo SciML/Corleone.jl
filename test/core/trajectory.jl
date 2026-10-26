@@ -1,5 +1,6 @@
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
 import SymbolicIndexingInterface as SII
+import SciMLBase
 
 @testset "Trajectory assembly and implicit parameters" begin
     prob = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [2.0])
@@ -28,6 +29,15 @@ import SymbolicIndexingInterface as SII
     @test SII.parameter_values_at_time(traj, traj, 1.0) == [4.0]
     @test SII.parameter_values_at_time(traj, traj, 2.0) == [4.0]
     @test_throws DomainError SII.parameter_values_at_time(traj, traj, -0.1)
+
+    @static if isdefined(SciMLBase, :DespecializedParameters)
+        params = SciMLBase.DespecializedParameters([2.0])
+        updated = SII.with_updated_parameter_timeseries_values(traj, params, 1 => [4.0])
+        @test updated isa SciMLBase.DespecializedParameters
+        @test updated.params == [4.0]
+        @test SII.with_updated_parameter_timeseries_values(traj, params).params === params.params
+        @test_throws ArgumentError SII.with_updated_parameter_timeseries_values(traj, params, 2 => [4.0])
+    end
 
     # Parameter histories are implicit in the supplied Lux parameters and state.
     ps.parameter.parameters.p₁.parameter.ps .= 99.0

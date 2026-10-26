@@ -169,12 +169,12 @@ get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
 
 function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
     du0 = get_du0(prob, sol)
-    return internal_solve(prob, alg, u0, p, tspan, du0)
+    return internal_solve_with_du0(prob, alg, u0, p, tspan, du0)
 end
 
 # Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
-internal_solve(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
-internal_solve(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+internal_solve_with_du0(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+internal_solve_with_du0(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
 
 
 function mkbuffer(::T, vec::AbstractArray) where {T}

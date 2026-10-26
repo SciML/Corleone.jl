@@ -79,13 +79,13 @@ supplies symbols, defaults, and annotation bounds.
 """
 function Parameter(
         prob::SciMLBase.AbstractSciMLProblem,
-        defintions...;
+        raw_definitions...;
         name = nothing,
         fixed = [],
         sys = get_symbolic_container(prob),
     )
     definitions = reduce(
-        vcat, map(defintions) do definition
+        vcat, map(raw_definitions) do definition
             process_definition(sys, Val(:parameter), definition...)
         end; init = Pair[]
     )

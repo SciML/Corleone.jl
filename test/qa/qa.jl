@@ -2,21 +2,12 @@ using SciMLTesting
 using Corleone
 using Test
 
-# ExplicitImports only sees an extension once its trigger package is loaded, so the
-# three extension triggers are loaded here to bring `ext/` into the checked module set.
-# The `Optimization` weakdep triggers no extension of this package (it is the trigger
-# for CorleoneOED's extension), so it is deliberately not loaded here.
-using ComponentArrays, Makie, ModelingToolkit
+# Load every registered extension so ExplicitImports checks its methods too.
+# Makie and ModelingToolkit integration is not registered during the rewrite.
+using ComponentArrays, Zygote
 
-# ExplicitImports silently skips an extension that fails to load, so assert the
-# extension modules actually exist rather than trusting a green run_qa.
 @testset "Extensions loaded" begin
-    exts = (
-        :CorleoneComponentArraysExtension,
-        :CorleoneMakieExtension,
-        :CorleoneModelingToolkitExtension,
-    )
-    for ext in exts
+    for ext in (:CorleoneComponentArraysExtension, :CorleoneZygoteExtension)
         @test Base.get_extension(Corleone, ext) !== nothing
     end
 end
@@ -31,6 +22,10 @@ run_qa(
         # `ADTypes` is reached through `SciMLBase.ADTypes.AbstractADType`; ADTypes
         # is not a direct Corleone dependency, so the access goes via SciMLBase.
         all_qualified_accesses_via_owners = (; ignore = (:ADTypes,)),
+        # The Zygote extension implements these private parent-package hooks.
+        all_explicit_imports_are_public = (;
+            ignore = (:is_extension_loaded, :unwrapbuffer, :wrapbuffer),
+        ),
         # Names still not declared public in their owning modules: Base internals
         # (`AbstractVecOrTuple`, `Splat`), SciMLBase internals (`ADTypes`,
         # `AbstractDEAlgorithm`, `AbstractDEProblem`, `EnsembleAlgorithm`,
@@ -41,6 +36,10 @@ run_qa(
                 :ADTypes, :AbstractDEAlgorithm, :AbstractDEProblem,
                 :AbstractVecOrTuple, :EnsembleAlgorithm, :Splat, :Tunable,
                 :canonicalize, :get_colorizers,
+                # SII timeseries dispatch hook, not declared public upstream.
+                :parameter_values_at_time,
+                # Zygote's documented mutation buffer is not declared public.
+                :Buffer,
                 # Corleone's own internals. The extensions exist to add methods to
                 # these, which is only expressible as a qualified access into the
                 # parent package; they are internal hooks, not user API.

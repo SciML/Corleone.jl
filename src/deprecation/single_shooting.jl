@@ -62,7 +62,7 @@ function legacy_shooting_layer(
         isnothing(bounds_p) ? (-Inf, Inf) : bounds_p,
         length(ordinary), "parameter"
     )
-    ulower, uupper = legacy_bounds(
+    u_lower, u_upper = legacy_bounds(
         isnothing(bounds_ic) ? (-Inf, Inf) : bounds_ic,
         length(uvals), "initial-condition"
     )
@@ -79,14 +79,14 @@ function legacy_shooting_layer(
         push!(
             definitions, Tunable(
                 index; kind = Val(:variable),
-                default = clamp(uvals[index], ulower[index], uupper[index]),
-                lowerbound = ulower[index], upperbound = uupper[index]
+                default = clamp(uvals[index], u_lower[index], u_upper[index]),
+                lowerbound = u_lower[index], upperbound = u_upper[index]
             ) => [first(prob.tspan)]
         )
     end
     # Retain state bounds even for initial conditions that pass through u0.
     bounds = Dict(
-        sym => (ulower[variable_index(sys, sym)], uupper[variable_index(sys, sym)])
+        sym => (u_lower[variable_index(sys, sym)], u_upper[variable_index(sys, sym)])
             for sym in variable_symbols(sys)
     )
     return ShootingLayer(

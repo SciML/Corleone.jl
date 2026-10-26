@@ -166,6 +166,17 @@ function SymbolicIndexingInterface.with_updated_parameter_timeseries_values(
     all(update -> first(update) == 1, updates) || throw(ArgumentError("Unknown parameter timeseries"))
     return last(last(updates))
 end
+# SciMLBase also dispatches on the parameter container. Resolve the intersection
+# while retaining its wrapper when updating a trajectory's parameter timeseries.
+@static if isdefined(SciMLBase, :DespecializedParameters)
+    function SymbolicIndexingInterface.with_updated_parameter_timeseries_values(
+            traj::Trajectory, params::SciMLBase.DespecializedParameters, updates::Pair...
+        )
+        updated = SymbolicIndexingInterface.with_updated_parameter_timeseries_values(traj, params.params, updates...)
+        return SciMLBase.DespecializedParameters(updated)
+    end
+end
+
 function SymbolicIndexingInterface.get_all_timeseries_indexes(traj::Trajectory, sym)
     is_parameter(traj.sys, sym) && return Set([1])
     return get_all_timeseries_indexes(traj.sys, sym)
