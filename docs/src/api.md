@@ -96,3 +96,17 @@ ControlParameter
 SingleShootingLayer
 MultipleShootingLayer
 ```
+
+## Optimization-facing contracts
+
+See [Optimization-facing contracts](optimization_contracts.md) for structured
+variable bounds, constraint ordering, and optimizer buffer requirements. The
+`get_bounds` methods are documented above with symbolic bookkeeping.
+
+```@docs
+get_lower_bound
+get_upper_bound
+get_number_of_shooting_constraints
+shooting_constraints
+shooting_constraints!
+```

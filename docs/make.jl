@@ -34,6 +34,7 @@ makedocs(
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
         ],
         "Initialization" => "initialization.md",
+        "Optimization Contracts" => "optimization_contracts.md",
         "Automatic Differentiation" => "automatic_differentiation.md",
         "Parallel Shooting" => "parallel_shooting.md",
         "Symbolic Bookkeeping" => "symbolic_metadata.md",

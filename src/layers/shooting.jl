@@ -211,3 +211,57 @@ terminal_state(sol::AbstractArray) = sol[:, end]
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
 end
+
+get_lower_bound(layer::ShootingLayer, ps, st = nothing) =
+    shooting_parameter_bounds(get_lower_bound, first, layer, ps, st)
+get_upper_bound(layer::ShootingLayer, ps, st = nothing) =
+    shooting_parameter_bounds(get_upper_bound, last, layer, ps, st)
+
+function shooting_parameter_bounds(operation, select, layer, ps, st)
+    # Build the parameter tree through the same generic Lux recursion. Applying
+    # symbolic metadata is the only ShootingLayer-specific part of this protocol.
+    bounds = container_parameter_bounds(operation, layer, ps, st, (:initialcondition, :parameter))
+    variable_bounds = symbolic_parameter_bounds(bounds.initialcondition.initialconditions,
+        layer.sys, variable_symbols(layer.sys), select)
+    parameter_bounds = symbolic_parameter_bounds(bounds.parameter.parameters,
+        layer.sys, parameter_symbols(layer.sys), select)
+    return merge(bounds, (;
+        initialcondition = merge(bounds.initialcondition, (; initialconditions = variable_bounds)),
+        parameter = merge(bounds.parameter, (; parameters = parameter_bounds))))
+end
+
+function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select)
+    names = keys(template)
+    fields = map(names) do name
+        sym = only(filter(sym -> Symbol(sym) == name, symbols))
+        parameter_bound_tree(template[name], select(get_bounds(cache, sym)))
+    end
+    return NamedTuple{names}(fields)
+end
+
+"""
+$(SIGNATURES)
+
+Count scalar initial-condition matching residuals for the cached segment grid in
+`st.timestops`, without running the model. Each tunable initial condition contributes
+one residual at each matching segment start, including the problem start when
+scheduled. Fixed assignments and resets at the final endpoint contribute none.
+
+The count uses scheduling metadata in Lux state; `ps` may be `nothing`. Refresh
+`st.timestops` after changing schedules, then recompute this count before allocating
+optimizer constraint buffers. This discrete metadata calculation is not differentiated.
+"""
+function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
+    n = 0
+    for name in keys(layer.initialcondition.initialconditions)
+        ic = layer.initialcondition.initialconditions[name]
+        ic isa InitialCondition || continue
+        state = st.initialcondition.initialconditions[name]
+        for i in firstindex(st.timestops):(lastindex(st.timestops) - 1)
+            n += resets_variable(ic, state, st.timestops[i])
+        end
+    end
+    return n
+end
+
+ChainRulesCore.@non_differentiable get_number_of_shooting_constraints(layer, ps, st)

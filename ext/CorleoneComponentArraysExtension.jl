@@ -1,25 +1,22 @@
 module CorleoneComponentArraysExtension
+
 using Corleone
 using ComponentArrays
 
-struct CAFunctionWrapper{A, F} <: Corleone.AbstractCorleoneFunctionWrapper
-    "The axes of the componentarray"
-    ax::A
-    "The original function"
-    f::F
+# ComponentVectors encode parameter fields in their axes. Traverse those fields
+# through views; materializing NamedTuple(ps) would copy numeric parameter arrays.
+function Corleone.parameter_bound_tree(ps::ComponentVector, value)
+    names = propertynames(ps)
+    isempty(names) && !isempty(ps) && return fill(value, size(ps))
+    return NamedTuple{names}(map(names) do name
+        Corleone.parameter_bound_tree(getproperty(ps, name), value)
+    end)
 end
 
-(f::CAFunctionWrapper)(ps, st) = f.f(ComponentArray(ps, f.ax), st)
-(f::CAFunctionWrapper)(res, ps, st) = f.f(res, ComponentArray(ps, f.ax), st)
+Corleone.empty_parameter_structure(ps::ComponentVector) =
+    isempty(propertynames(ps)) && isempty(ps)
 
-Corleone.to_vec(::CAFunctionWrapper, x...) = map(x -> isnothing(x) ? x : (collect ∘ ComponentArray)(x), x)
-
-function Corleone.wrap_functions(::Val{:ComponentArrays}, u0::NamedTuple, f...)
-    u0 = ComponentVector(u0)
-    ax = getaxes(u0)
-    return map(f) do fi
-        isnothing(fi) ? fi : CAFunctionWrapper{typeof(ax), typeof(fi)}(ax, fi)
-    end
-end
+Corleone.unbounded_parameter_bounds(ps::ComponentVector, value) =
+    Corleone.parameter_bound_tree(ps, value)
 
 end

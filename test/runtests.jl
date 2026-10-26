@@ -41,6 +41,12 @@ else
             @safetestset "Initial-condition differentiation" begin
                 include("core/initial_conditions_ad.jl")
             end
+            @safetestset "Optimization contracts" begin
+                include("core/optimization_contracts.jl")
+            end
+            @safetestset "Optimization contract differentiation" begin
+                include("core/optimization_contracts_ad.jl")
+            end
             @safetestset "Cached shooting timestops" begin
                 include("core/shooting_timestops.jl")
             end

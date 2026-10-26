@@ -46,7 +46,7 @@ run_qa(
                 # parent package; they are internal hooks, not user API.
                 :AbstractCorleoneFunctionWrapper, :get_number_of_shooting_constraints,
                 :retrieve_symbol_cache, :shooting_constraints!, :to_vec,
-                :wrap_functions,
+                :wrap_functions, :parameter_bound_tree, :unbounded_parameter_bounds, :empty_parameter_structure,
                 # Symbolics/SymbolicUtils term-rewriting internals used to normalize
                 # MTK constraints and read symbolic defaults; no public spelling.
                 :Code, :canonical_form, :getdefaultval,

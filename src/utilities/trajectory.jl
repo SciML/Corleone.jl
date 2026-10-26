@@ -183,3 +183,45 @@ utype(traj::Trajectory) = eltype(first(traj.u))
 ttype(traj::Trajectory) = eltype(traj.t)
 is_shooting_solution(traj::Trajectory) = !isempty(traj.reset_indices)
 shooting_violations(traj::Trajectory) = traj.residuals
+
+"""
+$(SIGNATURES)
+
+Return the scalar initial-condition matching residuals in chronological segment
+order, with variables in canonical state index order within each segment. The
+values are assigned states minus incoming states, as stored in
+`trajectory.residuals`. Fixed assignments do not contribute residuals.
+
+These are equality-constraint values; matching constraint bounds are zero.
+Numerical derivatives flow through the residual values. Use [`shooting_constraints!`](@ref)
+to write directly into an existing optimizer buffer.
+"""
+function shooting_constraints(trajectory::Trajectory)
+    isempty(trajectory.residuals) && return similar(first(trajectory.u), 0)
+    return reduce(vcat, trajectory.residuals)
+end
+
+"""
+$(SIGNATURES)
+
+Write [`shooting_constraints`](@ref) into `res` in the same order and return `res`.
+The buffer length must equal the total number of scalar residuals; otherwise throw
+`DimensionMismatch` before writing. This avoids allocating an intermediate flattened
+vector. The buffer's element type must support the residual values, including AD
+number types. Backends that do not support array mutation should use the allocating
+`shooting_constraints` form instead.
+"""
+function shooting_constraints!(res::AbstractVector, trajectory::Trajectory)
+    expected = sum(length, trajectory.residuals; init = 0)
+    length(res) == expected || throw(DimensionMismatch(
+        "Expected a shooting-constraint buffer of length $expected, got $(length(res))."
+    ))
+    index = firstindex(res)
+    for residual in trajectory.residuals
+        for value in residual
+            res[index] = value
+            index += 1
+        end
+    end
+    return res
+end

@@ -29,10 +29,14 @@ mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
 # Extensions
 is_extension_loaded(::Val) = false
 
+include("optimization.jl")
 include("utilities/Utilities.jl")
 
 include("layers/Layers.jl")
 export ShootingLayer
+
+export get_bounds, get_lower_bound, get_upper_bound, get_number_of_shooting_constraints
+export shooting_constraints, shooting_constraints!
 
 include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")
