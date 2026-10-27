@@ -40,7 +40,7 @@ using ForwardDiff
 using ComponentArrays
 using SymbolicIndexingInterface
 using CairoMakie
-Makie.inline!(inline = true)
+Makie.inline!()
 # ## LQR Dynamics
 # Next, we set up the dynamics and the objective as a single function.
 
