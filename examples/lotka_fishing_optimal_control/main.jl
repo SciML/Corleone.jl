@@ -32,7 +32,7 @@ using Ipopt
 using ComponentArrays
 using ForwardDiff
 using CairoMakie
-
+Makie.inline!()
 # ## Lotka–Volterra Dynamics
 
 # First, the ODEProblem has to be defined in a standard way.
@@ -69,19 +69,6 @@ ps, st = LuxCore.setup(MersenneTwister(42), layer)
 initial_parameters = ComponentArray(ps)
 parameter_axes = getaxes(initial_parameters)
 
-function plot_lotka(sol)
-    f = Figure()
-    ax = CairoMakie.Axis(f[1, 1])
-    lines!(ax, sol.t, sol[:u₁], label = "prey")
-    lines!(ax, sol.t, sol[:u₂], label = "predator")
-    f[1, 2] = Legend(f, ax, "States", framevisible = false)
-    ax1 = CairoMakie.Axis(f[2, 1])
-    controls = [SymbolicIndexingInterface.parameter_values_at_time(sol, sol, t)[1] for t in sol.t]
-    stairs!(ax1, sol.t, controls, label = "fishing", step = :post)
-    f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
-    return f
-end
-
 # The third state integrates the running cost. The callbacks capture the concrete
 # layer and parameter axes. The objective's scalar type assertion gives the
 # optimizer an inferable return type, including ForwardDiff Dual numbers.
@@ -114,11 +101,12 @@ uopt = solve(
     tol = 1.0e-6,
     hessian_approximation = "limited-memory",
     max_iter = 300,
+    print_level = 3,
 )
 optimized_parameters = ComponentArray(uopt.u, parameter_axes)
 optsol, _ = layer(nothing, optimized_parameters, st)
 
-plot_lotka(optsol)
+trajectoryplot(optsol)
 
 # ## Multiple Shooting
 
@@ -153,10 +141,13 @@ msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 # duplicates its predecessor's value; the existing switch at 9.75 stays unchanged.
 msps, msst = add_parameter_segments!(mslayer, msps, msst)
 
+# Let's have a look at the initial solution
+mssol, _ = mslayer(nothing, msps, msst);
+trajectoryplot(mssol, show_legend = true, whiskerwidth = 10)
+
 # Build optimizer storage after splitting, so its axes include the inserted values.
 ms_initial_parameters = ComponentArray(msps)
 ms_parameter_axes = getaxes(ms_initial_parameters)
-
 ms_objective, continuity_constraints! = shooting_callbacks(mslayer, ms_parameter_axes)
 
 # Annotation bounds cover lifted states and control values, including inserted
@@ -177,5 +168,5 @@ ms_uopt = solve(
     max_iter = 300,
     print_level = 3,
 )
-mssol, _ = mslayer(nothing, ComponentArray(ms_uopt.u, ms_parameter_axes), msst);
-plot_lotka(mssol);
+mssolop, _ = mslayer(nothing, ComponentArray(ms_uopt.u, ms_parameter_axes), msst);
+trajectoryplot(mssolop, show_legend = true)

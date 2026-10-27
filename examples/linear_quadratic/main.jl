@@ -40,19 +40,19 @@ using ForwardDiff
 using ComponentArrays
 using SymbolicIndexingInterface
 using CairoMakie
-
+Makie.inline!(inline = true)
 # ## LQR Dynamics
 # Next, we set up the dynamics and the objective as a single function.
 
 function lqr_dynamics(x, p, t)
     a, b, u = p
-    du = a .* x[1] .+ b .* u
+    du = a .* x[1:(end - 1)] .+ b .* u
     costs = 10.0 .* (x[1] .- 3.0) .^ 2 .+ 0.1 .* u .^ 2
     return vcat(du, costs)
 end
 
 tspan = (0.0, 12.0)
-u0 = [1.0, 0.0]
+u0 = [1.0, 2.0, 0.0]
 p0 = [-1.0, 1.0, 0.0]
 lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 
@@ -62,10 +62,10 @@ lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 control_grid = collect(0.1:0.1:11.9)
 predictor = ShootingLayer(
     lqr_problem, Tsit5(),
-    Tunable(3; kind = Val(:parameter), default = 0.0) => control_grid,
+    Tunable(3; kind = Val(:parameter), default = (rng, n) -> rand(rng, n)) => control_grid,
     Constant(1; kind = Val(:parameter)) => nothing,
     Constant(2; kind = Val(:parameter)) => nothing;
-    controls = [3], quadratures = [2],
+    controls = [3], quadratures = [3],
 )
 # A grid contains switching times: 119 interior times give 120 control values.
 # Constants live in Lux state and do not become optimization variables.
@@ -74,28 +74,7 @@ predictor = ShootingLayer(
 
 ps, st = LuxCore.setup(Random.default_rng(), predictor)
 solution, _ = predictor(nothing, ps, st)
-
-# We define a plotting function here
-function plot_lqr_solution(solution; show_setpoint = true)
-    f = Figure()
-    axes = [CairoMakie.Axis(f[i, 1], xlabel = i == 3 ? "t" : "") for i in 1:3]
-    lines!(axes[1], solution.t, solution[:u₁], label = "state")
-    if show_setpoint
-        hlines!(axes[1], [3.0], color = :black, linestyle = :dash)
-    end
-    controls = [
-        SymbolicIndexingInterface.parameter_values_at_time(solution, solution, t)[3]
-            for t in solution.t
-    ]
-    stairs!(axes[2], solution.t, controls, label = "input", step = :post)
-    lines!(axes[3], solution.t, solution[:u₂], label = "cost")
-    for (i, title) in enumerate(["State", "Control", "Costs"])
-        f[i, 2] = Legend(f, axes[i], title, framevisible = false)
-    end
-    return f
-end
-
-plot_lqr_solution(solution)
+trajectoryplot(solution)
 
 # ## Optimize
 # Flatten the Lux parameters for Optimization.jl and retain their axes so each
@@ -106,7 +85,7 @@ parameter_axes = getaxes(initial_parameters)
 function lqr_objective(q, state)
     parameters = ComponentArray(q, parameter_axes)
     trajectory, _ = predictor(nothing, parameters, state)
-    return last(trajectory.u)[2]
+    return last(trajectory.u)[end]
 end
 optfun = OptimizationFunction(lqr_objective, AutoForwardDiff())
 optprob = OptimizationProblem(
@@ -120,4 +99,4 @@ uopt = solve(
 # Finally, lets have a look at the optimized solution.
 optimized_parameters = ComponentArray(uopt.u, parameter_axes)
 optimized_solution, _ = predictor(nothing, optimized_parameters, st)
-plot_lqr_solution(optimized_solution)
+trajectoryplot(optimized_solution)
