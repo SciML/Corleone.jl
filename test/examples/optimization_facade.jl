@@ -12,7 +12,7 @@ using Optimization, OptimizationMOI, Ipopt, ForwardDiff
     ps, st = add_parameter_segments!(layer, ps, st)
     d = CorleoneDynamicOptProblem(
         layer, traj -> (last(traj.u)[1] - 1)^2,
-        :u₁ => (; t = [0.5, 1.0, 1.5, 2.0], bounds = (0.0, 1.5)); ps, st
+        :([u₁(0.5), u₁(1.0), u₁(1.5), u₁(2.0)]); ps, st, lcons = zeros(4), ucons = fill(1.5, 4)
     )
     @test Base.get_extension(Corleone, :CorleoneComponentArraysExtension) !== nothing
     opt = OptimizationProblem(d, AutoForwardDiff(); function_kwargs = (;))

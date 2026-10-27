@@ -4,10 +4,10 @@ using Test
 
 # Load the numerical extensions so ExplicitImports checks their methods too.
 # Plotting has a separate environment; ModelingToolkit integration is deferred.
-using ComponentArrays, Zygote
+using ComponentArrays, RuntimeGeneratedFunctions, Zygote
 
 @testset "Extensions loaded" begin
-    for ext in (:CorleoneComponentArraysExtension, :CorleoneZygoteExtension)
+    for ext in (:CorleoneComponentArraysExtension, :CorleoneRuntimeGeneratedFunctionsExtension, :CorleoneZygoteExtension)
         @test Base.get_extension(Corleone, ext) !== nothing
     end
 end
@@ -36,6 +36,8 @@ run_qa(
                 :ADTypes, :AbstractDEAlgorithm, :AbstractDEProblem,
                 :AbstractVecOrTuple, :EnsembleAlgorithm, :Splat, :Tunable,
                 :canonicalize, :get_colorizers,
+                # Julia's documented metaprogramming entry point lacks a public marker.
+                :eval,
                 # SII timeseries dispatch hook, not declared public upstream.
                 :parameter_values_at_time,
                 # Zygote's documented mutation buffer is not declared public.
@@ -45,7 +47,7 @@ run_qa(
                 # parent package; they are internal hooks, not user API.
                 :AbstractCorleoneFunctionWrapper, :get_number_of_shooting_constraints,
                 :retrieve_symbol_cache, :shooting_constraints!, :to_vec,
-                :wrap_functions, :replace_parameter_fields, :parameter_bound_tree, :unbounded_parameter_bounds, :empty_parameter_structure,
+                :wrap_functions, :replace_parameter_fields,
                 # Symbolics/SymbolicUtils term-rewriting internals used to normalize
                 # MTK constraints and read symbolic defaults; no public spelling.
                 :Code, :canonical_form, :getdefaultval,

@@ -46,7 +46,6 @@ end
     @test Base.mightalias(reconstructed.nested.b, current)
     empty, restore_empty = pack(tag, (;))
     @test isempty(empty) && isempty(restore_empty(empty))
-    @test_throws DimensionMismatch reconstruct(q[1:2])
     @test_throws ArgumentError pack(tag, (; a = [1.0 + im]))
     loss = x -> begin
         p = reconstruct(x)

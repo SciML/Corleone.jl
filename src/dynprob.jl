@@ -1,220 +1,224 @@
 """
 $(TYPEDEF)
 
-A prepared dynamic optimization model for a [`ShootingLayer`](@ref). Construct with
-`CorleoneDynamicOptProblem(layer, loss, constraints...; ps, st, rng)`, or use the
-keyword form `CorleoneDynamicOptProblem(layer; loss, constraints, ps, st, rng)`.
+Prepare `CorleoneDynamicOptProblem(layer, objective, constraints...; lcons, ucons,
+ps, st, rng, eval_module)`. The objective is a scalar trajectory callback, a Julia
+`Expr`, or a terminal state/parameter selector. Omitting it sums terminal quadratures.
 
-`loss` is a scalar trajectory callback or a symbolic selector evaluated at the
-terminal sample. When omitted, sum the terminal quadrature states; at least one
-quadrature must be declared. Constraints are `selector => (; t, bounds, side)`
-pairs. Symbolic selectors are evaluated at saved samples; `t` defaults to the final
-time, and `t = :all` selects all saved times. At reset times `side = :post` selects
-the outgoing state; `:pre` and `:both` are explicit alternatives. Parameter values
-remain right-continuous for all sides.
-A trajectory callback without `t` may return a scalar or flat vector; with `t` it
-must return one entry per trajectory sample, from which the requested entries are
-selected. Bounds are `(lower, upper)`, with scalar or per-entry vector limits.
+Each constraint is a scalar/vector callback `f(traj)`, an in-place callback
+`f!(res, traj)` whose return is ignored, or a numerical Julia expression. Supply
+`lcons` and `ucons` with matching structure and one top-level entry per constraint:
+`[0.0, [0.0, 0.0], 0.0]` declares output sizes `(1, 2, 1)`. With a single constraint,
+a flat bound vector is also accepted. Bounds are flattened in declaration order;
+state and parameter shooting equalities are appended automatically with zero bounds.
 
-Supply `ps` and `st` together to reuse initialization, including parameters expanded
-by [`add_parameter_segments!`](@ref). Otherwise call Lux setup once with `rng`.
-Construction performs one forward solve to prepare the actual saved layout,
-including `saveat`, and constraint dimensions. No initial trajectory is retained.
-Missing requested samples are errors: the facade does not interpolate. Reconstruct
-this model after changing schedules, saved times, or callback output dimensions.
-State and parameter shooting equalities are appended automatically, with zero bounds.
+Timed signal calls such as `:(u₁(10.0) + p₁(5.0))` collect their timepoints during
+setup. Prediction uses the union of these points and `st.timestops`. Expressions
+are compiled against the actual saved grid, including internal `saveat` samples.
+A timed reset query selects the post-reset state; parameters are right-continuous.
+Bare signal names within expressions denote their full series on that saved grid.
+Constraint comparisons are not parsed: use numerical expressions and lcons/ucons.
 
-Construct a SciMLBase `OptimizationProblem` using the reconstruction callable from [`pack`](@ref).
-Load ComponentArrays for the default packing implementation. Block structure and
-ModelingToolkit translation are separate features.
+`eval_module` resolves ordinary expression functions and constants (default:
+Corleone, including Base functions). Pass your own module for custom helpers.
+Signal times must be real literals within the time span; interpolate computed times.
+SymbolicUtils parsing is deferred. `evaluator = default_evaluator()` selects the
+loaded RuntimeGeneratedFunctions extension, with eval as the built-in fallback.
+
+Supply `ps`/`st` together to retain them by reference, including expanded parameter
+intervals. Otherwise setup runs once. One initial prediction validates outputs and
+prepares indices; its numerical solution is not retained. Reprepare after changing
+schedules, saved layout, or output dimensions. Load ComponentArrays for the default
+SciMLBase optimization bridge, or supply another packing implementation.
 
 # Fields
 $(FIELDS)
 """
-@concrete terse struct CorleoneDynamicOptProblem
+struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
     "The shooting layer shared with forward predictions."
-    layer
-    "The scalar trajectory objective callback or prepared terminal selector."
-    objective
-    "Prepared path and terminal constraints in declaration order."
-    constraints
+    layer::L
+    "The scalar objective callback or prepared expression/terminal selector."
+    objective::O
+    "Prepared constraint evaluators in declaration order."
+    constraints::C
     "Initialized numerical parameters, retained by reference."
-    ps
+    ps::P
     "Initialized Lux state, retained by reference."
-    st
-    "The actual saved time grid used to prepare constraint selection."
-    times
-    "Lower constraint bounds: user constraints followed by shooting equalities."
-    lcons
-    "Upper constraint bounds in the same order as `lcons`."
-    ucons
+    st::S
+    "Signal names mapped to requested expression times; discrete setup metadata."
+    timepoints::T
+    "The union of cached shooting stops and expression times used for prediction."
+    evaluation_grid::G
+    "The original cached shooting stops used to detect schedule changes."
+    source_timestops::B
+    "The actual saved trajectory grid against which expressions were compiled."
+    times::V
+    "Flattened user lower bounds followed by shooting equality bounds."
+    lcons::LB
+    "Flattened user upper bounds followed by shooting equality bounds."
+    ucons::UB
     "The prepared number of state and parameter shooting equalities."
     nshooting::Int
-end
 
-"""
-$(TYPEDEF)
-
-Evaluate a prepared symbolic getter at the terminal saved state.
-
-# Fields
-$(FIELDS)
-"""
-struct TerminalObjective{G, S}
-    "The SII getter acting on a single state/parameter/time snapshot."
-    getter::G
-    "The scalar reduction, or `identity` for a scalar selector."
-    aggregate::S
-end
-
-function optimization_sample(traj, i)
-    t = traj.t[i]
-    p = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t)
-    return ProblemState(; u = traj.u[i], p, t)
-end
-(f::TerminalObjective)(traj) = f.aggregate(f.getter(optimization_sample(traj, lastindex(traj.t))))
-
-"""
-$(TYPEDEF)
-
-Select symbolic values from single saved state/parameter snapshots.
-
-# Fields
-$(FIELDS)
-"""
-struct SymbolicConstraintGetter{G}
-    "The prepared SII getter."
-    getter::G
-end
-"""
-$(TYPEDEF)
-
-Evaluate a user trajectory constraint callback.
-
-# Fields
-$(FIELDS)
-"""
-struct CallbackConstraintGetter{F}
-    "The scalar, vector, or saved-series trajectory callback."
-    f::F
-end
-
-constraint_vector(x::Real) = [x]
-constraint_vector(x::AbstractVector{<:Real}) = x
-constraint_vector(x) = throw(ArgumentError("Constraint callbacks/selectors must return a real scalar or a flat vector of real values, got $(typeof(x))."))
-
-function constraint_values(g::SymbolicConstraintGetter, traj, indices)
-    values = map(indices) do i
-        constraint_vector(g.getter(optimization_sample(traj, i)))
+    function CorleoneDynamicOptProblem(
+            ::Val{:Prepared}, layer::L, objective::O, constraints::C, ps::P, st::S,
+            timepoints::T, evaluation_grid::G, source_timestops::B, times::V,
+            lcons::LB, ucons::UB, nshooting::Int
+        ) where {L, O, C, P, S, T, G, B, V, LB, UB}
+        return new{L, O, C, P, S, T, G, B, V, LB, UB}(
+            layer, objective, constraints, ps, st, timepoints, evaluation_grid,
+            source_timestops, times, lcons, ucons, nshooting
+        )
     end
-    return isempty(values) ? similar(first(traj.u), 0) : reduce(vcat, values)
-end
-constraint_values(g::CallbackConstraintGetter, traj, ::Nothing) = constraint_vector(g.f(traj))
-function constraint_values(g::CallbackConstraintGetter, traj, indices)
-    values = g.f(traj)
-    values isa AbstractVector && length(values) == length(traj.t) ||
-        throw(DimensionMismatch("A time-selected trajectory callback must return one entry per saved sample."))
-    selected = map(i -> constraint_vector(values[i]), indices)
-    return isempty(selected) ? similar(first(traj.u), 0) : reduce(vcat, selected)
 end
 
-"""
-$(TYPEDEF)
-
-A constraint prepared against a trajectory's actual saved layout.
-
-# Fields
-$(FIELDS)
-"""
-struct TrajectoryConstraint{G, I}
-    "The prepared symbolic selector or trajectory callback."
-    getter::G
-    "Selected saved sample indices, or `nothing` for a whole-trajectory callback."
-    indices::I
-    "The fixed number of scalar constraint entries."
-    n::Int
-end
-Base.length(c::TrajectoryConstraint) = c.n
-function (c::TrajectoryConstraint)(traj)
-    values = constraint_values(c.getter, traj, c.indices)
-    length(values) == c.n || throw(DimensionMismatch("Constraint output length changed; reconstruct CorleoneDynamicOptProblem."))
-    return values
+function terminal_optimization_sample(traj)
+    t = last(current_time(traj))
+    p = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t)
+    return ProblemState(; u = last(state_values(traj)), p, t)
 end
 
-is_symbolic_selector(x) = x isa Integer || !(symbolic_type(x) isa NotSymbolic)
 function trajectory_objective(layer, loss)
     if isnothing(loss)
         symbols = Tuple(quadrature_symbols(layer.sys))
-        isempty(symbols) && throw(ArgumentError("Supply a loss callback/symbol or declare quadrature states."))
-        return TerminalObjective(getsym(layer.sys, symbols), sum)
+        isempty(symbols) && throw(ArgumentError("Supply an objective or declare quadrature states."))
+        return sum ∘ getsym(layer.sys, symbols) ∘ terminal_optimization_sample
+    elseif loss isa Union{Symbol, Integer}
+        return getsym(layer.sys, loss) ∘ terminal_optimization_sample
     end
-    return is_symbolic_selector(loss) ? TerminalObjective(getsym(layer.sys, loss), identity) : loss
+    return loss
 end
+scalar_objective(x::Bool) = throw(ArgumentError("An objective must return a numerical scalar, not a comparison."))
 scalar_objective(x::Real) = x
 scalar_objective(x) = throw(ArgumentError("The objective must return a real scalar, got $(typeof(x))."))
 
-function constraint_sample_indices(times, requested, side)
-    side in (:pre, :post, :both) || throw(ArgumentError("Constraint side must be :pre, :post, or :both."))
-    requested = requested === :all ? unique(times) : requested isa Real ? (requested,) : requested
-    allunique(requested) || throw(ArgumentError("Constraint times must be unique."))
-    return reduce(
-        vcat, map(collect(requested)) do t
-            matches = searchsortedfirst(times, t):searchsortedlast(times, t)
-            isempty(matches) && throw(ArgumentError("Constraint time $t is not a saved sample. Add it to the problem's saveat or use a saved time; Trajectory does not interpolate."))
-            side === :both ? collect(matches) : [side === :pre ? first(matches) : last(matches)]
-        end; init = Int[]
-    )
-end
-@non_differentiable constraint_sample_indices(::Any, ::Any, ::Any)
+constraint_vector(x::Bool) = throw(ArgumentError("Constraints must return numerical values; use lcons/ucons for bounds."))
+constraint_vector(x::AbstractVector{Bool}) = throw(ArgumentError("Constraints must return numerical values; use lcons/ucons for bounds."))
+constraint_vector(x::Real) = [x]
+constraint_vector(x::AbstractVector{<:Real}) = x
+constraint_vector(x) = throw(ArgumentError("Constraints must return a real scalar or flat vector, got $(typeof(x))."))
 
-function constraint_bound(value, n)
-    if value isa Real
-        return fill(float(value), n)
-    end
-    value isa AbstractVector{<:Real} && length(value) == n ||
-        throw(DimensionMismatch("Expected a scalar bound or a bound vector of length $n."))
-    return float.(value)
+"""
+$(TYPEDEF)
+
+A fixed-size constraint callback with a setup-time choice of calling convention.
+
+# Fields
+$(FIELDS)
+"""
+struct PreparedTrajectoryConstraint{F, I}
+    "The trajectory callback or compiled numerical expression."
+    f::F
+    "The output length defined by this constraint's bound subtree."
+    n::Int
 end
-function prepare_trajectory_constraint(layer, traj, definition::Pair)
-    selector, spec = definition
-    spec isa NamedTuple && haskey(spec, :bounds) || throw(ArgumentError("Each constraint needs a NamedTuple with bounds."))
-    all(k -> k in (:t, :bounds, :side), keys(spec)) || throw(ArgumentError("Supported constraint options are t, bounds, and side."))
-    bounds = spec.bounds
-    bounds isa Union{Tuple, AbstractVector} && length(bounds) == 2 ||
-        throw(ArgumentError("Constraint bounds must be (lower, upper)."))
-    symbolic = is_symbolic_selector(selector)
-    getter = symbolic ? SymbolicConstraintGetter(getsym(layer.sys, selector)) : CallbackConstraintGetter(selector)
-    indices = if symbolic || haskey(spec, :t)
-        requested = get(spec, :t, last(traj.t))
-        constraint_sample_indices(traj.t, requested, get(spec, :side, :post))
-    else
-        haskey(spec, :side) && throw(ArgumentError("A callback side requires explicit t selection."))
-        nothing
+Base.length(c::PreparedTrajectoryConstraint) = c.n
+
+function constraint_buffer(traj, n)
+    T = eltype(first(state_values(traj)))
+    p = parameter_values(traj)
+    P = eltype(p)
+    return similar(first(state_values(traj)), P <: Real ? promote_type(T, P) : T, n)
+end
+function (c::PreparedTrajectoryConstraint{F, false})(traj) where {F}
+    values = constraint_vector(c.f(traj))
+    length(values) == c.n || throw(DimensionMismatch("Constraint output length changed; reconstruct CorleoneDynamicOptProblem."))
+    return values
+end
+function (c::PreparedTrajectoryConstraint{F, true})(traj) where {F}
+    res = constraint_buffer(traj, c.n)
+    c.f(res, traj)
+    return res
+end
+function (c::PreparedTrajectoryConstraint{F, false})(res, traj) where {F}
+    copyto!(res, c(traj))
+    return res
+end
+function (c::PreparedTrajectoryConstraint{F, true})(res, traj) where {F}
+    c.f(res, traj)
+    return res
+end
+
+function prepare_trajectory_constraint(f, traj, n)
+    if applicable(f, traj)
+        c = PreparedTrajectoryConstraint{typeof(f), false}(f, n)
+        c(traj) # Validate the fixed output length.
+        return c
     end
-    values = constraint_values(getter, traj, indices)
-    n = length(values)
-    lower, upper = constraint_bound(first(bounds), n), constraint_bound(last(bounds), n)
-    all(lower .<= upper) || throw(ArgumentError("Constraint lower bounds must not exceed upper bounds or contain NaN."))
-    return TrajectoryConstraint(getter, indices, n), lower, upper
+    buffer = constraint_buffer(traj, n)
+    applicable(f, buffer, traj) || throw(ArgumentError("A constraint must support f(traj) or f!(res, traj)."))
+    f(buffer, traj) # Return value is deliberately ignored.
+    return PreparedTrajectoryConstraint{typeof(f), true}(f, n)
+end
+
+bound_shape(x::Real) = nothing
+bound_shape(x::Union{Tuple, AbstractVector}) = map(bound_shape, Tuple(x))
+bound_shape(x) = throw(ArgumentError("Constraint bounds must contain real scalars or collections of real scalars."))
+flatten_constraint_bound(x::Real) = [float(x)]
+flatten_constraint_bound(x::Union{Tuple, AbstractVector}) =
+    isempty(x) ? Float64[] : reduce(vcat, map(flatten_constraint_bound, x))
+
+function constraint_bound_entries(bounds, n)
+    bounds isa Union{Real, Tuple, AbstractVector} || throw(ArgumentError("Constraint bounds must be real scalars or collections."))
+    if n == 1
+        bounds isa Real && return (bounds,)
+        # A singleton nested collection explicitly wraps the only constraint.
+        length(bounds) == 1 && first(bounds) isa Union{Tuple, AbstractVector} && return (first(bounds),)
+        return (bounds,)
+    end
+    bounds isa Union{Tuple, AbstractVector} && length(bounds) == n ||
+        throw(DimensionMismatch("Supply one top-level lcons/ucons entry per constraint ($n entries)."))
+    return Tuple(bounds)
+end
+function prepare_constraint_bounds(lcons, ucons, n)
+    if n == 0
+        all(x -> isnothing(x) || isempty(x), (lcons, ucons)) || throw(DimensionMismatch("No user constraints were supplied."))
+        return ()
+    end
+    (isnothing(lcons) || isnothing(ucons)) &&
+        throw(ArgumentError("Supply lcons and ucons with one matching bound subtree per constraint."))
+    lower, upper = constraint_bound_entries(lcons, n), constraint_bound_entries(ucons, n)
+    return map(lower, upper) do lo, hi
+        bound_shape(lo) == bound_shape(hi) || throw(DimensionMismatch("Each lcons subtree must match its ucons subtree."))
+        lb, ub = flatten_constraint_bound(lo), flatten_constraint_bound(hi)
+        all(lb .<= ub) || throw(ArgumentError("Constraint lower bounds must not exceed upper bounds or contain NaN."))
+        (lb, ub)
+    end
 end
 
 function CorleoneDynamicOptProblem(
-        layer::ShootingLayer, loss, constraints::Pair...;
-        ps = nothing, st = nothing, rng::Random.AbstractRNG = Random.default_rng()
+        layer::ShootingLayer, loss, constraints...;
+        ps = nothing, st = nothing, rng::Random.AbstractRNG = Random.default_rng(),
+        lcons = nothing, ucons = nothing, eval_module::Module = @__MODULE__,
+        evaluator = default_evaluator()
     )
     isnothing(ps) == isnothing(st) || throw(ArgumentError("Supply initialized ps and st together."))
-    objective = trajectory_objective(layer, loss)
+    bounds = prepare_constraint_bounds(lcons, ucons, length(constraints))
+    uses_expressions = loss isa Expr || any(c -> c isa Expr, constraints)
+    indices = uses_expressions ? expression_symbol_indices(layer) : Dict{Symbol, Int}()
+    timepoints = Dict{Symbol, Vector{Real}}()
+    loss isa Expr && collect_expression_times!(timepoints, loss, indices)
+    for c in constraints
+        c isa Expr && collect_expression_times!(timepoints, c, indices)
+    end
+    foreach(times -> sort!(unique!(times)), values(timepoints))
     if isnothing(ps)
         ps, st = LuxCore.setup(rng, layer)
     end
-    trajectory, _ = layer(nothing, ps, st)
+    grid = expression_evaluation_grid(layer, st, timepoints)
+    trajectory, _ = layer((layer.problem, grid), ps, st)
+    objective = loss isa Expr ? compile_trajectory_expression(loss, indices, trajectory.t, eval_module, evaluator) : trajectory_objective(layer, loss)
     scalar_objective(objective(trajectory))
-    prepared = map(c -> prepare_trajectory_constraint(layer, trajectory, c), constraints)
-    nshooting = get_number_of_shooting_constraints(layer, ps, st)
-    lcons = vcat(map(x -> x[2], prepared)..., zeros(nshooting))
-    ucons = vcat(map(x -> x[3], prepared)..., zeros(nshooting))
+    prepared = map(constraints, bounds) do c, bound
+        f = c isa Expr ? compile_trajectory_expression(c, indices, trajectory.t, eval_module, evaluator) : trajectory_objective(layer, c)
+        prepare_trajectory_constraint(f, trajectory, length(first(bound)))
+    end
+    nshooting = get_number_of_shooting_constraints(layer, ps, merge(st, (; timestops = grid)))
+    lower = vcat(map(first, bounds)..., zeros(nshooting))
+    upper = vcat(map(last, bounds)..., zeros(nshooting))
     return CorleoneDynamicOptProblem(
-        layer, objective, map(first, prepared), ps, st, trajectory.t, lcons, ucons, nshooting
+        Val(:Prepared), layer, objective, prepared, ps, st, timepoints, grid, copy(st.timestops),
+        trajectory.t, lower, upper, nshooting
     )
 end
 CorleoneDynamicOptProblem(layer::ShootingLayer; loss = nothing, constraints = (), kwargs...) =
@@ -226,56 +230,57 @@ function check_optimization_layout(expected, actual, expected_count, actual_coun
     return nothing
 end
 @non_differentiable check_optimization_layout(::Any, ::Any, ::Any, ::Any)
+function check_optimization_schedule(expected, actual)
+    expected == actual || throw(ArgumentError("Shooting schedules changed; reconstruct CorleoneDynamicOptProblem."))
+    return nothing
+end
+@non_differentiable check_optimization_schedule(::Any, ::Any)
 
 function optimization_trajectory(prob, ps, st)
-    traj, _ = prob.layer(nothing, ps, st)
-    check_optimization_layout(
-        prob.times, traj.t, prob.nshooting,
-        get_number_of_shooting_constraints(prob.layer, ps, st)
-    )
+    check_optimization_schedule(prob.source_timestops, st.timestops)
+    traj, _ = prob.layer((prob.layer.problem, prob.evaluation_grid), ps, st)
+    check_optimization_layout(prob.times, traj.t, prob.nshooting, get_number_of_shooting_constraints(prob.layer, ps, st))
     return traj
 end
 
 """
 $(SIGNATURES)
 
-Solve the prepared model once and evaluate its scalar trajectory objective.
-Parameters and state default to those retained by [`CorleoneDynamicOptProblem`](@ref).
-No numeric solution cache is reused across calls or differentiation contexts.
+Solve once on the prepared evaluation grid and evaluate the scalar objective.
+Parameters/state default to those retained by the model. No numerical solution
+cache is shared between calls or AD contexts.
 """
-function optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
-    return scalar_objective(prob.objective(optimization_trajectory(prob, ps, st)))
-end
+optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st) =
+    scalar_objective(prob.objective(optimization_trajectory(prob, ps, st)))
 
 """
 $(SIGNATURES)
 
-Solve once and return user constraints in declaration/sample order, followed by
-state and parameter shooting equalities. This allocating form supports AD backends
-that do not support array mutation. Dimensions and saved layout must match setup.
+Solve once and concatenate constraint outputs, followed by shooting equalities.
+Out-of-place callbacks and compiled expressions support mutation-free reverse AD.
+An in-place callback is evaluated into a fresh, appropriately typed buffer; its
+AD support depends on the callback and backend's support for mutation.
 """
 function optimization_constraints(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
     traj = optimization_trajectory(prob, ps, st)
-    paths = map(c -> c(traj), prob.constraints)
-    return vcat(paths..., shooting_constraints(traj))
+    return vcat(map(c -> c(traj), prob.constraints)..., shooting_constraints(traj))
 end
 
 """
 $(SIGNATURES)
 
-Write [`optimization_constraints`](@ref) into `res` and return the buffer. Check its
-length before solving/writing. Path callbacks are evaluated before writes; shooting
-residuals are written directly with [`shooting_constraints!`](@ref). The buffer must
-support the numerical scalar type, including Dual numbers when using ForwardDiff.
+Write constraints into res in declaration order, followed by shooting equalities.
+Check total length before solving/writing. In-place user callbacks receive their
+own output slice directly; their return values are ignored. The buffer must support
+the current numerical scalar type, including AD values.
 """
 function optimization_constraints!(res, prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
     length(res) == length(prob.lcons) || throw(DimensionMismatch("Expected $(length(prob.lcons)) constraint entries, got $(length(res))."))
     traj = optimization_trajectory(prob, ps, st)
-    paths = map(c -> c(traj), prob.constraints)
     index = firstindex(res)
-    for values in paths
-        copyto!(res, index, values, firstindex(values), length(values))
-        index += length(values)
+    for c in prob.constraints
+        c(view(res, index:(index + length(c) - 1)), traj)
+        index += length(c)
     end
     shooting_constraints!(view(res, index:lastindex(res)), traj)
     return res

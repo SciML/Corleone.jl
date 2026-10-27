@@ -7,7 +7,7 @@ its result may be a ComponentArray, NamedTuple, or another parameter container.
 Each implementation must pack parameters and their bounds in the same order.
 
 Load ComponentArrays for `Val(:ComponentArrays)`. It returns the ComponentVector's
-backing array and a callable retaining only its axes and expected length. Calling
+backing array and a callable retaining only its axes. Calling
 that object wraps any compatible vector in a ComponentArray without copying numeric
 values. Packing a NamedTuple allocates flat storage once; packing an existing
 ComponentVector reuses its backing storage.
@@ -32,39 +32,6 @@ function default_vectorizer()
 end
 
 """
-$(TYPEDEF)
-
-Reconstruct Lux parameters from optimizer storage before evaluating the objective.
-
-# Fields
-$(FIELDS)
-"""
-struct ObjectiveAdapter{D, R}
-    "The prepared dynamic optimization model."
-    problem::D
-    "The callable restoring named parameter access from the current flat vector."
-    reconstruct::R
-end
-(f::ObjectiveAdapter)(q, st) = optimization_objective(f.problem, f.reconstruct(q), st)
-
-"""
-$(TYPEDEF)
-
-Reconstruct Lux parameters for allocating or in-place constraint evaluation.
-
-# Fields
-$(FIELDS)
-"""
-struct ConstraintAdapter{D, R}
-    "The prepared model, including user and shooting constraints."
-    problem::D
-    "The callable restoring named parameter access from the current flat vector."
-    reconstruct::R
-end
-(f::ConstraintAdapter)(q, st) = optimization_constraints(f.problem, f.reconstruct(q), st)
-(f::ConstraintAdapter)(res, q, st) = optimization_constraints!(res, f.problem, f.reconstruct(q), st)
-
-"""
 $(SIGNATURES)
 
 Build typed optimizer callbacks using the reconstruction callable returned by [`pack`](@ref).
@@ -87,8 +54,14 @@ end
 
 function optimization_function(prob, ad, reconstruct; inplace::Bool = true, kwargs...)
     haskey(kwargs, :cons) && throw(ArgumentError("Declare constraints on CorleoneDynamicOptProblem; its generated constraint callback cannot be replaced."))
-    objective = ObjectiveAdapter(prob, reconstruct)
-    constraints = isempty(prob.lcons) ? nothing : ConstraintAdapter(prob, reconstruct)
+    objective = (q, st) -> optimization_objective(prob, reconstruct(q), st)
+    constraints = if isempty(prob.lcons)
+        nothing
+    elseif inplace
+        (res, q, st) -> optimization_constraints!(res, prob, reconstruct(q), st)
+    else
+        (q, st) -> optimization_constraints(prob, reconstruct(q), st)
+    end
     return SciMLBase.OptimizationFunction{inplace}(objective, ad; cons = constraints, kwargs...)
 end
 
@@ -132,8 +105,10 @@ function SciMLBase.OptimizationProblem(
         layer::ShootingLayer, ad::SciMLBase.ADTypes.AbstractADType;
         vectorize = default_vectorizer(),
         loss = nothing, constraints = (), ps = nothing, st = nothing,
+        lcons = nothing, ucons = nothing, eval_module::Module = @__MODULE__,
+        evaluator = default_evaluator(),
         rng::Random.AbstractRNG = Random.default_rng(), kwargs...
     )
-    problem = CorleoneDynamicOptProblem(layer, loss, constraints...; ps, st, rng)
+    problem = CorleoneDynamicOptProblem(layer, loss, constraints...; ps, st, rng, lcons, ucons, eval_module, evaluator)
     return SciMLBase.OptimizationProblem(problem, ad; vectorize, kwargs...)
 end

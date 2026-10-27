@@ -106,17 +106,27 @@ function container_parameter_bounds(operation, layer, ps, st, fields)
     )
 end
 
-empty_parameter_structure(ps) = isempty(ps)
+function empty_parameter_structure(ps)
+    isempty(ps) || return false
+    # A named array can have zero numerical entries while retaining parameter fields.
+    return !(ps isa AbstractArray && keys(ps) isa Tuple{Vararg{Symbol}} && !isempty(keys(ps)))
+end
 
 # Empty parameter views can represent parameterless Lux leaves. Structured array
 # representations may override this hook to retain named, zero-length fields.
 unbounded_parameter_bounds(ps, value) = parameter_bound_tree(ps, value)
 unbounded_parameter_bounds(ps::AbstractArray, value) =
-    isempty(ps) ? (;) : parameter_bound_tree(ps, value)
+    empty_parameter_structure(ps) ? (;) : parameter_bound_tree(ps, value)
 
 parameter_bound_tree(ps::NamedTuple, value) = map(x -> parameter_bound_tree(x, value), ps)
 parameter_bound_tree(ps::Tuple, value) = map(x -> parameter_bound_tree(x, value), ps)
-parameter_bound_tree(ps::AbstractArray{<:Number}, value) = fill(value, size(ps))
+function parameter_bound_tree(ps::AbstractArray{<:Number}, value)
+    names = keys(ps)
+    if names isa Tuple{Vararg{Symbol}} && (!isempty(names) || isempty(ps))
+        return NamedTuple{names}(map(name -> parameter_bound_tree(getproperty(ps, name), value), names))
+    end
+    return fill(value, size(ps))
+end
 parameter_bound_tree(ps::AbstractArray, value) = map(x -> parameter_bound_tree(x, value), ps)
 parameter_bound_tree(ps::Number, value) = value
 
