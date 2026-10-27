@@ -1,6 +1,6 @@
 #src ---
 #src title: The Linear Quadratic Regulator
-#src description: A super beginner-friendly guide to your optimal control problem
+#src description: Control a linear system with a tracking cost and a control penalty
 #src tags:
 #src   - Beginner
 #src   - Optimal Control
@@ -10,26 +10,28 @@
 
 # ## [Linear Quadratic Regulator](@id linear_quad_reg)
 
-# We model a [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator)
-# that drives the state toward a setpoint of three while penalizing control effort:
+# We control two linear states with a shared input. The cost penalizes the first
+# state's deviation from three and the control effort:
 
 # ```math
 # \begin{aligned}
-# \min_u & \int_0^T w_1 (x - x_f)^2 + w_2 u^2 dt \\
-# \text{s.t.} \quad & \dot{x} = a x + b u
+# \min_u & \int_0^{12} 10 (x_1 - 3)^2 + 0.1 u^2 \, dt \\
+# \text{s.t.} \quad & \dot{x}_i = -x_i + u, \quad i = 1, 2
 # \end{aligned}
 # ```
-# First, we load the necessary packages to model the problem.
 
 # ## Setup
-# We will use `Corleone` to define our optimal control problem.
+
+# Use Corleone to define the shooting layer and optimization model.
 using Corleone
 
-# Additionally, we will need the following packages
-# - [`LuxCore`]() and [`Random`]() for basic setup functions
-# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`Optimization`](), [`OptimizationLBFGSB`](), and [`ComponentArrays`]() to setup and solve the optimization problem
-# - [`CairoMakie`]() to plot the solution
+# The other packages provide:
+
+# - Layer initialization: `LuxCore` and `Random`
+# - ODE integration: `OrdinaryDiffEqTsit5`
+# - Optimization: `Optimization`, `OptimizationLBFGSB`, and `ComponentArrays`
+# - Objective gradients: `ForwardDiff`
+# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random
@@ -42,7 +44,9 @@ using SymbolicIndexingInterface
 using CairoMakie
 Makie.inline!()
 # ## LQR Dynamics
-# Next, we set up the dynamics and the objective as a single function.
+
+# The first two states follow the linear dynamics. The third accumulates the
+# running cost, which depends on the first state and the control.
 
 function lqr_dynamics(x, p, t)
     a, b, u = p
@@ -57,7 +61,8 @@ p0 = [-1.0, 1.0, 0.0]
 lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 
 # ## [Optimal Control Problem](@id control_lqr)
-# To convert this into an optimal control problem, we want to apply a piecewise constant control
+
+# Make the third parameter a piecewise constant control and keep `a` and `b` fixed.
 
 control_grid = collect(0.1:0.1:11.9)
 predictor = ShootingLayer(
@@ -67,36 +72,29 @@ predictor = ShootingLayer(
     Constant(2; kind = Val(:parameter)) => nothing;
     controls = [3], quadratures = [3],
 )
-# A grid contains switching times: 119 interior times give 120 control values.
-# Constants live in Lux state and do not become optimization variables.
+# The 119 switching times define 120 control intervals. Initial control values
+# are sampled uniformly from [0, 1). The fixed parameters are stored in Lux state.
 
-# Lets solve the problem to have a look at its initial behavior.
+# Preview the trajectory with the initialized control.
 
 ps, st = LuxCore.setup(Random.default_rng(), predictor)
 solution, _ = predictor(nothing, ps, st)
 trajectoryplot(solution)
 
 # ## Optimize
-# Flatten the Lux parameters for Optimization.jl and retain their axes so each
-# objective call can reconstruct the parameter layout. The second state integrates
-# the running cost, so its final value is the objective.
-initial_parameters = ComponentArray(ps)
-parameter_axes = getaxes(initial_parameters)
-function lqr_objective(q, state)
-    parameters = ComponentArray(q, parameter_axes)
-    trajectory, _ = predictor(nothing, parameters, state)
-    return last(trajectory.u)[end]
-end
-optfun = OptimizationFunction(lqr_objective, AutoForwardDiff())
-optprob = OptimizationProblem(
-    optfun, initial_parameters, st;
-    lb = fill(-Inf, length(initial_parameters)), ub = fill(Inf, length(initial_parameters))
+
+# Use the accumulated cost `u₃` at the final time as the objective. This constructor
+# initializes a new set of parameters and state for optimization.
+
+dynprob = CorleoneDynamicOptProblem(
+    predictor, :(u₃(12.0))
 )
-# And solve it using [`OptimizationLBFGSB.LBFGSB`](@extref)
-uopt = solve(
-    optprob, OptimizationLBFGSB.LBFGSB()
-);
-# Finally, lets have a look at the optimized solution.
-optimized_parameters = ComponentArray(uopt.u, parameter_axes)
+
+# OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
+opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
+usol = solve(opt, OptimizationLBFGSB.LBFGSB());
+
+# Reconstruct the optimized parameters and plot the trajectory.
+optimized_parameters = opt.f.f.reconstruct(usol)
 optimized_solution, _ = predictor(nothing, optimized_parameters, st)
 trajectoryplot(optimized_solution)
