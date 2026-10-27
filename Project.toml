@@ -29,6 +29,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 [extensions]
 CorleoneComponentArraysExtension = "ComponentArrays"
 CorleoneZygoteExtension = "Zygote"
+CorleoneMakieExtension = "Makie"
 
 [compat]
 ChainRulesCore = "1.25.1"

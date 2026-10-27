@@ -21,6 +21,11 @@ using ChainRulesCore
 
 using LuxCore
 
+function trajectoryplot end
+function trajectoryplot! end
+
+export trajectoryplot, trajectoryplot!
+
 # For evaluation
 mythreadmap(::EnsembleSerial, args...) = map(args...)
 mythreadmap(::EnsembleThreads, args...) = tmap(args...)
