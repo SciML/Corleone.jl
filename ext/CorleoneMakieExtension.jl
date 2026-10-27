@@ -8,6 +8,32 @@ using Makie
 
 Makie.plottype(::Trajectory) = Makie.PlotList
 
+# Keep both sides of a reset without drawing a solid line between them.
+function trajectory_points(times, values, reset_indices)
+    points = Makie.Point2f[]
+    sizehint!(points, length(times) + length(reset_indices))
+    next_reset = 1
+    for i in eachindex(times, values)
+        if next_reset <= length(reset_indices) && i == reset_indices[next_reset]
+            push!(points, Makie.Point2f(NaN, NaN))
+            next_reset += 1
+        end
+        push!(points, Makie.Point2f(times[i], values[i]))
+    end
+    return points
+end
+
+# Residual vectors are compressed by active variable and indexed by solver segment.
+# Use schedules to select the corresponding sample pairs instead.
+function variable_reset_indices(sol::Trajectory, i)
+    ic = values(sol.layer.initialcondition.initialconditions)[i]
+    ic isa Corleone.InitialCondition || return Int[]
+    state = values(sol.st.initialcondition.initialconditions)[i]
+    return filter(sol.reset_indices) do k
+        haskey(ic.lookup, sol.t[k], nothing, state.lookup)
+    end
+end
+
 function Makie.used_attributes(::Type{<:Plot}, ::Trajectory)
     return (:vars, :idxs, :show_segments, :show_variable_residuals, :patchcolor, :whiskerwidth)
 end
@@ -58,7 +84,7 @@ function Makie.convert_arguments(
     end
 
     foreach(selected_variables) do var
-        points = Makie.Point2f.(times, getindex(sol, var))
+        points = trajectory_points(times, getindex(sol, var), sol.reset_indices)
         label = string(var)
         color = Makie.Cycled(color_index += 1)
         push!(plots, Makie.PlotSpec(line_type, points; label, color))
@@ -76,21 +102,20 @@ function Makie.convert_arguments(
 
 
     if show_variable_residuals && !isempty(sol.reset_indices)
-        lows = state_values(sol, sol.reset_indices)
-        highs = map(enumerate(lows)) do (i, l)
-            sol.residuals[sol.reset_indices[i]] .+ l
-        end
-
-        internal_color_index = 0
-        for var in selected_variables
+        for (variable_color, var) in enumerate(selected_variables)
             i = variable_index(sys, var)
-            color = Makie.Cycled(internal_color_index += 1)
+            indices = variable_reset_indices(sol, i)
+            isempty(indices) && continue
+            values = getindex(sol, var)
+            before = values[indices .- 1]
+            after = values[indices]
+            color = Makie.Cycled(variable_color)
             push!(
                 plots, Makie.PlotSpec(
                     Makie.Rangebars,
-                    times[sol.reset_indices],
-                    map(Base.Fix2(getindex, i), lows),
-                    map(Base.Fix2(getindex, i), highs),
+                    times[indices],
+                    min.(before, after),
+                    max.(before, after),
                     ;
                     color, linestyle = :dot, label = "Δ$(var)", whiskerwidth = whiskerwidth,
                 )

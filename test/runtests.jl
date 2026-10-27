@@ -13,7 +13,7 @@ const LIB_DIR = joinpath(dirname(@__DIR__), "lib")
 # selects a named group. We then activate the sublibrary's own test environment
 # and hand off to its runtests.jl via CORLEONE_TEST_GROUP. Otherwise the main-package
 # suite below runs via run_tests: GROUP="All"/"Core" run the light
-# Core group; "Examples" and "QA" each activate their own test/<group> environment.
+# Core group; "Examples", "Plotting", and "QA" use their own test environments.
 base_group, test_group = detect_sublibrary_group(GROUP, LIB_DIR)
 
 if !isempty(base_group) && isdir(joinpath(LIB_DIR, base_group))
@@ -88,6 +88,12 @@ else
             #end
         end,
         groups = Dict(
+            "Plotting" => (;
+                env = joinpath(@__DIR__, "plotting"),
+                body = function ()
+                    return @safetestset "Makie plotting" include("plotting/makie.jl")
+                end,
+            ),
             # Examples: the optimal-control example scripts pull in the heavy
             # MTK + Ipopt/MOI + SciMLSensitivity stack, isolated in test/examples
             # so those deps never enter the light main test target's resolve.
