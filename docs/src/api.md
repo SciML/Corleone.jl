@@ -42,6 +42,8 @@ history on its parameter-change grid.
 ```@docs
 Trajectory
 Trajectory(::Any, ::Any, ::Any, ::AbstractVector, ::Any)
+trajectoryplot
+trajectoryplot!
 ```
 
 ## Symbolic bookkeeping
@@ -110,4 +112,23 @@ get_number_of_shooting_constraints
 add_parameter_segments!
 shooting_constraints
 shooting_constraints!
+```
+
+## Prepared optimization facade
+
+The core model evaluates trajectory callbacks and symbolic selectors without an
+optimizer dependency. SciMLBase constructs OptimizationFunction/OptimizationProblem;
+ComponentArrays supplies the default packing implementation. See
+[Prepared optimization models](optimization_contracts.md#Prepared-optimization-models).
+
+```@docs
+CorleoneDynamicOptProblem
+optimization_objective
+optimization_constraints
+optimization_constraints!
+pack
+default_vectorizer
+Corleone.SciMLBase.OptimizationFunction(::CorleoneDynamicOptProblem, ::Corleone.SciMLBase.ADTypes.AbstractADType)
+Corleone.SciMLBase.OptimizationProblem(::CorleoneDynamicOptProblem, ::Corleone.SciMLBase.ADTypes.AbstractADType)
+Corleone.SciMLBase.OptimizationProblem(::ShootingLayer, ::Corleone.SciMLBase.ADTypes.AbstractADType)
 ```

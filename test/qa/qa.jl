@@ -2,8 +2,8 @@ using SciMLTesting
 using Corleone
 using Test
 
-# Load every registered extension so ExplicitImports checks its methods too.
-# Makie and ModelingToolkit integration is not registered during the rewrite.
+# Load the numerical extensions so ExplicitImports checks their methods too.
+# Plotting has a separate environment; ModelingToolkit integration is deferred.
 using ComponentArrays, Zygote
 
 @testset "Extensions loaded" begin

@@ -21,7 +21,21 @@ using ChainRulesCore
 
 using LuxCore
 
+"""
+    trajectoryplot(trajectory; figure = (;), kwargs...)
+
+Create a Makie figure displaying trajectory states, controls, and quadratures.
+Load Makie to activate this method. `figure` configures the figure; remaining
+keywords are passed to [`trajectoryplot!`](@ref).
+"""
 function trajectoryplot end
+"""
+    trajectoryplot!(container, trajectory; skips = [], show_legend = true, kwargs...)
+
+Add trajectory axes and optional legends to a Makie figure or layout position.
+`skips` excludes selected symbols. State, control, and quadrature axes share the
+time axis. Load Makie to activate this method; remaining keywords configure lines.
+"""
 function trajectoryplot! end
 
 export trajectoryplot, trajectoryplot!
@@ -42,6 +56,11 @@ export ShootingLayer
 
 export get_bounds, get_lower_bound, get_upper_bound, get_number_of_shooting_constraints
 export shooting_constraints, shooting_constraints!, add_parameter_segments!
+
+include("dynprob.jl")
+export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
+include("optimization_bridge.jl")
+export pack, default_vectorizer
 
 include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")

@@ -2,6 +2,35 @@ module CorleoneComponentArraysExtension
 
 using Corleone
 using ComponentArrays
+using DocStringExtensions
+import Corleone: pack
+
+"""
+$(TYPEDEF)
+
+Restore named parameter access around the current optimizer vector.
+
+# Fields
+$(FIELDS)
+"""
+struct ComponentArrayReconstructor{A}
+    "The component axes, containing field names, offsets, and shapes."
+    axes::A
+    "The expected number of scalar parameter entries."
+    n::Int
+end
+
+function (reconstruct::ComponentArrayReconstructor)(q::AbstractVector)
+    length(q) == reconstruct.n || throw(DimensionMismatch("Packed parameter length must match its layout."))
+    return ComponentArray(q, reconstruct.axes)
+end
+
+function pack(::Val{:ComponentArrays}, ps::Union{NamedTuple, ComponentVector})
+    parameters = ps isa ComponentVector ? ps : ComponentArray(ps)
+    data = getdata(parameters)
+    eltype(data) <: Real || throw(ArgumentError("Optimization parameters must have a real scalar type."))
+    return data, ComponentArrayReconstructor(getaxes(parameters), length(data))
+end
 
 # ComponentVectors encode parameter fields in their axes. Traverse those fields
 # through views; materializing NamedTuple(ps) would copy numeric parameter arrays.

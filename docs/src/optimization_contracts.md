@@ -2,8 +2,9 @@
 
 Corleone provides bounds and shooting-residual helpers independently of an optimizer
 or vectorization package. Bounds follow generic Lux models and their parameter
-structure; shooting-residual helpers apply to `ShootingLayer` and `Trajectory`. They do not construct objectives or path constraints,
-flatten parameters, or provide optimizer block structure.
+structure; shooting-residual helpers apply to `ShootingLayer` and `Trajectory`.
+The prepared facade below adds objectives and path constraints, with an optional
+SciMLBase bridge with optional packing implementations. Optimizer block structure remains separate.
 
 ## Variable bounds
 
@@ -150,6 +151,159 @@ The optimizer-facing mapping is deliberately explicit:
 These helpers do not add path/terminal constraints automatically, infer an objective
 from quadrature metadata, or automatically split parameter intervals. Wrappers in
 sibling packages can delegate to the underlying layer using their own nested
-parameter/state locations. Automatic objective/path-constraint construction and
-an OptimizationProblem bridge are separate follow-up work. Block structure belongs
-to a future extension or package and is outside the core contract.
+parameter/state locations. The prepared facade below uses these contracts without
+changing their ordering or initialization behavior. Block structure belongs to a
+future extension or package and is outside the core contract.
+
+## Prepared optimization models
+
+`CorleoneDynamicOptProblem` prepares objective and constraint callbacks for a
+`ShootingLayer`. Supply initialized `ps` and `st` together to reuse their values,
+including expanded parameter intervals. Omitting both calls `LuxCore.setup` once.
+The model retains parameters and state by reference. It performs one initial
+forward solve to determine the actual saved grid and constraint dimensions, then
+releases that initial solution. This handles extra `saveat` samples and reset
+boundaries without guessing their positions from the switching grid.
+
+```jldoctest facade
+julia> using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+
+julia> prob = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 2.0), [0.2];
+           saveat = [0.5, 1.5]);
+
+julia> layer = ShootingLayer(prob, Tsit5(),
+           Tunable(1; kind = Val(:variable), default = 0.2,
+               lowerbound = 0.0, upperbound = 2.0) => [1.0],
+           Tunable(1; kind = Val(:parameter), default = 0.2,
+               lowerbound = 0.0, upperbound = 1.0) => nothing);
+
+julia> ps, st = LuxCore.setup(MersenneTwister(1), layer);
+
+julia> ps, st = add_parameter_segments!(layer, ps, st);
+
+julia> model = CorleoneDynamicOptProblem(layer,
+           traj -> (last(traj.u)[1] - 1)^2,
+           :u₁ => (; t = [0.5, 1.0, 1.5, 2.0], bounds = (0.0, 1.5)); ps, st);
+
+julia> optimization_objective(model) ≈ 0.36
+true
+
+julia> length(optimization_constraints(model)) # Four path values and two shooting equalities.
+6
+```
+
+### Objectives and constraints
+
+An objective callback receives the trajectory and returns a real scalar. A symbol,
+integer state index, or symbolic expression instead selects its terminal value.
+Omitting `loss` sums the terminal values of the quadrature symbols declared on the
+layer; it does not sum quadrature values across segments. Without quadrature
+metadata, an explicit loss is required.
+
+Declare each constraint as `selector => (; t, bounds, side)`. Definitions retain
+user order. Each selected time contributes values in selector order, followed by
+all state and parameter shooting equalities. Scalar limits are repeated; vector
+limits must match the resulting number of scalar entries. Reversed limits, NaN
+bounds and dimension mismatches are rejected.
+
+| Definition | Meaning |
+|---|---|
+| `:u₁ => (; bounds = (0, 1))` | Terminal state constraint. |
+| `:u₁ => (; t = :all, bounds = (0, 1))` | Constraint at every saved time. |
+| `:(u₁ + p₁) => (; t = [1.0, 2.0], bounds = (0, 3))` | Mixed state/parameter expression at specified saved times. |
+| `:u₁ => (; t = 1.0, bounds = (0, 1), side = :pre)` | First saved sample at that time. |
+| `:u₁ => (; t = 1.0, bounds = (0, 1), side = :both)` | Every saved sample at that time, in saved order. |
+| `(traj -> last(traj.u)[1]^2) => (; bounds = (0, 4))` | Whole-trajectory callback returning a scalar or flat vector. |
+| `(traj -> first.(traj.u)) => (; t = [1.0], bounds = (0, 1))` | Select from a callback returning one entry per saved sample. |
+
+The default `side = :post` selects the last sample at a requested time, which is
+the outgoing state at an interior reset. `:pre` chooses the first and `:both`
+retains both. If only one sample exists, all choices select that sample; there is
+no implicit incoming sample at the problem start. Parameter values are queried
+from the parameter layer and remain right-continuous regardless of state-side
+selection. Parameter selectors therefore work on the state sample grid rather
+than incorrectly indexing the shorter parameter-knot history.
+
+Requested times must be present exactly; trajectories do not interpolate. Include
+missing points in the ODE problem's `saveat` before preparing the model. Changing
+saved layout or shooting-constraint count requires reconstructing the model, as
+does changing callback output dimensions. Reuse the same shooting layer and new
+parameters/state when doing so.
+
+`optimization_constraints` is allocating and differentiable. The bang form checks
+buffer length before solving or writing, evaluates user constraints, then writes
+shooting residuals directly into the remaining buffer. Use the allocating form
+for reverse-mode backends that do not support mutation. Each objective or
+constraint callback performs one prediction; there is no numerical solution cache
+shared across calls or AD contexts.
+
+### SciMLBase optimization bridge
+
+SciMLBase provides the bridge constructors; ComponentArrays supplies the default
+packing implementation. Optimization.jl and a solver are needed to run the optimization.
+For example, with ADTypes/ForwardDiff and an installed optimizer:
+
+```julia
+using Optimization, ComponentArrays, ADTypes, ForwardDiff
+using OptimizationMOI, Ipopt
+
+optprob = OptimizationProblem(model, AutoForwardDiff(); vectorize = default_vectorizer())
+result = solve(optprob, Ipopt.Optimizer();
+    hessian_approximation = "limited-memory", tol = 1e-8)
+
+_, reconstruct = pack(Val(:ComponentArrays), model.ps)
+parameters = reconstruct(result.u)
+trajectory, state = model.layer(nothing, parameters, optprob.p)
+```
+
+`optprob.u0` is a flat numerical vector; bounds are flattened in the same order.
+Packing a supplied ComponentVector reuses its backing storage, while packing a
+native NamedTuple allocates optimizer storage once. The reconstruction callable
+retains the layout separately from the numerical vector. During evaluations it
+wraps the **current** optimizer vector using those axes; it does not read stale initial
+parameter values. `optprob.p` holds the supplied Lux state. Fixed values remain
+outside the optimization variables. Constraint bounds combine user limits with
+zero bounds for all shooting equalities. With no constraints, `cons`, `lcons` and
+`ucons` are `nothing`.
+
+`OptimizationFunction(model, adtype; inplace = true)` constructs the callbacks
+without repeating setup. Pass `inplace = false` for allocating constraints and the
+out-of-place derivative convention. Derivative options such as custom Jacobians
+belong in `function_kwargs = (; cons_j = ...)` when constructing the problem;
+remaining keywords are passed to `OptimizationProblem`. The generated `cons`
+callback cannot be replaced: declare constraints on the model instead.
+
+The convenience form `OptimizationProblem(layer, adtype; loss, constraints, ps, st)`
+prepares the model and bridge together. The `vectorize` keyword selects packing:
+`OptimizationProblem(model, adtype; vectorize = Val(:ComponentArrays))`. Its default,
+`default_vectorizer()`, selects a supported loaded extension, currently
+ComponentArrays. If none is loaded it throws `UndefKeywordError(:vectorize)`; load
+ComponentArrays or pass an explicit implementation. Other tags can implement `pack`
+without changing the bridge. The same keyword applies to OptimizationFunction.
+The bridge does not add new AD backend capabilities; see the backend requirements
+in [Automatic differentiation](automatic_differentiation.md).
+
+### Parameter packing interface
+
+```julia
+tag = Val(:ComponentArrays)
+q0, reconstruct = pack(tag, ps)   # Flat numerical vector and a callable layout.
+parameters = reconstruct(q0)     # ComponentArray viewing q0.
+```
+
+Only packing depends on ComponentArrays. The objective, constraint, and SciMLBase
+constructors use the callable returned by `pack`. Other implementations may return
+a reconstruction function or callable struct producing a NamedTuple or another
+container with the named property access expected by the layer.
+
+The ComponentArrays implementation returns the underlying numerical array and a
+callable retaining only the axes and expected length. Consequently, optimizers and
+AD backends can pass plain vectors without losing the parameter layout. Calling
+`reconstruct(q)` wraps the current vector in a ComponentArray without copying its
+values. It preserves the current scalar type, including tracked values and Dual
+numbers. No NamedTuple conversion is required. Packing a preexisting ComponentVector
+reuses its backing storage; packing a NamedTuple allocates flat storage once.
+
+Each packing implementation must use the same ordering for parameters and both
+bound trees. Reconstructors must use the supplied vector's values, rather than
+retaining initial numerical parameter values.

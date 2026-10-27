@@ -47,6 +47,15 @@ else
             @safetestset "Optimization contract differentiation" begin
                 include("core/optimization_contracts_ad.jl")
             end
+            @safetestset "Optimization facade" begin
+                include("core/optimization_facade.jl")
+            end
+            @safetestset "Optimization facade differentiation" begin
+                include("core/optimization_facade_ad.jl")
+            end
+            @safetestset "Parameter packing" begin
+                include("core/parameter_packing.jl")
+            end
             @safetestset "Parameter shooting segments" begin
                 include("core/parameter_segments.jl")
             end
@@ -103,8 +112,11 @@ else
                     @safetestset "Lotka" begin
                         include("examples/lotka_oc.jl")
                     end
-                    return @safetestset "Lotka MS" begin
+                    @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
+                    end
+                    return @safetestset "Optimization facade bridge" begin
+                        include("examples/optimization_facade.jl")
                     end
                     #return @safetestset "Lotka MTK" begin
                     #    include("examples/mtk.jl")
