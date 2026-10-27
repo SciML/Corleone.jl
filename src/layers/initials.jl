@@ -75,7 +75,8 @@ function (layer::InitialCondition)((incoming, t)::Tuple, ps, st)
     haskey(layer.lookup, t, ps.lookup, st.lookup) || return T(incoming), merge(st, (; active = false))
     (index, _), lookup_st = LuxCore.apply(layer.lookup, t, ps.lookup, st.lookup)
     value, parameter_st = LuxCore.apply(layer.parameter, index, ps.parameter, st.parameter)
-    return value, (; lookup = lookup_st, parameter = parameter_st, active = true)
+    # Both reset and pass-through values must retain the same promoted scalar type.
+    return T(value), (; lookup = lookup_st, parameter = parameter_st, active = true)
 end
 
 istypemax(x::V) where {V} = x === typemax(V)
@@ -207,9 +208,11 @@ end
         exprs,
         :(new_st = NamedTuple{$(names)}(($(sts...),)))
     )
+    # Children return scalars. A vector literal preserves scalar tracking;
+    # ReverseDiff's vcat overload would instead track the array as a whole.
     push!(
         exprs,
-        :(vals = vcat($(outs...)))
+        :(vals = [$(outs...)])
     )
     push!(exprs, :(return vals, new_st))
     return Expr(:block, exprs...)

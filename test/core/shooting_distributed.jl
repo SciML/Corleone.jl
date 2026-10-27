@@ -3,7 +3,8 @@
 using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
 
 @testset "Distributed shooting" begin
-    project = dirname(dirname(@__DIR__))
+    # Workers need the same test dependencies and developed package as the parent.
+    project = dirname(Base.active_project())
     added = addprocs(2; exeflags = `--project=$project --startup-file=no --compiled-modules=existing`)
     try
         @everywhere added using Corleone, LuxCore, OrdinaryDiffEqTsit5

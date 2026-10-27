@@ -158,7 +158,10 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     t0, tinf = tstops[1:2]
     (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
-    sol = solve(prob, x.alg; u0 = u0, p = p, tspan = (t0, tinf), save_everystep = false, dense = false, save_start = true, save_end = true)
+    # Put the effective inputs in the problem before solve dispatch so scalar-type
+    # changes (e.g. Float64 to Dual) retain an inferable solution type.
+    segment = remake(prob; u0 = u0, p = p, tspan = (t0, tinf))
+    sol = solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true)
     next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     # Parameters can first introduce AD scalars in the solve, after the initial
     # (possibly empty) residual vector has already been constructed.

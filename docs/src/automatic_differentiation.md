@@ -5,7 +5,102 @@ limitations, and the design decisions behind differentiable trajectory assembly.
 Compatibility depends on both the outer differentiation backend and the
 `sensealg` used by the underlying SciML problem.
 
-## Validation snapshot
+## Current scalar-packing validation: 26 October 2026
+
+State and parameter packing now uses vector literals to retain ordinary arrays of
+tracked scalars. Initial-condition resets return the same promoted scalar type as
+pass-through values, keeping preallocated solution buffers compatible across
+segments. The first-solve remake and paired NamedTuple worker-state traversal are
+also in place. The full Core suite passes **1,063 checks**, including full-solver
+ReverseDiff regressions without caller-side initial-state promotion. QA retains
+its existing broken implicit-import check.
+
+Full-solver checks use an in-place Lotka ODE on `[0, 4]`, eight original control
+intervals, and `abstol = reltol = 1e-10`. The controls case has eight inputs. The
+joint case lifts all three states at `1.25` and `2.75`, splitting crossing control
+intervals and giving 16 inputs. The loss is the terminal third state plus
+`0.1 * sum(abs2, shooting_constraints(trajectory))`. Two inputs and reused gradient
+preparations are compared against central differences, with discrepancies below
+`3.5e-10`; numerical inputs remain unchanged.
+
+| Backend | Controls | States and parameters | Configuration |
+|---|---|---|---|
+| ForwardDiff | Pass | Pass | Default solver settings |
+| ReverseDiff | Pass | Pass | FullSpecialize and SensitivityADPassThrough; no caller-side initial-state promotion |
+| Zygote | Pass | Pass | Default SciMLSensitivity path |
+| Mooncake reverse | Pass | Pass | FullSpecialize and pass-through, with the original active-initial-state setup |
+| FiniteDiff | Pass | Pass | Numerical central differences |
+| Enzyme forward | Fails | Fails | LuxCore rejects a non-Const layer annotation despite a Const loss-function annotation and runtime activity |
+
+Enzyme's failure existed before scalar packing changed. These ReverseDiff results
+cover serial execution with uncompiled tapes. The default ReverseDiff sensitivity
+adapter still returns tracked state arrays instead of the full solution interface
+required by trajectory assembly; it is a different route from pass-through.
+Compiled tapes and threaded ReverseDiff have not been established by these checks.
+
+Prepared in-place gradient measurements use one Julia and one BLAS thread:
+
+| Backend | Controls (ms) | Joint case (ms) | Controls allocated MB | Joint allocated MB |
+|---|---:|---:|---:|---:|
+| ForwardDiff | 0.05863 | 0.12672 | 0.08090 | 0.21018 |
+| ReverseDiff | 10.88400 | 9.18074 | 11.29851 | 10.14730 |
+| Zygote | 2.49848 | 3.94483 | 1.65446 | 2.49101 |
+| Mooncake reverse | 62.31085 | 66.92498 | 220.56706 | 199.89452 |
+| FiniteDiff | 0.53495 | 1.15247 | 0.63091 | 1.65504 |
+
+ForwardDiff and Zygote values are medians of five alternating before/after rounds
+of 100 prepared `gradient!` calls. Other rows use medians of up to 20 warmed calls.
+Allocations are per call in decimal MB. Strategies differ between backends, so
+these exploratory measurements are not a universal backend ranking.
+
+The matched before/after gradient comparison isolates scalar packing and the
+promoted reset return type; the baseline already contains both inference fixes:
+
+| Backend / case | Before (ms) | After (ms) | Bytes before → after | Allocations before → after |
+|---|---:|---:|---:|---:|
+| ForwardDiff, controls | 0.05926 | 0.05863 | 84,096 → 80,896 | 884 → 836 |
+| ForwardDiff, joint | 0.12889 | 0.12672 | 218,176 → 210,176 | 2,282 → 2,162 |
+| Zygote, controls | 2.51358 | 2.49848 | 1,657,776 → 1,654,464 | 19,782 → 19,732 |
+| Zygote, joint | 4.00395 | 3.94483 | 2,513,712 → 2,491,008 | 29,746 → 29,785 |
+
+First preparation plus gradient measurements, excluding package loading:
+
+| Backend | Controls (s) | Joint case (s) |
+|---|---:|---:|
+| ForwardDiff | 6.315 | 4.295 |
+| ReverseDiff | 7.207 | 1.082 |
+| Zygote | 55.789 | 8.495 |
+| Mooncake reverse | 201.449 | 39.577 |
+| FiniteDiff | 4.875 | 0.787 |
+
+These include preparation and JIT; the joint case reuses compilation from controls.
+They are not pure compilation timings.
+
+Whole-layer forward measurements use the 120-interval Lotka problem on `[0, 12]`,
+tolerances `1e-9`, four Julia threads, and no optional AD backend explicitly loaded.
+Multiple shooting lifts all states at `3.05`, `6.05`, and `9.05`. Values below are
+medians of five alternating before/after rounds of 1,000 warmed calls, including
+trajectory construction. The baseline already includes the first-solve remake:
+
+| Workload | Before scalar packing (µs) | After (µs) | Bytes/call | Allocations/call |
+|---|---:|---:|---:|---:|
+| Single shooting | 343.24 | 344.42 | 1,068,696 | 22,319 |
+| Multiple shooting, serial | 343.97 | 343.33 | 1,040,240 | 21,574 |
+| Multiple shooting, four threads | 133.29 | 137.26 | 1,079,408 | 21,842 |
+
+Bytes and allocation counts are identical before and after. Serial timing changes
+are small. Threaded round medians ranged approximately 128–166 µs, so the median
+difference does not establish a systematic regression. Fresh-process first calls
+measured 3.542 → 3.508 s for single shooting, 0.513 → 0.549 s for serial multiple
+shooting, and 1.261 → 1.273 s for threaded multiple shooting. Package loading and
+setup are excluded; later workloads reuse compilation. These are single observations.
+
+These checks used Julia 1.12.7, SciMLBase 3.58.0, DiffEqBase 7.21.4,
+OrdinaryDiffEqTsit5 2.1.5, SciMLSensitivity 7.119.13,
+DifferentiationInterface 0.7.21, ForwardDiff 1.4.6, ReverseDiff 1.18.6,
+Zygote 0.7.14, Mooncake 0.5.64, and Enzyme 0.13.216.
+
+## Historical validation snapshot: 22 October 2026
 
 The following results were obtained on **22 October 2026** with the full layer
 returning `(trajectory, state)`, including `trajectory.residuals`. They describe
@@ -88,12 +183,13 @@ differences were also used as the independent reference for the other cases.
 The passing configuration used `DI.AutoReverseDiff()` without a compiled tape,
 together with full specialization and pass-through sensitivity.
 
-For the control-only case, fixed initial states were promoted inside the
+In the historical control-only check, fixed initial states were promoted inside the
 differentiated loss using the value-preserving expression
 `[u + 0 * z[1] for u in prob.u0]`, where `z` is the active optimization vector.
 The problem was remade with those initial states before applying the layer.
 This makes the initial state compatible with the tracked arithmetic introduced
-by the controls. The shooting-state case did not need this separate promotion.
+by the controls. The shooting-state case did not need this separate promotion. The current
+scalar-packing implementation passes both cases without caller-side promotion.
 
 !!! note "Default ReverseDiff sensitivity path is currently unsupported"
     DiffEqBase's default ReverseDiff solve rule returns a tracked array of state
@@ -107,7 +203,8 @@ by the controls. The shooting-state case did not need this separate promotion.
     still needs the actual saved times and state samples. Updating terminal-state
     extraction alone does not establish default-path support.
 
-The tested pass-through configuration remains the supported ReverseDiff route.
+Pass-through retains the full solution interface, but current tracked-array
+storage compatibility must also be checked; see the current validation above.
 For the relevant upstream conversion, see the
 [DiffEqBase 7.21.4 ReverseDiff extension](https://github.com/SciML/DiffEqBase.jl/blob/v7.21.4/ext/DiffEqBaseReverseDiffExt.jl).
 
@@ -256,7 +353,7 @@ For new solve-boundary adapters, include interior `saveat` samples and callbacks
 and verify state/time correspondence. Record failures separately from timeouts
 and untested combinations.
 
-### Versions used in the validation snapshot
+### Versions used in the historical validation snapshot
 
 | Component | Version |
 |---|---|

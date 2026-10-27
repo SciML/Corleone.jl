@@ -40,19 +40,14 @@ private_shooting_state(ic::FixedLayer, st) = (;
 private_shooting_state(ic::Union{InitialCondition, PiecewiseConstant}, st) =
     merge(st, (; lookup = private_shooting_state(ic.lookup, st.lookup)))
 function private_shooting_state(layer::InitialConditions, st)
-    children = map(keys(layer.initialconditions)) do key
-        private_shooting_state(layer.initialconditions[key], st.initialconditions[key])
-    end
     return (;
-        initialconditions = NamedTuple{keys(layer.initialconditions)}(Tuple(children)),
+        initialconditions = map(private_shooting_state, layer.initialconditions, st.initialconditions),
         active = copy_shooting_cache(st.active),
     )
 end
 function private_shooting_state(layer::Parameter, st)
-    children = map(keys(layer.parameters)) do key
-        private_shooting_state(layer.parameters[key], st.parameters[key])
-    end
-    return (; parameters = NamedTuple{keys(layer.parameters)}(Tuple(children)))
+    # Paired NamedTuple mapping preserves each heterogeneous child's field type.
+    return (; parameters = map(private_shooting_state, layer.parameters, st.parameters))
 end
 private_shooting_state(x::ShootingLayer, st) = merge(
     st, (;

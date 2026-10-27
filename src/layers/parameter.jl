@@ -148,9 +148,11 @@ end
         exprs,
         :(new_st = NamedTuple{$(names)}(($(sts...),)))
     )
+    # Children return scalars. A vector literal preserves scalar tracking;
+    # ReverseDiff's vcat overload would instead track the array as a whole.
     push!(
         exprs,
-        :(vals = vcat($(outs...)))
+        :(vals = [$(outs...)])
     )
     push!(exprs, :(return vals, new_st))
     return Expr(:block, exprs...)
