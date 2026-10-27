@@ -1,6 +1,30 @@
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ForwardDiff, Zygote, ReverseDiff
 using ComponentArrays
 
+@testset "Shooting states preserve shared numerical state gradients" begin
+    prob = ODEProblem((u, p, t) -> u, ones(2), (0.0, 3.0), Float64[])
+    layer = ShootingLayer(
+        prob, Tsit5(),
+        Tunable(1; kind = Val(:variable)) => [1.0, 2.0],
+        Constant(2; kind = Val(:variable)) => [1.0, 2.0]
+    )
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    function objective(q)
+        fixed = merge(
+            st.initialcondition.initialconditions.u₂,
+            (; parameters = (; lookup = (;), parameter = (; ps = q)))
+        )
+        children = merge(st.initialcondition.initialconditions, (; u₂ = fixed))
+        state = merge(st, (; initialcondition = merge(st.initialcondition, (; initialconditions = children))))
+        states = Corleone.shooting_states(layer, ps, state, st.timestops)
+        return sum(s -> sum(abs2, s.initialcondition.initialconditions.u₂.parameters.parameter.ps), states)
+    end
+    for q in ([2.0, 3.0], [3.0, 4.0])
+        @test ForwardDiff.gradient(objective, q) ≈ 6 .* q
+        @test only(Zygote.gradient(objective, q)) ≈ 6 .* q
+    end
+end
+
 @testset "Metadata-only construction with AD backends loaded" begin
     prob = ODEProblem((u, p, t) -> [p[1], u[1]^2], [1.0, 0.0], (0.0, 1.0), [0.5])
     layer = ShootingLayer(prob, Tsit5(); controls = [1], quadratures = [2])

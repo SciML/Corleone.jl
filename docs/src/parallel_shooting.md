@@ -22,6 +22,13 @@ Forward calls retain this vector in the returned state. The independent block
 partition is still derived from the cached grid and current reset schedules on
 each call.
 
+Internally, `shooting_states(layer, ps, st, tstops)` prepares an ordered vector of
+states with sliced `timestops` and private scheduling buffers. Adjacent slices
+share their boundary timepoint and retain every control switch and partial reset
+inside the interval. The ensemble map iterates over these states and calls the
+existing serial solver with the same `ps` for each one. Numerical values in state
+retain their references and differentiation paths through this preparation.
+
 Each independent block solves from its assigned start values. Once those solves
 finish, the layer computes each block's first residual against the preceding
 block's actual endpoint. This retains the dependence of the continuity loss on

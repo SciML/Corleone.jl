@@ -19,10 +19,14 @@ with_ensemble(layer, alg) = ShootingLayer(
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     stops = Corleone.get_timestops(layer, ps, st)
-    @test Corleone.shooting_blocks(layer, ps, st, stops) == [1:5, 5:9]
-    local_st = Corleone.private_shooting_state(layer, st)
-    @test local_st.timestops === st.timestops
+    states = @inferred Corleone.shooting_states(layer, ps, st, stops)
+    @test map(s -> s.timestops, states) == [stops[1:5], stops[5:9]]
+    local_st = first(states)
+    @test last(local_st.timestops) == first(last(states).timestops)
     @test local_st.initialcondition.active !== st.initialcondition.active
+    @test local_st.initialcondition.active !== last(states).initialcondition.active
+    @test local_st.parameter.parameters.p₁.lookup.inserted !==
+        last(states).parameter.parameters.p₁.lookup.inserted
     @test local_st.initialcondition.initialconditions.u₂.parameters ===
         st.initialcondition.initialconditions.u₂.parameters
     serial, serial_st = layer(nothing, ps, st)
@@ -59,7 +63,8 @@ with_ensemble(layer, alg) = ShootingLayer(
     )
     changed_stops = Corleone.get_timestops(threaded, ps, changed_st)
     changed_st = merge(changed_st, (; timestops = changed_stops))
-    @test Corleone.shooting_blocks(threaded, ps, changed_st, changed_stops) == [1:7, 7:9]
+    @test map(s -> s.timestops, Corleone.shooting_states(threaded, ps, changed_st, changed_stops)) ==
+        [changed_stops[1:7], changed_stops[7:9]]
     expected, _ = layer(nothing, ps, changed_st)
     actual, _ = threaded(nothing, ps, changed_st)
     @test actual.u ≈ expected.u
@@ -79,7 +84,7 @@ end
     )
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     stops = Corleone.get_timestops(layer, ps, st)
-    @test Corleone.shooting_blocks(layer, ps, st, stops) == [1:4]
+    @test only(Corleone.shooting_states(layer, ps, st, stops)).timestops == stops
     actual, _ = layer(nothing, ps, st)
     expected, _ = with_ensemble(layer, EnsembleSerial())(nothing, ps, st)
     @test actual.u ≈ expected.u

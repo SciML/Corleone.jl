@@ -303,7 +303,7 @@ optimizer storage and query bounds; calling setup again restores the original la
 """
 function add_parameter_segments!(layer::ShootingLayer, ps, st)
     tstops = get_timestops(layer, nothing, st)
-    blocks = shooting_blocks(layer, nothing, st, tstops)
+    blocks = shooting_ranges(layer, st, tstops)
     times = [tstops[first(block)] for block in blocks[2:end]]
     isempty(times) && return ps, merge(st, (; timestops = tstops))
     parameters, state = add_parameter_segments!(layer.parameter, ps.parameter, st.parameter, times)

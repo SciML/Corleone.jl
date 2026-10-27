@@ -4,7 +4,7 @@ resets_variable(::PassThrough, st, t) = false
 resets_variable(ic::InitialCondition, st, t) = haskey(ic.lookup, t, nothing, st.lookup)
 resets_variable(ic::FixedLayer, st, t) = resets_variable(ic.layer, st.states, t)
 
-function shooting_blocks(x::ShootingLayer, ps, st, tstops)
+function shooting_ranges(x::ShootingLayer, st, tstops)
     ics = x.initialcondition.initialconditions
     starts = [firstindex(tstops)]
     for i in (firstindex(tstops) + 1):(lastindex(tstops) - 1)
@@ -20,7 +20,22 @@ function shooting_blocks(x::ShootingLayer, ps, st, tstops)
             for i in eachindex(starts)
     ]
 end
-@non_differentiable shooting_blocks(::Any, ::Any, ::Any, ::Any)
+@non_differentiable shooting_ranges(::Any, ::Any, ::Any)
+
+"""
+$(SIGNATURES)
+
+Return one state per independent shooting interval, with its local `timestops`
+and private mutable scheduling buffers. Adjacent intervals share their boundary
+timepoint. Numerical values stored in state retain their references and AD paths;
+the same `ps` can be used for every interval.
+"""
+function shooting_states(layer::ShootingLayer, ps, st, tstops)
+    ranges = shooting_ranges(layer, st, tstops)
+    return map(ranges) do indices
+        merge(private_shooting_state(layer, st), (; timestops = tstops[indices]))
+    end
+end
 
 # Copy scheduling buffers only. In particular, FixedLayer.parameters and all
 # differentiable numeric values in Lux state retain their original references.
@@ -97,12 +112,11 @@ function solve_problems(
         ensemblealg::Union{EnsembleThreads, EnsembleDistributed},
         x::ShootingLayer, prob::SciMLBase.AbstractODEProblem, ps, st, tstops
     )
-    blocks = shooting_blocks(x, ps, st, tstops)
+    states = shooting_states(x, ps, st, tstops)
     # No independent restart: retain the serial solver and its buffers.
-    length(blocks) == 1 && return solve_problems(EnsembleSerial(), x, prob, ps, st, tstops)
-    results = shooting_map(ensemblealg, blocks) do indices
-        local_st = private_shooting_state(x, st)
-        solve_problems(EnsembleSerial(), x, prob, ps, local_st, tstops[indices])
+    length(states) == 1 && return solve_problems(EnsembleSerial(), x, prob, ps, only(states), only(states).timestops)
+    results = shooting_map(ensemblealg, states) do local_st
+        solve_problems(EnsembleSerial(), x, prob, ps, local_st, local_st.timestops)
     end
     solution_blocks, residual_blocks, next_st = unpack_shooting_results(results)
     solutions = reduce(vcat, solution_blocks)
@@ -113,8 +127,8 @@ function solve_problems(
         i == 1 && return block_residuals
         incoming = terminal_state(last(solution_blocks[i - 1]))
         (_, boundary_residual), _ = x.initialcondition(
-            (incoming, tstops[first(blocks[i])]),
-            ps.initialcondition, private_shooting_state(x.initialcondition, st.initialcondition)
+            (incoming, first(states[i].timestops)),
+            ps.initialcondition, private_shooting_state(x.initialcondition, states[i].initialcondition)
         )
         vcat([boundary_residual], block_residuals[2:end])
     end
