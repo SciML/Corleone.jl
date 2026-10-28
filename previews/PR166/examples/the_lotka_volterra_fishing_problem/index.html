@@ -64,25 +64,25 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 
-Number of Iterations....: 135
+Number of Iterations....: 130
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3443410156615019e+00    1.3443410156615019e+00
-Dual infeasibility......:   9.3110901751459884e-07    9.3110901751459884e-07
+Objective...............:   1.3443410149542359e+00    1.3443410149542359e+00
+Dual infeasibility......:   6.9706210016380391e-07    6.9706210016380391e-07
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0397554573784411e-07    1.0397554573784411e-07
-Overall NLP error.......:   9.3110901751459884e-07    9.3110901751459884e-07
+Complementarity.........:   1.0571858558884292e-07    1.0571858558884292e-07
+Overall NLP error.......:   6.9706210016380391e-07    6.9706210016380391e-07
 
 
-Number of objective function evaluations             = 677
-Number of objective gradient evaluations             = 136
+Number of objective function evaluations             = 675
+Number of objective gradient evaluations             = 131
 Number of equality constraint evaluations            = 0
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 31.595
+Total seconds in IPOPT                               = 26.300
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">optimized_parameters = opt.f.f.reconstruct(uopt.u)
@@ -119,25 +119,25 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 
-Number of Iterations....: 188
+Number of Iterations....: 152
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3456313253022933e+00    1.3456313253022933e+00
-Dual infeasibility......:   9.2522941727967539e-07    9.2522941727967539e-07
-Constraint violation....:   3.2427547314028971e-09    3.2427547314028971e-09
-Variable bound violation:   9.9707276699586643e-09    9.9707276699586643e-09
-Complementarity.........:   1.0000000693384440e-11    1.0000000693384440e-11
-Overall NLP error.......:   9.2522941727967539e-07    9.2522941727967539e-07
+Objective...............:   1.3456313305130110e+00    1.3456313305130110e+00
+Dual infeasibility......:   9.7393661194061297e-07    9.7393661194061297e-07
+Constraint violation....:   1.0753620216519266e-12    1.0753620216519266e-12
+Variable bound violation:   9.9707275400639797e-09    9.9707275400639797e-09
+Complementarity.........:   1.0000000073898693e-11    1.0000000073898693e-11
+Overall NLP error.......:   9.7393661194061297e-07    9.7393661194061297e-07
 
 
-Number of objective function evaluations             = 242
-Number of objective gradient evaluations             = 187
-Number of equality constraint evaluations            = 242
+Number of objective function evaluations             = 210
+Number of objective gradient evaluations             = 151
+Number of equality constraint evaluations            = 210
 Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 190
+Number of equality constraint Jacobian evaluations   = 154
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 36.490
+Total seconds in IPOPT                               = 27.853
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">optimized_parameters = ms_opt.f.f.reconstruct(ms_uopt)
@@ -168,9 +168,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 4 × AMD EPYC 9V74 80-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver4)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -580,4 +580,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear Quadratic Regulator</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 28 October 2026 10:37">Wednesday 28 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear Quadratic Regulator</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 28 October 2026 11:17">Wednesday 28 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
