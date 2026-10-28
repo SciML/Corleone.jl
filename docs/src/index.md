@@ -20,6 +20,9 @@ or the [Lotka–Volterra fishing problem](examples/the_lotka_volterra_fishing_pr
 Both tutorials construct a `ShootingLayer`, define an optimization objective, and
 plot the resulting states and controls.
 
+For symbolic models, follow the
+[ModelingToolkit Lotka–Volterra tutorial](examples/modelingtoolkit_integration.md).
+
 The manual also describes [parallel shooting](parallel_shooting.md), tested
 [automatic differentiation backends](automatic_differentiation.md), and
 [symbolic bookkeeping](symbolic_metadata.md). Constructor and field documentation

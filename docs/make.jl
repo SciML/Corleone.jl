@@ -32,6 +32,7 @@ makedocs(
             "Overview" => "tutorials.md",
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
         ],
         "Initialization" => "initialization.md",
         "Optimization Contracts" => "optimization_contracts.md",

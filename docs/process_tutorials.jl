@@ -69,8 +69,7 @@ function make_tutorial(path)
 end
 
 # Only root-package examples using the current ShootingLayer API are built here.
-# Sibling-library tutorials and the legacy ModelingToolkit facade are maintained
-# separately from the root package manual.
+# Sibling-library tutorials are maintained separately from the root package manual.
 example_output = joinpath(@__DIR__, "src", "examples")
 isdir(example_output) && rm(example_output; recursive = true)
 
@@ -78,6 +77,7 @@ tutorials = map(
     [
         joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"),
         joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"),
+        joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)

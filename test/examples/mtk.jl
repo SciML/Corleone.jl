@@ -112,6 +112,13 @@ end
     @test length(optimization_constraints(model, model.ps, model.st)) == 7
     @test model.lcons[4:end] == model.ucons[4:end] == zeros(4)
     @test all(isfinite, optimization_constraints(model, model.ps, model.st))
+    # A fixed global initial value does not prevent lifting interior values.
+    name = Symbol(x(t))
+    @test model.ps.initialcondition.initialconditions[name].parameter.ps == [1.0, 1.0]
+    @test sort!(collect(keys(model.st.initialcondition.initialconditions[name].lookup.collection))) == [0.4, 0.8]
+    trajectory, _ = model.layer(nothing, model.ps, model.st)
+    @test first(trajectory[x(t)]) == 1.0
+    @test isempty(first(trajectory.residuals))
     opt = OptimizationProblem(model, AutoForwardDiff())
     @test all(isfinite, ForwardDiff.gradient(q -> opt.f(q, opt.p), opt.u0))
 
@@ -156,9 +163,17 @@ end
 end
 
 @testset "Tunable MTK initial values" begin
+    @variables default_state(..) = 0.6
     @variables free_state(..) = 0.5 [tunable = true, bounds = (0.3, 1.0)]
-    @variables fixed_state(..) = 0.7 [tunable = false]
+    @variables fixed_state(..) = 0.7 [tunable = false, bounds = (0.6, 0.8)]
     @parameters rate = 0.0 [tunable = false]
+    @named default_system = System(
+        [D(default_state(t)) ~ rate * default_state(t)], t; costs = [default_state(1.0)^2]
+    )
+    default_model = CorleoneDynamicOptProblem(default_system, []; algorithm = Tsit5(), tspan = (0.0, 1.0))
+    @test isempty(default_model.ps.initialcondition.initialconditions[Symbol(default_state(t))])
+    @test default_model.nshooting == 0
+    @test optimization_objective(default_model, default_model.ps, default_model.st) ≈ 0.36
     @named initial_system = System(
         [D(free_state(t)) ~ rate * free_state(t), D(fixed_state(t)) ~ rate * fixed_state(t)],
         t; costs = [free_state(1.0)^2]
@@ -191,6 +206,10 @@ end
             shooting = [0.0, 0.5], ensemblealg
         )
         @test multiple.ps.initialcondition.initialconditions[free_name].parameter.ps == [0.5, 0.5]
+        @test multiple.ps.initialcondition.initialconditions[Symbol(fixed_state(t))].parameter.ps == [0.7]
+        lower, upper = get_bounds(multiple.layer, multiple.ps, multiple.st)
+        @test lower.initialcondition.initialconditions[Symbol(fixed_state(t))].parameter.ps == [0.6]
+        @test upper.initialcondition.initialconditions[Symbol(fixed_state(t))].parameter.ps == [0.8]
         @test multiple.nshooting == 2
         ps = deepcopy(multiple.ps)
         ps.initialcondition.initialconditions[free_name].parameter.ps[1] = 0.8

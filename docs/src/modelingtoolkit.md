@@ -1,5 +1,8 @@
 # ModelingToolkit frontend
 
+See the [ModelingToolkit Lotka–Volterra tutorial](examples/modelingtoolkit_integration.md)
+for a complete single- and multiple-shooting example.
+
 Load ModelingToolkit to construct a `CorleoneDynamicOptProblem` from an uncompiled
 `System`, its initial values, and control schedules:
 
@@ -64,6 +67,13 @@ Initial values are free only for states marked `tunable = true`; other states
 start from the ODE problem's values. The numerical facade appends continuity
 equalities at interior resets automatically. `ensemblealg` selects the execution
 method. Controls and physical parameters remain shared between segments.
+
+State bounds also apply to the lifted values at shooting times, including states
+marked `tunable = false`. That metadata fixes the global initial value; it does
+not disable interior shooting variables or their bounds. Single shooting has no
+lifted state values, so these bounds do not become path constraints there. To
+compare the two formulations, use matching bounds and add explicit path
+constraints when bounds must hold between shooting nodes.
 
 The system is compiled with `split = false`, retaining MTK's symbolic container
 and using flat numerical parameters. This frontend currently expects scalar

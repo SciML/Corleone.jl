@@ -8,3 +8,6 @@ the documentation build.
 - [Lotka–Volterra fishing](examples/the_lotka_volterra_fishing_problem.md):
   single shooting, lifted initial conditions, continuity constraints, and threaded
   multiple shooting.
+- [ModelingToolkit integration](examples/modelingtoolkit_integration.md):
+  symbolic dynamics and integral costs, metadata bounds, and single and multiple
+  shooting with fixed global initial values.
