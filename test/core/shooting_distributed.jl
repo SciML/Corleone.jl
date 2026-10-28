@@ -1,14 +1,18 @@
-# Standalone check requiring permission to open localhost worker sockets:
-# julia --project=. test/core/shooting_distributed.jl
-using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+# Run through GROUP=Distributed or in an environment containing the group dependencies.
+using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, ForwardDiff
+
+# Load definitions before entering the testset so solver calls see the current world.
+Base.include(Main, joinpath(@__DIR__, "..", "shared", "shooting_ad_case.jl"))
 
 @testset "Distributed shooting" begin
     # Workers need the same test dependencies and developed package as the parent.
     project = dirname(Base.active_project())
     added = addprocs(2; exeflags = `--project=$project --startup-file=no --compiled-modules=existing`)
     try
-        @everywhere added using Corleone, LuxCore, OrdinaryDiffEqTsit5
-        prob = ODEProblem((u, p, t) -> [p[1] * u[1]], [1.0], (0.0, 3.0), [0.2])
+        @everywhere added using Corleone, LuxCore, OrdinaryDiffEqTsit5, ForwardDiff
+        fixture = joinpath(@__DIR__, "..", "shared", "shooting_ad_case.jl")
+        @everywhere added include($fixture)
+        prob = ODEProblem(Main.ShootingADCase.scalar_dynamics, [1.0], (0.0, 3.0), [0.2])
         serial = ShootingLayer(
             prob, Tsit5(),
             Tunable(1; kind = Val(:variable)) => [1.0, 2.0]
@@ -30,6 +34,24 @@ using Distributed, Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
         @test repeated.u ≈ expected.u
         @test repeated.t == expected.t
         @test repeated_st.timestops === st.timestops
+        @testset "Shared parameters, tunable resets and values held in state" begin
+            serial = Main.ShootingADCase.backend_case(false, EnsembleSerial())
+            distributed = Main.ShootingADCase.backend_case(false, EnsembleDistributed())
+            for q in ([0.2, 1.0, 1.5, 2.5, 3.0], [0.3, 1.2, 2.0, 3.5, 4.0])
+                original = copy(q)
+                f = distributed
+                @test f(q) ≈ serial(q)
+                gradient = ForwardDiff.gradient(f, q)
+                @test gradient ≈ ForwardDiff.gradient(serial, q) rtol = 1.0e-8
+                finite = map(eachindex(q)) do i
+                    delta = zeros(length(q))
+                    delta[i] = 1.0e-5
+                    (f(q + delta) - f(q - delta)) / 2.0e-5
+                end
+                @test gradient ≈ finite rtol = 1.0e-7 atol = 1.0e-8
+                @test q == original
+            end
+        end
     finally
         rmprocs(added)
     end

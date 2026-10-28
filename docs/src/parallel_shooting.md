@@ -61,14 +61,18 @@ task-local AD contexts and safe cotangent reduction are implemented. Block-resul
 assembly has a dedicated pullback so Zygote receives consistent tuple cotangents
 from the solution, residual, and returned-state paths.
 
-An additional full-solver check with Zygote 0.7.14 and SciMLSensitivity 7.119.13
-passed at both inputs of the shared-parameter/state regression loss, using the
-default sensitivity settings, `Tsit5()`, and `abstol = reltol = 1e-11`. It included
-the trajectory state samples and continuity residuals and matched ForwardDiff.
-This exploratory check requires SciMLSensitivity and is separate from the Core
-tests, which cover ForwardDiff and the Zygote map/assembly rules directly.
-ReverseDiff, Mooncake, Enzyme, and distributed AD have not been validated on this
-parallel implementation. See [Automatic differentiation](automatic_differentiation.md)
+The maintained `Differentiation` test group checks full-solver ForwardDiff and
+Zygote gradients for serial and threaded layers against an analytic reference.
+The `Distributed` group checks ForwardDiff through two local workers against
+serial gradients and finite differences. For distributed ForwardDiff, define a
+named objective function or callable type in a module loaded on every worker.
+Serializing an anonymous objective closure can change its type on a worker,
+causing a ForwardDiff tag-ordering error during nested solver differentiation.
+The regression fixture loads the same objective and model definitions on every
+process before computing gradients.
+
+ReverseDiff, Mooncake, and Enzyme have not been validated through threaded or
+distributed execution. See [Automatic differentiation](automatic_differentiation.md)
 for the serial solver's additional backend requirements.
 
 ## Current limits
@@ -85,9 +89,11 @@ ODEs or very short blocks, scheduling and assembly overhead can outweigh any
 speedup. Benchmark the actual model, reset density, and thread/worker count.
 
 `test/core/shooting_parallel.jl` and `test/core/shooting_parallel_ad.jl` run in the
-Core group. Run the worker check separately with
-`julia --project=. test/core/shooting_distributed.jl`; it starts two local workers
-and removes them afterward. `benchmark/shooting_parallel.jl` compares warmed
+Core group. Run the worker checks with
+`GROUP=Distributed julia --project=. -e 'using Pkg; Pkg.test()'`; the group starts
+two local workers and removes them afterward. Run the full-solver backend checks
+with `GROUP=Differentiation julia --project=. -e 'using Pkg; Pkg.test()'`.
+See `test/README.md` for the test groups and their scope. `benchmark/shooting_parallel.jl` compares warmed
 serial/threaded calls for cheap and expensive right-hand sides in an environment
 containing BenchmarkTools. Use `--threads=4` (or the desired thread count).
 

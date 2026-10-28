@@ -13,7 +13,7 @@ const LIB_DIR = joinpath(dirname(@__DIR__), "lib")
 # selects a named group. We then activate the sublibrary's own test environment
 # and hand off to its runtests.jl via CORLEONE_TEST_GROUP. Otherwise the main-package
 # suite below runs via run_tests: GROUP="All"/"Core" run the light
-# Core group; "Examples", "Plotting", and "QA" use their own test environments.
+# Core group; the other named groups use their own test environments.
 base_group, test_group = detect_sublibrary_group(GROUP, LIB_DIR)
 
 if !isempty(base_group) && isdir(joinpath(LIB_DIR, base_group))
@@ -77,26 +77,33 @@ else
             @safetestset "Trajectory" begin
                 include("core/trajectory.jl")
             end
+            @safetestset "Native Lux interface" begin
+                include("core/interface_contracts.jl")
+            end
+            @safetestset "State handoff" begin
+                include("core/state_handoff.jl")
+            end
+            @safetestset "Shooting initialization" begin
+                include("core/shooting_initialization.jl")
+            end
             return @safetestset "Trajectory differentiation" begin
                 include("core/trajectory_ad.jl")
             end
-            #@safetestset "Local controls" begin
-            #    include("core/local_controls.jl")
-            #end
-            #@safetestset "Precompile workload" begin
-            #    include("core/precompile_workload.jl")
-            #end
-            #@safetestset "Generic layer interface" begin
-            #    include("core/interface_contracts.jl")
-            #end
-            #@safetestset "Multiple shooting" begin
-            #    include("core/multiple_shooting.jl")
-            #end
-            #return @safetestset "Segment state handoff" begin
-            #    include("core/state_handoff.jl")
-            #end
+
         end,
         groups = Dict(
+            "Distributed" => (;
+                env = joinpath(@__DIR__, "distributed"),
+                body = function ()
+                    return @safetestset "Distributed shooting and differentiation" include("core/shooting_distributed.jl")
+                end,
+            ),
+            "Differentiation" => (;
+                env = joinpath(@__DIR__, "differentiation"),
+                body = function ()
+                    return @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                end,
+            ),
             "Plotting" => (;
                 env = joinpath(@__DIR__, "plotting"),
                 body = function ()

@@ -5,6 +5,32 @@ limitations, and the design decisions behind differentiable trajectory assembly.
 Compatibility depends on both the outer differentiation backend and the
 `sensealg` used by the underlying SciML problem.
 
+## Maintained regression groups
+
+The `Differentiation` test group exercises full ODE solves with ForwardDiff,
+ReverseDiff, and Zygote against an analytic reference at two inputs. The loss
+includes saved states and continuity residuals; inputs include shared parameters,
+a free global initial value, interior shooting values, and numerical values in Lux
+state. ForwardDiff and Zygote cover serial and threaded layers. ReverseDiff uses
+serial execution with `FullSpecialize` and `SensitivityADPassThrough()`.
+
+The `Distributed` group compares two-worker ForwardDiff gradients with serial
+execution and finite differences. It uses a named callable objective loaded on
+every worker; anonymous objective closures can produce mismatched ForwardDiff
+tag types after serialization. Reverse-mode differentiation of the ensemble
+map still records blocks serially. These checks do not establish compiled
+ReverseDiff tapes, parallel reverse execution, Mooncake, or Enzyme support.
+
+Run either group from the repository root:
+
+```sh
+GROUP=Differentiation julia --project=. -e 'using Pkg; Pkg.test()'
+GROUP=Distributed julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+The dated measurements below remain historical snapshots rather than a fresh
+benchmark of the current checkout.
+
 ## Current scalar-packing validation: 26 October 2026
 
 State and parameter packing now uses vector literals to retain ordinary arrays of
