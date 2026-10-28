@@ -34,7 +34,7 @@ $(FIELDS)
     name
     "Exact-time lookup mapping each scheduled reset time to its value index."
     lookup
-    "The collection of values assigned at the scheduled reset times."
+    "A scalar parameter collection or NamedTuple of scalar collections sharing this reset grid."
     parameter
 end
 
@@ -61,6 +61,12 @@ function InitialCondition(::Nothing, default; kwargs...)
 end
 
 
+function InitialCondition(timegrid::AbstractVector{<:Real}, parameters::NamedTuple; name = nothing, cache = nothing)
+    grid = isnothing(timegrid) ? Float64[] : timegrid
+    allunique(grid) || throw(ArgumentError("Initial-condition times must be unique."))
+    return InitialCondition(name, LookUp(Dict(t => i for (i, t) in enumerate(grid)), cache), parameters)
+end
+
 function LuxCore.initialstates(rng::Random.AbstractRNG, x::InitialCondition)
     return (;
         lookup = LuxCore.initialstates(rng, x.lookup),
@@ -79,6 +85,16 @@ function (layer::InitialCondition)((incoming, t)::Tuple, ps, st)
     return T(value), (; lookup = lookup_st, parameter = parameter_st, active = true)
 end
 
+function (layer::InitialCondition)((incoming, t)::Tuple{<:AbstractVector, Any}, ps, st)
+    T = promote_type(eltype(incoming), collection_scalar_type(layer.parameter, ps.parameter, st.parameter))
+    haskey(layer.lookup, t, ps.lookup, st.lookup) || return [T(value) for value in incoming], merge(st, (; active = false))
+    (index, _), lookup_st = LuxCore.apply(layer.lookup, t, ps.lookup, st.lookup)
+    out, parameter_st = apply_scalar_collections(layer.parameter, index, ps.parameter, st.parameter)
+    return promote_reset_values(T, out), (; lookup = lookup_st, parameter = parameter_st, active = true)
+end
+promote_reset_values(::Type{T}, values::Vector{T}) where {T} = values
+promote_reset_values(::Type{T}, values) where {T} = [T(value) for value in values]
+
 istypemax(x::V) where {V} = x === typemax(V)
 
 get_timestops(layer::InitialCondition, ps, st, ::Type{T}) where {T} =
@@ -87,7 +103,7 @@ get_timestops(layer::InitialCondition, ps, st, ::Type{T}) where {T} =
 """
 $(TYPEDEF)
 
-A collection of single-variable `InitialCondition` layers, analogous to `Parameter`.
+A collection of shared-grid `InitialCondition` layers, analogous to `Parameter`.
 Definitions are `annotation => timegrid` pairs; plain indices and symbols are also
 accepted as tunable annotations. Variables with no grid pass through their incoming
 values. `Constant` annotations store scheduled values in Lux state via `FixedLayer`.
@@ -108,14 +124,20 @@ $(FIELDS)
     name
     "Reconstructs the problem state from its canonical tunable values."
     repack
-    "A NamedTuple of per-variable reset or pass-through layers in state index order."
+    "Shared-grid reset layers and pass-through layers, keyed by their first variable symbol."
     initialconditions
+    "Original state indices represented by each reset or pass-through layer."
+    indices
 end
+
+InitialConditions(name, repack, initialconditions) =
+    InitialConditions(name, repack, initialconditions, Tuple([i] for i in 1:length(initialconditions)))
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::InitialConditions)
     return (;
         initialconditions = map(ic -> LuxCore.initialstates(rng, ic), layer.initialconditions),
-        active = fill(false, length(layer.initialconditions)),
+        active = fill(false, sum(length, layer.indices; init = 0)),
+        permutation = collection_permutation(layer.indices),
     )
 end
 
@@ -140,19 +162,36 @@ function InitialConditions(
     indices = map(definition -> get_index(first(definition)), processed)
     allunique(indices) || throw(ArgumentError("Define each initial-condition variable only once."))
     symbols = SymbolicIndexingInterface.variable_symbols(sys)
-    conditions = map(eachindex(vals)) do i
+    entries = map(eachindex(vals)) do i
         position = findfirst(==(i), indices)
         sym = only(filter(s -> SymbolicIndexingInterface.variable_index(sys, s) == i, symbols))
         if isnothing(position)
-            layer = PassThrough(Symbol(sym))
-        else
-            annotation, grid = processed[position]
-            layer = InitialCondition(grid, get_default(annotation); name = Symbol(sym), bounds = get_bounds(annotation))
-            layer = is_tunable(annotation) ? layer : FixedLayer(layer)
+            return (; index = i, name = Symbol(sym), grid = nothing, parameter = nothing, fixed = false)
         end
-        return Symbol(sym) => layer
+        annotation, grid = processed[position]
+        grid = isnothing(grid) ? Float64[] : grid
+        allunique(grid) || throw(ArgumentError("Initial-condition times must be unique."))
+        default, bounds = get_default(annotation), get_bounds(annotation)
+        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, bounds)
+        return (;
+            index = i, name = Symbol(sym), grid,
+            parameter = ParameterCollection(initialize, length(grid)), fixed = !is_tunable(annotation),
+        )
+    end
+    groups = group_scalar_collections(entries)
+    conditions = map(groups) do group
+        entry = first(group)
+        if isnothing(entry.parameter)
+            entry.name => PassThrough(entry.name)
+        elseif length(group) == 1
+            ic = InitialCondition(entry.name, LookUp(Dict(t => i for (i, t) in enumerate(entry.grid)), nothing), entry.parameter)
+            entry.name => (entry.fixed ? FixedLayer(ic) : ic)
+        else
+            children = NamedTuple(Tuple(item.name => (item.fixed ? FixedLayer(item.parameter) : item.parameter) for item in group))
+            entry.name => InitialCondition(entry.grid, children; name = entry.name)
+        end
     end |> NamedTuple
-    return InitialConditions(name, repack, conditions)
+    return InitialConditions(name, repack, conditions, Tuple([entry.index for entry in group] for group in groups))
 end
 
 function get_timestops(layer::InitialConditions, ps, st, ::Type{T}) where {T}
@@ -167,6 +206,12 @@ end
 
 is_active(::InitialCondition, st) = st.active
 
+
+initial_condition_activity(::PassThrough, st) = (false,)
+initial_condition_activity(::FixedLayer, st) = (false,)
+function initial_condition_activity(ic::InitialCondition, st)
+    return ic.parameter isa NamedTuple ? map(value -> st.active && !(value isa FixedLayer), values(ic.parameter)) : (st.active,)
+end
 """
 $(SIGNATURES)
 
@@ -175,36 +220,36 @@ new Lux states. Only active, non-fixed initial conditions contribute residuals.
 This scheduling update is non-differentiable; an all-`PassThrough` tuple clears
 the mask without checking individual layers.
 """
-function update_active_ics!(active, initial_conditions::Tuple, new_st::Tuple)
-    foreach(initial_conditions, new_st, eachindex(active)) do ic, state, i
-        active[i] = ic isa InitialCondition && is_active(ic, state)
+function update_active_ics!(active, initial_conditions::Tuple, new_st::Tuple, permutation = Base.OneTo(length(active)))
+    parts = map(initial_condition_activity, initial_conditions, new_st)
+    flags = foldl((a, b) -> (a..., b...), parts; init = ())
+    foreach(eachindex(active)) do i
+        active[i] = flags[permutation[i]]
     end
     return active
 end
-
-# These entries are initialized false and can never become active.
-update_active_ics!(active, ::Tuple{Vararg{PassThrough}}, ::Tuple) = active .= false
-
+update_active_ics!(active, ::Tuple{Vararg{PassThrough}}, ::Tuple, permutation = nothing) = active .= false
 ChainRulesCore.@non_differentiable update_active_ics!(active, initial_conditions, new_st)
+ChainRulesCore.@non_differentiable update_active_ics!(active, initial_conditions, new_st, permutation)
 
 function (layer::InitialConditions)((incoming, t)::Tuple, ps, st; matching::Bool = true)
-    out, new_st = apply_ics(layer.initialconditions, incoming, t, ps.initialconditions, st.initialconditions)
-    active = update_active_ics!(st.active, values(layer.initialconditions), values(new_st))
+    out, new_st = apply_ics(layer.initialconditions, incoming, t, ps.initialconditions, st.initialconditions, layer.indices, st.permutation)
+    active = update_active_ics!(st.active, values(layer.initialconditions), values(new_st), st.permutation)
     residuals = [out[i] - incoming[i] for i in eachindex(out) if matching && active[i]]
-    return (layer.repack(out), residuals), (; initialconditions = new_st, active)
+    return (layer.repack(out), residuals), merge(st, (; initialconditions = new_st, active))
 end
 
-@generated function apply_ics(ics::NamedTuple{names}, vals, t, ps, st::NamedTuple{names}) where {names}
+@generated function apply_ics(ics::NamedTuple{names}, vals, t, ps, st::NamedTuple{names}, indices, permutation) where {names}
     outs = Symbol[]
     sts = Symbol[]
     exprs = Expr[]
     for (i, n) in enumerate(names)
         push!(outs, gensym(:out))
         push!(sts, gensym(:st))
-        push!(
-            exprs,
-            :(($(last(outs)), $(last(sts))) = ics.$(n)((vals[$(i)], t), ps.$(n), st.$(n)))
-        )
+        type = fieldtype(ics, i)
+        grouped = length(child_scalar_expressions(type, :out)) > 1
+        incoming = grouped ? :(view(vals, indices[$i])) : :(vals[only(indices[$i])])
+        push!(exprs, :(($(last(outs)), $(last(sts))) = ics.$n(($incoming, t), ps.$n, st.$n)))
     end
     push!(
         exprs,
@@ -214,7 +259,7 @@ end
     # ReverseDiff's vcat overload would instead track the array as a whole.
     push!(
         exprs,
-        :(vals = [$(outs...)])
+        :(vals = $(canonical_output_expression(fieldtypes(ics), outs)))
     )
     push!(exprs, :(return vals, new_st))
     return Expr(:block, exprs...)

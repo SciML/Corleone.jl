@@ -2,17 +2,24 @@
 # from Lux setup and the differentiable forward path.
 function shooting_initialization_entries(layer::ShootingLayer, ps, st, variables)
     selected = collect(variables isa Integer ? (variables,) : variables)
-    all(i -> i in Base.OneTo(length(layer.initialcondition.initialconditions)), selected) ||
+    all(i -> i in Base.OneTo(length(layer.problem.u0)), selected) ||
         throw(ArgumentError("Shooting variable indices must refer to problem states."))
-    return [
-        (;
-            index = i,
-            values = getproperty(ps.initialcondition.initialconditions, key).parameter.ps,
-            grid = getproperty(st.initialcondition.initialconditions, key).lookup.collection,
-        )
-            for (i, key) in enumerate(keys(layer.initialcondition.initialconditions))
-            if layer.initialcondition.initialconditions[key] isa InitialCondition && i in selected
-    ]
+    parts = map(enumerate(keys(layer.initialcondition.initialconditions)) |> collect) do (group, key)
+        ic = layer.initialcondition.initialconditions[key]
+        ic isa InitialCondition || return []
+        values = getproperty(ps.initialcondition.initialconditions, key).parameter
+        grid = getproperty(st.initialcondition.initialconditions, key).lookup.collection
+        indices = layer.initialcondition.indices[group]
+        if ic.parameter isa NamedTuple
+            return [
+                (; index = indices[j], values = getproperty(values, name).ps, grid)
+                    for (j, name) in enumerate(keys(ic.parameter))
+                    if ic.parameter[name] isa ParameterCollection && indices[j] in selected
+            ]
+        end
+        return only(indices) in selected ? [(; index = only(indices), values = values.ps, grid)] : []
+    end
+    return sort!(reduce(vcat, parts; init = []); by = entry -> entry.index)
 end
 
 initialization_value(values::AbstractDict, i) = values[i]
@@ -55,7 +62,7 @@ its existing buffers updated in place. Bounds are validated before writing.
 """
 function constant_initialization(
         rng::Random.AbstractRNG, layer::ShootingLayer, ps, st;
-        u0 = layer.problem.u0, variables = Base.OneTo(length(layer.initialcondition.initialconditions))
+        u0 = layer.problem.u0, variables = Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
     set_shooting_guesses!(layer, entries, (i, t, j) -> initialization_value(u0, i))
@@ -75,7 +82,7 @@ are unchanged. All selected vectors must match their current schedules.
 """
 function custom_initialization(
         rng::Random.AbstractRNG, layer::ShootingLayer, ps, st;
-        u0s, variables = u0s isa AbstractDict ? keys(u0s) : Base.OneTo(length(layer.initialcondition.initialconditions))
+        u0s, variables = u0s isa AbstractDict ? keys(u0s) : Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
     for entry in entries
@@ -100,7 +107,7 @@ fixed values are unchanged. Bounds are validated before writing.
 function linear_initialization(
         rng::Random.AbstractRNG, layer::ShootingLayer, ps, st;
         u_infinity, u0 = layer.problem.u0,
-        variables = Base.OneTo(length(layer.initialcondition.initialconditions))
+        variables = Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
     t0, tf = layer.problem.tspan
@@ -126,7 +133,7 @@ unchanged. Use a seeded RNG for reproducible guesses.
 """
 function random_initialization(
         rng::Random.AbstractRNG, layer::ShootingLayer, ps, st;
-        variables = Base.OneTo(length(layer.initialcondition.initialconditions))
+        variables = Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
     bounds = Dict(entry.index => shooting_initialization_bounds(layer, entry.index) for entry in entries)
@@ -160,7 +167,7 @@ regardless of its ensemble algorithm.
 """
 function forward_initialization(
         rng::Random.AbstractRNG, layer::ShootingLayer, ps, st;
-        variables = Base.OneTo(length(layer.initialcondition.initialconditions))
+        variables = Base.OneTo(length(layer.problem.u0))
     )
     layer.problem isa SciMLBase.AbstractODEProblem ||
         throw(ArgumentError("Forward initialization currently supports ODE problems."))

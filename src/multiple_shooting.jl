@@ -42,6 +42,26 @@ function legacy_lift_states(layer, times, ensemblealg)
     children = map(enumerate(Base.values(layer.initialcondition.initialconditions))) do (index, ic)
         isempty(points) && return ic
         ic isa FixedLayer && throw(ArgumentError("A fixed reset schedule cannot be combined with tunable shooting resets for the same variable. Construct the desired native annotations explicitly."))
+        selected = layer.initialcondition.indices[index]
+        if ic isa InitialCondition && ic.parameter isa NamedTuple
+            any(child -> child isa FixedLayer, Base.values(ic.parameter)) &&
+                throw(ArgumentError("Fixed reset schedules cannot be combined with tunable shooting resets; use native annotations."))
+            original = ic.lookup.collection
+            grid = sort!(unique!(vcat(collect(keys(original)), points)))
+            parameter = map(enumerate(keys(ic.parameter)) |> collect) do (j, name)
+                child = ic.parameter[name]
+                i = selected[j]
+                sym = only(filter(sym -> variable_index(layer.sys, sym) == i, variable_symbols(layer.sys)))
+                fallback = clamp(values[i], get_bounds(layer.sys, sym)...)
+                initialize = function (rng, n)
+                    existing = child.init_parameters(rng, child.out_dims)
+                    return [haskey(original, t) ? existing[original[t]] : fallback for t in grid]
+                end
+                name => ParameterCollection(initialize, length(grid))
+            end |> NamedTuple
+            return InitialCondition(grid, parameter; name = ic.name)
+        end
+        index = only(selected)
         sym = only(filter(sym -> variable_index(layer.sys, sym) == index, variable_symbols(layer.sys)))
         bounds = get_bounds(layer.sys, sym)
         fallback = clamp(values[index], bounds...)
@@ -58,7 +78,7 @@ function legacy_lift_states(layer, times, ensemblealg)
     end
     initialcondition = InitialConditions(
         layer.initialcondition.name, layer.initialcondition.repack,
-        NamedTuple{keys(layer.initialcondition.initialconditions)}(Tuple(children))
+        NamedTuple{keys(layer.initialcondition.initialconditions)}(Tuple(children)), layer.initialcondition.indices
     )
     return ShootingLayer(
         layer.name, layer.problem, layer.alg, ensemblealg,

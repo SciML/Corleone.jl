@@ -14,7 +14,7 @@ import SciMLBase
             ),
         )
         states = (;
-            active = st.active, initialconditions = (;
+            active = st.active, permutation = st.permutation, initialconditions = (;
                 u₁ = st.initialconditions.u₁,
                 u₂ = (;
                     states = st.initialconditions.u₂.states,
@@ -77,8 +77,10 @@ first_segment_objective(layer, ps, st) = last(first(layer(nothing, ps, st)).u)[1
             Tunable(2; kind = Val(:variable)) => [1.0, 2.0]; ensemblealg
         )
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
-        dual = ForwardDiff.Dual{Nothing}.(ps.parameter.parameters.p₁.parameter.ps, 1.0)
-        parameters = merge(ps, (; parameter = (; parameters = merge(ps.parameter.parameters, (; p₁ = (; lookup = (;), parameter = (; ps = dual)))))))
+        dual = ForwardDiff.Dual{Nothing}.(ps.parameter.parameters.p₁.parameter.p₁.ps, 1.0)
+        parameter_group = merge(ps.parameter.parameters.p₁, (; parameter = merge(ps.parameter.parameters.p₁.parameter, (; p₁ = (; ps = dual)))))
+        parameter_children = merge(ps.parameter.parameters, (; p₁ = parameter_group))
+        parameters = merge(ps, (; parameter = merge(ps.parameter, (; parameters = parameter_children))))
         value = @inferred first_segment_objective(layer, parameters, st)
         @test value isa eltype(dual)
         @test isfinite(ForwardDiff.partials(value)[1])

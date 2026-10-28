@@ -78,6 +78,7 @@ tutorials = map(
         joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"),
         joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"),
         joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"),
+        joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)

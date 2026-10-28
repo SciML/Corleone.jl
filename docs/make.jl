@@ -33,6 +33,7 @@ makedocs(
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
+            "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
         ],
         "Initialization" => "initialization.md",
         "Optimization Contracts" => "optimization_contracts.md",

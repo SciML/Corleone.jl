@@ -8,6 +8,10 @@ using Optimization, OptimizationMOI, Ipopt
 using SymbolicIndexingInterface
 using LuxCore, Random
 
+parameter_group_key(layer, sym) = keys(layer.parameter.parameters)[
+    findfirst(indices -> parameter_index(layer.sys, sym) in indices, layer.parameter.indices),
+]
+
 @variables x(..) = 1.0 [tunable = false]
 @variables u(..) = 0.0 [bounds = (-1.0, 1.0), input = true]
 @parameters a = 2.0 [bounds = (1.0, 3.0)] b = 3.0 [tunable = false]
@@ -53,7 +57,7 @@ end
     layer = ShootingLayer(prob, Tsit5(), definitions...)
     ps, st = LuxCore.setup(Random.default_rng(), layer)
     @test ps.parameter.parameters[Symbol(u(t))].parameter.ps == zeros(2)
-    @test st.parameter.parameters[Symbol(b)].parameters.parameter.ps == [3.0]
+    @test st.parameter.parameters[parameter_group_key(layer, b)].parameter[Symbol(b)].parameters.ps == [3.0]
 end
 
 @testset "MTK frontend" begin
@@ -73,7 +77,7 @@ end
     @test length(Corleone.quadrature_symbols(model.layer.sys)) == 1
     @test length(variable_symbols(model.layer.sys)) == 2
     @test length(model.ps.parameter.parameters[Symbol(u(t))].parameter.ps) == 4
-    @test isempty(model.ps.parameter.parameters[Symbol(b)])
+    @test isempty(model.ps.parameter.parameters[parameter_group_key(model.layer, b)].parameter[Symbol(b)])
     traj, _ = model.layer((model.layer.problem, model.evaluation_grid), model.ps, model.st)
     @test traj[x(t)][end] ≈ 3.0
     @test traj[u(t)] == zeros(4)
@@ -114,7 +118,7 @@ end
     @test all(isfinite, optimization_constraints(model, model.ps, model.st))
     # A fixed global initial value does not prevent lifting interior values.
     name = Symbol(x(t))
-    @test model.ps.initialcondition.initialconditions[name].parameter.ps == [1.0, 1.0]
+    @test model.ps.initialcondition.initialconditions[name].parameter[name].ps == [1.0, 1.0]
     @test sort!(collect(keys(model.st.initialcondition.initialconditions[name].lookup.collection))) == [0.4, 0.8]
     trajectory, _ = model.layer(nothing, model.ps, model.st)
     @test first(trajectory[x(t)]) == 1.0

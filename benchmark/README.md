@@ -3,6 +3,9 @@
 Use a separate Julia environment with this checkout developed as `Corleone`.
 Benchmarks do not install dependencies or change the package environment.
 
+- `shared_grids.jl`: warmed reset, parameter lookup, and native/ComponentArray
+  forward timings for 24 variables sharing 19 switching/reset times. Run against
+  each checkout with BenchmarkTools, ComponentArrays, and OrdinaryDiffEqTsit5.
 - `benchmarks.jl`: BenchmarkTools suite for construction, setup, control lookup,
   and single/multiple-shooting forward calls. It retains the legacy constructor
   branch so AirspeedVelocity can run the same workload against the old API.
@@ -60,3 +63,8 @@ Dated measurements and validation results are kept in [`results/`](results/).
 
 First forward and gradient calls use `Base.invokelatest` as an inference barrier
 so specialization occurs inside the timer. Warmed trials call the functions directly.
+
+To exercise multiple tunable controls and a fixed control sharing a lookup, run
+`CORLEONE_AD_SHARED_GRIDS=true julia --project=<env> benchmark/shooting_ad.jl <backend>`.
+Both the controls-only and joint shooting cases check gradients at two inputs
+against central finite differences, including inserted-interval continuity terms.

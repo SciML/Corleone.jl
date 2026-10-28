@@ -74,3 +74,19 @@ using SymbolicIndexingInterface
         @test filesize(path) > 0
     end
 end
+
+@testset "Shared-grid residual bars respect fixed members" begin
+    prob = ODEProblem((u, p, t) -> ones(3), zeros(3), (0.0, 3.0), [0.5])
+    layer = ShootingLayer(
+        prob, Tsit5(),
+        Tunable([3, 1]; kind = Val(:variable), default = [0.3, 0.1]) => [1.0, 2.0],
+        Constant(2; kind = Val(:variable)) => [1.0, 2.0]
+    )
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    trajectory, _ = layer(nothing, ps, st)
+    specs = Makie.convert_arguments(Makie.Lines, trajectory)
+    bars = filter(p -> p.type == :Rangebars, specs)
+    @test length(bars) == 2
+    @test map(p -> p.kwargs[:label], bars) == ["Δu₁", "Δu₃"]
+    @test all(p -> p.args[1] == [1.0, 2.0], bars)
+end

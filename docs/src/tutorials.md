@@ -11,3 +11,6 @@ the documentation build.
 - [ModelingToolkit integration](examples/modelingtoolkit_integration.md):
   symbolic dynamics and integral costs, metadata bounds, and single and multiple
   shooting with fixed global initial values.
+- [LTI control with unknown coefficients](examples/lti_control_with_unknown_coefficients.md):
+  three terminal state equalities, a scalar input, three unknown constant
+  coefficients, and shared-grid multiple shooting.

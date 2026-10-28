@@ -430,3 +430,38 @@ and untested combinations.
 | Mooncake | 0.5.63 |
 | Enzyme | 0.13.216 |
 | FiniteDiff | 2.33.0 |
+
+## Shared-grid scalar-buffer validation
+
+On 28 October 2026, Julia 1.12.7 checks exercised the shared-lookup implementation
+with two tunable controls and one fixed control on the same grid. A second case
+also grouped three shooting states and inserted parameter intervals at full-state
+resets. Each backend was checked at two inputs against central differences at two
+step sizes; prepared gradients were reused and input vectors remained unchanged.
+
+| Backend | Serial shared-grid solves | Additional validated execution |
+|---|---|---|
+| ForwardDiff | Pass | Threads and two local distributed workers |
+| ReverseDiff | Pass with `FullSpecialize` and `SensitivityADPassThrough()` | Serial only |
+| Zygote | Pass with the default sensitivity path | Threaded layer; reverse block evaluation runs serially |
+| Mooncake reverse | Pass with `FullSpecialize` and `SensitivityADPassThrough()` | Serial only |
+| Enzyme forward | Existing Lux layer-annotation failure | No shared-grid gradient established |
+| ReverseDiff default sensitivities | Existing array-returning solution-handoff failure | Use the pass-through configuration above |
+
+Successful serial backend gradients differed from finite differences by less than
+`5e-10` in these cases. FiniteDiff also passed as a numerical reference. This does
+not extend Mooncake or ReverseDiff validation to parallel execution, or establish
+Enzyme reverse support.
+
+The maintained `Differentiation` group now has 70 checks: 30 existing analytic
+checks and 40 additional checks for grouped parameter/reset containers, shared
+parameters, and numerical values in Lux state. The new analytic fixture varies
+both a fixed reset value and a fixed parameter through the input vector; their
+gradients remain part of the solve. The `Distributed` group has 25 checks,
+including this shared-grid fixture on two workers. Both fixtures use two inputs
+and verify that calls do not mutate their input vectors.
+
+Set `CORLEONE_AD_SHARED_GRIDS=true` when running `benchmark/shooting_ad.jl` to
+repeat the shared-control cases. The correctness audit used one benchmark sample
+per case and ran backend processes concurrently; its timings are not a performance
+comparison. The compatibility statements above apply to the tested configurations.

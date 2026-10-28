@@ -10,8 +10,8 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
     for alg in (EnsembleSerial(), EnsembleThreads())
         layer = ShootingLayer(prob, Tsit5(), definitions...; ensemblealg = alg)
         ps, st = LuxCore.setup(MersenneTwister(42), layer)
-        for (i, entry) in enumerate(values(ps.initialcondition.initialconditions))
-            @test entry.parameter.ps ≈ [prob.u0[i] * exp(prob.p[i] * t) for t in times] rtol = 1.0e-9
+        for (i, entry) in enumerate(values(ps.initialcondition.initialconditions.u₁.parameter))
+            @test entry.ps ≈ [prob.u0[i] * exp(prob.p[i] * t) for t in times] rtol = 1.0e-9
         end
         trajectory, _ = layer(nothing, ps, st)
         @test first(trajectory.u) == prob.u0

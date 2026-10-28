@@ -25,9 +25,9 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
     @test lower.initialcondition.initialconditions.u₃ == (;)
     @test lower.parameter.parameters.p₁.parameter.ps == fill(-1.0, 3)
     @test upper.parameter.parameters.p₁.parameter.ps == fill(2.0, 3)
-    @test lower.parameter.parameters.p₂ == (;)
-    @test lower.parameter.parameters.p₃.parameter.ps == [-Inf]
-    @test upper.parameter.parameters.p₃.parameter.ps == [Inf]
+    @test lower.parameter.parameters.p₂.parameter.p₂ == (;)
+    @test lower.parameter.parameters.p₂.parameter.p₃.ps == [-Inf]
+    @test upper.parameter.parameters.p₂.parameter.p₃.ps == [Inf]
     @test getaxes(ComponentArray(lower)) == getaxes(ComponentArray(ps))
     @test getaxes(ComponentArray(upper)) == getaxes(ComponentArray(ps))
     @test length(ComponentArray(lower)) == length(ComponentArray(ps)) == 6
@@ -40,15 +40,21 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
     reversed = (;
         parameter = (;
             parameters = (;
-                p₃ = ps.parameter.parameters.p₃,
+                p₂ = merge(
+                    ps.parameter.parameters.p₂, (;
+                        parameter = (;
+                            p₃ = ps.parameter.parameters.p₂.parameter.p₃,
+                            p₂ = ps.parameter.parameters.p₂.parameter.p₂,
+                        ),
+                    )
+                ),
                 p₁ = ps.parameter.parameters.p₁,
-                p₂ = ps.parameter.parameters.p₂,
             ),
         ), initialcondition = ps.initialcondition,
     )
     reordered_lower, reordered_upper = get_bounds(layer, reversed, st)
     @test keys(reordered_lower) == keys(reordered_upper) == keys(reversed)
-    @test keys(reordered_lower.parameter.parameters) == (:p₃, :p₁, :p₂)
+    @test keys(reordered_lower.parameter.parameters) == (:p₂, :p₁)
     @test getaxes(ComponentArray(reordered_lower)) == getaxes(ComponentArray(reversed))
     @test getaxes(ComponentArray(reordered_upper)) == getaxes(ComponentArray(reversed))
     @test collect(ComponentArray(reordered_lower)) == [-Inf, -1.0, -1.0, -1.0, 0.0, 0.0]
@@ -109,9 +115,9 @@ end
         @test_throws DimensionMismatch shooting_constraints!(wrong, trajectory)
         @test wrong == fill(123.0, 2)
         # Refreshing after moving an IC schedule changes the metadata count.
-        child = st.initialcondition.initialconditions.u₃
+        child = st.initialcondition.initialconditions.u₂
         lookup = merge(child.lookup, (; collection = Dict(1.0 => 1, 3.0 => 2)))
-        children = merge(st.initialcondition.initialconditions, (; u₃ = merge(child, (; lookup))))
+        children = merge(st.initialcondition.initialconditions, (; u₂ = merge(child, (; lookup))))
         state = merge(st, (; initialcondition = merge(st.initialcondition, (; initialconditions = children))))
         state = merge(state, (; timestops = Corleone.get_timestops(layer, nothing, state)))
         @test get_number_of_shooting_constraints(layer, ps, state) == 2

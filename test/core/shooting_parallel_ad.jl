@@ -11,13 +11,17 @@ using ComponentArrays
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     function objective(q)
         fixed = merge(
-            st.initialcondition.initialconditions.u₂,
-            (; parameters = (; lookup = (;), parameter = (; ps = q)))
+            st.initialcondition.initialconditions.u₁.parameter.u₂,
+            (; parameters = (; ps = q))
         )
-        children = merge(st.initialcondition.initialconditions, (; u₂ = fixed))
+        group = merge(
+            st.initialcondition.initialconditions.u₁,
+            (; parameter = merge(st.initialcondition.initialconditions.u₁.parameter, (; u₂ = fixed)))
+        )
+        children = merge(st.initialcondition.initialconditions, (; u₁ = group))
         state = merge(st, (; initialcondition = merge(st.initialcondition, (; initialconditions = children))))
         states = Corleone.shooting_states(layer, ps, state, st.timestops)
-        return sum(s -> sum(abs2, s.initialcondition.initialconditions.u₂.parameters.parameter.ps), states)
+        return sum(s -> sum(abs2, s.initialcondition.initialconditions.u₁.parameter.u₂.parameters.ps), states)
     end
     for q in ([2.0, 3.0], [3.0, 4.0])
         @test ForwardDiff.gradient(objective, q) ≈ 6 .* q
@@ -54,18 +58,18 @@ end
         params = (;
             initialcondition = (;
                 initialconditions = (;
-                    u₁ = (; lookup = (;), parameter = (; ps = q[2:3])), u₂ = (;),
+                    u₁ = (; lookup = (;), parameter = (; u₁ = (; ps = q[2:3]), u₂ = (;))),
                 ),
             ),
             parameter = (; parameters = (; p₁ = (; lookup = (;), parameter = (; ps = q[1:1])))),
         )
         params = parameter_container(params)
         fixed_state = merge(
-            st.initialcondition.initialconditions.u₂, (;
-                parameters = (; lookup = (;), parameter = (; ps = [q[4], q[4]])),
-            )
+            st.initialcondition.initialconditions.u₁.parameter.u₂,
+            (; parameters = (; ps = [q[4], q[4]]))
         )
-        children = merge(st.initialcondition.initialconditions, (; u₂ = fixed_state))
+        group = merge(st.initialcondition.initialconditions.u₁, (; parameter = merge(st.initialcondition.initialconditions.u₁.parameter, (; u₂ = fixed_state))))
+        children = merge(st.initialcondition.initialconditions, (; u₁ = group))
         ic_state = merge(st.initialcondition, (; initialconditions = children))
         states = merge(st, (; initialcondition = ic_state))
         traj, _ = layer(nothing, params, states)

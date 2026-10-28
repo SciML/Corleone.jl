@@ -29,10 +29,8 @@ using Optimization, OptimizationMOI, Ipopt, ForwardDiff
             ensemblealg = EnsembleThreads()
         )
         ps, st = LuxCore.setup(MersenneTwister(42), layer)
-        for (i, ic) in enumerate(values(ps.initialcondition.initialconditions))
-            i in lifted || continue
-            ic.parameter.ps .= [baseline.u[findfirst(==(t), baseline.t)][i] for t in nodes]
-        end
+        guesses = Dict(i => [baseline.u[findfirst(==(t), baseline.t)][i] for t in nodes] for i in lifted)
+        custom_initialization(MersenneTwister(42), layer, ps, st; u0s = guesses)
         initial = ComponentArray(ps)
         axes = getaxes(initial)
         trajectory, _ = layer(nothing, ps, st)

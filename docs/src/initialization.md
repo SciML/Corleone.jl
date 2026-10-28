@@ -17,6 +17,36 @@ annotate the second argument with `::AbstractVector` to request timepoints.
 Callback exceptions propagate directly; a failed callback is not retried with a
 different argument.
 
+## Several variables on one grid
+
+A vector selector supplies one default per selected variable. Scalar defaults
+repeat over that variable's schedule; vector defaults specify its time series:
+
+```julia
+Tunable([2, 5, 11]; default = [0.2, 0.5, 1.1]) => switching_times
+Tunable([2, 5]; default = [[0.2, 0.3], [0.5, 0.6]]) => [1.0]
+```
+
+Vectors of symbols work the same way. Annotations resolve into scalar definitions.
+Variables with equal grids are grouped automatically, including definitions from
+separate annotations. Each `InitialCondition` or `PiecewiseConstant` group has one
+lookup and a NamedTuple of scalar `ParameterCollection` children. Fixed members
+wrap their own collection in `FixedLayer`, so fixed and tunable variables can share
+a lookup. Every buffer remains a vector of scalar values.
+
+The outer collection uses the first member's symbol as the group key. For a group
+containing parameters 2, 5 and 11, parameter 5's tunable buffer is
+`ps.parameter.parameters.p₂.parameter.p₅.ps`. State groups use the equivalent
+`initialcondition.initialconditions` path. Single-member groups retain their
+previous layout. The outer Lux state stores a permutation for canonical output
+assembly. Generated code assembles scalar entries without concatenating tracked
+arrays.
+
+Changing a group's grid changes the schedule of all its members. Reconstruct the
+layer to move only some members to another grid. Parameter splitting expands fixed
+buffers inside mixed groups as needed to preserve their values; continuity
+constraints still include only tunable members.
+
 ## State reset values
 
 Each variable has its own reset grid. There is one initial value per grid entry,

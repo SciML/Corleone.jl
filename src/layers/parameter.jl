@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-A single piecewise-constant parameter. Lookup times separate intervals, so a grid
+One or more piecewise-constant parameters sharing a lookup. Lookup times separate intervals, so a grid
 of `n` switching times stores `n + 1` values. A `nothing` grid stores one constant
 value. Calling with `(t, ps, st)` returns `(value, next_st)`.
 
@@ -13,7 +13,7 @@ $(FIELDS)
     name
     "The time lookup selecting a piecewise-constant interval."
     lookup
-    "The collection of parameter values, one per interval."
+    "A scalar parameter collection or NamedTuple of scalar collections sharing this grid."
     parameter
 end
 
@@ -40,10 +40,14 @@ function PiecewiseConstant(
     return PiecewiseConstant(name, lookup, ParameterCollection(initialize, n))
 end
 
+function PiecewiseConstant(timegrid::Union{AbstractVector{<:Number}, Nothing}, parameters::NamedTuple; name = nothing, cache = nothing)
+    return PiecewiseConstant(name, LookUp(timegrid, cache), parameters)
+end
+
 function (pc::PiecewiseConstant)(t, ps, st)
     (; lookup, parameter) = pc
     (idx, inserted), lookup_st = LuxCore.apply(lookup, t, ps.lookup, st.lookup)
-    params, parameter_st = LuxCore.apply(parameter, idx, ps.parameter, st.parameter)
+    params, parameter_st = apply_scalar_collections(parameter, idx, ps.parameter, st.parameter)
     return params, (; lookup = lookup_st, parameter = parameter_st)
 end
 
@@ -65,8 +69,19 @@ $(FIELDS)
     name
     "Reconstructs the problem parameters from their canonical tunable values."
     repack
-    "A NamedTuple of per-parameter layers in canonical parameter index order."
+    "Shared-grid parameter layers, keyed by the first member's symbol."
     parameters
+    "Original indices of the variables represented by each shared-grid layer."
+    indices
+end
+
+Parameter(name, repack, parameters) = Parameter(name, repack, parameters, Tuple([i] for i in 1:length(parameters)))
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::Parameter)
+    return (;
+        parameters = map(child -> LuxCore.initialstates(rng, child), layer.parameters),
+        permutation = collection_permutation(layer.indices),
+    )
 end
 
 """
@@ -94,24 +109,34 @@ function Parameter(
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
     symbols = SymbolicIndexingInterface.parameter_symbols(sys)
     fixed_indices = map(k -> k isa Integer ? k : SymbolicIndexingInterface.parameter_index(sys, k), fixed)
-    parameters = map(eachindex(vals)) do i
+    entries = map(eachindex(vals)) do i
         sym = only(filter(s -> SymbolicIndexingInterface.parameter_index(sys, s) == i, symbols))
         position = findfirst(==(i), indices)
         if isnothing(position)
-            layer = PiecewiseConstant(nothing, vals[i]; name = Symbol(sym))
-            tunable = true
+            grid, default, bounds, tunable = nothing, vals[i], (-Inf, Inf), true
         else
             annotation, grid = definitions[position]
-            times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
-            layer = PiecewiseConstant(
-                grid, get_default(annotation); name = Symbol(sym),
-                initialization_times = times, bounds = get_bounds(annotation)
-            )
-            tunable = is_tunable(annotation)
+            default, bounds, tunable = get_default(annotation), get_bounds(annotation), is_tunable(annotation)
         end
-        Symbol(sym) => (tunable && i ∉ fixed_indices ? layer : FixedLayer(layer))
+        times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
+        n = length(times)
+        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, times, bounds)
+        parameter = ParameterCollection(initialize, n)
+        fixed_value = !tunable || i in fixed_indices
+        return (; index = i, name = Symbol(sym), grid, parameter, fixed = fixed_value)
+    end
+    groups = group_scalar_collections(entries)
+    parameters = map(groups) do group
+        entry = first(group)
+        if length(group) == 1
+            pc = PiecewiseConstant(entry.name, LookUp(entry.grid, nothing), entry.parameter)
+            entry.name => (entry.fixed ? FixedLayer(pc) : pc)
+        else
+            children = NamedTuple(Tuple(item.name => (item.fixed ? FixedLayer(item.parameter) : item.parameter) for item in group))
+            entry.name => PiecewiseConstant(entry.grid, children; name = entry.name)
+        end
     end |> NamedTuple
-    return Parameter(name, repack, parameters)
+    return Parameter(name, repack, parameters, Tuple([entry.index for entry in group] for group in groups))
 end
 
 
@@ -128,11 +153,11 @@ end
 
 function (layer::Parameter)(t, ps, st)
     (; repack, parameters) = layer
-    out, new_st = apply_parameters(parameters, t, ps.parameters, st.parameters)
-    return repack(out), (; parameters = new_st)
+    out, new_st = apply_parameters(parameters, t, ps.parameters, st.parameters, st.permutation)
+    return repack(out), merge(st, (; parameters = new_st))
 end
 
-@generated function apply_parameters(params::NamedTuple{names}, t, ps, st::NamedTuple{names}) where {names}
+@generated function apply_parameters(params::NamedTuple{names}, t, ps, st::NamedTuple{names}, permutation) where {names}
     outs = Symbol[]
     sts = Symbol[]
     exprs = Expr[]
@@ -152,7 +177,7 @@ end
     # ReverseDiff's vcat overload would instead track the array as a whole.
     push!(
         exprs,
-        :(vals = [$(outs...)])
+        :(vals = $(canonical_output_expression(fieldtypes(params), outs)))
     )
     push!(exprs, :(return vals, new_st))
     return Expr(:block, exprs...)
@@ -178,10 +203,11 @@ end
 ChainRulesCore.@non_differentiable parameter_segment_layout(collection, inserted, times)
 
 function add_parameter_segments!(layer::PiecewiseConstant, ps, st, times)
+    number_of_tunable_collections(layer.parameter) == 0 && return ps, st
     layout = parameter_segment_layout(st.lookup.collection, st.lookup.inserted, times)
     isnothing(layout) && return ps, st
     grid, source, inserted = layout
-    parameters = replace_parameter_fields(ps.parameter, (; ps = ps.parameter.ps[source]))
+    parameters, parameter_state = expand_parameter_collections(layer.parameter, ps.parameter, st.parameter, source)
     next_ps = replace_parameter_fields(ps, (; parameter = parameters))
     lookup = merge(
         st.lookup, (;
@@ -189,7 +215,7 @@ function add_parameter_segments!(layer::PiecewiseConstant, ps, st, times)
             cache = isnothing(st.lookup.cache) ? nothing : empty(st.lookup.cache),
         )
     )
-    return next_ps, merge(st, (; lookup))
+    return next_ps, merge(st, (; lookup, parameter = parameter_state))
 end
 
 add_parameter_segments!(::FixedLayer, ps, st, times) = (ps, st)
@@ -204,7 +230,24 @@ function add_parameter_segments!(layer::Parameter, ps, st, times)
     return replace_parameter_fields(ps, (; parameters)), merge(st, (; parameters = states))
 end
 
-number_of_parameter_constraints(layer::PiecewiseConstant, st) = length(st.lookup.inserted)
+
+function expand_parameter_collections(::ParameterCollection, ps, st, source)
+    return replace_parameter_fields(ps, (; ps = ps.ps[source])), st
+end
+function expand_parameter_collections(layer::FixedLayer, ps, st, source)
+    parameters, state = expand_parameter_collections(layer.layer, st.parameters, st.states, source)
+    return ps, merge(st, (; parameters, states = state))
+end
+function expand_parameter_collections(layers::NamedTuple, ps, st, source)
+    names = keys(layers)
+    updated = map(names) do name
+        expand_parameter_collections(layers[name], getproperty(ps, name), st[name], source)
+    end
+    return NamedTuple{names}(map(first, updated)), NamedTuple{names}(map(last, updated))
+end
+
+number_of_parameter_constraints(layer::PiecewiseConstant, st) =
+    number_of_tunable_collections(layer.parameter) * length(st.lookup.inserted)
 number_of_parameter_constraints(::FixedLayer, st) = 0
 function number_of_parameter_constraints(layer::Parameter, st)
     return sum(keys(layer.parameters); init = 0) do name
@@ -213,31 +256,42 @@ function number_of_parameter_constraints(layer::Parameter, st)
 end
 ChainRulesCore.@non_differentiable number_of_parameter_constraints(layer, st)
 
-parameter_constraint_values(::FixedLayer, ps, st, template) = similar(template, 0)
-function parameter_constraint_values(::PiecewiseConstant, ps, st, template)
-    values = ps.parameter.ps
-    return [values[i] - values[i - 1] for i in st.lookup.inserted]
+parameter_constraint_entry(::FixedLayer, ps, inserted) = (; fixed = true, values = nothing, inserted)
+parameter_constraint_entry(::ParameterCollection, ps, inserted) = (; fixed = false, values = ps.ps, inserted)
+function parameter_constraint_entries(layer::PiecewiseConstant, ps, st)
+    layers = layer.parameter
+    if layers isa NamedTuple
+        return map(keys(layers)) do name
+            parameter_constraint_entry(layers[name], getproperty(ps.parameter, name), st.lookup.inserted)
+        end
+    end
+    return (parameter_constraint_entry(layers, ps.parameter, st.lookup.inserted),)
 end
+parameter_constraint_entries(::FixedLayer, ps, st) = ((; fixed = true, values = nothing, inserted = Int[]),)
+function parameter_constraint_entries(layer::Parameter, ps, st)
+    parts = map(keys(layer.parameters)) do name
+        parameter_constraint_entries(layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name])
+    end
+    flat = foldl((a, b) -> (a..., b...), parts; init = ())
+    return map(i -> flat[i], st.permutation)
+end
+
 function append_parameter_constraints(layer::Parameter, ps, st, residuals)
     number_of_parameter_constraints(layer, st) == 0 && return residuals
-    parts = map(keys(layer.parameters)) do name
-        parameter_constraint_values(layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name], residuals)
+    parts = map(parameter_constraint_entries(layer, ps, st)) do entry
+        entry.fixed ? similar(residuals, 0) :
+            [entry.values[i] - entry.values[i - 1] for i in entry.inserted]
     end
     return vcat(residuals, parts...)
 end
 
-write_parameter_constraints!(res, index, ::FixedLayer, ps, st) = index
-function write_parameter_constraints!(res, index, ::PiecewiseConstant, ps, st)
-    values = ps.parameter.ps
-    for i in st.lookup.inserted
-        res[index] = values[i] - values[i - 1]
-        index += 1
-    end
-    return index
-end
 function write_parameter_constraints!(res, index, layer::Parameter, ps, st)
-    for name in keys(layer.parameters)
-        index = write_parameter_constraints!(res, index, layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name])
+    for entry in parameter_constraint_entries(layer, ps, st)
+        entry.fixed && continue
+        for i in entry.inserted
+            res[index] = entry.values[i] - entry.values[i - 1]
+            index += 1
+        end
     end
     return index
 end

@@ -27,7 +27,8 @@ matching residuals, and differentiable numerical values held in Lux state.
 ForwardDiff and Zygote exercise serial and threaded layers. Zygote's reverse rule
 records the block solves serially. ReverseDiff uses serial execution with
 `FullSpecialize` and `SensitivityADPassThrough()`; compiled tapes are not covered.
-Mooncake and Enzyme are not part of this regression group.
+The shared-grid analytic case also covers fixed reset and parameter values held
+in Lux state. Mooncake and Enzyme are not part of this regression group.
 
 Distributed starts two local worker processes, loads the required packages on
 them, and removes them in a `finally` block. It checks repeated forward calls and

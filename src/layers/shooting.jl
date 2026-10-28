@@ -63,9 +63,11 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         annotation isa AbstractAnnotation || continue
         has_lowerbound(annotation) || has_upperbound(annotation) || continue
         kind = i in ic_defs ? Val(:variable) : Val(:parameter)
-        annotation = update_annotation(set_kind(annotation, kind), cache)
-        isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
-        effective_bounds[get_sym(annotation)] = get_bounds(annotation)
+        for scalar in scalar_annotations(annotation)
+            resolved = update_annotation(set_kind(scalar, kind), cache)
+            isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
+            effective_bounds[get_sym(resolved)] = get_bounds(resolved)
+        end
     end
     return isnothing(effective_bounds) ? cache : ControlSymbolCache(cache; bounds = effective_bounds)
 end
@@ -245,11 +247,11 @@ function shooting_parameter_bounds(operation, select, layer, ps, st)
     bounds = container_parameter_bounds(operation, layer, ps, st, (:initialcondition, :parameter))
     variable_bounds = symbolic_parameter_bounds(
         bounds.initialcondition.initialconditions,
-        layer.sys, variable_symbols(layer.sys), select
+        layer.sys, variable_symbols(layer.sys), select, layer.initialcondition.initialconditions
     )
     parameter_bounds = symbolic_parameter_bounds(
         bounds.parameter.parameters,
-        layer.sys, parameter_symbols(layer.sys), select
+        layer.sys, parameter_symbols(layer.sys), select, layer.parameter.parameters
     )
     return merge(
         bounds, (;
@@ -259,9 +261,20 @@ function shooting_parameter_bounds(operation, select, layer, ps, st)
     )
 end
 
-function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select)
+function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select, layers)
     names = keys(template)
     fields = map(names) do name
+        child = layers[name]
+        if child isa Union{InitialCondition, PiecewiseConstant} && child.parameter isa NamedTuple
+            inner_names = keys(template[name].parameter)
+            inner = NamedTuple{inner_names}(
+                map(inner_names) do variable
+                    sym = only(filter(sym -> Symbol(sym) == variable, symbols))
+                    parameter_bound_tree(template[name].parameter[variable], select(get_bounds(cache, sym)))
+                end
+            )
+            return merge(template[name], (; parameter = inner))
+        end
         sym = only(filter(sym -> Symbol(sym) == name, symbols))
         parameter_bound_tree(template[name], select(get_bounds(cache, sym)))
     end
@@ -291,7 +304,7 @@ function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
         state = st.initialcondition.initialconditions[name]
         for i in firstindex(st.timestops):(lastindex(st.timestops) - 1)
             st.timestops[i] == first(layer.problem.tspan) && continue
-            n += resets_variable(ic, state, st.timestops[i])
+            n += resets_variable(ic, state, st.timestops[i]) * number_of_tunable_collections(ic.parameter)
         end
     end
     return n + number_of_parameter_constraints(layer.parameter, st.parameter)

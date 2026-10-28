@@ -8,8 +8,8 @@ julia --project=docs docs/make.jl
 ```
 
 Open `docs/build/index.html` to inspect the result. The build executes the LQR,
-numerical Lotka–Volterra, and ModelingToolkit Lotka–Volterra tutorials,
-checks exported API coverage, and resolves internal
+numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
+optimization tutorials, checks exported API coverage, and resolves internal
 cross-references. External URL checks can be enabled with
 `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 

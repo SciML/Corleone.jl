@@ -53,6 +53,26 @@ model = AnnotatedModel(
     end
 end
 
+@testset "Grouped annotation resolution" begin
+    for constructor in (Tunable, Constant)
+        @test get_index(constructor([2, 1])) == [2, 1]
+        @test get_sym(constructor([:q, :p])) == [:q, :p]
+        definitions = process_definition(model, Val(:parameter), constructor([:q, :p]), [1.0])
+        @test map(x -> get_index(first(x)), definitions) == [2, 1]
+        @test map(x -> get_default(first(x)), definitions) == [4, 3]
+        @test map(x -> get_bounds(first(x)), definitions) == [(-Inf, Inf), (-2, 5)]
+        @test all(x -> is_tunable(first(x)) == is_tunable(constructor(1)), definitions)
+        matching = constructor(; index = [2, 1], sym = [:q, :p], default = [4, 3])
+        @test length(process_definition(model, Val(:parameter), matching, nothing)) == 2
+        mismatched = constructor(; index = [1, 2], sym = [:q, :p])
+        @test_throws ArgumentError process_definition(model, Val(:parameter), mismatched, nothing)
+        @test_throws DimensionMismatch process_definition(
+            model, Val(:parameter),
+            constructor(; index = [1, 2], sym = [:p]), nothing
+        )
+    end
+end
+
 @testset "Annotation resolution" begin
     for constructor in (Tunable, Constant)
         resolved = update_annotation(set_parameter(constructor(1)), model)

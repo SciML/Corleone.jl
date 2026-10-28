@@ -56,8 +56,8 @@ end
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
     @test ps.initialcondition.initialconditions.u₂.parameter.ps == [5.0]
     @test ps.initialcondition.initialconditions.u₁ == (;)
-    @test ps.parameter.parameters.p₁.parameter.ps == [1.0]
-    @test ps.parameter.parameters.p₂.parameter.ps == [2.0]
+    @test ps.parameter.parameters.p₁.parameter.p₁.ps == [1.0]
+    @test ps.parameter.parameters.p₁.parameter.p₂.ps == [2.0]
     traj, _ = layer(nothing, ps, st)
     @test first(traj.u) == [1.0, 5.0]
     @test isempty(only(traj.residuals))

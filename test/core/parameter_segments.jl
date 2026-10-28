@@ -15,7 +15,7 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
         old_p2 = st.parameter.parameters.p₂
         p2_state = merge(old_p2, (; lookup = merge(old_p2.lookup, (; cache = Dict(2.0 => 2)))))
-        st = merge(st, (; parameter = (; parameters = merge(st.parameter.parameters, (; p₂ = p2_state)))))
+        st = merge(st, (; parameter = merge(st.parameter, (; parameters = merge(st.parameter.parameters, (; p₂ = p2_state))))))
         original, _ = layer(nothing, ps, st)
         old_cache = copy(st.parameter.parameters.p₂.lookup.cache)
         count = get_number_of_shooting_constraints(layer, ps, st)

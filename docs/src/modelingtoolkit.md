@@ -1,7 +1,9 @@
 # ModelingToolkit frontend
 
 See the [ModelingToolkit Lotka–Volterra tutorial](examples/modelingtoolkit_integration.md)
-for a complete single- and multiple-shooting example.
+for a complete single- and multiple-shooting example. The
+[LTI tutorial](examples/lti_control_with_unknown_coefficients.md) jointly optimizes
+a scalar input and three constant coefficients under terminal state equalities.
 
 Load ModelingToolkit to construct a `CorleoneDynamicOptProblem` from an uncompiled
 `System`, its initial values, and control schedules:

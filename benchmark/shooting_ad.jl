@@ -5,6 +5,7 @@ import DifferentiationInterface as DI
 using ADTypes
 const SB = Corleone.SciMLBase
 const BACKEND = isempty(ARGS) ? "forwarddiff" : only(ARGS)
+const SHARED_GRIDS = get(ENV, "CORLEONE_AD_SHARED_GRIDS", "false") == "true"
 if BACKEND == "forwarddiff"
     using ForwardDiff
     backend = AutoForwardDiff()
@@ -26,7 +27,7 @@ elseif BACKEND == "finitediff"
 else
     error("Unknown backend")
 end
-println("Julia=", VERSION, ", threads=", Threads.nthreads(), ", backend=", BACKEND)
+println("Julia=", VERSION, ", threads=", Threads.nthreads(), ", backend=", BACKEND, ", shared_grids=", SHARED_GRIDS)
 flush(stdout)
 function rhs!(du, u, p, t)
     du[1] = u[1] - p[2] * u[1] * u[2] - 0.4 * p[1] * u[1]
@@ -40,7 +41,16 @@ function case_loss(joint)
     kwargs = passthrough ? (; sensealg = SciMLSensitivity.SensitivityADPassThrough()) : (;)
     prob = ODEProblem(f, [0.5, 0.7, 0.0], (0.0, 4.0), [0.3, 1.0, 1.0]; abstol = 1.0e-10, reltol = 1.0e-10, kwargs...)
     ics = joint ? Tuple(Tunable(i; kind = Val(:variable)) => [1.25, 2.75] for i in 1:3) : ()
-    layer = ShootingLayer(prob, Tsit5(), Tunable(1; kind = Val(:parameter), default = 0.3) => collect(0.5:0.5:3.5), Constant(2; kind = Val(:parameter)) => nothing, Constant(3; kind = Val(:parameter)) => nothing, ics...)
+    grid = collect(0.5:0.5:3.5)
+    definitions = SHARED_GRIDS ? (
+            Tunable([1, 2]; kind = Val(:parameter), default = [0.3, 1.0]) => grid,
+            Constant(3; kind = Val(:parameter)) => grid,
+        ) : (
+            Tunable(1; kind = Val(:parameter), default = 0.3) => grid,
+            Constant(2; kind = Val(:parameter)) => nothing,
+            Constant(3; kind = Val(:parameter)) => nothing,
+        )
+    layer = ShootingLayer(prob, Tsit5(), definitions..., ics...)
     original_ps, original_st = LuxCore.setup(MersenneTwister(42), layer)
     ps, st = joint ? add_parameter_segments!(layer, original_ps, original_st) : (original_ps, original_st)
     q0 = collect(ComponentArray(ps))

@@ -32,6 +32,9 @@ else
             @safetestset "Annotation initialization" begin
                 include("core/annotation_initialization.jl")
             end
+            @safetestset "Shared-grid collections" begin
+                include("core/shared_grid_collections.jl")
+            end
             @safetestset "Symbolic bookkeeping" begin
                 include("core/symbolic_metadata.jl")
             end

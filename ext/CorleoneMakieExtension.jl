@@ -26,9 +26,15 @@ end
 # Residual vectors are compressed by active variable and indexed by solver segment.
 # Use schedules to select the corresponding sample pairs instead.
 function variable_reset_indices(sol::Trajectory, i)
-    ic = values(sol.layer.initialcondition.initialconditions)[i]
+    container = sol.layer.initialcondition
+    group = findfirst(indices -> i in indices, container.indices)
+    ic = values(container.initialconditions)[group]
     ic isa Corleone.InitialCondition || return Int[]
-    state = values(sol.st.initialcondition.initialconditions)[i]
+    if ic.parameter isa NamedTuple
+        component = findfirst(==(i), container.indices[group])
+        values(ic.parameter)[component] isa Corleone.FixedLayer && return Int[]
+    end
+    state = values(sol.st.initialcondition.initialconditions)[group]
     return filter(sol.reset_indices) do k
         haskey(ic.lookup, sol.t[k], nothing, state.lookup)
     end

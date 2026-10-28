@@ -189,7 +189,9 @@ function SciMLBase.remake(
 end
 
 function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where {T}
-    output = has_sym(f) ? string(SymbolicIndexingInterface.getname(f.sym)) * "=" : ""
+    name = f.sym isa AbstractVector ? string(f.sym) :
+        has_sym(f) ? string(SymbolicIndexingInterface.getname(f.sym)) : ""
+    output = isempty(name) ? "" : name * "="
     if has_default(f)
         output *= string(get_default(f))
     end
@@ -208,7 +210,7 @@ end
 $(SIGNATURES)
 
 Construct an annotation whose values are stored in Lux parameters. Supply an
-index or symbol, a positional `selector => default` pair, or the `index`/`sym`
+index or symbol, a vector of indices or symbols, a positional `selector => default` pair, or the `index`/`sym`
 keywords. Optional keywords are `kind`, `default`, `lowerbound`, `upperbound`,
 and `integer`. Missing metadata is resolved from the symbolic container.
 
@@ -221,6 +223,11 @@ interpretation; the count signature wins if both are applicable. State defaults
 have one value per reset time, in supplied grid order. Parameter defaults have one
 value per interval; time-based callbacks receive `[tspan[1]; switching_times]`.
 A parameter without switching times has one value at `tspan[1]`.
+
+For vector selectors, supply one default per selector: a vector of scalars gives
+constant guesses, and a vector of vectors gives per-variable time series. Omitted
+defaults inherit metadata separately. Bounds may be shared scalars or per-selector
+vectors. Grouped annotations expand into scalar definitions before layer construction.
 
 Scalar and vector bounds are checked when resolving annotations. Callback output
 length and bounds are checked during Lux setup. Vectors and callback results are
@@ -239,6 +246,11 @@ function Tunable(index_or_sym; kwargs...)
     else
         Tunable(; sym = index_or_sym, kwargs...)
     end
+end
+
+function Tunable(selectors::AbstractVector; kwargs...)
+    return all(x -> x isa Integer, selectors) ?
+        Tunable(; index = selectors, kwargs...) : Tunable(; sym = selectors, kwargs...)
 end
 
 Tunable(x::Pair; kwargs...) = Tunable(first(x); default = last(x), kwargs...)
@@ -264,7 +276,39 @@ function Constant(index_or_sym; kwargs...)
     end
 end
 
+function Constant(selectors::AbstractVector; kwargs...)
+    return all(x -> x isa Integer, selectors) ?
+        Constant(; index = selectors, kwargs...) : Constant(; sym = selectors, kwargs...)
+end
+
 Constant(x::Pair; kwargs...) = Constant(first(x); default = last(x), kwargs...)
+
+function scalar_annotations(annotation::AbstractAnnotation)
+    index, sym = get_index(annotation), get_sym(annotation)
+    selectors = index isa AbstractVector ? index : sym
+    selectors isa AbstractVector || return (annotation,)
+    isempty(selectors) && throw(ArgumentError("An annotation must select at least one entry."))
+    n = length(selectors)
+    for field in (:index, :sym, :default, :lowerbound, :upperbound)
+        value = getfield(annotation, field)
+        if field in (:index, :sym, :default) && !isnothing(value)
+            value isa AbstractVector || throw(ArgumentError("Grouped annotation $field must be a vector."))
+        end
+        value isa AbstractVector && length(value) != n &&
+            throw(DimensionMismatch("Grouped annotation $field must have $n entries."))
+    end
+    entry(value, i) = value isa AbstractVector ? value[i] : value
+    return map(eachindex(selectors)) do i
+        remake(
+            annotation;
+            index = entry(index, i), sym = entry(sym, i),
+            default = entry(get_default(annotation), i),
+            lowerbound = entry(get_lowerbound(annotation), i),
+            upperbound = entry(get_upperbound(annotation), i)
+        )
+    end
+end
+
 
 process_definition(y, x::Val, ks::Tuple, v) = reduce(
     vcat, map(ks) do k
@@ -284,5 +328,8 @@ end
 function process_definition(indep, kind::Val, annotation::AbstractAnnotation, grid)
     has_kind(annotation) && get_kind(annotation) != kind &&
         throw(ArgumentError("Annotation kind does not match the layer being constructed."))
-    return update_annotation(set_kind(annotation, kind), indep) => grid
+    resolved = map(scalar_annotations(annotation)) do scalar
+        update_annotation(set_kind(scalar, kind), indep) => grid
+    end
+    return resolved isa Tuple ? only(resolved) : resolved
 end

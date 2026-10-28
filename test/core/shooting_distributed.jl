@@ -52,6 +52,17 @@ Base.include(Main, joinpath(@__DIR__, "..", "shared", "shooting_ad_case.jl"))
                 @test q == original
             end
         end
+        @testset "Shared-grid parameter and reset containers" begin
+            serial = Main.ShootingADCase.shared_grid_case(false, EnsembleSerial())
+            distributed = Main.ShootingADCase.shared_grid_case(false, EnsembleDistributed())
+            for q in ([0.2, 0.4, 1.5, 2.5, 3.0, 0.1], [0.3, 0.5, 1.8, 2.9, 4.0, 0.2])
+                original = copy(q)
+                @test distributed(q) ≈ serial(q)
+                @test distributed(q) ≈ Main.ShootingADCase.analytic_shared_grid_loss(q) rtol = 1.0e-8
+                @test ForwardDiff.gradient(distributed, q) ≈ ForwardDiff.gradient(Main.ShootingADCase.analytic_shared_grid_loss, q) rtol = 1.0e-7 atol = 1.0e-8
+                @test q == original
+            end
+        end
     finally
         rmprocs(added)
     end

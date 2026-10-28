@@ -65,4 +65,81 @@ function analytic_loss(q)
 end
 
 
+export shared_grid_case, analytic_shared_grid_loss
+
+function shared_grid_dynamics!(du, u, p, t)
+    du[1] = p[1] * u[1]
+    du[2] = p[2] + p[3] * u[1]
+    return nothing
+end
+
+function shared_grid_case(pass_through, ensemblealg)
+    f = pass_through ? ODEFunction{true, SciMLBase.FullSpecialize}(shared_grid_dynamics!) : ODEFunction(shared_grid_dynamics!)
+    kwargs = pass_through ? (; sensealg = SensitivityADPassThrough()) : (;)
+    problem = ODEProblem(
+        f, [1.0, 2.0], (0.0, 3.0), [0.2, 0.4, 0.1];
+        abstol = 1.0e-11, reltol = 1.0e-11, kwargs...
+    )
+    layer = ShootingLayer(
+        problem, Tsit5(),
+        Tunable(1; kind = Val(:variable)) => [1.0, 2.0],
+        Constant(2; kind = Val(:variable)) => [1.0, 2.0],
+        Constant(3; kind = Val(:parameter)) => nothing; ensemblealg
+    )
+    _, st = LuxCore.setup(MersenneTwister(1), layer)
+    return SharedGridLoss(layer, st)
+end
+
+struct SharedGridLoss{L, S}
+    layer::L
+    st::S
+end
+
+function (loss::SharedGridLoss)(q)
+    layer, st = loss.layer, loss.st
+    ps = (;
+        initialcondition = (;
+            initialconditions = (;
+                u₁ = (; lookup = (;), parameter = (; u₁ = (; ps = q[3:4]), u₂ = (;))),
+            ),
+        ),
+        parameter = (;
+            parameters = (;
+                p₁ = (; lookup = (;), parameter = (; p₁ = (; ps = q[1:1]), p₂ = (; ps = q[2:2]), p₃ = (;))),
+            ),
+        ),
+    )
+    fixed_u = merge(
+        st.initialcondition.initialconditions.u₁.parameter.u₂,
+        (; parameters = (; ps = [q[5], q[5]]))
+    )
+    ic_group = merge(
+        st.initialcondition.initialconditions.u₁,
+        (; parameter = merge(st.initialcondition.initialconditions.u₁.parameter, (; u₂ = fixed_u)))
+    )
+    ic_state = merge(st.initialcondition, (; initialconditions = (; u₁ = ic_group)))
+    fixed_p = merge(
+        st.parameter.parameters.p₁.parameter.p₃,
+        (; parameters = (; ps = q[6:6]))
+    )
+    p_group = merge(
+        st.parameter.parameters.p₁,
+        (; parameter = merge(st.parameter.parameters.p₁.parameter, (; p₃ = fixed_p)))
+    )
+    p_state = merge(st.parameter, (; parameters = (; p₁ = p_group)))
+    state = merge(st, (; initialcondition = ic_state, parameter = p_state))
+    trajectory, _ = layer(nothing, ComponentArray(ps), state)
+    return sum(u -> sum(abs2, u), trajectory.u) + 0.3sum(abs2, shooting_constraints(trajectory))
+end
+
+function analytic_shared_grid_loss(q)
+    a, d, x1, x2, b, c = q
+    e = exp(a)
+    k = expm1(a) / a
+    samples = sum(((1, 2), (x1, b), (x2, b))) do (x, y)
+        x^2 + (x * e)^2 + y^2 + (y + d + c * x * k)^2
+    end
+    return samples + 0.3 * ((x1 - e)^2 + (x2 - x1 * e)^2)
+end
+
 end
