@@ -69,9 +69,6 @@ include("deprecation/single_shooting.jl")
 include("multiple_shooting.jl")
 export ControlParameter, SingleShootingLayer, MultipleShootingLayer
 
-@setup_workload begin
-    @compile_workload begin
-    end
-end
+include("precompile.jl")
 
 end

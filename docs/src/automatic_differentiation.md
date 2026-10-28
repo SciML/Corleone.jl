@@ -31,7 +31,41 @@ GROUP=Distributed julia --project=. -e 'using Pkg; Pkg.test()'
 The dated measurements below remain historical snapshots rather than a fresh
 benchmark of the current checkout.
 
-## Current scalar-packing validation: 26 October 2026
+## Rewrite validation: 28 October 2026
+
+The root test groups passed 1,630 checks, with the existing implicit-import check
+marked broken. Separate serial Lotka benchmarks checked controls alone and joint
+state/parameter shooting values at two inputs, including preparation reuse and
+unchanged inputs. Maximum gradient errors against central differences were below
+`3.5e-10`.
+
+| Backend/configuration | Controls | Joint states/parameters |
+|---|---|---|
+| ForwardDiff | Pass | Pass |
+| ReverseDiff (pass-through) | Pass | Pass |
+| Zygote | Pass | Pass |
+| Mooncake reverse | Pass | Pass |
+| Enzyme forward | Fail | Fail |
+| FiniteDiff | Pass | Pass |
+| ReverseDiff (default) | Fail | Fail |
+
+ReverseDiff pass-through, Mooncake, and Enzyme use `FullSpecialize` and
+`SensitivityADPassThrough()`. Mooncake passes without caller-side initial-state
+promotion. Enzyme forward still hits LuxCore's layer-annotation restriction.
+Default ReverseDiff returns a tracked state array rather than a full solution;
+the next segment fails at `internal_solve`. Pass-through retains the solution
+interface. FiniteDiff is a numerical reference.
+
+The reproducible scripts and full tables, including first-use costs and forward
+allocations, are in `benchmark/README.md` and
+`benchmark/results/2026-10-28.md`. These runs use the regular
+`layer(nothing, ps, st)` entry point. Older measurements below used a direct
+`(problem, tstops)` call and different first-call timing boundaries, so they are
+historical snapshots rather than matched comparisons. The benchmark results do
+not establish parallel reverse execution, compiled ReverseDiff tapes, or broader
+Mooncake coverage beyond the two serial cases.
+
+## Scalar-packing validation: 26 October 2026
 
 State and parameter packing now uses vector literals to retain ordinary arrays of
 tracked scalars. Initial-condition resets return the same promoted scalar type as

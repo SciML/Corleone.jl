@@ -17,9 +17,9 @@ threads.
 
 Core covers annotations, bounds, reset schedules, trajectories, optimization
 contracts, the Lux interface, state handoff, initialization from reference solves,
-and focused AD regressions. Initialization uses annotation defaults rather than
-legacy whole-layer initialization callbacks. Deprecated constructors have their
-own translation tests.
+and focused AD regressions. Initialization uses annotation defaults and explicit
+shooting initialization helpers. Legacy whole-layer constructor callbacks remain
+unsupported. Deprecated constructors have their own translation tests.
 
 Differentiation checks full ODE solves against an analytic loss and gradient at
 two inputs. It covers shared parameters, free global initial values, interior
