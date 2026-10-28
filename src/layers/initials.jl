@@ -142,10 +142,10 @@ function InitialConditions(
         position = findfirst(==(i), indices)
         sym = only(filter(s -> SymbolicIndexingInterface.variable_index(sys, s) == i, symbols))
         if isnothing(position)
-            layer = PassThrough(sym)
+            layer = PassThrough(Symbol(sym))
         else
             annotation, grid = processed[position]
-            layer = InitialCondition(grid, get_default(annotation); name = sym, bounds = get_bounds(annotation))
+            layer = InitialCondition(grid, get_default(annotation); name = Symbol(sym), bounds = get_bounds(annotation))
             layer = is_tunable(annotation) ? layer : FixedLayer(layer)
         end
         return Symbol(sym) => layer

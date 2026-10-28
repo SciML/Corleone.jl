@@ -20,6 +20,7 @@ Parameter
 Parameter(::Corleone.SciMLBase.AbstractSciMLProblem, ::Vararg{Any})
 Tunable
 Constant
+Annotations
 ```
 
 See [Initializing shooting variables](initialization.md) for scalar, vector, and

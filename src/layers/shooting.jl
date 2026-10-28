@@ -128,6 +128,15 @@ function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.ts
     return unique!(tstops)
 end
 
+# Visit only the Lux children: the problem and symbolic cache are metadata,
+# and must not participate in generic container field inference during setup.
+function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ShootingLayer)
+    return (;
+        initialcondition = LuxCore.initialparameters(rng, layer.initialcondition),
+        parameter = LuxCore.initialparameters(rng, layer.parameter),
+    )
+end
+
 function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ShootingLayer)
     st = (;
         initialcondition = LuxCore.initialstates(rng, layer.initialcondition),

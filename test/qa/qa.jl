@@ -3,7 +3,7 @@ using Corleone
 using Test
 
 # Load the numerical extensions so ExplicitImports checks their methods too.
-# Plotting has a separate environment; ModelingToolkit integration is deferred.
+# Plotting and ModelingToolkit have separate test environments.
 using ComponentArrays, RuntimeGeneratedFunctions, Zygote
 
 @testset "Extensions loaded" begin
@@ -47,7 +47,7 @@ run_qa(
                 # parent package; they are internal hooks, not user API.
                 :AbstractCorleoneFunctionWrapper, :get_number_of_shooting_constraints,
                 :retrieve_symbol_cache, :shooting_constraints!, :to_vec,
-                :wrap_functions, :replace_parameter_fields,
+                :wrap_functions, :replace_parameter_fields, :expression_symbol_name,
                 # Symbolics/SymbolicUtils term-rewriting internals used to normalize
                 # MTK constraints and read symbolic defaults; no public spelling.
                 :Code, :canonical_form, :getdefaultval,

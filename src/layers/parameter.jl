@@ -98,13 +98,13 @@ function Parameter(
         sym = only(filter(s -> SymbolicIndexingInterface.parameter_index(sys, s) == i, symbols))
         position = findfirst(==(i), indices)
         if isnothing(position)
-            layer = PiecewiseConstant(nothing, vals[i]; name = sym)
+            layer = PiecewiseConstant(nothing, vals[i]; name = Symbol(sym))
             tunable = true
         else
             annotation, grid = definitions[position]
             times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
             layer = PiecewiseConstant(
-                grid, get_default(annotation); name = sym,
+                grid, get_default(annotation); name = Symbol(sym),
                 initialization_times = times, bounds = get_bounds(annotation)
             )
             tunable = is_tunable(annotation)

@@ -35,6 +35,7 @@ makedocs(
         ],
         "Initialization" => "initialization.md",
         "Optimization Contracts" => "optimization_contracts.md",
+        "ModelingToolkit" => "modelingtoolkit.md",
         "Automatic Differentiation" => "automatic_differentiation.md",
         "Parallel Shooting" => "parallel_shooting.md",
         "Symbolic Bookkeeping" => "symbolic_metadata.md",

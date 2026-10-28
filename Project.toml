@@ -31,6 +31,7 @@ CorleoneRuntimeGeneratedFunctionsExtension = "RuntimeGeneratedFunctions"
 CorleoneComponentArraysExtension = "ComponentArrays"
 CorleoneZygoteExtension = "Zygote"
 CorleoneMakieExtension = "Makie"
+CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
 ChainRulesCore = "1.25.1"

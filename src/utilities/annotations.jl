@@ -9,6 +9,16 @@ index provider before numerical layers are constructed.
 """
 abstract type AbstractAnnotation end
 
+"""
+    Annotations(sys; kwargs...)
+
+Read state and parameter metadata from a symbolic system. The ModelingToolkit
+extension returns `(; variables, parameters)`, containing [`Tunable`](@ref) or
+[`Constant`](@ref) annotations with explicit indices, defaults, bounds and kinds.
+Load ModelingToolkit to use this constructor.
+"""
+function Annotations end
+
 for f in (:index, :sym, :default, :upperbound, :lowerbound, :kind, :integer)
     # Construct names dynamically (e.g., get_index, set_index!)
     getter = Symbol(:get_, f)

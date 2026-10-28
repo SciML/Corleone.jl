@@ -56,6 +56,9 @@ end
 Base.getindex(samples::ExpressionSamples, j::Int) =
     map(i -> samples[j, i], eachindex(current_time(samples.trajectory)))
 
+expression_symbol_name(sym::Symbol) = sym
+expression_symbol_name(sym) = throw(ArgumentError("Expression parsing is not implemented for $(typeof(sym))."))
+
 function expression_symbol_indices(layer)
     indices = Dict{Symbol, Tuple{Symbol, Int}}()
     for (kind, symbols, indexof) in (
@@ -63,9 +66,9 @@ function expression_symbol_indices(layer)
             (:parameters, parameter_symbols(layer.sys), parameter_index),
         )
         for sym in symbols
-            sym isa Symbol || throw(ArgumentError("Expr parsing requires Symbol names; symbolic object parsing is not implemented yet."))
-            haskey(indices, sym) && throw(ArgumentError("State and parameter names must be distinct in timed expressions."))
-            indices[sym] = (kind, indexof(layer.sys, sym))
+            name = expression_symbol_name(sym)
+            haskey(indices, name) && throw(ArgumentError("State and parameter names must be distinct in timed expressions."))
+            indices[name] = (kind, indexof(layer.sys, sym))
         end
     end
     return indices

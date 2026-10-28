@@ -115,12 +115,12 @@ else
                     @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
                     end
-                    return @safetestset "Optimization facade bridge" begin
+                    @safetestset "Optimization facade bridge" begin
                         include("examples/optimization_facade.jl")
                     end
-                    #return @safetestset "Lotka MTK" begin
-                    #    include("examples/mtk.jl")
-                    #end
+                    return @safetestset "ModelingToolkit frontend" begin
+                        include("examples/mtk.jl")
+                    end
                 end,
             ),
         ),

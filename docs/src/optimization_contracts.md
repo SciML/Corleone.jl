@@ -234,7 +234,8 @@ Expressions specify values at independent times, for example
 `:(p₁(5.0)*u₂(15.0))` or `:(sin(x(3.0))-u(25.0))`, using the layer's actual state
 and parameter names. An objective may be `:(u₁(10.0))`; constraint expressions
 produce numerical values and use `lcons`/`ucons` for their bounds. Comparisons are
-not converted into constraints. SymbolicUtils/ModelingToolkit parsing is deferred.
+not converted into constraints. The [ModelingToolkit frontend](modelingtoolkit.md)
+translates symbolic costs and constraints into this numerical interface.
 Ordinary Julia conditions inside numerical expressions retain their Julia meaning.
 
 Preparation collects requested times in `model.timepoints`, a dictionary keyed by
