@@ -56,7 +56,7 @@ eqs = [
 costs = [
     Symbolics.Integral(t in (0.0, 12.0))(
         (x(t) - 1.0)^2 + (y(t) - 1.0)^2
-    )
+    ),
 ]
 @named lotka_volterra = System(eqs, t, costs = costs)
 
@@ -100,7 +100,7 @@ dynopt = CorleoneDynamicOptProblem(
     u(t) => 0.0:0.25:11.75,
     algorithm = Tsit5(),
     shooting = collect(0.25:0.25:11.75),
-    problem_kwargs = (; abstol = 1e-9, reltol = 1e-9)
+    problem_kwargs = (; abstol = 1.0e-9, reltol = 1.0e-9)
 )
 
 # Corleone appends the shooting equalities to the optimization constraints.
