@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>ModelingToolkit Integration · Corleone.jl</title><meta name="title" content="ModelingToolkit Integration · Corleone.jl"/><meta property="og:title" content="ModelingToolkit Integration · Corleone.jl"/><meta property="twitter:title" content="ModelingToolkit Integration · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li class="is-active"><a class="tocitem" href>ModelingToolkit Integration</a><ul class="internal"><li><a class="tocitem" href="#ModelingToolkit-Integration"><span>ModelingToolkit Integration</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Model"><span>Model</span></a></li><li><a class="tocitem" href="#Single-Shooting"><span>Single Shooting</span></a></li><li><a class="tocitem" href="#Multiple-Shooting"><span>Multiple Shooting</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../initialization/">Initialization</a></li><li><a class="tocitem" href="../../optimization_contracts/">Optimization Contracts</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../automatic_differentiation/">Automatic Differentiation</a></li><li><a class="tocitem" href="../../parallel_shooting/">Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Symbolic Bookkeeping</a></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><a class="tocitem" href="../../legacy_constructors/">Deprecated Constructors</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>ModelingToolkit Integration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>ModelingToolkit Integration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="ModelingToolkit-Integration"><a class="docs-heading-anchor" href="#ModelingToolkit-Integration">ModelingToolkit Integration</a><a id="ModelingToolkit-Integration-1"></a><a class="docs-heading-anchor-permalink" href="#ModelingToolkit-Integration" title="Permalink"></a></h2><p>This tutorial models the <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">Lotka–Volterra fishing problem</a> with <a href="https://docs.sciml.ai/ModelingToolkit/stable/">ModelingToolkit.jl</a>. We solve it using single and multiple shooting, as in the numerical fishing example.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>ModelingToolkit defines the dynamics and cost. Corleone constructs the shooting layer, ComponentArrays supplies the optimizer&#39;s parameter vector, and ForwardDiff computes derivatives. We solve with Ipopt and plot with CairoMakie.</p><pre><code class="language-julia hljs">using Corleone
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>ModelingToolkit Integration · Corleone.jl</title><meta name="title" content="ModelingToolkit Integration · Corleone.jl"/><meta property="og:title" content="ModelingToolkit Integration · Corleone.jl"/><meta property="twitter:title" content="ModelingToolkit Integration · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/modelingtoolkit_integration/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li class="is-active"><a class="tocitem" href>ModelingToolkit Integration</a><ul class="internal"><li><a class="tocitem" href="#ModelingToolkit-Integration"><span>ModelingToolkit Integration</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Model"><span>Model</span></a></li><li><a class="tocitem" href="#Single-Shooting"><span>Single Shooting</span></a></li><li><a class="tocitem" href="#Multiple-Shooting"><span>Multiple Shooting</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li></ul></li><li><a class="tocitem" href="../../initialization/">Initialization</a></li><li><a class="tocitem" href="../../optimization_contracts/">Optimization Contracts</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../automatic_differentiation/">Automatic Differentiation</a></li><li><a class="tocitem" href="../../parallel_shooting/">Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Symbolic Bookkeeping</a></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><a class="tocitem" href="../../legacy_constructors/">Deprecated Constructors</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>ModelingToolkit Integration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>ModelingToolkit Integration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="ModelingToolkit-Integration"><a class="docs-heading-anchor" href="#ModelingToolkit-Integration">ModelingToolkit Integration</a><a id="ModelingToolkit-Integration-1"></a><a class="docs-heading-anchor-permalink" href="#ModelingToolkit-Integration" title="Permalink"></a></h2><p>This tutorial models the <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">Lotka–Volterra fishing problem</a> with <a href="https://docs.sciml.ai/ModelingToolkit/stable/">ModelingToolkit.jl</a>. We solve it using single and multiple shooting, as in the numerical fishing example.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>ModelingToolkit defines the dynamics and cost. Corleone constructs the shooting layer, ComponentArrays supplies the optimizer&#39;s parameter vector, and ForwardDiff computes derivatives. We solve with Ipopt and plot with CairoMakie.</p><pre><code class="language-julia hljs">using Corleone
 using ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using OrdinaryDiffEqTsit5
@@ -40,13 +40,13 @@ Parameters (2): see parameters(lotka_volterra)
     lotka_volterra, [],
     u(t) =&gt; 0.0:0.1:11.9,
     algorithm = Tsit5(),
-)</code></pre><pre><code class="nohighlight hljs">CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#534&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8baae712, 0x811da638, 0x259a8428, 0x86097182, 0x71b0e79c), Expr}}, Tuple{}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{}, var&quot;x(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#497\&quot;(t)&quot;::@NamedTuple{}}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{}, c₂::@NamedTuple{}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{}, var&quot;x(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#497\&quot;(t)&quot;::@NamedTuple{}}, active::Vector{Bool}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{states::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}, parameters::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}, c₂::@NamedTuple{states::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}, parameters::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, SciMLBase.NoAD, Nothing, @NamedTuple{sensealg::SciMLBase.NoAD}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lotka_volterra:
+)</code></pre><pre><code class="nohighlight hljs">CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#682&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xf5625955, 0x0583c55b, 0x87374da7, 0x5b2d852c, 0xd6c9b8a9), Expr}}, Tuple{}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{}, var&quot;x(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#619\&quot;(t)&quot;::@NamedTuple{}}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{c₁::@NamedTuple{}, c₂::@NamedTuple{}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{}, var&quot;x(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#619\&quot;(t)&quot;::@NamedTuple{}}, active::Vector{Bool}, permutation::Vector{Int64}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{c₁::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, c₂::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}, permutation::Vector{Int64}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, SciMLBase.NoAD, Nothing, @NamedTuple{sensealg::SciMLBase.NoAD}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lotka_volterra:
 Equations (3):
   3 standard: see equations(lotka_volterra)
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#497&quot;(t)
+  var&quot;##quadrature#619&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
@@ -56,21 +56,21 @@ Equations (3):
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#497&quot;(t)
+  var&quot;##quadrature#619&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
-  u(t) [defaults to missing], nothing, nothing), [0.7, 0.5, 0.0], (0.0, 12.0), [0.4, 0.2, 0.0], Base.Pairs(:sensealg =&gt; SciMLBase.NoAD()), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.7, 0.5, 0.0]), (var&quot;y(t)&quot; = PassThrough{}(Symbol(&quot;y(t)&quot;)), var&quot;x(t)&quot; = PassThrough{}(Symbol(&quot;x(t)&quot;)), var&quot;var\&quot;##quadrature#497\&quot;(t)&quot; = PassThrough{}(Symbol(&quot;var\&quot;##quadrature#497\&quot;(t)&quot;)))), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.4, 0.2, 0.0]), (c₁ = FixedLayer{}(PiecewiseConstant{}(:c₁, LookUp{}(nothing, nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0], (-Inf, Inf), 0.4), 1))), c₂ = FixedLayer{}(PiecewiseConstant{}(:c₂, LookUp{}(nothing, nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0], (-Inf, Inf), 0.2), 1))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], (0.0, 1.0), 0.0), 120)))), ControlSymbolCache{}(Model lotka_volterra:
+  u(t) [defaults to missing], nothing, nothing), [0.7, 0.5, 0.0], (0.0, 12.0), [0.4, 0.2, 0.0], Base.Pairs(:sensealg =&gt; SciMLBase.NoAD()), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.7, 0.5, 0.0]), (var&quot;y(t)&quot; = PassThrough{}(Symbol(&quot;y(t)&quot;)), var&quot;x(t)&quot; = PassThrough{}(Symbol(&quot;x(t)&quot;)), var&quot;var\&quot;##quadrature#619\&quot;(t)&quot; = PassThrough{}(Symbol(&quot;var\&quot;##quadrature#619\&quot;(t)&quot;))), ([1], [2], [3])), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.4, 0.2, 0.0]), (c₁ = PiecewiseConstant{}(:c₁, LookUp{}(nothing, nothing), (c₁ = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(0.4)), 1)), c₂ = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(0.2)), 1)))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], nothing), ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], Core.Box((0.0, 1.0)), Core.Box(0.0)), 120))), ([1, 2], [3])), ControlSymbolCache{}(Model lotka_volterra:
 Equations (3):
   3 standard: see equations(lotka_volterra)
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#497&quot;(t)
+  var&quot;##quadrature#619&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
-  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#497&quot;(t)], Dict{Any, Any}(c₁ =&gt; (-Inf, Inf), x(t) =&gt; (0.0, 5.0), y(t) =&gt; (0.0, 5.0), var&quot;##quadrature#497&quot;(t) =&gt; (-Inf, Inf), c₂ =&gt; (-Inf, Inf), u(t) =&gt; (0.0, 1.0)))), Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#534&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8baae712, 0x811da638, 0x259a8428, 0x86097182, 0x71b0e79c), Expr}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#534&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8baae712, 0x811da638, 0x259a8428, 0x86097182, 0x71b0e79c), Expr}(:((+)((*)(-1, Base.getindex((var&quot;##samples#534&quot;).states, 3, 1)), Base.getindex((var&quot;##samples#534&quot;).states, 3, 121))))), (), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = NamedTuple(), var&quot;x(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#497\&quot;(t)&quot; = NamedTuple()),), parameter = (parameters = (c₁ = NamedTuple(), c₂ = NamedTuple(), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = NamedTuple(), var&quot;x(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#497\&quot;(t)&quot; = NamedTuple()), active = Bool[0, 0, 0]), parameter = (parameters = (c₁ = (states = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = NamedTuple()), parameters = (lookup = NamedTuple(), parameter = (ps = [0.4],))), c₂ = (states = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = NamedTuple()), parameters = (lookup = NamedTuple(), parameter = (ps = [0.2],))), var&quot;u(t)&quot; = (lookup = (collection = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], inserted = Int64[], cache = nothing), parameter = NamedTuple())),), timestops = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;var\&quot;##quadrature#497\&quot;(t)&quot;) =&gt; [0.0, 12.0]), [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], Float64[], Float64[], 0)</code></pre><p>Construct the optimization problem with the control bounds from the model.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(dynopt, AutoForwardDiff())</code></pre><pre><code class="nohighlight hljs">OptimizationProblem. In-place: true
+  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#619&quot;(t)], Dict{Any, Any}(c₁ =&gt; (-Inf, Inf), var&quot;##quadrature#619&quot;(t) =&gt; (-Inf, Inf), x(t) =&gt; (0.0, 5.0), y(t) =&gt; (0.0, 5.0), c₂ =&gt; (-Inf, Inf), u(t) =&gt; (0.0, 1.0)))), Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#682&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xf5625955, 0x0583c55b, 0x87374da7, 0x5b2d852c, 0xd6c9b8a9), Expr}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#682&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xf5625955, 0x0583c55b, 0x87374da7, 0x5b2d852c, 0xd6c9b8a9), Expr}(:((+)(Base.getindex((var&quot;##samples#682&quot;).states, 3, 121), (*)(-1, Base.getindex((var&quot;##samples#682&quot;).states, 3, 1)))))), (), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = NamedTuple(), var&quot;x(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#619\&quot;(t)&quot; = NamedTuple()),), parameter = (parameters = (c₁ = (lookup = NamedTuple(), parameter = (c₁ = NamedTuple(), c₂ = NamedTuple())), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = NamedTuple(), var&quot;x(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#619\&quot;(t)&quot; = NamedTuple()), active = Bool[0, 0, 0], permutation = [1, 2, 3]), parameter = (parameters = (c₁ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (c₁ = (states = NamedTuple(), parameters = (ps = [0.4],)), c₂ = (states = NamedTuple(), parameters = (ps = [0.2],)))), var&quot;u(t)&quot; = (lookup = (collection = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9], inserted = Int64[], cache = nothing), parameter = NamedTuple())), permutation = [1, 2, 3]), timestops = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;var\&quot;##quadrature#619\&quot;(t)&quot;) =&gt; [0.0, 12.0]), [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0], Float64[], Float64[], 0)</code></pre><p>Construct the optimization problem with the control bounds from the model.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(dynopt, AutoForwardDiff())</code></pre><pre><code class="nohighlight hljs">OptimizationProblem. In-place: true
 u0: 120-element Vector{Float64}:
  0.0
  0.0
@@ -197,126 +197,126 @@ u0: 120-element Vector{Float64}:
     print_level = 3
 )</code></pre><pre><code class="nohighlight hljs">retcode: Success
 u: 120-element Vector{Float64}:
- 1.2394824660417215e-7
- 1.2557055183975224e-7
- 1.2798156241260678e-7
- 1.312219910184275e-7
- 1.353621757327096e-7
- 1.4050608366740758e-7
- 1.467981535302958e-7
- 1.5443383221003666e-7
- 1.6367526691992005e-7
- 1.74874553777567e-7
- 1.8850848870659177e-7
- 2.052314216442471e-7
- 2.259575612394191e-7
- 2.5199291311274046e-7
- 2.852542398253417e-7
- 3.286477008769981e-7
- 3.8675662912983766e-7
- 4.671676309415108e-7
- 5.832236431680555e-7
- 7.603051812243705e-7
- 1.052078859814816e-6
- 1.5906973196679278e-6
- 2.7915146580221947e-6
- 6.774879954500072e-6
- 0.6476058590784097
- 0.9999902059300386
- 0.999994255685368
- 0.9999954697510074
- 0.9999959141185377
- 0.9999959884452922
- 0.9999957962824862
- 0.9999953342194904
- 0.9999945188479745
- 0.9999931503500862
- 0.9999907842324345
- 0.9999863360445539
- 0.9999766207873281
- 0.9999487814765685
- 0.999805959575717
- 0.8232483252064835
- 0.5693357563052882
- 0.5395018570934694
- 0.5166124719705877
- 0.4779092627722205
- 0.4354904208136061
- 0.39743552246895913
- 0.36491626202241245
- 0.33616543758871886
- 0.30939227104539585
- 0.2837647675097781
- 0.259272207419808
- 0.23626032425559126
- 0.21505643923779988
- 0.19579854666052027
- 0.17842489942024772
- 0.16273845001244838
- 0.1484839604137242
- 0.135412876823628
- 0.12332938576003387
- 0.11211436761525706
- 0.10172391455189538
- 0.0921627933840377
- 0.08344546869348783
- 0.07556505506523754
- 0.06848222545853276
- 0.062131043117338795
- 0.05643103913505073
- 0.05129752959689624
- 0.04664886623022305
- 0.04241269904296302
- 0.03853116142492745
- 0.03496233774796827
- 0.03167741542384028
- 0.02865596337410633
- 0.02588244720387023
- 0.023346192403639804
- 0.021043657875255948
- 0.018978604115676073
- 0.01715626337122786
- 0.015570707486275367
- 0.014190747007543462
- 0.012959567554676477
- 0.011820343710402283
- 0.010747242361641124
- 0.009747695480161878
- 0.008839473487113066
- 0.008022135757877974
- 0.00727329387718702
- 0.006571369432445269
- 0.005907970975371921
- 0.00528576881888204
- 0.004720094891860877
- 0.004238279914733159
- 0.003852109102318769
- 0.003537113960591623
- 0.003265710602312417
- 0.00300551312768104
- 0.0026740111990368153
- 0.002398363284943006
- 0.0022064607886435462
- 0.0020410693726455593
- 0.0018886401279630109
- 0.0017503137811592626
- 0.00162564492625022
- 0.0015195390150087187
- 0.0014351314209564757
- 0.0013657284573349502
- 0.0012978515448015856
- 0.0012587600746384636
- 0.00124996176049561
- 0.0012166464805690533
- 0.0012358608493678606
- 0.001253218722941266
- 0.0013159053966742178
- 0.0013727528068192588
- 0.001479433448075956
- 0.0016374656346088549
- 0.0018632534211150905
- 0.0021652430130359133
- 0.014947147765917811</code></pre><p>Restore the parameter structure, evaluate the optimized layer, and plot it.</p><pre><code class="language-julia hljs">optimized_parameters = optprob.f.f.reconstruct(uopt.u)
+ 1.2395068519620588e-7
+ 1.2557301997528813e-7
+ 1.279840744510411e-7
+ 1.3122456206053947e-7
+ 1.353648221600824e-7
+ 1.4050882375471437e-7
+ 1.4680100818217992e-7
+ 1.5443682588984246e-7
+ 1.636784288641442e-7
+ 1.748779196336118e-7
+ 1.8851210280324257e-7
+ 2.052353402244793e-7
+ 2.2596185719169555e-7
+ 2.5199768310452635e-7
+ 2.8525961542287853e-7
+ 3.2865386655836286e-7
+ 3.8676385281834463e-7
+ 4.671763186775651e-7
+ 5.832344438875772e-7
+ 7.603192058366878e-7
+ 1.0520981958657566e-6
+ 1.5907264587482519e-6
+ 2.791565641623551e-6
+ 6.775003276536891e-6
+ 0.6476058878217301
+ 0.999990205750541
+ 0.9999942555800819
+ 0.999995469667917
+ 0.9999959140435367
+ 0.999995988371588
+ 0.9999957962051657
+ 0.9999953341335442
+ 0.9999945187467942
+ 0.9999931502232278
+ 0.9999907840608229
+ 0.9999863357875916
+ 0.9999766203386344
+ 0.9999487804411568
+ 0.99980595493563
+ 0.8232479369532428
+ 0.5693363947525327
+ 0.5395018651879947
+ 0.516612337418496
+ 0.4779092411866862
+ 0.4354904764685595
+ 0.39743556462422835
+ 0.3649162544330794
+ 0.3361653971873181
+ 0.3093922312377774
+ 0.28376475005055973
+ 0.2592722139260731
+ 0.23626034191820386
+ 0.2150564515699363
+ 0.19579854242509628
+ 0.17842487668746274
+ 0.1627384154880881
+ 0.148483925915195
+ 0.13541285496214472
+ 0.12332938618654861
+ 0.1121143945566527
+ 0.1017239660463514
+ 0.0921628622352896
+ 0.08344554463329217
+ 0.07556512729551011
+ 0.06848228482819116
+ 0.06213108352350163
+ 0.0564310580883162
+ 0.051297528107474434
+ 0.046648848218901216
+ 0.04241267042338627
+ 0.03853112897030761
+ 0.034962307922397184
+ 0.031677393435403454
+ 0.02865595263122585
+ 0.025882449154911346
+ 0.02334620661977718
+ 0.02104368227588465
+ 0.01897863532994546
+ 0.017156297290483114
+ 0.015570740074454994
+ 0.014190775308996156
+ 0.012959590530690249
+ 0.011820362377925617
+ 0.010747259047899249
+ 0.009747712768074243
+ 0.00883949362971673
+ 0.008022160135117277
+ 0.007273322143914431
+ 0.006571399251501216
+ 0.005907998604921365
+ 0.0052857900608035335
+ 0.004720106340008587
+ 0.0042382810394278264
+ 0.003852104096233672
+ 0.0035371087347015624
+ 0.0032657033249436102
+ 0.0030054959322913214
+ 0.0026739917802334695
+ 0.0023983501250574796
+ 0.0022064572328798415
+ 0.0020410782604584734
+ 0.0018886645966051227
+ 0.0017503545039975709
+ 0.0016256979567130128
+ 0.0015195931933901416
+ 0.0014351728517871662
+ 0.0013657566799258807
+ 0.001297874968545934
+ 0.001258776198757225
+ 0.001249975559663358
+ 0.0012166610534915401
+ 0.0012358764840302784
+ 0.001253228989543195
+ 0.001315914787594912
+ 0.00137274710050755
+ 0.0014794132717148778
+ 0.0016374273181405169
+ 0.0018631917593291802
+ 0.0021651482690224974
+ 0.014948142726094732</code></pre><p>Restore the parameter structure, evaluate the optimized layer, and plot it.</p><pre><code class="language-julia hljs">optimized_parameters = optprob.f.f.reconstruct(uopt.u)
 optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
 trajectoryplot(optsol)</code></pre><p><img src="../modelingtoolkit_integration-19.png" alt/></p><h2 id="Multiple-Shooting"><a class="docs-heading-anchor" href="#Multiple-Shooting">Multiple Shooting</a><a id="Multiple-Shooting-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Shooting" title="Permalink"></a></h2><p>Use 48 control intervals and lift the states at every interior interval boundary. Interior shooting values remain tunable even though the global initial values are fixed. Continuity equalities connect neighboring segments, including the quadrature state, so the objective still accounts for the whole time horizon. Population bounds now constrain the lifted values at every shooting point; overly restrictive bounds can make this formulation infeasible.</p><pre><code class="language-julia hljs">dynopt = CorleoneDynamicOptProblem(
     lotka_volterra, [],
@@ -324,13 +324,13 @@ trajectoryplot(optsol)</code></pre><p><img src="../modelingtoolkit_integration-1
     algorithm = Tsit5(),
     shooting = collect(0.25:0.25:11.75),
     problem_kwargs = (; abstol = 1.0e-9, reltol = 1.0e-9)
-)</code></pre><pre><code class="nohighlight hljs">CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#668&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xfa5cf566, 0x6d8cf8f4, 0x53c503d0, 0x04175877, 0x303f895f), Expr}}, Tuple{}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}, var&quot;x(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}, var&quot;var\&quot;##quadrature#631\&quot;(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{}, c₂::@NamedTuple{}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}, active::Bool}, var&quot;x(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}, active::Bool}, var&quot;var\&quot;##quadrature#631\&quot;(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}, active::Bool}}, active::Vector{Bool}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{states::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}, parameters::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}, c₂::@NamedTuple{states::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}, parameters::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lotka_volterra:
+)</code></pre><pre><code class="nohighlight hljs">CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#832&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x17140c9e, 0x9800c68d, 0x7e5e0234, 0xc9972086, 0x26aa054a), Expr}}, Tuple{}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;var\&quot;##quadrature#795\&quot;(t)&quot;::@NamedTuple{ps::Vector{Float64}}}}}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{c₁::@NamedTuple{}, c₂::@NamedTuple{}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{var&quot;y(t)&quot;::@NamedTuple{}, var&quot;x(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#795\&quot;(t)&quot;::@NamedTuple{}}, active::Bool}}, active::Vector{Bool}, permutation::Vector{Int64}}, parameter::@NamedTuple{parameters::@NamedTuple{c₁::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{c₁::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, c₂::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}, permutation::Vector{Int64}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x8636d3b7, 0xd21a3310, 0xf39a67f1, 0x4d0b1327, 0x41847da1), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ1187374493630987813, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ7628082562247908723), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x7cfa6f19, 0x20ae702c, 0x8f0ea66c, 0x0c73f9fe, 0x75dfb097), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lotka_volterra:
 Equations (3):
   3 standard: see equations(lotka_volterra)
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#631&quot;(t)
+  var&quot;##quadrature#795&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
@@ -340,21 +340,21 @@ Equations (3):
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#631&quot;(t)
+  var&quot;##quadrature#795&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
-  u(t) [defaults to missing], nothing, nothing), [0.7, 0.5, 0.0], (0.0, 12.0), [0.4, 0.2, 0.0], Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}(:reltol =&gt; 1.0e-9, :sensealg =&gt; SciMLBase.NoAD(), :abstol =&gt; 1.0e-9), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.7, 0.5, 0.0]), (var&quot;y(t)&quot; = InitialCondition{}(Symbol(&quot;y(t)&quot;), LookUp{}(Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), nothing), ParameterCollection{}(Corleone.var&quot;#57#58&quot;{Tuple{Float64, Float64}, Vector{Float64}, Float64}((0.0, 5.0), [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], 0.7), 47)), var&quot;x(t)&quot; = InitialCondition{}(Symbol(&quot;x(t)&quot;), LookUp{}(Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), nothing), ParameterCollection{}(Corleone.var&quot;#57#58&quot;{Tuple{Float64, Float64}, Vector{Float64}, Float64}((0.0, 5.0), [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], 0.5), 47)), var&quot;var\&quot;##quadrature#631\&quot;(t)&quot; = InitialCondition{}(Symbol(&quot;var\&quot;##quadrature#631\&quot;(t)&quot;), LookUp{}(Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), nothing), ParameterCollection{}(Corleone.var&quot;#57#58&quot;{Tuple{Float64, Float64}, Vector{Float64}, Float64}((-Inf, Inf), [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], 0.0), 47)))), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.4, 0.2, 0.0]), (c₁ = FixedLayer{}(PiecewiseConstant{}(:c₁, LookUp{}(nothing, nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0], (-Inf, Inf), 0.4), 1))), c₂ = FixedLayer{}(PiecewiseConstant{}(:c₂, LookUp{}(nothing, nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0], (-Inf, Inf), 0.2), 1))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], nothing), ParameterCollection{}(Corleone.var&quot;#89#90&quot;{Vector{Float64}, Tuple{Float64, Float64}, Float64}([0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], (0.0, 1.0), 0.0), 48)))), ControlSymbolCache{}(Model lotka_volterra:
+  u(t) [defaults to missing], nothing, nothing), [0.7, 0.5, 0.0], (0.0, 12.0), [0.4, 0.2, 0.0], Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}(:reltol =&gt; 1.0e-9, :sensealg =&gt; SciMLBase.NoAD(), :abstol =&gt; 1.0e-9), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.7, 0.5, 0.0]), (var&quot;y(t)&quot; = InitialCondition{}(Symbol(&quot;y(t)&quot;), LookUp{}(Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), nothing), (var&quot;y(t)&quot; = ParameterCollection{}(Corleone.var&quot;#120#121&quot;{Tuple{Float64, Float64}, Float64}((0.0, 5.0), 0.7, Core.Box([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75])), 47), var&quot;x(t)&quot; = ParameterCollection{}(Corleone.var&quot;#120#121&quot;{Tuple{Float64, Float64}, Float64}((0.0, 5.0), 0.5, Core.Box([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75])), 47), var&quot;var\&quot;##quadrature#795\&quot;(t)&quot; = ParameterCollection{}(Corleone.var&quot;#120#121&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75])), 47))),), ([1, 2, 3],)), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.4, 0.2, 0.0]), (c₁ = PiecewiseConstant{}(:c₁, LookUp{}(nothing, nothing), (c₁ = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(0.4)), 1)), c₂ = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(0.2)), 1)))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], nothing), ParameterCollection{}(Corleone.var&quot;#175#176&quot;{Vector{Float64}}([0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], Core.Box((0.0, 1.0)), Core.Box(0.0)), 48))), ([1, 2], [3])), ControlSymbolCache{}(Model lotka_volterra:
 Equations (3):
   3 standard: see equations(lotka_volterra)
 Unknowns (3): see unknowns(lotka_volterra)
   y(t)
   x(t)
-  var&quot;##quadrature#631&quot;(t)
+  var&quot;##quadrature#795&quot;(t)
 Parameters (3): see parameters(lotka_volterra)
   c₁
   c₂
-  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#631&quot;(t)], Dict{Any, Any}(var&quot;##quadrature#631&quot;(t) =&gt; (-Inf, Inf), c₁ =&gt; (-Inf, Inf), x(t) =&gt; (0.0, 5.0), y(t) =&gt; (0.0, 5.0), c₂ =&gt; (-Inf, Inf), u(t) =&gt; (0.0, 1.0)))), Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#668&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xfa5cf566, 0x6d8cf8f4, 0x53c503d0, 0x04175877, 0x303f895f), Expr}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#668&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xfa5cf566, 0x6d8cf8f4, 0x53c503d0, 0x04175877, 0x303f895f), Expr}(:((+)((*)(-1, Base.getindex((var&quot;##samples#668&quot;).states, 3, 1)), Base.getindex((var&quot;##samples#668&quot;).states, 3, 96))))), (), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],)), var&quot;x(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],)), var&quot;var\&quot;##quadrature#631\&quot;(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),), parameter = (parameters = (c₁ = NamedTuple(), c₂ = NamedTuple(), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), inserted = Int64[], cache = nothing), parameter = NamedTuple(), active = false), var&quot;x(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), inserted = Int64[], cache = nothing), parameter = NamedTuple(), active = false), var&quot;var\&quot;##quadrature#631\&quot;(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), inserted = Int64[], cache = nothing), parameter = NamedTuple(), active = false)), active = Bool[1, 1, 1]), parameter = (parameters = (c₁ = (states = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = NamedTuple()), parameters = (lookup = NamedTuple(), parameter = (ps = [0.4],))), c₂ = (states = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = NamedTuple()), parameters = (lookup = NamedTuple(), parameter = (ps = [0.2],))), var&quot;u(t)&quot; = (lookup = (collection = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], inserted = Int64[], cache = nothing), parameter = NamedTuple())),), timestops = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;var\&quot;##quadrature#631\&quot;(t)&quot;) =&gt; [0.0, 12.0]), [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0], [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0], [0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.25, 1.25, 1.5, 1.5, 1.75, 1.75, 2.0, 2.0, 2.25, 2.25, 2.5, 2.5, 2.75, 2.75, 3.0, 3.0, 3.25, 3.25, 3.5, 3.5, 3.75, 3.75, 4.0, 4.0, 4.25, 4.25, 4.5, 4.5, 4.75, 4.75, 5.0, 5.0, 5.25, 5.25, 5.5, 5.5, 5.75, 5.75, 6.0, 6.0, 6.25, 6.25, 6.5, 6.5, 6.75, 6.75, 7.0, 7.0, 7.25, 7.25, 7.5, 7.5, 7.75, 7.75, 8.0, 8.0, 8.25, 8.25, 8.5, 8.5, 8.75, 8.75, 9.0, 9.0, 9.25, 9.25, 9.5, 9.5, 9.75, 9.75, 10.0, 10.0, 10.25, 10.25, 10.5, 10.5, 10.75, 10.75, 11.0, 11.0, 11.25, 11.25, 11.5, 11.5, 11.75, 11.75, 12.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 141)</code></pre><p>Corleone appends the shooting equalities to the optimization constraints.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(dynopt, AutoForwardDiff())
+  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#795&quot;(t)], Dict{Any, Any}(c₁ =&gt; (-Inf, Inf), var&quot;##quadrature#795&quot;(t) =&gt; (-Inf, Inf), x(t) =&gt; (0.0, 5.0), y(t) =&gt; (0.0, 5.0), c₂ =&gt; (-Inf, Inf), u(t) =&gt; (0.0, 1.0)))), Corleone.var&quot;#compile_trajectory_expression##0#compile_trajectory_expression##1&quot;{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#832&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x17140c9e, 0x9800c68d, 0x7e5e0234, 0xc9972086, 0x26aa054a), Expr}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#832&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x17140c9e, 0x9800c68d, 0x7e5e0234, 0xc9972086, 0x26aa054a), Expr}(:((+)(Base.getindex((var&quot;##samples#832&quot;).states, 3, 96), (*)(-1, Base.getindex((var&quot;##samples#832&quot;).states, 3, 1)))))), (), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = (lookup = NamedTuple(), parameter = (var&quot;y(t)&quot; = (ps = [0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],), var&quot;x(t)&quot; = (ps = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],), var&quot;var\&quot;##quadrature#795\&quot;(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),),), parameter = (parameters = (c₁ = (lookup = NamedTuple(), parameter = (c₁ = NamedTuple(), c₂ = NamedTuple())), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;y(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 8, 8.5 =&gt; 34, 6.0 =&gt; 24, 4.0 =&gt; 16, 6.25 =&gt; 25, 9.5 =&gt; 38, 3.75 =&gt; 15, 8.0 =&gt; 32, 10.0 =&gt; 40, 5.25 =&gt; 21, 3.25 =&gt; 13, 7.75 =&gt; 31, 10.75 =&gt; 43, 0.5 =&gt; 2, 5.75 =&gt; 23, 11.75 =&gt; 47, 3.5 =&gt; 14, 4.5 =&gt; 18, 1.25 =&gt; 5, 9.25 =&gt; 37, 11.5 =&gt; 46, 0.75 =&gt; 3, 7.5 =&gt; 30, 10.25 =&gt; 41, 10.5 =&gt; 42, 6.5 =&gt; 26, 8.25 =&gt; 33, 1.75 =&gt; 7, 3.0 =&gt; 12, 1.0 =&gt; 4, 5.0 =&gt; 20, 2.5 =&gt; 10, 7.0 =&gt; 28, 5.5 =&gt; 22, 11.25 =&gt; 45, 1.5 =&gt; 6, 2.25 =&gt; 9, 11.0 =&gt; 44, 4.75 =&gt; 19, 7.25 =&gt; 29, 9.75 =&gt; 39, 2.75 =&gt; 11, 0.25 =&gt; 1, 4.25 =&gt; 17, 8.75 =&gt; 35, 9.0 =&gt; 36, 6.75 =&gt; 27), inserted = Int64[], cache = nothing), parameter = (var&quot;y(t)&quot; = NamedTuple(), var&quot;x(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#795\&quot;(t)&quot; = NamedTuple()), active = false),), active = Bool[1, 1, 1], permutation = [1, 2, 3]), parameter = (parameters = (c₁ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (c₁ = (states = NamedTuple(), parameters = (ps = [0.4],)), c₂ = (states = NamedTuple(), parameters = (ps = [0.2],)))), var&quot;u(t)&quot; = (lookup = (collection = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], inserted = Int64[], cache = nothing), parameter = NamedTuple())), permutation = [1, 2, 3]), timestops = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;var\&quot;##quadrature#795\&quot;(t)&quot;) =&gt; [0.0, 12.0]), [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0], [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0], [0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.25, 1.25, 1.5, 1.5, 1.75, 1.75, 2.0, 2.0, 2.25, 2.25, 2.5, 2.5, 2.75, 2.75, 3.0, 3.0, 3.25, 3.25, 3.5, 3.5, 3.75, 3.75, 4.0, 4.0, 4.25, 4.25, 4.5, 4.5, 4.75, 4.75, 5.0, 5.0, 5.25, 5.25, 5.5, 5.5, 5.75, 5.75, 6.0, 6.0, 6.25, 6.25, 6.5, 6.5, 6.75, 6.75, 7.0, 7.0, 7.25, 7.25, 7.5, 7.5, 7.75, 7.75, 8.0, 8.0, 8.25, 8.25, 8.5, 8.5, 8.75, 8.75, 9.0, 9.0, 9.25, 9.25, 9.5, 9.5, 9.75, 9.75, 10.0, 10.0, 10.25, 10.25, 10.5, 10.5, 10.75, 10.75, 11.0, 11.0, 11.25, 11.25, 11.5, 11.5, 11.75, 11.75, 12.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 141)</code></pre><p>Corleone appends the shooting equalities to the optimization constraints.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 
 optsol = solve(
     optprob,
@@ -366,194 +366,194 @@ optsol = solve(
 )</code></pre><pre><code class="nohighlight hljs">retcode: Success
 u: 189-element Vector{Float64}:
   0.6210099041199384
-  0.5580964141996259
-  0.5100010214012943
+  0.5580964141996257
+  0.5100010214012942
   0.4758466747328391
   0.4553349311086916
-  0.4489678020130264
-  0.4583459540273531
-  0.48658449744848553
-  0.5388361352104805
-  0.6141766136891819
-  0.682510674902458
-  0.7521945718365384
-  0.8168394375934068
-  0.8694189114099085
-  0.9039304941038522
-  0.9169335627892062
-  0.9359871095208298
-  0.9503502512210172
-  0.9615907019903532
-  0.9702651996232984
-  0.9769558357911465
-  0.9821439538783667
-  0.9861419066723036
-  0.9892404957761557
-  0.9916439190636154
-  0.9935064484738764
-  0.9949502911609808
-  0.9960711103769462
-  0.9969433534207529
-  0.9976216627228304
-  0.9981488482340976
-  0.9985580038064565
-  0.9988767241396415
-  0.9991249892921548
-  0.999318297002014
-  0.9994675703438725
-  0.9995824676435342
-  0.9996710983768929
-  0.9997402588880278
-  0.9997945644935489
-  0.9998360031949526
-  0.9998659431048492
-  0.9998851597804078
-  0.9998978744414216
-  0.9999104535627557
-  0.9999048263024879
-  0.9999101645720705
-  0.5444801159561656
-  0.6035107698577794
+  0.44896780201302655
+  0.4583459540273532
+  0.4865844974484856
+  0.5388361352104799
+  0.6141765882241721
+  0.6825106318805366
+  0.752194511730201
+  0.8168393637121726
+  0.8694188298561534
+  0.9039304126632072
+  0.9169334891456589
+  0.9359876538641627
+  0.9503491405042898
+  0.9615909924072966
+  0.9702718992903632
+  0.9769522798294153
+  0.9821415546504827
+  0.9861447405552165
+  0.9892438527562866
+  0.991644311399216
+  0.9935055310944109
+  0.9949514355347621
+  0.9960740502872064
+  0.996945196317352
+  0.997621168457318
+  0.9981477445169554
+  0.9985579748079129
+  0.9988776308373422
+  0.9991253018005725
+  0.9993170879682832
+  0.9994656668027454
+  0.9995820125114959
+  0.9996731766009084
+  0.9997437428545398
+  0.9997975572046388
+  0.9998371111619367
+  0.9998640722428785
+  0.9998817945537358
+  0.9998962640742055
+  0.9999131851583821
+  0.999903555662739
+  0.9999147214039332
+  0.5444801159561657
+  0.6035107698577795
   0.6782727185711913
   0.770163802225469
-  0.8805013189121657
-  1.0100549880837584
-  1.158289449859707
-  1.3221586803508878
-  1.4943002576304796
-  1.6294108164151935
-  1.6099723817479323
-  1.5633728787407313
-  1.4926270150896481
-  1.4041528968166757
-  1.3064862634160384
-  1.208368080431519
-  1.1671291846187206
-  1.1321313341841608
-  1.104359139993967
-  1.0821301914563424
-  1.064465196860036
-  1.0505418003582174
-  1.0395411741728664
-  1.0309113507511598
-  1.0241490697318933
-  1.0188507044601143
-  1.0147047394005773
-  1.0114660828219622
-  1.0089406537431054
-  1.0069699347844432
-  1.0054318673929767
-  1.0042311661727163
-  1.0032964989281279
-  1.0025685550178185
-  1.0020013341433547
-  1.0015574746948614
-  1.0012106189093095
-  1.0009407822295617
-  1.000732439022655
-  1.0005716836620846
-  1.0004453440379546
-  1.000344219628268
-  1.0002616475158062
-  1.000198650479517
-  1.000158206672892
-  1.0001042077484081
-  1.0000894604242858
+  0.8805013189121659
+  1.0100549880837582
+  1.1582894498597065
+  1.3221586803508876
+  1.4943002576304767
+  1.6294107233632968
+  1.609972303561249
+  1.5633728230263164
+  1.49262698704284
+  1.4041528979249167
+  1.3064862912869313
+  1.2083681298120161
+  1.1671303485823958
+  1.132128940213082
+  1.1043604583038678
+  1.0821413979879795
+  1.0644535095857846
+  1.0505377229607349
+  1.0395475317084766
+  1.0309152648371487
+  1.0241460964062976
+  1.0188468697457227
+  1.0147058042735049
+  1.011469204339403
+  1.0089402475505558
+  1.0069657903046199
+  1.0054285813501698
+  1.0042310483366443
+  1.0032978413601623
+  1.0025682808754501
+  1.0019988231105135
+  1.0015551756407417
+  1.0012118004423933
+  1.0009453789414862
+  1.0007368771207583
+  1.000572901062579
+  1.000442646076071
+  1.0003379194234283
+  1.0002560155887472
+  1.0001985867215801
+  1.0001649973096374
+  1.0001017255402482
+  1.0000969610284598
   0.08656758755101389
   0.1747410983522841
-  0.26194700242482344
-  0.3459373553732986
-  0.42567007972210663
+  0.2619470024248235
+  0.3459373553732988
+  0.4256700797221067
   0.5021847645457321
-  0.5793641062905646
-  0.6642745666686711
-  0.7664866710591293
-  0.8916776829987948
-  1.0194738634133786
-  1.1262657174938757
-  1.2081586210497226
-  1.2649512931424138
-  1.2999232270677321
-  1.3185805830665656
-  1.3287933270151207
-  1.3352282061785683
-  1.3392273418999467
-  1.3417031133527393
-  1.343227764541207
-  1.344163581783356
-  1.3447364703409597
-  1.3450863189536542
-  1.34529970947725
-  1.3454297111111673
-  1.345508814328778
-  1.3455569050932847
-  1.345586131606679
-  1.3456038905212593
-  1.3456146767539054
-  1.345621224098386
-  1.3456251974196933
-  1.3456276093189656
-  1.3456290735468537
-  1.3456299617986462
-  1.3456304998241695
-  1.3456308255525282
-  1.345631023152106
-  1.3456311435455564
-  1.345631217055629
-  1.3456312617532897
-  1.3456312886564763
-  1.3456313048772186
-  1.3456313151473402
-  1.345631321578686
-  1.3456313260454222
- -9.970727552886474e-9
- -9.969142507619631e-9
- -9.966263467681513e-9
- -9.961551090844415e-9
- -9.95385056179171e-9
- -9.940582943662956e-9
- -9.915128533572845e-9
- -9.855675380060765e-9
- -9.643119524854513e-9
-  0.19923412435647522
-  1.0000000092007724
-  1.0000000093639896
-  1.0000000092559578
-  1.0000000088153338
-  1.0000000070835011
-  0.9999999881328798
-  0.5291743511020908
-  0.44485225156344516
-  0.3570842803431013
-  0.2874134453394547
-  0.22967614737651568
-  0.18208449782027875
-  0.14434742818785334
-  0.11369174222969802
-  0.08935770717388614
-  0.07015714943732712
-  0.05499016821961982
-  0.043023677775676165
-  0.033600090363486684
-  0.026243009196316128
-  0.020492785853898045
-  0.016003250199743004
-  0.012469567216387267
-  0.009718109820210123
-  0.007575626769088268
-  0.005925253024388174
-  0.004633143396326291
-  0.003614447997745082
-  0.0028066355436016043
-  0.002179597830343359
-  0.0017179588403086086
-  0.0013781406995450713
-  0.0011322880695644757
-  0.0008977486344907057
-  0.0006418475476097738
-  0.0007680034384203499
-  0.00037795153111224697
-  0.0007019397842479394</code></pre><p>Reconstruct and plot the multiple-shooting solution in the same way.</p><pre><code class="language-julia hljs">optimized_parameters = optprob.f.f.reconstruct(optsol.u)
+  0.5793641062905645
+  0.664274566668671
+  0.7664866710591288
+  0.8916776717603927
+  1.0194738312954077
+  1.126265672716566
+  1.2081585722249504
+  1.2649512472740072
+  1.2999231883204334
+  1.3185805527009082
+  1.3287933466515744
+  1.3352281854696395
+  1.3392272991257752
+  1.3417033093805266
+  1.3432279283882793
+  1.3441635472580342
+  1.344736460613214
+  1.3450863818662244
+  1.3452997700477811
+  1.3454297357065805
+  1.3455088269285782
+  1.345556927056608
+  1.3455861564778135
+  1.345603905362584
+  1.3456146808032008
+  1.3456212244593124
+  1.3456251986716912
+  1.3456276110661356
+  1.3456290738633077
+  1.3456299604274893
+  1.3456304983493714
+  1.3456308255131906
+  1.345631024636917
+  1.3456311456065357
+  1.345631218756256
+  1.345631262608686
+  1.3456312887859434
+  1.3456313048220438
+  1.3456313153810993
+  1.3456313219366036
+  1.3456313264735547
+ -9.970727567230659e-9
+ -9.96914251036624e-9
+ -9.96626345393262e-9
+ -9.961551049214521e-9
+ -9.953850465255148e-9
+ -9.94058271958166e-9
+ -9.915127940456973e-9
+ -9.85567326724301e-9
+ -9.643104259689663e-9
+  0.19923472310777957
+  1.0000000092008536
+  1.0000000093640347
+  1.0000000092560084
+  1.0000000088154344
+  1.0000000070839619
+  0.9999999881526975
+  0.5291642571501888
+  0.4448838930019909
+  0.35705241537154464
+  0.2873136037713437
+  0.22988437908098547
+  0.1820213523781182
+  0.144247459819934
+  0.11370706686412894
+  0.08941966056573078
+  0.07016636572293716
+  0.054942007507196744
+  0.04299831277339041
+  0.033628815040203146
+  0.026278260375987614
+  0.020486352880134517
+  0.015973321691970573
+  0.012453992646591128
+  0.009732616144785055
+  0.007598956615748856
+  0.005927049414738546
+  0.0046015173229219785
+  0.0035784743614169496
+  0.0028012499583183774
+  0.002203515564074276
+  0.001751763710980373
+  0.0014149194595039283
+  0.0011321920238268016
+  0.0008485910409376556
+  0.0005722704602210528
+  0.0008584087487379058
+  0.00027454565765998415
+  0.0008092758365244212</code></pre><p>Reconstruct and plot the multiple-shooting solution in the same way.</p><pre><code class="language-julia hljs">optimized_parameters = optprob.f.f.reconstruct(optsol.u)
 optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
 trajectoryplot(optsol)</code></pre><p><img src="../modelingtoolkit_integration-26.png" alt/></p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
         Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
@@ -581,9 +581,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 9V74 80-Core Processor
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver4)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -621,7 +621,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [96374032] CRlibm v1.1.0
   [159f3aea] Cairo v1.1.1
   [13f3f980] CairoMakie v0.15.16
-  [d360d2e6] ChainRulesCore v1.26.6
+  [d360d2e6] ChainRulesCore v1.26.7
   [ae650224] ChunkSplitters v3.2.0
   [523fee87] CodecBzip2 v0.8.5
   [944b1d66] CodecZlib v0.7.9
@@ -689,7 +689,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [069b7b12] FunctionWrappers v1.1.3
   [77dc65aa] FunctionWrappersWrappers v1.13.0
   [d9f16b24] Functors v0.5.4
-  [46192b85] GPUArraysCore v0.2.1
+  [46192b85] GPUArraysCore v0.2.2
   [a0844989] Gamma v1.2.0
   [5c1252a2] GeometryBasics v0.5.13
   [d7ba0133] Git v1.5.0
@@ -847,7 +847,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [2efcf032] SymbolicIndexingInterface v0.3.55
   [19f23fe9] SymbolicLimits v1.2.2
   [d1185830] SymbolicUtils v4.54.0
-  [0c5d862f] Symbolics v7.47.0
+  [0c5d862f] Symbolics v7.48.0
   [3783bdb8] TableTraits v1.0.1
   [bd369af6] Tables v1.14.0
   [ed4db957] TaskLocalValues v0.1.3
@@ -993,4 +993,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../../initialization/">Initialization »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 28 October 2026 11:57">Wednesday 28 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Wednesday 28 October 2026 20:58">Wednesday 28 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
