@@ -4,10 +4,8 @@ using Reexport
 using DocStringExtensions
 import PrecompileTools: @compile_workload, @setup_workload
 
-using LuxCore
 using Random
 using ConcreteStructs
-using ChainRulesCore
 
 using SciMLBase
 using SciMLStructures
