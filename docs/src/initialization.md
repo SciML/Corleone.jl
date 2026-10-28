@@ -84,3 +84,56 @@ Supplied vectors and callback results are retained by reference. To obtain
 independent arrays on repeated setup calls, return a fresh array from a callback.
 Callbacks receive the setup RNG; reproducible initialization requires a fresh RNG
 with the same seed and callbacks that use that RNG.
+
+## Reinitializing an existing shooting layer
+
+The initialization helpers update tunable state-reset values after setup. Pass
+`ps` and `st` explicitly; each helper returns the same `ps` and writes into its
+existing buffers. Parameter values, fixed initial conditions, and the supplied
+state are preserved. Omit `ps` and `st` to call `LuxCore.setup` automatically and
+return the initialized `(ps, st)` pair. All keywords and hybrid strategy pairs are
+forwarded to the explicit helper. These are setup operations, separate from differentiation
+of the forward solve.
+
+```julia
+ps, st = forward_initialization(rng, layer)
+trajectory, next_st = layer(nothing, ps, st)
+```
+
+| Helper | Guesses |
+|---|---|
+| `forward_initialization(rng, layer, ps, st)` | Incoming solution values at interior resets, using current parameter switches and fixed resets. |
+| `linear_initialization(rng, layer, ps, st; u_infinity)` | Linear interpolation from the problem's initial state to `u_infinity`. Override the start with `u0`. |
+| `constant_initialization(rng, layer, ps, st; u0)` | Repeat each variable's supplied value. |
+| `custom_initialization(rng, layer, ps, st; u0s)` | Per-variable vectors, e.g. `Dict(1 => [0.5, 0.8])` for two resets of state 1. |
+| `random_initialization(rng, layer, ps, st)` | Uniform samples within finite variable bounds. |
+| `hybrid_initialization(rng, layer, ps, st, selectors...)` | Apply `variable_indices => helper` pairs sequentially. |
+
+`variables` selects original state indices, for example `variables = [1, 3]`.
+Every variable uses its own current reset grid from `st`. Custom vectors follow
+that grid's value indices, as annotation defaults do. A dictionary passed to
+`custom_initialization` selects its keys by default. Initial conditions stored
+in Lux state through `Constant` are skipped by all helpers.
+
+Forward initialization supports ODE problems and always solves sequentially,
+including for layers configured with a parallel ensemble algorithm. It preserves
+tunable assignments at the global start and fills selected interior and final
+reset values from the incoming solution. Unselected resets remain active.
+Other helpers also update selected global-start assignments. Generated values
+must satisfy variable bounds; each helper validates all proposals before updating
+`ps`. Forward initialization uses private working copies so the caller's state
+and buffers remain unchanged if a solve or validation fails.
+
+Use closures to combine strategies with different keywords:
+
+```julia
+hybrid_initialization(rng, layer, ps, st,
+    1 => ((rng, layer, ps, st; variables) ->
+        constant_initialization(rng, layer, ps, st; variables, u0 = Dict(1 => 0.5))),
+    [2, 3] => forward_initialization,
+)
+```
+
+Methods run in order: forward initialization sees guesses assigned by preceding
+methods. A later failure does not undo earlier successful methods. These selectors
+refer to variables, replacing the former API's segment selectors.

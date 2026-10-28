@@ -24,7 +24,16 @@ Annotations
 ```
 
 See [Initializing shooting variables](initialization.md) for scalar, vector, and
-count/timepoint callback defaults.
+count/timepoint callback defaults and helpers for existing parameter buffers.
+
+```@docs
+forward_initialization
+linear_initialization
+random_initialization
+constant_initialization
+custom_initialization
+hybrid_initialization
+```
 
 ## Trajectories
 
