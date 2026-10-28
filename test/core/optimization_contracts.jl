@@ -91,31 +91,32 @@ end
             Tunable(3; kind = Val(:variable), default = [30.0, 40.0]) => [1.0, 2.0]; ensemblealg = alg
         )
         ps, st = LuxCore.setup(MersenneTwister(1), layer)
-        @test get_number_of_shooting_constraints(layer, ps, st) == 4
-        @test get_number_of_shooting_constraints(layer, nothing, st) == 4
+        @test get_number_of_shooting_constraints(layer, ps, st) == 3
+        @test get_number_of_shooting_constraints(layer, nothing, st) == 3
         trajectory, next_st = layer(nothing, ps, st)
-        # Segment starts: t=0 -> u1; t=1 -> u1,u3; t=2 -> u3.
-        expected = [9.0, 9.0, 24.0, 7.0]
+        # t=0 assigns a free initial value; t=1 matches u1,u3; t=2 matches u3.
+        @test isempty(first(trajectory.residuals))
+        expected = [9.0, 24.0, 7.0]
         @test shooting_constraints(trajectory) ≈ expected
         @test length(shooting_constraints(trajectory)) == get_number_of_shooting_constraints(layer, ps, st)
-        buffer = fill(NaN, 4)
+        buffer = fill(NaN, 3)
         @test shooting_constraints!(buffer, trajectory) === buffer
         @test buffer ≈ expected
-        storage = fill(123.0, 6)
-        @test shooting_constraints!(view(storage, 2:5), trajectory) ≈ expected
-        @test storage[[1, 6]] == [123.0, 123.0]
-        wrong = fill(123.0, 3)
+        storage = fill(123.0, 5)
+        @test shooting_constraints!(view(storage, 2:4), trajectory) ≈ expected
+        @test storage[[1, 5]] == [123.0, 123.0]
+        wrong = fill(123.0, 2)
         @test_throws DimensionMismatch shooting_constraints!(wrong, trajectory)
-        @test wrong == fill(123.0, 3)
+        @test wrong == fill(123.0, 2)
         # Refreshing after moving an IC schedule changes the metadata count.
         child = st.initialcondition.initialconditions.u₃
         lookup = merge(child.lookup, (; collection = Dict(1.0 => 1, 3.0 => 2)))
         children = merge(st.initialcondition.initialconditions, (; u₃ = merge(child, (; lookup))))
         state = merge(st, (; initialcondition = merge(st.initialcondition, (; initialconditions = children))))
         state = merge(state, (; timestops = Corleone.get_timestops(layer, nothing, state)))
-        @test get_number_of_shooting_constraints(layer, ps, state) == 3
+        @test get_number_of_shooting_constraints(layer, ps, state) == 2
         moved, _ = layer(nothing, ps, state)
-        @test length(shooting_constraints(moved)) == 3
+        @test length(shooting_constraints(moved)) == 2
     end
     layer = ShootingLayer(prob, Tsit5())
     ps, st = LuxCore.setup(MersenneTwister(1), layer)

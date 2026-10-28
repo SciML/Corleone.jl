@@ -95,6 +95,8 @@ values. `Constant` annotations store scheduled values in Lux state via `FixedLay
 Calling with `(incoming_state, t)` returns `((state, residuals), next_st)`. Residuals
 are assigned values minus the corresponding incoming values, in state index
 order. Only active, non-fixed layers contribute residuals.
+Set `matching = false` to apply assignments without producing matching residuals,
+as used for free initial values at the global problem start.
 The Boolean vector `st.active` is allocated during setup and reused on each call.
 Updating this scheduling metadata is non-differentiable; residual arithmetic is not.
 
@@ -185,10 +187,10 @@ update_active_ics!(active, ::Tuple{Vararg{PassThrough}}, ::Tuple) = active .= fa
 
 ChainRulesCore.@non_differentiable update_active_ics!(active, initial_conditions, new_st)
 
-function (layer::InitialConditions)((incoming, t)::Tuple, ps, st)
+function (layer::InitialConditions)((incoming, t)::Tuple, ps, st; matching::Bool = true)
     out, new_st = apply_ics(layer.initialconditions, incoming, t, ps.initialconditions, st.initialconditions)
     active = update_active_ics!(st.active, values(layer.initialconditions), values(new_st))
-    residuals = [out[i] - incoming[i] for i in eachindex(out) if active[i]]
+    residuals = [out[i] - incoming[i] for i in eachindex(out) if matching && active[i]]
     return (layer.repack(out), residuals), (; initialconditions = new_st, active)
 end
 

@@ -45,6 +45,12 @@ before constructing the native switching grid. Grids containing only interior
 switches are also accepted. Bounds come from symbol metadata; parameters marked
 `tunable = false` are fixed, except for explicitly selected controls.
 
+State metadata such as `x(..) = 0.5 [tunable = true, bounds = (0.3, 1.0)]`
+makes the value at `tspan[1]` trainable, initialized to `0.5` and bounded by
+`0.3` and `1.0`. This value replaces the problem's initial state freely; no
+matching equality pins it to the original default. States without this metadata
+retain their numerical initial values.
+
 The time span is inferred from integral endpoints, timed reads, and supplied
 grids. Pass `tspan = (start, stop)` to set it explicitly. All requested times must
 lie within that span. Pass solver options such as tolerances through
@@ -54,9 +60,10 @@ initial values or defaults for the ODE states and parameters.
 
 For multiple shooting, add `shooting = [0.5, 1.0, 1.5]`. Every numerical state,
 including quadratures, receives tunable reset values at interior shooting times.
-Initial values remain those of the ODE problem. The numerical facade appends
-continuity equalities automatically. `ensemblealg` selects the execution method;
-controls and physical parameters remain shared between segments.
+Initial values are free only for states marked `tunable = true`; other states
+start from the ODE problem's values. The numerical facade appends continuity
+equalities at interior resets automatically. `ensemblealg` selects the execution
+method. Controls and physical parameters remain shared between segments.
 
 The system is compiled with `split = false`, retaining MTK's symbolic container
 and using flat numerical parameters. This frontend currently expects scalar

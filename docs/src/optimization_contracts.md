@@ -80,10 +80,11 @@ residuals = shooting_constraints(trajectory)
 ```
 
 The count is computed from schedules and `st.timestops` without a solve. State
-residuals come from **tunable, active** state assignments, including assignments at the
-problem start. Fixed assignments and assignments at the final endpoint contribute
-none. After changing schedules, refresh `st.timestops` and recompute the count
-before allocating optimizer buffers.
+residuals come from **tunable, active** state assignments strictly after the global
+problem start. Tunable assignments at the global start are free initial values;
+they are not matched against the original `u0`. Fixed assignments and assignments
+at the final endpoint also contribute none. After changing schedules, refresh
+`st.timestops` and recompute the count before allocating optimizer buffers.
 
 The residual vector starts with state residuals in chronological segment order,
 then canonical state index order within each segment. Each value is the assigned

@@ -15,7 +15,7 @@ using ForwardDiff, ReverseDiff, Zygote
         ]
         return Trajectory(
             layer, ps, st, solutions,
-            [[q[1] - 1], [q[2] - q[1] - q[3]]]
+            [eltype(q)[], [q[2] - q[1] - q[3]]]
         )
     end
     loss(q) = sum(abs2, shooting_constraints(trajectory(q)))
@@ -25,8 +25,8 @@ using ForwardDiff, ReverseDiff, Zygote
         sum(abs2, res)
     end
     for q in ([2.0, 5.0, 0.5], [3.0, 2.0, 1.5])
-        r1, r2 = q[1] - 1, q[2] - q[1] - q[3]
-        expected = [2r1 - 2r2, 2r2, -2r2]
+        r = q[2] - q[1] - q[3]
+        expected = [-2r, 2r, -2r]
         @test ForwardDiff.gradient(loss, q) ≈ expected
         @test ReverseDiff.gradient(loss, q) ≈ expected
         @test only(Zygote.gradient(loss, q)) ≈ expected
@@ -48,5 +48,5 @@ using ForwardDiff, ReverseDiff, Zygote
         traj, _ = layer(nothing, parameters, st)
         return sum(abs2, shooting_constraints(traj))
     end
-    @test ForwardDiff.gradient(full_solve_loss, [2.0, 5.0]) ≈ [-2.0, 4.0]
+    @test ForwardDiff.gradient(full_solve_loss, [2.0, 5.0]) ≈ [-4.0, 4.0]
 end

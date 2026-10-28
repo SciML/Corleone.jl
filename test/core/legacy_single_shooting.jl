@@ -60,7 +60,7 @@ end
     @test ps.parameter.parameters.p₂.parameter.ps == [2.0]
     traj, _ = layer(nothing, ps, st)
     @test first(traj.u) == [1.0, 5.0]
-    @test only(traj.residuals) == [3.0]
+    @test isempty(only(traj.residuals))
     @test 0.25 in traj.t
     @test last(traj.t) == 0.5
     @test last(traj.u) ≈ [exp(0.5), 5exp(1.0)] rtol = 1.0e-3
@@ -117,7 +117,7 @@ end
     @test a.t == b.t
     @test a.residuals ≈ b.residuals
     @test a.reset_indices == [3, 5]
-    @test length.(a.residuals) == [1, 2, 2]
+    @test length.(a.residuals) == [0, 2, 2]
     @test last(a.u)[1] ≈ 5.0
     other = MultipleShootingLayer(prob, Tsit5(), 1.0, 2.0; controls = [1 => control])
     @test other isa ShootingLayer

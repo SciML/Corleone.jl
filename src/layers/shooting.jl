@@ -4,6 +4,8 @@ $(TYPEDEF)
 A Lux layer that solves a differential equation in segments separated by parameter
 switches and initial-condition resets. Calling with `(input, ps, st)` returns
 `(trajectory, next_st)`, with reset residuals stored in `trajectory.residuals`.
+A tunable assignment at the global problem start is a free initial value and
+produces no matching residual. Interior assignments retain matching residuals.
 A differential equation problem can be supplied as `input`; other inputs use the
 stored problem. A `(problem, tstops)` tuple supplies an explicit segment grid.
 
@@ -165,7 +167,10 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
 
 @inline function solve_problems(::EnsembleSerial, x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
     t0, tinf = tstops[1:2]
-    (u0, variable_residuals), st_ic = x.initialcondition((prob.u0, t0), ps.initialcondition, st.initialcondition)
+    (u0, variable_residuals), st_ic = x.initialcondition(
+        (prob.u0, t0), ps.initialcondition, st.initialcondition;
+        matching = t0 != first(prob.tspan)
+    )
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
     # Put the effective inputs in the problem before solve dispatch so scalar-type
     # changes (e.g. Float64 to Dual) retain an inferable solution type.
@@ -268,8 +273,9 @@ $(SIGNATURES)
 
 Count scalar state and parameter matching residuals for the cached segment grid in
 `st.timestops`, without running the model. Each tunable initial condition contributes
-one residual at each matching segment start, including the problem start when
-scheduled. Each inserted interval of a tunable parameter adds one matching residual,
+one residual at each matching segment start strictly after the global problem
+start. Assignments at the global start are free initial values. Each inserted
+interval of a tunable parameter adds one matching residual,
 counted once regardless of other segment boundaries within that interval. Original
 parameter switches, fixed assignments, and resets at the final endpoint contribute none.
 
@@ -284,6 +290,7 @@ function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
         ic isa InitialCondition || continue
         state = st.initialcondition.initialconditions[name]
         for i in firstindex(st.timestops):(lastindex(st.timestops) - 1)
+            st.timestops[i] == first(layer.problem.tspan) && continue
             n += resets_variable(ic, state, st.timestops[i])
         end
     end

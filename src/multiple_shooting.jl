@@ -6,8 +6,9 @@ Accept a problem and algorithm, or an existing `ShootingLayer`, followed by shoo
 points as a vector or positional arguments. Every state, including quadratures,
 is lifted at interior shooting points. `ensemble_alg` selects block execution.
 
-The returned layer uses the native per-variable parameter layout and initial-state
-matching residuals. Parameters and controls remain shared across shooting blocks.
+The returned layer uses the native per-variable parameter layout, free tunable
+initial values, and interior matching residuals. Parameters and controls remain
+shared across shooting blocks.
 Legacy stage-parameter/control lifting and whole-layer `initialization` callbacks
 are not restored; express initial guesses through annotation defaults instead.
 """

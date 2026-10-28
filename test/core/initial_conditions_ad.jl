@@ -6,7 +6,7 @@ import SciMLBase
     prob = ODEProblem((u, p, t) -> ones(2), [1.0, 2.0], (0.0, 4.0), [0.0])
     layer = InitialConditions(prob, Tunable(1) => [1.0, 3.0], Constant(2) => [2.0])
     ps, st = LuxCore.setup(MersenneTwister(1), layer)
-    function objective(q)
+    function objective(q, matching = true)
         params = (;
             initialconditions = (;
                 u₁ = (; lookup = ps.initialconditions.u₁.lookup, parameter = (; ps = q[1:2])),
@@ -23,7 +23,7 @@ import SciMLBase
             ),
         )
         sum((0.0, 1.0, 2.0, 3.0)) do t
-            (u, residuals), _ = layer((q[3:4], t), params, states)
+            (u, residuals), _ = layer((q[3:4], t), params, states; matching)
             sum(abs2, u) + sum(abs2, residuals)
         end
     end
@@ -34,6 +34,9 @@ import SciMLBase
     @test ForwardDiff.gradient(objective, q) ≈ expected
     @test ReverseDiff.gradient(objective, q) ≈ expected
     @test only(Zygote.gradient(objective, q)) ≈ expected
+    for gradient in (ForwardDiff.gradient, ReverseDiff.gradient, (f, q) -> only(Zygote.gradient(f, q)))
+        @test gradient(q -> objective(q, false), q) ≈ [20.0, 60.0, 16.0, 30.0, 40.0]
+    end
 end
 
 @testset "ForwardDiff with the first lifted value after the start" begin

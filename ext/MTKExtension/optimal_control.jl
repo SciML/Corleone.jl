@@ -6,6 +6,7 @@ System `costs` are summed. Definite time integrals introduce quadrature states;
 timed state/control reads use the shared trajectory expression evaluator.
 Equations become zero equalities and inequalities become residuals bounded above
 by zero. State and parameter bounds come from MTK metadata.
+States marked `tunable = true` receive a free initial value at `tspan[1]`.
 
 Pass controls as `input => timegrid`. A leading `tspan[1]` is accepted for
 compatibility with interval-start grids; remaining entries are interior switches.
@@ -71,7 +72,7 @@ function Corleone.CorleoneDynamicOptProblem(
         compiled, inits, tspan; check_compatibility = false, sensealg,
         problem_kwargs..., build_initializeprob = false
     )
-    resets = isnothing(shooting) ? [] : sort!(unique!(filter(t -> lo < t < hi, collect(shooting))))
+    resets = isnothing(shooting) ? typeof(lo)[] : sort!(unique!(filter(t -> lo < t < hi, collect(shooting))))
     annotations = Corleone.Annotations(
         compiled; u0 = prob.u0, p = prob.p, controls = inputs,
         lift_states = !isempty(resets)
@@ -96,8 +97,9 @@ function Corleone.CorleoneDynamicOptProblem(
         push!(definitions, annotation => grid)
     end
     for annotation in annotations.variables
-        isempty(resets) && continue
-        push!(definitions, annotation => resets)
+        grid = ModelingToolkit.istunable(annotation.sym, false) ? vcat([lo], resets) : resets
+        isempty(grid) && continue
+        push!(definitions, annotation => grid)
     end
     layer = ShootingLayer(
         prob, algorithm, definitions...; ensemblealg,

@@ -154,3 +154,49 @@ end
     @test length(gradient) == 120
     @test all(isfinite, gradient)
 end
+
+@testset "Tunable MTK initial values" begin
+    @variables free_state(..) = 0.5 [tunable = true, bounds = (0.3, 1.0)]
+    @variables fixed_state(..) = 0.7 [tunable = false]
+    @parameters rate = 0.0 [tunable = false]
+    @named initial_system = System(
+        [D(free_state(t)) ~ rate * free_state(t), D(fixed_state(t)) ~ rate * fixed_state(t)],
+        t; costs = [free_state(1.0)^2]
+    )
+    model = CorleoneDynamicOptProblem(initial_system, []; algorithm = Tsit5(), tspan = (0.0, 1.0))
+    free_name = Symbol(free_state(t))
+    @test model.ps.initialcondition.initialconditions[free_name].parameter.ps == [0.5]
+    @test isempty(model.ps.initialcondition.initialconditions[Symbol(fixed_state(t))])
+    @test model.nshooting == 0
+    @test isempty(model.lcons)
+    opt = OptimizationProblem(model, AutoForwardDiff())
+    @test opt.u0 == [0.5]
+    @test opt.lb == [0.3]
+    @test opt.ub == [1.0]
+    _, reconstruct = pack(Val(:ComponentArrays), model.ps)
+    current = reconstruct([0.8])
+    trajectory, _ = model.layer(nothing, current, model.st)
+    @test trajectory[free_state(t)] ≈ [0.8, 0.8]
+    @test trajectory[fixed_state(t)] ≈ [0.7, 0.7]
+    @test isempty(shooting_constraints(trajectory))
+    @test optimization_objective(model, current) ≈ 0.64
+    @test ForwardDiff.gradient(q -> optimization_objective(model, reconstruct(q)), [0.8]) ≈ [1.6]
+    solution = solve(opt, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-8, hessian_approximation = "limited-memory")
+    @test SciMLBase.successful_retcode(solution)
+    @test only(solution.u) ≈ 0.3 atol = 1.0e-6
+
+    for ensemblealg in (EnsembleSerial(), EnsembleThreads())
+        multiple = CorleoneDynamicOptProblem(
+            initial_system, []; algorithm = Tsit5(), tspan = (0.0, 1.0),
+            shooting = [0.0, 0.5], ensemblealg
+        )
+        @test multiple.ps.initialcondition.initialconditions[free_name].parameter.ps == [0.5, 0.5]
+        @test multiple.nshooting == 2
+        ps = deepcopy(multiple.ps)
+        ps.initialcondition.initialconditions[free_name].parameter.ps[1] = 0.8
+        trajectory, _ = multiple.layer(nothing, ps, multiple.st)
+        @test isempty(first(trajectory.residuals))
+        @test length(shooting_constraints(trajectory)) == 2
+        @test sort(shooting_constraints(trajectory)) ≈ [-0.3, 0.0] atol = 1.0e-12
+    end
+end
