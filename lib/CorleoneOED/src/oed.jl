@@ -353,3 +353,20 @@ function global_information_gain(oed::OEDLayer, x, ps, st)
     values = oed.measurements.observed.local_information_gain(traj)
     return map(J -> [(J[i:i, :] * inverse)' * (J[i:i, :] * inverse) for i in axes(J, 1)], values), next_st
 end
+
+# Keep the mask in the native Lux tree and let the chosen vectorizer flatten it.
+function sampling_integrality!(mask, layer::OEDLayer)
+    ids = (map(m -> m.id, layer.measurements.discrete)..., map(m -> m.id, layer.measurements.continuous)...)
+    for (name, pc) in pairs(layer.shooting.parameter.parameters)
+        pc isa Corleone.FixedLayer && continue
+        child = getproperty(mask.parameter.parameters, name).parameter
+        if pc.parameter isa NamedTuple
+            for id in keys(pc.parameter)
+                id in ids && (getproperty(child, id).ps .= true)
+            end
+        elseif name in ids
+            child.ps .= true
+        end
+    end
+    return mask
+end

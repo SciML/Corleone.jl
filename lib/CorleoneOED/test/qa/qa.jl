@@ -62,6 +62,8 @@ run_qa(
                 :FixedLayer, :PassThrough, :Tunable, :canonicalize,
                 :getdefaultval, :setdefaultval, :variables, :jacobian,
                 :get_timestops, :is_tunable, :parameter_values_at_time,
+                :optimization_schedule, :optimization_matching, :optimization_matching!,
+                :parameter_bound_tree,
             ),
         ),
     ),

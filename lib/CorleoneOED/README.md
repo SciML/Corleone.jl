@@ -62,7 +62,9 @@ optimal_trajectory, _ = design(nothing, reconstruct(result.u), st)
 ```
 
 The convenience constructor `OptimizationProblem(design, ACriterion(); ps, st, M)`
-also supports `integer_weights=true`, which marks measurement weights only. Choose
+also supports `integer_weights=true`, which marks measurement weights only. Both
+forms use the core SciMLBase bridge; no OED Optimization extension is required.
+Integrality masks use the same vectorizer as parameters and bounds. Choose
 an integer-capable solver for that option. The relaxed problem works with Ipopt.
 
 Bounds use `get_bounds(design, ps, st)`. Sampling-budget bounds `M` are ordered

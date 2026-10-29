@@ -113,3 +113,14 @@ function update_fim(multi::MultiExperimentLayer, experiments, st)
     return merge(st, (; F_init = st.F_init + added))
 end
 update_fim(multi::MultiExperimentLayer, experiments) = update_fim(multi, experiments, LuxCore.initialstates(Random.default_rng(), multi))
+
+Corleone.optimization_schedule(::MultiExperimentLayer, st) = map(state -> state.timestops, st.experiments)
+Corleone.optimization_matching(layer::MultiExperimentLayer, trajectories::NamedTuple) = shooting_constraints(layer, trajectories)
+Corleone.optimization_matching!(res, layer::MultiExperimentLayer, trajectories::NamedTuple) = shooting_constraints!(res, layer, trajectories)
+
+function sampling_integrality!(mask, layer::MultiExperimentLayer)
+    for name in keys(layer.experiments)
+        sampling_integrality!(getproperty(mask.experiments, name), layer.experiments[name])
+    end
+    return mask
+end

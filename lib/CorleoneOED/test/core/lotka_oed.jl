@@ -17,6 +17,15 @@ res = zeros(3)
         design = lotka_layer(; discrete, fixed, shooting)
         opt = OptimizationProblem(design, ACriterion(); M = [4.0, 4.0], integer_weights = integer_sampling)
         @test (isnothing(opt.int) ? 0 : sum(opt.int)) == (integer_sampling ? length(tgrid1) + length(tgrid2) : 0)
+        if discrete && integer_sampling && !fixed && !shooting
+            ps, st = LuxCore.setup(StableRNG(1), design)
+            packed = OptimizationProblem(
+                design, ACriterion();
+                ps = ComponentArray(ps), st, M = [4.0, 4.0], integer_weights = true
+            )
+            @test packed.int == opt.int
+            @test packed.u0 == opt.u0
+        end
     end
 end
 @testset "Single experiments" begin
@@ -95,6 +104,11 @@ end
                 M = fill(discrete ? 12.0 : 4.0, 4), integer_weights = true
             )
             @test sum(integer_problem.int) == 4length(grids[1])
+            packed_integer = OptimizationProblem(
+                multi, ACriterion();
+                ps = ComponentArray(ps), st, M = fill(discrete ? 12.0 : 4.0, 4), integer_weights = true
+            )
+            @test packed_integer.int == integer_problem.int
         end
     end
 end

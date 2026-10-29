@@ -341,3 +341,19 @@ function add_parameter_segments!(layer::ShootingLayer, ps, st)
     next_st = merge(st, (; parameter = state, timestops = tstops))
     return next_ps, next_st
 end
+
+optimization_grid(layer::ShootingLayer, st, timepoints) = expression_evaluation_grid(layer, st, timepoints)
+optimization_schedule(::ShootingLayer, st) = st.timestops
+optimization_state(::ShootingLayer, st, grid) = merge(st, (; timestops = grid))
+optimization_prediction(layer::ShootingLayer, ps, st, grid) = first(layer((layer.problem, grid), ps, st))
+
+function trajectory_objective(layer::ShootingLayer, loss)
+    if isnothing(loss)
+        symbols = Tuple(quadrature_symbols(layer.sys))
+        isempty(symbols) && throw(ArgumentError("Supply an objective or declare quadrature states."))
+        return sum ∘ getsym(layer.sys, symbols) ∘ terminal_optimization_sample
+    elseif loss isa Union{Symbol, Integer}
+        return getsym(layer.sys, loss) ∘ terminal_optimization_sample
+    end
+    return loss
+end

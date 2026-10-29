@@ -38,7 +38,8 @@ update_fim
 ## Optimization facade
 
 ```@docs
-Corleone.CorleoneDynamicOptProblem(::OEDLayer)
+Corleone.CorleoneDynamicOptProblem(::Union{OEDLayer,MultiExperimentLayer})
+CorleoneOED.SciMLBase.OptimizationProblem(::Union{OEDLayer,MultiExperimentLayer}, ::AbstractCriterion)
 ```
 
 ## Criteria

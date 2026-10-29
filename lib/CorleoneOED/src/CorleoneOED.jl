@@ -4,6 +4,7 @@ using ChainRulesCore: @non_differentiable
 using Reexport
 @reexport using Corleone
 @reexport using Symbolics
+using ADTypes: AutoForwardDiff
 using LuxCore
 using Random
 using SymbolicIndexingInterface
