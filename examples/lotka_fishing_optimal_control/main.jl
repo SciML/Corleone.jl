@@ -7,7 +7,7 @@
 #src icon: 🎣
 #src ---
 
-# ## [Lotka-Volterra Fishing Problem](@id lotka_fishing)
+# # [Lotka–Volterra Fishing Problem](@id lotka_fishing)
 # This example is based on the [Lotka-Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
 # ## [Setup](@id lotka_oc_setup)
@@ -37,7 +37,17 @@ Makie.inline!()
 # ## Lotka–Volterra Dynamics
 
 # The first two states are prey and predator populations. The third accumulates
-# their squared deviations from one. The first parameter is fishing intensity.
+# their squared deviations from one. The second parameter is fishing intensity;
+# the first and third are fixed interaction rates.
+
+# ```math
+# \begin{aligned}
+# \dot{x} &= x-xy-0.4vx, & x(0)&=0.5, \\
+# \dot{y} &= -y+xy-0.2vy, & y(0)&=0.7, \\
+# J &= \int_0^{12}\bigl((x-1)^2+(y-1)^2\bigr)\,dt, & 0&\le v\le1.
+# \end{aligned}
+# ```
+# Here `v` is the fishing control, stored as `p[2]` in the numerical model.
 
 function lotka_dynamics(du, u, p, t)
     du[1] = u[1] - p[1] * prod(u[1:2]) - 0.4 * p[2] * u[1]
@@ -82,9 +92,11 @@ uopt = solve(
     max_iter = 300,
     print_level = 3
 );
+@assert successful_retcode(uopt)
 
 # Reconstruct the optimized parameters and plot the trajectory.
-optimized_parameters = opt.f.f.reconstruct(uopt.u)
+_, reconstruct = pack(default_vectorizer(), dynprob.ps)
+optimized_parameters = reconstruct(uopt.u)
 optsol, _ = layer(nothing, optimized_parameters, opt.p)
 trajectoryplot(optsol)
 
@@ -104,7 +116,7 @@ initial_conditions = (
 mslayer = ShootingLayer(
     prob, Tsit5(), first(control) => collect(0.25:0.25:11.75), physical_parameters...,
     initial_conditions...; ensemblealg = EnsembleThreads(),
-    controls = [1], quadratures = [3]
+    controls = [2], quadratures = [3]
 )
 
 # Initialize controls to one and lifted states to the corresponding ODE initial values.
@@ -132,8 +144,16 @@ ms_uopt = solve(
     max_iter = 1000,
     print_level = 5
 );
+@assert successful_retcode(ms_uopt)
 
 # Reconstruct the optimized parameters and plot the trajectory.
-optimized_parameters = ms_opt.f.f.reconstruct(ms_uopt)
+_, reconstruct_ms = pack(default_vectorizer(), ms_dynprob.ps)
+optimized_parameters = reconstruct_ms(ms_uopt.u)
 ms_optsol, _ = mslayer(nothing, optimized_parameters, ms_opt.p)
 trajectoryplot(ms_optsol)
+
+# Matching residuals measure feasibility of the lifted states and inserted control
+# intervals. The single- and multiple-shooting problems use different control
+# grids, and this multiple-shooting model also bounds its lifted states (including
+# the quadrature) by two. Their objective values need not coincide.
+maximum(abs, shooting_constraints(ms_optsol))

@@ -5,7 +5,8 @@ A Lux layer that solves a differential equation in segments separated by paramet
 switches and initial-condition resets. Calling with `(input, ps, st)` returns
 `(trajectory, next_st)`, with reset residuals stored in `trajectory.residuals`.
 A tunable assignment at the global problem start is a free initial value and
-produces no matching residual. Interior assignments retain matching residuals.
+produces no matching residual. Active tunable interior assignments produce matching
+residuals; fixed resets do not. Assignments at the final time create no outgoing segment.
 A differential equation problem can be supplied as `input`; other inputs use the
 stored problem. A `(problem, tstops)` tuple supplies an explicit segment grid.
 

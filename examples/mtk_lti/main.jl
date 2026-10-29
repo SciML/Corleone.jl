@@ -8,7 +8,7 @@
 #src icon: 🎛️
 #src ---
 
-# ## [LTI Control with Unknown Coefficients](@id mtk_lti)
+# # [LTI Control with Unknown Coefficients](@id mtk_lti)
 # We jointly optimize a scalar input and three constant coefficients in
 # ``\dot{x} = A x + b u``, with ``x(0)=0`` and
 # ``x(10)=[3,1,-2]^T``. The objective is minimum control energy,
@@ -21,6 +21,13 @@ using ComponentArrays, ForwardDiff, Optimization, OptimizationMOI, Ipopt
 using LuxCore, Random, LinearAlgebra
 
 # ## Model
+# The state is ``x\in\mathbb{R}^3`` and the input is scalar. The matrix and input
+# vector are
+# ```math
+# A=\begin{bmatrix}0&1&0\\a_1&0&1\\0&0&a_2\end{bmatrix},
+# \qquad b=\begin{bmatrix}b_1\\0\\1\end{bmatrix}.
+# ```
+# Bounds are ``-0.5\le a_i\le-0.05``, ``0.1\le b_1\le1``, and ``|u|\le3``.
 # Only A[2,1], A[3,3], and b[1] are unknown. All other entries are fixed.
 # The physical initial state is fixed; interior shooting values remain tunable.
 # The MTK array `a` contains the two unknown entries of A. Corleone scalarizes
@@ -99,8 +106,9 @@ result = solve(
     optprob, Ipopt.Optimizer(); max_iter = 500, tol = 1.0e-7,
     hessian_approximation = "limited-memory", bound_relax_factor = 0.0, print_level = 0,
 )
-@assert Corleone.SciMLBase.successful_retcode(result)
-optimized = optprob.f.f.reconstruct(result.u)
+@assert successful_retcode(result)
+_, reconstruct = pack(default_vectorizer(), dynopt.ps)
+optimized = reconstruct(result.u)
 trajectory, _ = dynopt.layer(nothing, optimized, optprob.p)
 terminal_state = [last(trajectory[state]) for state in x]
 coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]))

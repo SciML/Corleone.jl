@@ -23,9 +23,10 @@ Each scalar collection stores one value per entry in `timegrid`, initialized fro
 a scalar, vector, or callback accepting `(rng, n::Int)` or
 `(rng, times::AbstractVector)`. Count callbacks take precedence;
 time-based callbacks receive the grid in its supplied order.
-Calling the layer with `(incoming_value, t)` returns the value at the matching grid
-index, or `incoming_value` when no time matches. A `nothing` grid is pass-through
-and allocates no trainable values.
+Calling with `(incoming, t)` returns `(value, next_st)`: a stored value at an exact
+grid match, otherwise the incoming value promoted to the parameter scalar type.
+Single-variable layers accept a scalar; shared-grid groups accept a vector in
+group order. A `nothing` grid has no reset entries and allocates no trainable values.
 
 # Fields
 $(FIELDS)

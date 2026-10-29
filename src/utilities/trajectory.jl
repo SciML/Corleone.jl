@@ -10,7 +10,9 @@ initial-condition residual vector per segment start. The trajectory stores `laye
 and its supplied Lux parameters `ps` and state `st`; parameter histories are evaluated
 on demand through `layer.parameter`, rather than stored separately. State samples
 are shared with the input solutions. Mutating `ps` or `st` changes subsequent parameter
-queries. Gradients through state values, residuals, and parameter values are
+queries without recomputing the saved states. Run the layer again after changing
+parameters when both histories must describe the same prediction.
+Gradients through state values, residuals, and parameter values are
 supported on a fixed time grid; layout and symbolic metadata are not differentiated.
 The symbolic cache is shared with `layer.sys` and exposed through
 `SymbolicIndexingInterface.symbolic_container`. Query controls, quadrature states,
@@ -27,7 +29,7 @@ $(FIELDS)
     u
     "The actual saved solution times, including both sides of reset boundaries."
     t
-    "Initial-condition residual vectors, one per segment start."
+    "State matching residual vectors per segment start; excludes on-demand parameter equalities."
     residuals
     "Indices in `u` and `t` of outgoing samples at initial-condition reset boundaries."
     reset_indices
@@ -35,7 +37,7 @@ $(FIELDS)
     layer
     "The supplied Lux parameters, retained by reference for parameter queries and AD."
     ps
-    "The supplied Lux state, retained by reference for parameter queries and AD."
+    "The Lux state used for parameter queries, retained by reference for AD."
     st
 end
 

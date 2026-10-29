@@ -26,9 +26,12 @@ variable_symbols(sys)     # the original state symbols
 ```
 
 The subsets accept symbols or original indices and are independent of whether a
-definition is tunable, fixed, or time dependent. They are explicit metadata;
-continuity constraints, accumulated-cost handling, and optimization bounds remain
-part of the user's objective and constraint definitions.
+definition is tunable, fixed, or time dependent. They are explicit metadata.
+`ShootingLayer` uses the bounds for tunable values, and the optimization facade
+can use terminal quadratures as its default objective. Marking a state as a
+quadrature does not add its integration equation or path constraints. See
+[shooting](@ref shooting_formulation) and
+[optimization contracts](optimization_contracts.md).
 
 `ShootingLayer` also accepts `bounds = Dict(:symbol => (lower, upper), ...)`.
 Annotations inherit missing bounds from this dictionary and override them when

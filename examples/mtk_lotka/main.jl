@@ -8,7 +8,7 @@
 #src icon: 🎣
 #src ---
 
-# ## [ModelingToolkit Integration](@id mtk)
+# # [ModelingToolkit Integration](@id mtk)
 # This tutorial models the [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
 # with [ModelingToolkit.jl](https://docs.sciml.ai/ModelingToolkit/stable/).
 # We solve it using single and multiple shooting, as in the
@@ -81,9 +81,11 @@ uopt = solve(
     hessian_approximation = "limited-memory",
     print_level = 3
 )
+@assert successful_retcode(uopt)
 
 # Restore the parameter structure, evaluate the optimized layer, and plot it.
-optimized_parameters = optprob.f.f.reconstruct(uopt.u)
+_, reconstruct = pack(default_vectorizer(), dynopt.ps)
+optimized_parameters = reconstruct(uopt.u)
 optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
 trajectoryplot(optsol)
 
@@ -114,8 +116,16 @@ optsol = solve(
     max_iter = 300,
     print_level = 3
 )
+@assert successful_retcode(optsol)
 
 # Reconstruct and plot the multiple-shooting solution in the same way.
-optimized_parameters = optprob.f.f.reconstruct(optsol.u)
+_, reconstruct_ms = pack(default_vectorizer(), dynopt.ps)
+optimized_parameters = reconstruct_ms(optsol.u)
 optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
 trajectoryplot(optsol)
+
+# Check continuity after optimization. Small residuals connect the lifted physical
+# states and quadrature; integration and optimizer tolerances are separate controls
+# on the numerical result. The two formulations use different control grids, so
+# their objective values are not an exact discretization-to-discretization check.
+maximum(abs, shooting_constraints(optsol))

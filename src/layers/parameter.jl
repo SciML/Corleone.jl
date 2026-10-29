@@ -22,7 +22,8 @@ $(SIGNATURES)
 
 Construct interval values on `timegrid` from a scalar, vector, or count/timepoint
 initializer as described by [`Tunable`](@ref). Each switching time belongs to the
-following interval. A `nothing` grid creates one value. Time-based callbacks require
+following interval. Supply switching times in sorted order. A `nothing` grid creates
+one value. Time-based callbacks require
 `initialization_times`, one per interval; `Parameter` supplies the problem start
 followed by the switching times. `cache` optionally caches time lookups. Output
 length and `bounds` are checked during Lux setup.
@@ -71,7 +72,7 @@ $(FIELDS)
     repack
     "Shared-grid parameter layers, keyed by the first member's symbol."
     parameters
-    "Original indices of the variables represented by each shared-grid layer."
+    "Original parameter indices represented by each shared-grid layer."
     indices
 end
 

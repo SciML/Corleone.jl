@@ -4,7 +4,9 @@
 
 `ShootingLayer` returns `(trajectory, state)`. Parameter switches and scheduled
 initial conditions split the solve into segments. Only active, non-fixed initial
-conditions contribute matching residuals. See [Parallel shooting](parallel_shooting.md)
+conditions at interior segment starts contribute matching residuals. Tunable global
+initial values are free; final-time assignments create no segment. See the
+[shooting formulation](@ref shooting_formulation), [Parallel shooting](parallel_shooting.md)
 for independent block execution and [Automatic differentiation backends](automatic_differentiation.md)
 for tested gradient configurations. Segment boundaries are cached in
 `st.timestops` during setup and retained in the returned state. After changing a
@@ -41,6 +43,8 @@ Saved states and times are available as `trajectory.u` and `trajectory.t`, and
 initial-condition matching residuals as `trajectory.residuals`. Continuous segment
 handoffs are stored once; reset boundaries retain both sides, with
 `trajectory.reset_indices` pointing to the outgoing states.
+See the [trajectory guide](@ref trajectory_guide) for an executable reset example
+and the distinction between state and parameter grids.
 
 The trajectory retains the supplied layer, parameters, and Lux state by reference.
 Parameter queries evaluate `layer.parameter` using those objects. In-place changes

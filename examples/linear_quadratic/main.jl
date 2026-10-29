@@ -8,15 +8,16 @@
 #src icon: 🌊
 #src ---
 
-# ## [Linear Quadratic Regulator](@id linear_quad_reg)
+# # [Linear Quadratic Regulator](@id linear_quad_reg)
 
 # We control two linear states with a shared input. The cost penalizes the first
 # state's deviation from three and the control effort:
 
 # ```math
 # \begin{aligned}
-# \min_u & \int_0^{12} 10 (x_1 - 3)^2 + 0.1 u^2 \, dt \\
-# \text{s.t.} \quad & \dot{x}_i = -x_i + u, \quad i = 1, 2
+# \min_u & \int_0^{12} \bigl(10 (x_1 - 3)^2 + 0.1 u^2\bigr) \, dt \\
+# \text{s.t.} \quad & \dot{x}_i = -x_i + u, \quad i = 1, 2, \\
+# & x_1(0)=1,\quad x_2(0)=2.
 # \end{aligned}
 # ```
 
@@ -77,24 +78,31 @@ predictor = ShootingLayer(
 
 # Preview the trajectory with the initialized control.
 
-ps, st = LuxCore.setup(Random.default_rng(), predictor)
+ps, st = LuxCore.setup(MersenneTwister(42), predictor)
 solution, _ = predictor(nothing, ps, st)
 trajectoryplot(solution)
 
 # ## Optimize
 
-# Use the accumulated cost `u₃` at the final time as the objective. This constructor
-# initializes a new set of parameters and state for optimization.
+# Use the accumulated cost `u₃` at the final time as the objective. Retain the
+# seeded parameters and state from the preview as the optimization's initial guess.
 
 dynprob = CorleoneDynamicOptProblem(
-    predictor, :(u₃(12.0))
+    predictor, :(u₃(12.0)); ps, st
 )
 
 # OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
 opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
 usol = solve(opt, OptimizationLBFGSB.LBFGSB());
+@assert successful_retcode(usol)
 
 # Reconstruct the optimized parameters and plot the trajectory.
-optimized_parameters = opt.f.f.reconstruct(usol)
-optimized_solution, _ = predictor(nothing, optimized_parameters, st)
+_, reconstruct = pack(default_vectorizer(), dynprob.ps)
+optimized_parameters = reconstruct(usol.u)
+optimized_solution, _ = predictor(nothing, optimized_parameters, opt.p)
 trajectoryplot(optimized_solution)
+
+# The optimized first state approaches the target of three. The second state
+# follows the same input but does not enter the objective. This example uses an
+# unbounded piecewise-constant control; the random initial guesses are not bounds.
+usol.objective

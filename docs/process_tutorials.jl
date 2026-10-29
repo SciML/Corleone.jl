@@ -1,3 +1,5 @@
+using Base64: base64decode
+
 function extract_metadata(file_path)
     content = read(file_path, String)
     # Match the block between #src --- and #src ---
@@ -10,6 +12,22 @@ function extract_metadata(file_path)
     end
     # Try to get the first header for the title
     return nothing
+end
+
+# Keep plot data out of HTML pages and Documenter's text search index.
+function tutorial_figures(content, title, outpath, name)
+    index = 0
+    content = replace(
+        content, r"```@raw html\n<img [^\n]+>\n```" => block -> begin
+            image = match(r"src=\"data:image/png;base64,\s*([^\"]+)\"", block)
+            isnothing(image) && return block
+            index += 1
+            filename = "$name-figure-$index.png"
+            write(joinpath(outpath, filename), base64decode(image.captures[1]))
+            "![Trajectory plot for $title]($filename)"
+        end
+    )
+    return replace(content, "![](" => "![Trajectory plot for $title](")
 end
 
 function preprocess_script(content)
@@ -53,14 +71,16 @@ function make_tutorial(path)
     isfile(path) || return nothing
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
-    fname = replace(lowercase(get(something(metadata, Dict()), "title", first(splitext(scriptname)))), " " => "_")
+    title = get(something(metadata, Dict()), "title", first(splitext(scriptname)))
+    fname = replace(lowercase(title), " " => "_")
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
     Literate.markdown(
         path, outpath,
         execute = true,
         preprocess = preprocess_script,
-        flavor = Literate.CommonMarkFlavor(),
+        postprocess = content -> tutorial_figures(content, title, outpath, fname),
+        flavor = Literate.DocumenterFlavor(),
         name = fname
     )
     metadata = something(metadata, Dict("title" => fname))

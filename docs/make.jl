@@ -1,9 +1,8 @@
-using Pkg
-
-# Document the checked-out root package, independently of the sibling libraries.
-Pkg.develop(PackageSpec(path = joinpath(@__DIR__, "..")))
-
 using Documenter, Corleone
+
+realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) ||
+    error("Develop this checkout in the documentation environment before building; see docs/README.md.")
+
 using DocumenterCitations
 using Literate
 using Dates
@@ -35,12 +34,19 @@ makedocs(
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
             "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
         ],
-        "Initialization" => "initialization.md",
-        "Optimization Contracts" => "optimization_contracts.md",
-        "ModelingToolkit" => "modelingtoolkit.md",
-        "Automatic Differentiation" => "automatic_differentiation.md",
-        "Parallel Shooting" => "parallel_shooting.md",
-        "Symbolic Bookkeeping" => "symbolic_metadata.md",
+        "User Guide" => [
+            "Shooting Formulation" => "shooting.md",
+            "Trajectories" => "trajectories.md",
+            "Initialization" => "initialization.md",
+            "Optimization Contracts" => "optimization_contracts.md",
+            "ModelingToolkit" => "modelingtoolkit.md",
+            "Parallel Shooting" => "parallel_shooting.md",
+            "Symbolic Bookkeeping" => "symbolic_metadata.md",
+        ],
+        "Automatic Differentiation" => [
+            "Backend Guide" => "automatic_differentiation.md",
+            "Historical Validation" => "automatic_differentiation_history.md",
+        ],
         "References" => "references.md",
         "API" => "api.md",
         "Deprecated Constructors" => "legacy_constructors.md",

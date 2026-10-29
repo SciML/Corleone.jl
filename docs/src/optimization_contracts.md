@@ -3,8 +3,13 @@
 Corleone provides bounds and shooting-residual helpers independently of an optimizer
 or vectorization package. Bounds follow generic Lux models and their parameter
 structure; shooting-residual helpers apply to `ShootingLayer` and `Trajectory`.
-The prepared facade below adds objectives and path constraints, with an optional
-SciMLBase bridge with optional packing implementations. Optimizer block structure remains separate.
+The prepared facade adds objectives and sampled constraints. SciMLBase supplies
+the optimizer bridge, with parameter packing provided by extensions. Optimizer
+block structure remains separate.
+
+For the mathematical formulation and residual sign conventions, see
+[shooting](@ref shooting_formulation). For saved grids and reset sides, see
+[trajectories](@ref trajectory_guide).
 
 ## Variable bounds
 
@@ -290,7 +295,7 @@ packing implementation. Optimization.jl and a solver are needed to run the optim
 For example, with ADTypes/ForwardDiff and an installed optimizer:
 
 ```julia
-using Optimization, ComponentArrays, ADTypes, ForwardDiff
+using Optimization, ComponentArrays, ForwardDiff
 using OptimizationMOI, Ipopt
 
 optprob = OptimizationProblem(model, AutoForwardDiff(); vectorize = default_vectorizer())
