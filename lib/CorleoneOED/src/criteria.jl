@@ -3,6 +3,12 @@ $(TYPEDEF)
 
 Interface for an optimal-design criterion.
 
+Calling a criterion on an `AbstractMatrix` wraps it in `Symmetric`. Supply symmetric
+information; criteria do not regularize it or check positive definiteness.
+For a statistical covariance interpretation, positive-definite information is the
+relevant case. Inverse criteria require invertibility. See [criteria](@ref oed_criteria)
+for the exact definitions, which use neither logarithms nor dimension normalization.
+
 Concrete criteria must implement `(::MyCriterion)(F::Symmetric)` and return a scalar
 objective from a Fisher information matrix. The generic layer method calls
 `fisher_information(layer, x, ps, st)` and returns `(value, st)` while preserving the
@@ -11,6 +17,7 @@ mutate the layer state.
 
 # Example
 ```julia
+using CorleoneOED, LinearAlgebra
 struct TraceCriterion <: AbstractCriterion end
 (::TraceCriterion)(F::Symmetric) = tr(F)
 ```
@@ -31,7 +38,8 @@ struct DCriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
 Minimizes the largest eigenvalue of ``F^{-1}`` for a symmetric Fisher information
-matrix.
+matrix. It requires nonsingular information; repeated extreme eigenvalues can
+make the objective nondifferentiable.
 """
 struct ECriterion <: AbstractCriterion end
 """
@@ -46,7 +54,8 @@ Maximizes ``\\det(F)`` by minimizing its negative.
 struct FisherDCriterion <: AbstractCriterion end
 """
 $(TYPEDEF)
-Maximizes the smallest eigenvalue of `F` by minimizing its negative.
+Maximizes the smallest eigenvalue of `F` by minimizing its negative. Repeated
+smallest eigenvalues can make the objective nondifferentiable.
 """
 struct FisherECriterion <: AbstractCriterion end
 

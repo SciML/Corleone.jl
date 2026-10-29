@@ -9,7 +9,13 @@ physical states, parameter sensitivities, and the upper triangle of the continuo
 Fisher information matrix. Discrete observations are accumulated on demand.
 
 Call `OEDLayer(problem, algorithm, definitions...; params, measurements, kwargs...)`
-or wrap an existing `ShootingLayer`. Unspecified physical parameters are fixed at
+or wrap an existing `ShootingLayer`. `params` defaults to every original physical
+parameter index and accepts a nonempty, unique sequence of indices or symbols.
+`measurements` is a tuple/collection of [`ContinuousMeasurement`](@ref) and/or
+[`DiscreteMeasurement`](@ref) specifications. Physical states and parameters must
+be vectors; the RHS and observations must accept symbolic inputs.
+
+With the default `fixed_parameters=nothing` policy, unannotated physical parameters are fixed at
 their nominal values; explicit annotations select design variables. All measurement
 weights are tunable in `[0, 1]`. `params` selects the physical parameters whose
 sensitivities define the information matrix, independently of their tunability.
@@ -18,21 +24,41 @@ Lux parameters retain the shooting layer's layout. State additionally stores
 `F_init`, a prior information matrix, included once by `fisher_information`.
 Evaluation returns `(trajectory, next_st)` and preserves derivatives through
 current parameters and numerical state. Full physical-state shooting resets also
-lift the sensitivity and information states, with ordinary continuity constraints.
+lift the sensitivity and continuous-information states at interior full-state
+resets, with ordinary continuity constraints. Prescribed physical resets after the
+initial time are rejected because sensitivity jump maps are not provided.
+
+`svd=false` uses the identity on `params`. With `svd=true`, `ns` selects the number
+of nominal singular-vector directions; otherwise `threshold_singular_values=0.95`
+selects by cumulative squared singular values. `threshold_singular_vectors=0.1`
+zeros rows whose retained entries are all at or below that magnitude. Both
+thresholds lie in `[0,1)`; the resulting basis need not be orthonormal. See
+[SVD reduction](@ref oed_svd) for the reference surrogate and approximation limits.
+
+`controls`, `quadratures`, and `bounds` retain the root symbolic-metadata contracts;
+measurement weights are marked as controls automatically. `ensemblealg` selects
+the underlying shooting execution algorithm. `fixed_parameters` explicitly
+overrides the default fixed-index selection. Wrapping a `ShootingLayer` preserves
+its annotation schedules, initializers, bounds, and execution algorithm.
+
+Trajectories reference the underlying shooting layer and the supplied parameter
+and state containers. Parameter histories are queried on demand: mutating those
+containers changes later parameter queries without recomputing saved states.
+Re-evaluate after a numerical change when both must describe the same experiment.
 
 # Fields
 $(FIELDS)
 """
 struct OEDLayer{L, P, M, I, B} <: LuxCore.AbstractLuxWrapperLayer{:shooting}
-    "The augmented shooting layer."
+    "The augmented shooting layer used for execution and retained by trajectories."
     shooting::L
     "The augmented differential equation problem, shared with `shooting.problem`."
     augmented_prob::P
     "Discrete/continuous measurement specifications and numerical observation getters."
     measurements::M
-    "Original physical parameter indices in sensitivity-column order."
+    "Original estimated physical parameter indices, in the requested coordinate order."
     params::I
-    "The fixed parameter-direction basis; identity without SVD reduction."
+    "The fixed `length(params) × n_s` direction basis; identity without SVD reduction."
     basis::B
 end
 
@@ -189,9 +215,22 @@ end
 """
 $(SIGNATURES)
 
-Return continuous plus discrete Fisher information from an existing trajectory,
-without solving again. Weights multiply information linearly. Include `st.F_init`
-once unless `add_initial=false`. Layer calls return `(F, next_st)`.
+Return an `n_s × n_s` information matrix from `fisher_information(oed, trajectory)`
+without another solve. Combine the terminal continuous contribution and discrete
+`w * J'J` event contributions. For a vector measurement, all rows share its weight.
+Discrete events use the last saved sample at their exact time (post-reset when
+both sides are saved). Missing saved event times raise `ArgumentError`.
+
+Include the trajectory's current `st.F_init` once unless `add_initial=false`.
+Saved states and queried parameters must describe the same prediction: numerical
+parameter/state mutations after solving are visible to on-demand parameter queries.
+This function does not mutate the prior or trajectory.
+
+`fisher_information(layer, x, ps, st; add_initial=true)` solves once and returns
+`(F, next_st)`. For a [`MultiExperimentLayer`](@ref), `F` uses the sorted union of
+estimated physical coordinates; local priors are excluded and the supplied global
+`st.F_init` is added once. Its size is `length(layer.params)` in each dimension.
+A single SVD-reduced experiment instead returns information in its `n_s` directions.
 """
 function fisher_information(oed::OEDLayer, traj::Trajectory; add_initial = true)
     F = last(oed.measurements.observed.fisher(traj)) + discrete_information(oed, traj)
@@ -205,9 +244,14 @@ end
 """
 $(SIGNATURES)
 
-Return the saved physical-state sensitivity matrices, with one column per selected
-parameter direction. With `svd=true`, columns use `oed.basis`. The four-argument
-form solves once and returns `(matrices, next_st)`.
+Return one `n_x × n_s` physical-state sensitivity matrix per saved augmented
+state, including both saved sides of shooting resets. Columns use `oed.basis`;
+without reduction they follow `oed.params`. These are sensitivities to estimated
+physical parameter directions, not AD derivatives with respect to design variables.
+
+The trajectory form uses saved augmented states without solving. The four-argument
+form solves once and returns `(matrices, next_st)`. Initial parameter sensitivities
+are zero; estimated initial-condition sensitivities are not included.
 """
 sensitivities(oed::OEDLayer, traj::Trajectory) = oed.measurements.observed.sensitivities(traj)
 function sensitivities(oed::OEDLayer, x, ps, st)
@@ -217,10 +261,15 @@ end
 """
 $(SIGNATURES)
 
-Return measurement outputs at each saved state time, ordered continuous then
-discrete. Vector-valued measurements contribute consecutive entries. This does
-not select discrete measurement events; use each measurement's `tpoints` for those.
-The four-argument form returns `(outputs, next_st)`.
+Return one flat observation vector per saved state, continuous measurements first
+and discrete measurements second, retaining declaration order within each kind.
+A vector-valued measurement contributes consecutive rows in its output order.
+Both saved sides of a reset are returned; this function does not select only the
+discrete events. Discrete information extraction selects their post-reset samples.
+
+Evaluate observation maps with saved states and current, on-demand physical
+parameters. Keep the trajectory's parameter/state containers consistent with its
+saved states. The four-argument form solves once and returns `(outputs, next_st)`.
 """
 observed_equations(oed::OEDLayer, traj::Trajectory) = map(
     vcat,
@@ -236,7 +285,10 @@ end
 $(SIGNATURES)
 
 Return the sum of the event weights for each discrete measurement. Pass a
-trajectory, or a callable `lookup(id, time)`. Measurements retain their declared order.
+trajectory, or a callable `lookup(id, time)`. Return a vector in discrete declaration
+order; an empty discrete measurement tuple returns an empty vector. Initial/final
+measurements contribute normally. The trajectory form queries current weights
+without another solve; values between the declared events do not contribute.
 """
 function discrete_sampling_sums(oed::OEDLayer, lookup)
     return collect(
@@ -250,7 +302,10 @@ $(SIGNATURES)
 
 Integrate each continuous measurement's piecewise-constant weight over the full
 problem time span. Pass a trajectory, or `lookup(id, time)` and the sorted interval
-boundaries. Measurements retain their declared order.
+boundaries covering the problem span. Return a vector in continuous declaration
+order; an empty continuous tuple returns an empty vector. Each interval uses its
+left endpoint's right-continuous weight. The trajectory form obtains boundaries
+from the current parameter schedule; neither form performs an ODE solve.
 """
 function continuous_sampling_sums(oed::OEDLayer, lookup, times)
     return collect(
@@ -279,7 +334,9 @@ $(SIGNATURES)
 Return sampling budgets, continuous measurements first and discrete measurements
 second. Continuous budgets are time integrals; discrete budgets are sums at
 measurement events. The four-argument form reads `ps` and `st` without solving
-the differential equation. Multi-experiment budgets concatenate experiment order.
+the differential equation; its `x` argument is unused. The trajectory form reads
+its retained parameter/state containers. Multi-experiment budgets concatenate
+experiment order. Return one scalar per measurement, not per observation row.
 """
 function sampling_sums(oed::OEDLayer, traj::Trajectory)
     lookup = (id, time) -> weight_at(oed, traj, id, time)
@@ -297,7 +354,9 @@ $(SIGNATURES)
 
 Write `sampling_sums(layer, args...)` into the prefix of `res` and return `res`.
 The buffer must have at least one entry per measurement; its remaining entries
-are unchanged.
+are unchanged. Throw `DimensionMismatch` for a shorter buffer. The buffer element
+type must accommodate the current numerical/AD values; the function does not solve
+when using the direct parameter/state form.
 """
 function sampling_sums!(res, oed::OEDLayer, args...)
     length(res) >= n_observed(oed) || throw(DimensionMismatch("Expected $(n_observed(oed)) sampling budgets."))
@@ -314,7 +373,11 @@ Return state with the information from completed experiments added to `F_init`.
 Each experiment supplies `ps` and may supply its own `st` (otherwise use `st`).
 Existing priors are excluded from each experiment's contribution to avoid counting
 them repeatedly. The two-argument form starts from freshly initialized state.
-An empty collection leaves state unchanged.
+An empty collection returns the original state. Otherwise return a merged state
+without mutating the destination prior. Every supplied record is re-evaluated;
+keep the parameters and state used by that completed experiment. Single-experiment
+priors use its direction coordinates; multi-experiment priors use the sorted union
+of physical coordinates. Numerical records are not detached from AD.
 """
 function update_fim(oed::OEDLayer, experiments, st)
     isempty(experiments) && return st
@@ -334,7 +397,10 @@ $(SIGNATURES)
 Solve once and return `(gains, next_st)`. Each saved time contains the unweighted
 outer products `J[i:i, :]' * J[i:i, :]` of individual observation-sensitivity rows,
 continuous observations first, then discrete observations. These are per output
-row, even when several rows share one measurement weight.
+row, even when several rows share one measurement weight. `gains[k][i]` is an
+`n_s × n_s` matrix for output row `i` at saved sample `k`. All saved times and
+both reset sides are included, not just discrete event times. Sum rows belonging
+to a vector measurement when interpreting its shared weight.
 """
 function local_information_gain(oed::OEDLayer, x, ps, st)
     traj, next_st = oed(x, ps, st)
@@ -347,7 +413,11 @@ $(SIGNATURES)
 Solve once and return `(gains, next_st)`. Each saved time contains per output-row
 matrices `(J[i:i, :] * inv(F))' * (J[i:i, :] * inv(F))`. Here `F` includes the prior
 and all continuous/discrete information and must be nonsingular. Their traces
-measure the marginal improvement in A-optimality before interval/event weighting.
+measure the magnitude of marginal improvement in A-optimality before interval/event
+weighting for symmetric information. Output nesting, row order, and reset-side
+behavior match [`local_information_gain`](@ref); sum a vector measurement's rows
+for its shared weight. This uses current prior information and performs no
+additional solve after the single trajectory evaluation.
 """
 function global_information_gain(oed::OEDLayer, x, ps, st)
     traj, next_st = oed(x, ps, st)

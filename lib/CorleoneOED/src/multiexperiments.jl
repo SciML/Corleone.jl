@@ -8,6 +8,19 @@ contribute their information projected back through their fixed direction bases.
 
 Construct from a tuple/NamedTuple of OED layers, or `MultiExperimentLayer(oed, n)`.
 Different experiments must use the same meaning for each physical parameter index.
+Tuple inputs get names `experiment_1`, `experiment_2`, …; NamedTuples retain their
+names. `n` must be positive and the experiment collection must be nonempty.
+
+Evaluation returns `(named_trajectories, next_st)`. Parameters and state have named
+`experiments` subtrees; access them by `getproperty`. Iterating ComponentArrays
+instead yields numerical entries. Setup initializes independent numerical trees
+for repeated experiments, while the layer descriptions may be shared. Parameter
+buffers remain vector-based even though information is matrix-valued.
+
+The global prior has size `length(params) × length(params)`, in sorted union index
+order. Child priors are excluded from joint information. SVD embeddings project
+local reduced information into physical coordinates as an approximation; they do
+not recover discarded directions. See [multiple experiments](@ref oed_experiments).
 
 # Fields
 $(FIELDS)
