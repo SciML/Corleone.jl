@@ -10,6 +10,6 @@ grids = BenchmarkGrids(;
 # Start with the LQR benchmark. Use load_benchmarks() for the complete catalog.
 benchmarks = filter(benchmark -> nameof(benchmark) == :lqr, load_benchmarks())
 # Integration accuracy must resolve the requested optimization tolerance.
-model_kwargs = (; problem_kwargs = (; abstol = 1e-10, reltol = 1e-10))
+model_kwargs = (; problem_kwargs = (; abstol = 1.0e-10, reltol = 1.0e-10))
 results = run_all(benchmarks, Ipopt.Optimizer(), grids; model_kwargs, print_level = 0)
 println(results)
