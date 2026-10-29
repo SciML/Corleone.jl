@@ -111,6 +111,27 @@ end
     @test forward_initialization(rng, plain, plain_ps, plain_st) === plain_ps
 end
 
+@testset "Initialization from variable-value pairs" begin
+    rng = MersenneTwister(42)
+    prob = ODEProblem((u, p, t) -> p .* u, [1.0, 2.0], (0.0, 2.0), [0.2, -0.1])
+    layer = ShootingLayer(prob, Tsit5(), Tunable([1, 2]; kind = Val(:variable)) => [0.5, 1.5])
+    ps, st = LuxCore.setup(rng, layer)
+    before_st = deepcopy(st)
+    x = ps.initialcondition.initialconditions.u₁.parameter.u₁.ps
+    y = ps.initialcondition.initialconditions.u₁.parameter.u₂.ps
+    # Pair order is independent of variable order; the final duplicate wins.
+    @test constant_initialization(rng, layer, ps, st; u0 = (2 => 4.0, 1 => 9.0, 1 => 3.0)) === ps
+    @test x == [3.0, 3.0] && y == [4.0, 4.0]
+    linear_initialization(rng, layer, ps, st; u0 = [2 => 2.0, 1 => 1.0], u_infinity = (2 => 6.0, 1 => 5.0))
+    @test x == [2.0, 4.0] && y == [3.0, 5.0]
+    custom_initialization(rng, layer, ps, st; u0s = [2 => [7.0, 8.0]], variables = 2)
+    @test x == [2.0, 4.0] && y == [7.0, 8.0]
+    @test_throws DimensionMismatch custom_initialization(rng, layer, ps, st; u0s = (1 => [0.0],), variables = 1)
+    @test x == [2.0, 4.0] && y == [7.0, 8.0]
+    @test ps.initialcondition.initialconditions.u₁.parameter.u₁.ps === x
+    @test st == before_st
+end
+
 @testset "Forward initialization retains fixed and unselected resets" begin
     rng = MersenneTwister(12)
     prob = ODEProblem((u, p, t) -> [u[2], 0.0], [0.0, 1.0], (0.0, 3.0), Float64[])

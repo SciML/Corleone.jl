@@ -46,7 +46,7 @@ end
 
 function (pc::PiecewiseConstant)(t, ps, st)
     (; lookup, parameter) = pc
-    (idx, inserted), lookup_st = LuxCore.apply(lookup, t, ps.lookup, st.lookup)
+    (idx, _), lookup_st = LuxCore.apply(lookup, t, ps.lookup, st.lookup)
     params, parameter_st = apply_scalar_collections(parameter, idx, ps.parameter, st.parameter)
     return params, (; lookup = lookup_st, parameter = parameter_st)
 end
@@ -128,13 +128,7 @@ function Parameter(
     groups = group_scalar_collections(entries)
     parameters = map(groups) do group
         entry = first(group)
-        if length(group) == 1
-            pc = PiecewiseConstant(entry.name, LookUp(entry.grid, nothing), entry.parameter)
-            entry.name => (entry.fixed ? FixedLayer(pc) : pc)
-        else
-            children = NamedTuple(Tuple(item.name => (item.fixed ? FixedLayer(item.parameter) : item.parameter) for item in group))
-            entry.name => PiecewiseConstant(entry.grid, children; name = entry.name)
-        end
+        return shared_grid_layer(PiecewiseConstant, group, LookUp(entry.grid, nothing))
     end |> NamedTuple
     return Parameter(name, repack, parameters, Tuple([entry.index for entry in group] for group in groups))
 end

@@ -79,6 +79,18 @@ function group_scalar_collections(entries)
     return groups
 end
 
+# Singleton groups keep their existing parameter layout. Larger groups wrap
+# fixed scalar buffers individually so tunable and fixed values share a lookup.
+function shared_grid_layer(constructor, group, lookup)
+    entry = first(group)
+    if length(group) == 1
+        layer = constructor(entry.name, lookup, entry.parameter)
+        return entry.name => (entry.fixed ? FixedLayer(layer) : layer)
+    end
+    parameters = NamedTuple(Tuple(item.name => (item.fixed ? FixedLayer(item.parameter) : item.parameter) for item in group))
+    return entry.name => constructor(entry.name, lookup, parameters)
+end
+
 collection_permutation(indices) = sortperm(reduce(vcat, indices; init = Int[]))
 number_of_tunable_collections(::ParameterCollection) = 1
 number_of_tunable_collections(::FixedLayer) = 0

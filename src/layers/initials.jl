@@ -18,9 +18,10 @@ get_timestops(::PassThrough, ps, st, ::Type{T}) where {T} = T[]
 """
 $(TYPEDEF)
 
-Values for a single state variable at the specified times. There is one value per
-entry in `timegrid`, initialized from a scalar, vector, or callback accepting
-`(rng, n::Int)` or `(rng, times::AbstractVector)`. Count callbacks take precedence;
+Reset values for one state variable or a group sharing the same exact-time lookup.
+Each scalar collection stores one value per entry in `timegrid`, initialized from
+a scalar, vector, or callback accepting `(rng, n::Int)` or
+`(rng, times::AbstractVector)`. Count callbacks take precedence;
 time-based callbacks receive the grid in its supplied order.
 Calling the layer with `(incoming_value, t)` returns the value at the matching grid
 index, or `incoming_value` when no time matches. A `nothing` grid is pass-through
@@ -62,9 +63,8 @@ end
 
 
 function InitialCondition(timegrid::AbstractVector{<:Real}, parameters::NamedTuple; name = nothing, cache = nothing)
-    grid = isnothing(timegrid) ? Float64[] : timegrid
-    allunique(grid) || throw(ArgumentError("Initial-condition times must be unique."))
-    return InitialCondition(name, LookUp(Dict(t => i for (i, t) in enumerate(grid)), cache), parameters)
+    allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
+    return InitialCondition(name, LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache), parameters)
 end
 
 function LuxCore.initialstates(rng::Random.AbstractRNG, x::InitialCondition)
@@ -95,8 +95,6 @@ function (layer::InitialCondition)((incoming, t)::Tuple{<:AbstractVector, Any}, 
 end
 promote_reset_values(::Type{T}, values::Vector{T}) where {T} = values
 promote_reset_values(::Type{T}, values) where {T} = [T(value) for value in values]
-
-istypemax(x::V) where {V} = x === typemax(V)
 
 get_timestops(layer::InitialCondition, ps, st, ::Type{T}) where {T} =
     get_timestops(layer.lookup, nothing, st.lookup, T)
@@ -182,15 +180,9 @@ function InitialConditions(
     groups = group_scalar_collections(entries)
     conditions = map(groups) do group
         entry = first(group)
-        if isnothing(entry.parameter)
-            entry.name => PassThrough(entry.name)
-        elseif length(group) == 1
-            ic = InitialCondition(entry.name, LookUp(Dict(t => i for (i, t) in enumerate(entry.grid)), nothing), entry.parameter)
-            entry.name => (entry.fixed ? FixedLayer(ic) : ic)
-        else
-            children = NamedTuple(Tuple(item.name => (item.fixed ? FixedLayer(item.parameter) : item.parameter) for item in group))
-            entry.name => InitialCondition(entry.grid, children; name = entry.name)
-        end
+        isnothing(entry.parameter) && return entry.name => PassThrough(entry.name)
+        lookup = LookUp(Dict(t => i for (i, t) in enumerate(entry.grid)), nothing)
+        return shared_grid_layer(InitialCondition, group, lookup)
     end |> NamedTuple
     return InitialConditions(name, repack, conditions, Tuple([entry.index for entry in group] for group in groups))
 end
@@ -203,9 +195,6 @@ function get_timestops(layer::InitialConditions, ps, st, ::Type{T}) where {T}
     )
     return sort!(unique!(times))
 end
-
-
-is_active(::InitialCondition, st) = st.active
 
 
 initial_condition_activity(::PassThrough, st) = (false,)

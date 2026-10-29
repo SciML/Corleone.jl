@@ -4,7 +4,7 @@ function shooting_initialization_entries(layer::ShootingLayer, ps, st, variables
     selected = collect(variables isa Integer ? (variables,) : variables)
     all(i -> i in Base.OneTo(length(layer.problem.u0)), selected) ||
         throw(ArgumentError("Shooting variable indices must refer to problem states."))
-    parts = map(enumerate(keys(layer.initialcondition.initialconditions)) |> collect) do (group, key)
+    parts = map(collect(enumerate(keys(layer.initialcondition.initialconditions)))) do (group, key)
         ic = layer.initialcondition.initialconditions[key]
         ic isa InitialCondition || return []
         values = getproperty(ps.initialcondition.initialconditions, key).parameter
@@ -22,10 +22,9 @@ function shooting_initialization_entries(layer::ShootingLayer, ps, st, variables
     return sort!(reduce(vcat, parts; init = []); by = entry -> entry.index)
 end
 
-initialization_value(values::AbstractDict, i) = values[i]
-initialization_value(values::Tuple{Vararg{Pair}}, i) = Dict(values)[i]
-initialization_value(values::AbstractVector{<:Pair}, i) = Dict(values)[i]
-initialization_value(values, i) = values[i]
+# Normalize pair collections once, rather than rebuilding a dictionary at every reset.
+initialization_values(values::Union{Tuple{Vararg{Pair}}, AbstractVector{<:Pair}}) = Dict(values)
+initialization_values(values) = values
 
 function shooting_initialization_bounds(layer, i)
     symbol = only(filter(sym -> variable_index(layer.sys, sym) == i, variable_symbols(layer.sys)))
@@ -65,7 +64,8 @@ function constant_initialization(
         u0 = layer.problem.u0, variables = Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
-    set_shooting_guesses!(layer, entries, (i, t, j) -> initialization_value(u0, i))
+    values = initialization_values(u0)
+    set_shooting_guesses!(layer, entries, (i, t, j) -> values[i])
     return ps
 end
 
@@ -74,9 +74,9 @@ $(SIGNATURES)
 
 Omit `ps` and `st` to run `LuxCore.setup(rng, layer)` and return initialized `(ps, st)`.
 
-Set tunable shooting values from `u0s`, a dictionary (or indexable collection)
-mapping original variable indices to vectors in that variable's reset-grid index
-order. `variables` defaults to dictionary keys, or all variables for other
+Set tunable shooting values from `u0s`, a dictionary, collection of `index => values`
+pairs, or another indexable collection. Values are vectors in each variable's
+reset-grid index order. `variables` defaults to dictionary keys, or all variables for other
 collections. Update existing `ps` buffers and return `ps`; fixed values and `st`
 are unchanged. All selected vectors must match their current schedules.
 """
@@ -85,11 +85,12 @@ function custom_initialization(
         u0s, variables = u0s isa AbstractDict ? keys(u0s) : Base.OneTo(length(layer.problem.u0))
     )
     entries = shooting_initialization_entries(layer, ps, st, variables)
+    values = initialization_values(u0s)
     for entry in entries
-        length(initialization_value(u0s, entry.index)) == length(entry.values) ||
+        length(values[entry.index]) == length(entry.values) ||
             throw(DimensionMismatch("Expected $(length(entry.values)) guesses for variable $(entry.index)."))
     end
-    set_shooting_guesses!(layer, entries, (i, t, j) -> initialization_value(u0s, i)[j])
+    set_shooting_guesses!(layer, entries, (i, t, j) -> values[i][j])
     return ps
 end
 
@@ -100,7 +101,8 @@ Omit `ps` and `st` to run `LuxCore.setup(rng, layer)` and return initialized `(p
 
 Interpolate from `u0` (default: the problem initial state) to the required
 `u_infinity` over the problem time span. Sample each variable's current reset grid
-from `st`. Endpoints are vectors or dictionaries indexed by original variable.
+from `st`. Endpoints are vectors, dictionaries, or collections of `index => value`
+pairs indexed by original variable.
 Update tunable `ps` buffers and return `ps`. `variables` selects state indices;
 fixed values are unchanged. Bounds are validated before writing.
 """
@@ -112,10 +114,11 @@ function linear_initialization(
     entries = shooting_initialization_entries(layer, ps, st, variables)
     t0, tf = layer.problem.tspan
     tf > t0 || throw(ArgumentError("Linear initialization requires an increasing, nonempty time span."))
+    starts, stops = initialization_values(u0), initialization_values(u_infinity)
     set_shooting_guesses!(
         layer, entries, (i, t, j) -> begin
-            start = initialization_value(u0, i)
-            start + (initialization_value(u_infinity, i) - start) * (t - t0) / (tf - t0)
+            start = starts[i]
+            start + (stops[i] - start) * (t - t0) / (tf - t0)
         end
     )
     return ps

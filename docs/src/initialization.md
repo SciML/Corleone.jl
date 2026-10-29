@@ -145,6 +145,11 @@ that grid's value indices, as annotation defaults do. A dictionary passed to
 `custom_initialization` selects its keys by default. Initial conditions stored
 in Lux state through `Constant` are skipped by all helpers.
 
+Constant and linear endpoints also accept `index => value` pairs; custom guesses
+accept `index => vector` pairs. Pair order does not matter, and the last value for
+a repeated index is used. Pass `variables` explicitly to select only some states
+when supplying pairs.
+
 Forward initialization supports ODE problems and always solves sequentially,
 including for layers configured with a parallel ensemble algorithm. It preserves
 tunable assignments at the global start and fills selected interior and final
