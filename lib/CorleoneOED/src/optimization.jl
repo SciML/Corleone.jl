@@ -28,9 +28,8 @@ function Corleone.CorleoneDynamicOptProblem(
                 lcons, ucons = zeros(length(M)), collect(M)
             else
                 (isnothing(lcons) || isnothing(ucons)) && throw(ArgumentError("Supply bounds for the user constraints."))
-                lo = n == 1 ? (lcons,) : Tuple(lcons)
-                hi = n == 1 ? (ucons,) : Tuple(ucons)
-                length(lo) == length(hi) == n || throw(DimensionMismatch("Supply one bound subtree per user constraint."))
+                lo = Corleone.constraint_bound_entries(lcons, n)
+                hi = Corleone.constraint_bound_entries(ucons, n)
                 lcons, ucons = (lo..., zeros(length(M))), (hi..., collect(M))
             end
             constraints = (constraints..., trajectory -> sampling_sums(oed, trajectory))

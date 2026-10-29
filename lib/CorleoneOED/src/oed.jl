@@ -326,6 +326,8 @@ function update_fim(oed::OEDLayer, experiments, st)
 end
 update_fim(oed::OEDLayer, experiments) = update_fim(oed, experiments, LuxCore.initialstates(Random.default_rng(), oed))
 
+row_information(J) = [J[i:i, :]' * J[i:i, :] for i in axes(J, 1)]
+
 """
 $(SIGNATURES)
 
@@ -337,7 +339,7 @@ row, even when several rows share one measurement weight.
 function local_information_gain(oed::OEDLayer, x, ps, st)
     traj, next_st = oed(x, ps, st)
     values = oed.measurements.observed.local_information_gain(traj)
-    return map(J -> [J[i:i, :]' * J[i:i, :] for i in axes(J, 1)], values), next_st
+    return map(row_information, values), next_st
 end
 """
 $(SIGNATURES)
@@ -351,7 +353,7 @@ function global_information_gain(oed::OEDLayer, x, ps, st)
     traj, next_st = oed(x, ps, st)
     inverse = inv(fisher_information(oed, traj))
     values = oed.measurements.observed.local_information_gain(traj)
-    return map(J -> [(J[i:i, :] * inverse)' * (J[i:i, :] * inverse) for i in axes(J, 1)], values), next_st
+    return map(J -> row_information(J * inverse), values), next_st
 end
 
 # Keep the mask in the native Lux tree and let the chosen vectorizer flatten it.

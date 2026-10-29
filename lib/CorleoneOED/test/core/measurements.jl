@@ -86,3 +86,66 @@ end
     traj, _ = layer(nothing, ps, st)
     @test norm(shooting_constraints(traj)) < 1.0e-7
 end
+
+@testset "Mixed observation rows and direct parameter dependence" begin
+    problem = ODEProblem((u, p, t) -> p[1] .* u, [1.0], (0.0, 1.0), [-2.0]; abstol = 1.0e-11, reltol = 1.0e-11)
+    layer = OEDLayer(
+        problem, Tsit5(); measurements = (
+            ContinuousMeasurement(:vector_density, [0.5], (u, p, t) -> [u[1], p[1] * u[1]]),
+            ContinuousMeasurement(:scalar_density, [], (u, p, t) -> p[1]),
+            DiscreteMeasurement(:events, [0.0, 0.5, 1.0], (u, p, t) -> [u[1] + p[1], 2p[1]]),
+        )
+    )
+    ps, st = LuxCore.setup(Xoshiro(1), layer)
+    parameters = ps.parameter.parameters
+    parameters.vector_density.parameter.ps .= [0.2, 0.8]
+    parameters.scalar_density.parameter.ps .= 0.4
+    parameters.events.parameter.ps .= [0.3, 0.6, 0.9]
+    trajectory, _ = layer(nothing, ps, st)
+    # Integral of exp(-4t) * (t^2 + (1 - 2t)^2).
+    primitive(t) = exp(-4t) * (-5t^2 / 4 + 3t / 8 - 5 / 32)
+    continuous = [primitive(0.5) - primitive(0.0), primitive(1.0) - primitive(0.5)]
+    discrete = [(1 + t * exp(-2t))^2 + 4 for t in (0.0, 0.5, 1.0)]
+    reference = dot([0.2, 0.8], continuous) + 0.4 + dot([0.3, 0.6, 0.9], discrete)
+    @test only(fisher_information(layer, trajectory)) ≈ reference rtol = 1.0e-8
+    @test sampling_sums(layer, trajectory) ≈ [0.5, 0.4, 1.8]
+    @test sampling_sums(layer, nothing, ps, st) ≈ sampling_sums(layer, trajectory)
+    @test first(observed_equations(layer, trajectory)) == [1.0, -2.0, -2.0, -1.0, -4.0]
+
+    gains, _ = local_information_gain(layer, nothing, ps, st)
+    global_gains, _ = global_information_gain(layer, nothing, ps, st)
+    for (t, local_rows, global_rows) in zip(trajectory.t, gains, global_gains)
+        J = [t * exp(-2t), (1 - 2t) * exp(-2t), 1.0, 1 + t * exp(-2t), 2.0]
+        @test only.(local_rows) ≈ J .^ 2 rtol = 1.0e-8 atol = 1.0e-10
+        @test only.(global_rows) ≈ (J ./ reference) .^ 2 rtol = 1.0e-8 atol = 1.0e-10
+    end
+    q, reconstruct = pack(default_vectorizer(), ps)
+    loss(q) = only(first(fisher_information(layer, nothing, reconstruct(q), st)))
+    gradient = ForwardDiff.gradient(loss, q)
+    expected = zero(ComponentArray(ps))
+    expected.parameter.parameters.vector_density.parameter.ps .= continuous
+    expected.parameter.parameters.scalar_density.parameter.ps .= 1.0
+    expected.parameter.parameters.events.parameter.ps .= discrete
+    @test gradient ≈ collect(expected) rtol = 1.0e-8
+    gain_loss(q) = sum(first(global_information_gain(layer, nothing, reconstruct(q), st))) do rows
+        sum(only, rows)
+    end
+    @test ForwardDiff.gradient(gain_loss, q) ≈ -2gain_loss(q) / reference * collect(expected) rtol = 1.0e-8
+end
+
+@testset "Discrete observations select the outgoing reset state" begin
+    problem = ODEProblem((u, p, t) -> p[1] .* u, [1.0], (0.0, 1.0), [-2.0]; abstol = 1.0e-11, reltol = 1.0e-11)
+    reset = Tunable(1; kind = Val(:variable), default = 3.0) => [0.5]
+    layer = OEDLayer(
+        problem, Tsit5(), reset; measurements = (
+            DiscreteMeasurement(:event, [0.5], (u, p, t) -> p[1] * u[1]),
+        )
+    )
+    ps, st = LuxCore.setup(Xoshiro(1), layer)
+    trajectory, _ = layer(nothing, ps, st)
+    indices = findall(==(0.5), trajectory.t)
+    @test length(indices) == 2
+    @test first(trajectory.u[first(indices)]) ≈ exp(-1)
+    @test first(trajectory.u[last(indices)]) == 3.0
+    @test only(fisher_information(layer, trajectory)) ≈ 9.0
+end

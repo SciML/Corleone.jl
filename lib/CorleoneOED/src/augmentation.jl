@@ -19,13 +19,13 @@ function augment_system(
     p0, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
     parameters = Symbolics.setdefaultval.(parameters, p0)
     config = (;
-        symbolcache = sys, differential_vars = Symbolics.variable.(dstates),
+        differential_vars = Symbolics.variable.(dstates),
         vars = vars,
         parameters = parameters,
         independent_vars = Symbolics.variable.(ts),
     )
     config = symbolify_equations(prob, config; kwargs...)
-    config = add_observed_equations(prob, config; kwargs...)
+    config = add_observed_equations(config; kwargs...)
     if svd
         config = derive_sensitivity_equations(prob, config; basis = sensitivity_basis(prob, alg, config; kwargs...), kwargs...)
     else
@@ -36,7 +36,7 @@ function augment_system(
 end
 
 function symbolify_equations(prob::SciMLBase.AbstractDEProblem, config; kwargs...)
-    (; differential_vars, vars, parameters, independent_vars) = config
+    (; vars, parameters, independent_vars) = config
     f = prob.f
     eqs = if SciMLBase.isinplace(prob)
         out = zero(vars)
@@ -139,31 +139,43 @@ function derive_sensitivity_equations(
     )
 end
 
+# Trace each observation once and retain the row block sharing its weight.
+function measurement_expressions(measurements, vars, parameters, time)
+    outputs = map(measurements) do measurement
+        observation_values(measurement.observed(vars, parameters, time))
+    end
+    lengths = map(length, outputs)
+    ranges = map(cumsum(lengths), lengths) do stop, n
+        (stop - n + 1):stop
+    end
+    return reduce(vcat, outputs; init = Num[]), ranges
+end
+
 function add_observed_equations(
-        prob, config; continuous_measurements = ContinuousMeasurement[],
+        config; continuous_measurements = ContinuousMeasurement[],
         discrete_measurements = DiscreteMeasurement[], kwargs...
     )
-    (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
-
-    obs_cont = reduce(vcat, map(obs -> observation_values(obs.observed(vars, parameters, only(independent_vars))), continuous_measurements); init = Num[])
-    dobs_cont_dx = Symbolics.jacobian(obs_cont, vars)
-    lengths = map(obs -> length(observation_values(obs.observed(vars, parameters, only(independent_vars)))), continuous_measurements)
-    stops = cumsum(lengths)
-    ranges = [((stop - n + 1):stop) for (stop, n) in zip(stops, lengths)]
-    config = merge(config, (; observed_continuous = obs_cont, observed_continuous_jacobian = dobs_cont_dx, continuous_ranges = ranges))
-    obs_disc = reduce(vcat, map(obs -> observation_values(obs.observed(vars, parameters, only(independent_vars))), discrete_measurements), init = Num[])
-    dobs_disc_dx = Symbolics.jacobian(obs_disc, vars)
-    lengths = map(obs -> length(observation_values(obs.observed(vars, parameters, only(independent_vars)))), discrete_measurements)
-    stops = cumsum(lengths)
-    discrete_ranges = [((stop - n + 1):stop) for (stop, n) in zip(stops, lengths)]
-    return merge(config, (; observed_discrete = obs_disc, observed_discrete_jacobian = dobs_disc_dx, discrete_ranges))
+    (; vars, parameters, independent_vars) = config
+    time = only(independent_vars)
+    continuous, continuous_ranges = measurement_expressions(continuous_measurements, vars, parameters, time)
+    discrete, discrete_ranges = measurement_expressions(discrete_measurements, vars, parameters, time)
+    return merge(
+        config, (;
+            observed_continuous = continuous,
+            observed_continuous_jacobian = Symbolics.jacobian(continuous, vars),
+            continuous_ranges,
+            observed_discrete = discrete,
+            observed_discrete_jacobian = Symbolics.jacobian(discrete, vars),
+            discrete_ranges,
+        )
+    )
 end
 
 function finalize_config(
         prob, config; params, continuous_measurements = ContinuousMeasurement[],
         discrete_measurements = DiscreteMeasurement[], kwargs...
     )
-    (; symbolcache, differential_vars, vars, parameters, independent_vars, equations) = config
+    (; differential_vars, vars, parameters, equations) = config
     (; sensitivities, differential_sensitivities, sensitivity_equations) = config
     (; observed_continuous_jacobian, observed_continuous) = config
     (; observed_discrete_jacobian, observed_discrete) = config
@@ -174,9 +186,8 @@ function finalize_config(
     F = Symbolics.variables(:F, 1:n, 1:n)
     F = Symbolics.setdefaultval.(F, zero(eltype(prob.u0)))
     dF = Symbolics.variables(:dF, 1:n, 1:n)
-    # We build the output expression
-
-    G_disc = observed_discrete_jacobian * sensitivities + Symbolics.jacobian(observed_discrete, parameters[params]) * config.basis
+    J_cont = observed_continuous_jacobian * sensitivities + Symbolics.jacobian(observed_continuous, parameters[params]) * config.basis
+    J_disc = observed_discrete_jacobian * sensitivities + Symbolics.jacobian(observed_discrete, parameters[params]) * config.basis
 
     disc_names = [x.id for x in discrete_measurements]
     cont_names = [x.id for x in continuous_measurements]
@@ -189,8 +200,8 @@ function finalize_config(
 
     F_cont = !isempty(w_cont) ? sum(enumerate(w_cont)) do (i, wi)
             rows = config.continuous_ranges[i]
-            Gi = observed_continuous_jacobian[rows, :] * sensitivities + Symbolics.jacobian(observed_continuous[rows], parameters[params]) * config.basis
-            wi * Gi'Gi
+            J = J_cont[rows, :]
+            wi * J'J
     end : zero.(F)
     append!(parameters, w_disc)
     append!(parameters, w_cont)
@@ -211,13 +222,8 @@ function finalize_config(
             observed = (;
                 fisher = fisher,
                 sensitivities = sensitivities,
-                hx_G_discrete = G_disc,
-                local_information_gain = Num.(
-                    vcat(
-                        observed_continuous_jacobian * sensitivities + Symbolics.jacobian(observed_continuous, parameters[params]) * config.basis,
-                        G_disc
-                    )
-                ),
+                hx_G_discrete = J_disc,
+                local_information_gain = Num.(vcat(J_cont, J_disc)),
                 observed_continuous = observed_continuous,
                 observed_discrete = observed_discrete,
             ),
@@ -226,70 +232,54 @@ function finalize_config(
     return build_new_system(prob, config)
 end
 
-function build_new_system(prob::ODEProblem, config)
-    (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
-    (; observed_continuous_jacobian, observed_discrete_jacobian, sensitivities) = config
-    IIP = SciMLBase.isinplace(prob)
-    foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression = Val{false}, cse = true)
+function build_new_system(prob, config)
+    (; vars, parameters, independent_vars, observed) = config
     u0 = Symbolics.getdefaultval.(vars)
     p0 = Symbolics.getdefaultval.(parameters)
     defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
-    newsys = SymbolCache(
-        Symbol.(vars), Symbol.(parameters), only(Symbol.(independent_vars));
-        defaults = defaults
+    sys = SymbolCache(
+        Symbol.(vars), Symbol.(parameters), only(Symbol.(independent_vars)); defaults
     )
-    # Note: This is different
-    mass = augmented_mass_matrix(prob, size(sensitivities, 2), length(vars) - length(prob.u0) * (size(sensitivities, 2) + 1))
-    fnew = ODEFunction{IIP, SciMLBase.FullSpecialize}(IIP ? fiip : foop; sys = newsys, mass_matrix = mass)
-    problem = remake(prob, f = fnew, u0 = u0, p = p0)
-
-    obsfun = map(observed) do ex
-        function_oop = first(
+    problem = build_augmented_problem(prob, config, sys, u0, p0)
+    getters = map(observed) do expression
+        f = first(
             Symbolics.build_function(
-                ex, vars, parameters, only(independent_vars);
+                expression, vars, parameters, only(independent_vars);
                 expression = Val{false}, cse = true
             )
         )
-        ObservationGetter(function_oop)
+        ObservationGetter(f)
     end
-    return problem, obsfun
+    return problem, getters
 end
 
-function build_new_system(prob::DAEProblem, config)
-    (; equations, vars, differential_vars, parameters, independent_vars, observed) = config
-    (; observed_continuous_jacobian, observed_discrete_jacobian, sensitivities) = config
-    IIP = SciMLBase.isinplace(prob)
-    foop, fiip = Symbolics.build_function(equations, differential_vars, vars, parameters, only(independent_vars); expression = Val{false}, cse = true)
-    u0 = Symbolics.getdefaultval.(vars)
-    p0 = Symbolics.getdefaultval.(parameters)
-    du0 = vcat(prob.du0, zeros(eltype(u0), size(u0, 1) - size(prob.du0, 1)))
+function build_augmented_problem(prob::ODEProblem, config, sys, u0, p0)
+    (; equations, vars, parameters, independent_vars, sensitivities) = config
+    inplace = SciMLBase.isinplace(prob)
+    foop, fiip = Symbolics.build_function(equations, vars, parameters, only(independent_vars); expression = Val{false}, cse = true)
+    ns = size(sensitivities, 2)
+    nf = length(u0) - length(prob.u0) * (ns + 1)
+    mass_matrix = augmented_mass_matrix(prob, ns, nf)
+    f = ODEFunction{inplace, SciMLBase.FullSpecialize}(inplace ? fiip : foop; sys, mass_matrix)
+    return remake(prob; f, u0, p = p0)
+end
 
+function build_augmented_problem(prob::DAEProblem, config, sys, u0, p0)
+    (; equations, vars, differential_vars, parameters, independent_vars, sensitivities) = config
+    inplace = SciMLBase.isinplace(prob)
+    foop, fiip = Symbolics.build_function(equations, differential_vars, vars, parameters, only(independent_vars); expression = Val{false}, cse = true)
+    du0 = vcat(prob.du0, zeros(eltype(u0), length(u0) - length(prob.du0)))
     residual = foop(du0, u0, p0, first(prob.tspan))
     jacobian = ForwardDiff.jacobian(du -> foop(du, u0, p0, first(prob.tspan)), du0)
     du0 -= pinv(jacobian) * residual
 
-    diff_vars = isnothing(prob.differential_vars) ? nothing : vcat(
-            prob.differential_vars, repeat(prob.differential_vars, size(sensitivities, 2)),
-            trues(length(u0) - length(prob.u0) * (size(sensitivities, 2) + 1)),
+    ns = size(sensitivities, 2)
+    nf = length(u0) - length(prob.u0) * (ns + 1)
+    flags = isnothing(prob.differential_vars) ? nothing : vcat(
+            prob.differential_vars, repeat(prob.differential_vars, ns), trues(nf),
         )
-    defaults = Dict(vcat(Symbol.(vars), Symbol.(parameters)) .=> vcat(u0, p0))
-    newsys = SymbolCache(
-        Symbol.(vars), Symbol.(parameters), only(Symbol.(independent_vars));
-        defaults = defaults
-    )
-    fnew = DAEFunction(IIP ? fiip : foop, sys = newsys)
-
-    problem = remake(prob, f = fnew, du0 = du0, u0 = u0, p = p0, differential_vars = diff_vars)
-    obsfun = map(observed) do ex
-        function_oop = first(
-            Symbolics.build_function(
-                ex, vars, parameters, only(independent_vars);
-                expression = Val{false}, cse = true
-            )
-        )
-        ObservationGetter(function_oop)
-    end
-    return problem, obsfun
+    f = DAEFunction(inplace ? fiip : foop; sys)
+    return remake(prob; f, du0, u0, p = p0, differential_vars = flags)
 end
 
 function augmented_mass_matrix(prob, ns, nf)

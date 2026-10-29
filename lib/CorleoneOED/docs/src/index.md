@@ -10,6 +10,17 @@ scope. The package's `examples/` directory contains executable Julia tutorials
 for continuous Lotka–Volterra designs, discrete compartmental measurements, and
 multiple experiments.
 
+Observation maps may return scalars or vectors. For each measurement the augmented
+system uses `J = h_x G + h_θ B`, including direct dependence on estimated parameters.
+All output rows of a vector measurement share one weight, applied linearly to
+`J'J`. Information gains expose one matrix per output row, in continuous then
+discrete observation order.
+
+Sampling budgets use the current parameter schedule without another differential
+equation solve. When combined with user constraints, their bounds follow the shared
+Corleone structured-bound conventions; shooting equalities come last. Optimizer
+callbacks read the current prior from the supplied state.
+
 ## Measurements and layers
 
 ```@docs

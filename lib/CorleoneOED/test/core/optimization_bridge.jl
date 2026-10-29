@@ -46,6 +46,14 @@ layer = OEDLayer(problem, Tsit5(), parameter; measurements = measurement)
         @test opt.lcons == zeros(2n)
         @test all(opt.lb .<= opt.u0 .<= opt.ub)
         q, reconstruct = pack(Val(:NativeOEDTest), ps)
+        mask = reconstruct(Float64.(opt.int))
+        masks = design isa OEDLayer ? (mask,) : values(mask.experiments)
+        for experiment in masks
+            parameters = experiment.parameter.parameters
+            @test all(iszero, parameters.p₁.parameter.ps)
+            @test all(isone, parameters.density.parameter.ps)
+            @test all(isone, parameters.events.parameter.ps)
+        end
         @test opt.f(q, st) ≈ tr(first(fisher_information(design, nothing, ps, st)))
         loss(q) = opt.f(q, st)
         gradient = ForwardDiff.gradient(loss, q)
@@ -54,9 +62,30 @@ layer = OEDLayer(problem, Tsit5(), parameter; measurements = measurement)
         @test gradient ≈ finite rtol = 1.0e-5
         updated = merge(st, (; F_init = 2one(st.F_init)))
         @test opt.f(q, updated) ≈ opt.f(q, st) + 2size(st.F_init, 1)
+        prior_loss(value) = opt.f(q, merge(st, (; F_init = value * one(st.F_init))))
+        @test ForwardDiff.derivative(prior_loss, 0.0) ≈ size(st.F_init, 1)
         buffer = zeros(2n)
         opt.f.cons(buffer, q, st)
         @test buffer ≈ sampling_sums(design, nothing, ps, st)
+    end
+end
+
+@testset "Budget bounds use the shared single-constraint conventions" begin
+    ps, st = LuxCore.setup(Xoshiro(3), layer)
+    scalar = trajectory -> last(trajectory.u)[1]
+    vector = trajectory -> last(trajectory.u)[1:1]
+    for (callback, lower, upper) in (
+            (scalar, 0.0, 1.0),
+            (vector, [0.0], [1.0]),
+            (vector, ([0.0],), ([1.0],)),
+        )
+        model = CorleoneDynamicOptProblem(
+            layer, TraceCriterionForBridge(), callback;
+            ps, st, M = [0.5, 1.0], lcons = lower, ucons = upper
+        )
+        @test model.lcons == [0.0, 0.0, 0.0]
+        @test model.ucons == [1.0, 0.5, 1.0]
+        @test optimization_constraints(model) ≈ [exp(-2), 1.0, 3.0]
     end
 end
 

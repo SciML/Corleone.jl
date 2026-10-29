@@ -63,7 +63,7 @@ run_qa(
                 :getdefaultval, :setdefaultval, :variables, :jacobian,
                 :get_timestops, :is_tunable, :parameter_values_at_time,
                 :optimization_schedule, :optimization_matching, :optimization_matching!,
-                :parameter_bound_tree,
+                :parameter_bound_tree, :constraint_bound_entries,
             ),
         ),
     ),
