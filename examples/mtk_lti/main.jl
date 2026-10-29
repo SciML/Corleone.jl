@@ -23,8 +23,8 @@ using LuxCore, Random, LinearAlgebra
 # ## Model
 # Only A[2,1], A[3,3], and b[1] are unknown. All other entries are fixed.
 # The physical initial state is fixed; interior shooting values remain tunable.
-# We use scalar MTK declarations and assemble Julia arrays from them. This avoids
-# MTK array parameter declarations, which the current frontend does not support.
+# The MTK array `a` contains the two unknown entries of A. Corleone scalarizes
+# its components during setup and stores each in its own scalar vector buffer.
 
 @variables begin
     x₁(..) = 0.0, [tunable = false]
@@ -33,12 +33,11 @@ using LuxCore, Random, LinearAlgebra
     u(..) = 0.0, [input = true, bounds = (-3.0, 3.0)]
 end
 @parameters begin
-    a₂₁ = -0.2, [tunable = true, bounds = (-0.5, -0.05)]
-    a₃₃ = -0.1, [tunable = true, bounds = (-0.5, -0.05)]
+    a[1:2] = [-0.2, -0.1], [tunable = true, bounds = (-0.5, -0.05)]
     b₁ = 0.5, [tunable = true, bounds = (0.1, 1.0)]
 end
 
-A = [0.0 1.0 0.0; a₂₁ 0.0 1.0; 0.0 0.0 a₃₃]
+A = [0.0 1.0 0.0; a[1] 0.0 1.0; 0.0 0.0 a[2]]
 b = [b₁, 0.0, 1.0]
 x = [x₁(t), x₂(t), x₃(t)]
 equations = D.(x) .~ A * x + b * u(t)
@@ -100,7 +99,7 @@ result = solve(
 optimized = optprob.f.f.reconstruct(result.u)
 trajectory, _ = dynopt.layer(nothing, optimized, optprob.p)
 terminal_state = [last(trajectory[state]) for state in x]
-coefficients = (; A₂₁ = last(trajectory[a₂₁]), A₃₃ = last(trajectory[a₃₃]), b₁ = last(trajectory[b₁]))
+coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]))
 @assert isapprox(terminal_state, target; atol = 1.0e-5, rtol = 0.0)
 @assert maximum(abs, optimization_constraints(dynopt, optimized, optprob.p)) < 1.0e-5
 @assert result.objective <= initial_energy + 1.0e-6

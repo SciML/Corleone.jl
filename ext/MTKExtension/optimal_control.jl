@@ -13,6 +13,8 @@ compatibility with interval-start grids; remaining entries are interior switches
 `shooting` selects full-state resets strictly inside the time span. With no
 explicit `tspan`, infer it from integral endpoints, timed reads, and supplied grids.
 The system is compiled with `split = false` to use flat numerical parameters.
+Array parameters are expanded into indexed scalar symbols during setup, preserving
+their defaults, bounds and tunability. Scalar buffers and shared lookups are unchanged.
 No MTK initialization system is built; initial values must be supplied or have
 numerical defaults.
 
@@ -44,9 +46,7 @@ function Corleone.CorleoneDynamicOptProblem(
     end
 
     inputs = collect(first.(controls))
-    compiled = ModelingToolkit.mtkcompile(sys; inputs, split = false)
-    any(sym -> symbolic_type(sym) isa ArraySymbolic, parameter_symbols(compiled)) &&
-        throw(ArgumentError("The MTK frontend currently requires scalar parameters. Declare separate scalar parameters instead of parameter arrays; MTK's split=false problems do not support array parameters."))
+    compiled = scalarize_system(ModelingToolkit.mtkcompile(sys; inputs, split = false))
     signals = Dict(
         Symbolics.unwrap(sym) => (Symbol(sym), kind)
             for (kind, symbols) in ((:variable, variable_symbols(compiled)), (:parameter, parameter_symbols(compiled)))

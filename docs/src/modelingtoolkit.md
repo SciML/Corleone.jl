@@ -77,11 +77,11 @@ lifted state values, so these bounds do not become path constraints there. To
 compare the two formulations, use matching bounds and add explicit path
 constraints when bounds must hold between shooting nodes.
 
-The system is compiled with `split = false`, retaining MTK's symbolic container
-and using flat numerical parameters. This frontend currently expects scalar
-signals that survive compilation as numerical states or parameters. Array-valued
-parameters are rejected: MTK's flat-parameter problem constructor does not support
-them. Declare separate scalar parameters for this frontend. Costs and
-constraints must use numerical times; references to eliminated signals are
-rejected. The `evaluator` keyword selects the same expression compiler as the
-numerical facade.
+The system is compiled with `split = false` and uses flat numerical parameters.
+Array parameters are expanded into indexed scalar symbols during setup, in
+column-major order. Their defaults, bounds and tunability are preserved; each
+component keeps its own scalar vector buffer and components on the same grid
+share a lookup. Original component symbols such as `a[1]` remain usable for
+trajectory queries and symbolic costs or constraints. Timed state/control reads
+still require scalar signals. References to eliminated signals are rejected.
+The `evaluator` keyword selects the same expression compiler as the numerical facade.

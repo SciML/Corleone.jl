@@ -1,6 +1,29 @@
-# Preserve MTK's index provider. Only expression names are lowered; controls
-# remain parameters with their original parameter indices.
+# Only expression names are lowered; controls remain parameters.
 Corleone.expression_symbol_name(sym::Union{Symbolics.Num, SymbolicUtils.BasicSymbolic}) = Symbol(sym)
+
+# MTK's non-split problem constructor needs scalar parameter entries. Keep the
+# indexed symbols and their metadata, but make the numerical ordering explicit.
+scalar_symbols(symbols) = reduce(
+    vcat, map(sym -> symbolic_type(sym) isa ArraySymbolic ? vec(collect(Symbolics.scalarize(sym))) : [sym], symbols);
+    init = eltype(symbols)[]
+)
+
+function scalarize_system(sys::ModelingToolkit.System)
+    variables, parameters = variable_symbols(sys), parameter_symbols(sys)
+    any(sym -> symbolic_type(sym) isa ArraySymbolic, (variables..., parameters...)) || return sys
+    scalar = ModelingToolkit.System(
+        ModelingToolkit.equations(sys), ModelingToolkit.get_iv(sys),
+        scalar_symbols(variables), scalar_symbols(parameters);
+        name = nameof(sys),
+        initial_conditions = ModelingToolkit.initial_conditions(sys),
+        bindings = ModelingToolkit.bindings(sys), guesses = ModelingToolkit.guesses(sys),
+        observed = ModelingToolkit.observed(sys),
+        continuous_events = ModelingToolkit.continuous_events(sys),
+        discrete_events = ModelingToolkit.discrete_events(sys),
+        tstops = ModelingToolkit.symbolic_tstops(sys), checks = false
+    )
+    return ModelingToolkit.complete(scalar; split = false, add_initial_parameters = false)
+end
 
 function lower_integrals!(accumulations, ex, iv)
     ex = Symbolics.unwrap(ex)

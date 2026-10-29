@@ -141,10 +141,79 @@ end
     @named partial_system = System([D(x(t)) ~ a + u(t)], t; costs = [partial_integral(x(t)^2)])
     partial = CorleoneDynamicOptProblem(partial_system, [], u(t) => [0.0, 0.5]; algorithm = Tsit5(), tspan = (0.0, 1.0))
     @test optimization_objective(partial, partial.ps, partial.st) ≈ (2.5^3 - 1.5^3) / 6
+end
 
-    @parameters array_parameter[1:1] = [1.0]
-    @named array_system = System([D(x(t)) ~ array_parameter[1] + u(t)], t; costs = [x(1.0)])
-    @test_throws ArgumentError CorleoneDynamicOptProblem(array_system, [], u(t) => [0.0, 0.5]; algorithm = Tsit5(), tspan = (0.0, 1.0))
+@testset "MTK array parameters" begin
+    @parameters array_parameter[1:2] = [1.0, 2.0] [bounds = (0.5, 3.0)]
+    @parameters array_fixed[1:2] = [0.25, 0.75] [tunable = false]
+    @named array_system = System(
+        [D(x(t)) ~ sum(array_parameter) + sum(array_fixed) + u(t)], t;
+        costs = [x(1.0)^2 + array_parameter[1]],
+        constraints = [array_parameter[2] ~ 2.0]
+    )
+    compiled = mtkcompile(array_system; inputs = [u(t)], split = false)
+    annotations = Annotations(compiled)
+    for i in 1:2
+        annotation = only(filter(a -> isequal(a.sym, ModelingToolkit.Symbolics.unwrap(array_parameter[i])), annotations.parameters))
+        @test annotation.default == Float64(i)
+        @test (annotation.lowerbound, annotation.upperbound) == (0.5, 3.0)
+        @test Corleone.is_tunable(annotation)
+        fixed = only(filter(a -> isequal(a.sym, ModelingToolkit.Symbolics.unwrap(array_fixed[i])), annotations.parameters))
+        @test !Corleone.is_tunable(fixed)
+    end
+    model = CorleoneDynamicOptProblem(
+        array_system, [], u(t) => [0.0, 0.5]; algorithm = Tsit5(),
+        tspan = (0.0, 1.0), problem_kwargs = (; abstol = 1.0e-10, reltol = 1.0e-10)
+    )
+    @test model.layer.problem.p isa Vector{Float64}
+    @test length(model.layer.problem.p) == 5
+    @test optimization_objective(model) ≈ 26.0
+    @test optimization_constraints(model) ≈ [0.0]
+    trajectory, _ = model.layer(nothing, model.ps, model.st)
+    @test last(trajectory[x(t)]) ≈ 5.0
+    @test all(==(1.0), trajectory[array_parameter[1]])
+    @test all(==(0.75), trajectory[array_fixed[2]])
+    opt = OptimizationProblem(model, AutoForwardDiff())
+    @test length(opt.u0) == 4 # Two coefficients and two control intervals.
+    @test count(==(0.5), opt.lb) == 2
+    @test count(==(3.0), opt.ub) == 2
+    q, reconstruct = pack(Val(:ComponentArrays), model.ps)
+    loss(q) = optimization_objective(model, reconstruct(q), model.st)
+    finite = map(eachindex(q)) do i
+        left, right = copy(q), copy(q)
+        left[i] -= 1.0e-5
+        right[i] += 1.0e-5
+        (loss(right) - loss(left)) / 2.0e-5
+    end
+    @test ForwardDiff.gradient(loss, q) ≈ finite rtol = 1.0e-6
+    overridden = CorleoneDynamicOptProblem(
+        array_system, [array_parameter => [0.75, 1.25]], u(t) => [0.0, 0.5];
+        algorithm = Tsit5(), tspan = (0.0, 1.0)
+    )
+    @test optimization_objective(overridden) ≈ 16.75
+end
+
+@testset "MTK matrix parameters and shooting" begin
+    @parameters matrix_rate[1:2, 1:2] = [1.0 2.0; 3.0 4.0] [bounds = (-5.0, 5.0)]
+    @named matrix_system = System(
+        [D(x(t)) ~ matrix_rate[1, 1] + matrix_rate[1, 2] + matrix_rate[2, 1] + u(t)], t;
+        costs = [x(1.0)^2 + matrix_rate[2, 2]], constraints = [x(0.5) ~ 4.0]
+    )
+    model = CorleoneDynamicOptProblem(
+        matrix_system, [], u(t) => [0.0, 0.5]; algorithm = Tsit5(),
+        tspan = (0.0, 1.0), shooting = [0.5]
+    )
+    @test model.nshooting == 1
+    forward_initialization(MersenneTwister(1), model.layer, model.ps, model.st)
+    @test optimization_objective(model) ≈ 53.0
+    @test maximum(abs, optimization_constraints(model)) < 1.0e-7
+    trajectory, _ = model.layer(nothing, model.ps, model.st)
+    @test last(trajectory[x(t)]) ≈ 7.0
+    for i in 1:2, j in 1:2
+        @test all(==(Float64([1 2; 3 4][i, j])), trajectory[matrix_rate[i, j]])
+    end
+    q, reconstruct = pack(Val(:ComponentArrays), model.ps)
+    @test all(isfinite, ForwardDiff.gradient(q -> optimization_objective(model, reconstruct(q), model.st), q))
 end
 
 @testset "Nonlinear MTK construction" begin
