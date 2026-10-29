@@ -1,183 +1,112 @@
+"""
+$(SIGNATURES)
+
+Build a dynamic optimization problem from an uncompiled ModelingToolkit `System`.
+System `costs` are summed. Definite time integrals introduce quadrature states;
+timed state/control reads use the shared trajectory expression evaluator.
+Equations become zero equalities and inequalities become residuals bounded above
+by zero. State and parameter bounds come from MTK metadata.
+States marked `tunable = true` receive a free initial value at `tspan[1]`.
+
+Pass controls as `input => timegrid`. A leading `tspan[1]` is accepted for
+compatibility with interval-start grids; remaining entries are interior switches.
+`shooting` selects full-state resets strictly inside the time span. With no
+explicit `tspan`, infer it from integral endpoints, timed reads, and supplied grids.
+The system is compiled with `split = false` to use flat numerical parameters.
+Array parameters are expanded into indexed scalar symbols during setup, preserving
+their defaults, bounds and tunability. Scalar buffers and shared lookups are unchanged.
+No MTK initialization system is built; initial values must be supplied or have
+numerical defaults.
+
+`problem_kwargs` are forwarded to `ODEProblem`; remaining keywords configure
+the numerical `CorleoneDynamicOptProblem` facade (for example `evaluator`).
+"""
 function Corleone.CorleoneDynamicOptProblem(
-        sys::ModelingToolkit.System,
-        inits::AbstractVector,
-        controls::Pair...;
+        sys::ModelingToolkit.System, inits::AbstractVector, controls::Pair...;
         algorithm::SciMLBase.AbstractDEAlgorithm,
-        shooting::Union{<:AbstractVector{<:Real}, Nothing} = nothing,
-        tspan::Union{Tuple{Real, Real}, Nothing} = nothing,
-        sensealg = SciMLBase.NoAD(),
+        shooting::Union{AbstractVector{<:Real}, Nothing} = nothing,
+        tspan = nothing, ensemblealg = SciMLBase.EnsembleSerial(),
+        sensealg = SciMLBase.NoAD(), problem_kwargs = (;), rng = default_rng(),
         kwargs...
     )
     iv = ModelingToolkit.get_iv(sys)
-    cost = ModelingToolkit.get_costs(sys)
-    constraints = ModelingToolkit.get_constraints(sys)
-
-    lagranges = Dict()
-    tpoints = Dict()
-    tcollector = Base.Fix1(collect_timepoints!, tpoints)
-
-    newcosts = map(cost) do c
-        collect_integrals!(lagranges, c, iv) |> tcollector
+    accumulations = Dict()
+    costs = map(c -> lower_integrals!(accumulations, c, iv), ModelingToolkit.get_costs(sys))
+    isempty(costs) && throw(ArgumentError("The system must declare at least one cost."))
+    constraints = map(ModelingToolkit.get_constraints(sys)) do constraint
+        canonical = Symbolics.canonical_form(constraint)
+        lower_integrals!(accumulations, canonical.lhs, iv)
     end
-
-    newcons = map(constraints) do c
-        c = Symbolics.canonical_form(c)
-        new_con = collect_integrals!(lagranges, c.lhs, iv) |> tcollector
-        isa(c, Inequality) ? new_con ≲ c.rhs : new_con ~ c.rhs
-    end
-
-    # Collect tspan
-    saveats = reduce(vcat, values(tpoints))
-    !isnothing(tspan) && append!(saveats, collect(tspan))
-    !isnothing(shooting) && append!(saveats, collect(shooting))
-    foreach(controls) do (_, grid)
-        append!(saveats, collect(grid))
-    end
-    unique!(sort!(saveats))
-    tspan = extrema(saveats)
-    if !isempty(lagranges)
-        # Add lagrangians and build the ODE Problem
+    upper = zeros(length(constraints))
+    lower = map(c -> c isa Symbolics.Inequality ? -Inf : 0.0, ModelingToolkit.get_constraints(sys))
+    if !isempty(accumulations)
         sys = ModelingToolkit.add_accumulations(
-            sys, [v => only(arguments(k)) for (k, v) in lagranges]
+            sys, [q => only(SymbolicUtils.arguments(integral)) for (integral, q) in accumulations]
         )
     end
 
     inputs = collect(first.(controls))
-    sys = mtkcompile(sys; inputs)
-    prob = ODEProblem(sys, inits, tspan, saveat = saveats, check_compatibility = false, sensealg = sensealg)
-
-    # Get the indices of the tunables
-    controls = map(controls) do (ui, tis)
-        ui = Symbolics.unwrap(ui)
-        i = SymbolicIndexingInterface.parameter_index(sys, ui).idx
-        lo, hi = ModelingToolkit.getbounds(ui)
-        u0 = Symbolics.getdefaultval(ui)
-        i => ControlParameter(tis, name = Symbolics.tosymbol(operation(ui)), bounds = (lo, hi), controls = fill(u0, size(tis)))
-    end
-
-    vars = unknowns(sys)
-    sort!(vars, by = Base.Fix1(SymbolicIndexingInterface.variable_index, sys))
-    tunable_ic = findall(i -> ModelingToolkit.istunable(vars[i]), eachindex(vars))
-    bounds_ic = map(ModelingToolkit.getbounds, vars)
-    bounds_ic = (first.(bounds_ic), last.(bounds_ic))
-    p_tunable = tunable_parameters(sys)
-    bounds_p = map(i -> ModelingToolkit.getbounds(p_tunable[i]), filter(∉(first.(controls)), eachindex(p_tunable)))
-    bounds_p = map((first.(bounds_p), last.(bounds_p))) do bound
-        collect(Iterators.flatten(bound))
-    end
-
-
-    layer = if isnothing(shooting)
-        SingleShootingLayer(
-            prob, algorithm;
-            controls,
-            tunable_ic,
-            bounds_ic,
-            bounds_p
-        )
-    else
-        MultipleShootingLayer(
-            prob, algorithm, shooting...;
-            controls,
-            tunable_ic,
-            bounds_ic,
-            bounds_p
-        )
-    end
-    # Get the state
-    st = LuxCore.initialstates(Random.default_rng(), layer)
-    symcache = isnothing(shooting) ? st.symcache : first(st).symcache
-    # Build the getters
-    p = tunable_parameters(sys)
-    xs = map(x -> x(iv), collect(keys(tpoints)))
-    symgetters = map(vcat(xs, p)) do k
-        get_ = SymbolicIndexingInterface.getsym(symcache, k)
-        sym_ = Symbolics.tosymbol(maybeop(k))
-        sym_, get_
-    end
-    getters = Tuple(last.(symgetters))
-    # Build the substitution for the costs & constraints
-    vars_subs = Dict()
-    foreach(keys(tpoints)) do k
-        tvals = unique(sort!(tpoints[k]))
-        foreach(tvals) do ti
-            get!(vars_subs, k(ti), Expr(:call, getindex, k.name, findfirst(ti .== saveats)))
-        end
-    end
-
-    # Arguments for the objective and constraints
-    args_ = first.(symgetters)
-
-    # We currently assume a single cost
-    costbody = SymbolicUtils.Code.toexpr(substitute(only(newcosts), vars_subs))
-
-    costfn = Expr(:->, Expr(:tuple, args_...), costbody)
-
-    costfun = @RuntimeGeneratedFunction(
-        costfn
+    compiled = scalarize_system(ModelingToolkit.mtkcompile(sys; inputs, split = false))
+    signals = Dict(
+        Symbolics.unwrap(sym) => (Symbol(sym), kind)
+            for (kind, symbols) in ((:variable, variable_symbols(compiled)), (:parameter, parameter_symbols(compiled)))
+            for sym in symbols
     )
-
-    costs = let predictor = layer, obs = getters, objective = costfun
-        (ps, st) -> begin
-            traj, _ = predictor(nothing, ps, st)
-            vars = map(obs) do getter
-                getter(traj)
-            end
-            objective(vars...)
-        end
+    times = Real[]
+    # Bare parameters are terminal reads. Fill in their time after inference.
+    terminal = isnothing(tspan) ? 0.0 : last(tspan)
+    objective = symbolic_expression(sum(costs), signals, terminal, times)
+    expressions = map(c -> symbolic_expression(c, signals, terminal, times), constraints)
+    foreach(control -> append!(times, last(control)), controls)
+    isnothing(shooting) || append!(times, shooting)
+    if isnothing(tspan)
+        length(unique(times)) >= 2 || throw(ArgumentError("Supply tspan or at least two distinct expression/grid times."))
+        tspan = extrema(times)
+        objective = symbolic_expression(sum(costs), signals, last(tspan), Real[])
+        expressions = map(c -> symbolic_expression(c, signals, last(tspan), Real[]), constraints)
     end
-
-    if !isempty(newcons)
-        res = gensym(:con)
-        conbody = map(enumerate(newcons)) do (i, con)
-            ex = SymbolicUtils.Code.toexpr(substitute(con.lhs, vars_subs))
-            :($(res)[$(i)] = $ex)
+    lo, hi = tspan
+    lo < hi || throw(ArgumentError("tspan must be increasing."))
+    all(t -> lo <= t <= hi, times) || throw(ArgumentError("Expression and schedule times must lie within tspan."))
+    prob = SciMLBase.ODEProblem(
+        compiled, inits, tspan; check_compatibility = false, sensealg,
+        problem_kwargs..., build_initializeprob = false
+    )
+    resets = isnothing(shooting) ? typeof(lo)[] : sort!(unique!(filter(t -> lo < t < hi, collect(shooting))))
+    annotations = Corleone.Annotations(
+        compiled; u0 = prob.u0, p = prob.p, controls = inputs,
+        lift_states = !isempty(resets)
+    )
+    bounds = Dict(
+        annotation.sym => (annotation.lowerbound, annotation.upperbound)
+            for collection in values(annotations) for annotation in collection
+    )
+    definitions = Pair[]
+    for annotation in annotations.parameters
+        position = findfirst(control -> isequal(Symbolics.unwrap(first(control)), annotation.sym), controls)
+        grid = if isnothing(position)
+            nothing
+        else
+            supplied = last(controls[position])
+            issorted(supplied) && allunique(supplied) || throw(ArgumentError("Control grids must be sorted and unique."))
+            switches = collect(filter(!=(lo), supplied))
+            all(t -> lo < t < hi, switches) ||
+                throw(ArgumentError("Control grids must have interior switches, optionally preceded by tspan[1]."))
+            switches
         end
-        push!(conbody, :(return $(res)))
-
-        confn = :(($res, $(args_...)) -> $(conbody...))
-
-        confun = @RuntimeGeneratedFunction(
-            confn
-        )
-        lcons = -Inf .* map(Base.Fix2(isa, Inequality), newcons)
-        n_cons = size(newcons, 1)
-        ucons = zeros(Float64, n_cons)
-        n_shoot = Corleone.get_number_of_shooting_constraints(layer)
-        append!(lcons, zeros(n_shoot))
-        append!(ucons, zeros(n_shoot))
-
-        cons = let predictor = layer, obs = getters, constr = confun, ncon = n_cons
-            (res, ps, st) -> begin
-                traj, _ = predictor(nothing, ps, st)
-                vars = map(obs) do getter
-                    getter(traj)
-                end
-                @views constr(res[1:ncon], vars...)
-                @views Corleone.shooting_constraints!(res[(ncon + 1):end], traj)
-                return res
-            end
-        end
-    elseif isa(layer, MultipleShootingLayer)
-        n_shoot = Corleone.get_number_of_shooting_constraints(layer)
-        lcons = ucons = zeros(n_shoot)
-        cons = let layer = layer
-            (res, ps, st) -> begin
-                traj, _ = layer(nothing, ps, st)
-                @views Corleone.shooting_constraints!(res, traj)
-                return res
-            end
-        end
-    else
-        ucons = lcons = cons = nothing
+        push!(definitions, annotation => grid)
     end
-
-    return CorleoneDynamicOptProblem{typeof(layer), typeof(getters), typeof(costs), typeof(cons), typeof(lcons)}(
-        layer,
-        getters,
-        costs,
-        cons,
-        lcons,
-        ucons
+    for annotation in annotations.variables
+        grid = ModelingToolkit.istunable(annotation.sym, false) ? vcat([lo], resets) : resets
+        isempty(grid) && continue
+        push!(definitions, annotation => grid)
+    end
+    layer = ShootingLayer(
+        prob, algorithm, definitions...; ensemblealg,
+        controls = inputs, quadratures = collect(values(accumulations)), bounds
+    )
+    return Corleone.CorleoneDynamicOptProblem(
+        layer, expression_wrapper(objective), map(expression_wrapper, expressions)...;
+        lcons = lower, ucons = upper, rng, kwargs...
     )
 end

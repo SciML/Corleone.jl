@@ -1,25 +1,21 @@
 module CorleoneComponentArraysExtension
-using Corleone
-using ComponentArrays
 
-struct CAFunctionWrapper{A, F} <: Corleone.AbstractCorleoneFunctionWrapper
-    "The axes of the componentarray"
-    ax::A
-    "The original function"
-    f::F
+import Corleone
+using ComponentArrays: ComponentArray, ComponentVector, getaxes, getdata
+import Corleone: pack
+
+function pack(::Val{:ComponentArrays}, ps::Union{NamedTuple, ComponentVector})
+    parameters = ComponentArray(ps)
+    data = getdata(parameters)
+    eltype(data) <: Real || throw(ArgumentError("Optimization parameters must have a real scalar type."))
+    return data, Base.Fix2(ComponentArray, getaxes(parameters))
 end
 
-(f::CAFunctionWrapper)(ps, st) = f.f(ComponentArray(ps, f.ax), st)
-(f::CAFunctionWrapper)(res, ps, st) = f.f(res, ComponentArray(ps, f.ax), st)
-
-Corleone.to_vec(::CAFunctionWrapper, x...) = map(x -> isnothing(x) ? x : (collect ∘ ComponentArray)(x), x)
-
-function Corleone.wrap_functions(::Val{:ComponentArrays}, u0::NamedTuple, f...)
-    u0 = ComponentVector(u0)
-    ax = getaxes(u0)
-    return map(f) do fi
-        isnothing(fi) ? fi : CAFunctionWrapper{typeof(ax), typeof(fi)}(ax, fi)
-    end
+# Splitting intervals changes axes, so rebuild structured parameter storage.
+function Corleone.replace_parameter_fields(ps::ComponentVector, fields::NamedTuple)
+    names = propertynames(ps)
+    tree = NamedTuple{names}(map(name -> getproperty(ps, name), names))
+    return ComponentArray(merge(tree, fields))
 end
 
 end

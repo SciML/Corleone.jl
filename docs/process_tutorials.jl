@@ -1,3 +1,5 @@
+using Base64: base64decode
+
 function extract_metadata(file_path)
     content = read(file_path, String)
     # Match the block between #src --- and #src ---
@@ -12,8 +14,28 @@ function extract_metadata(file_path)
     return nothing
 end
 
+# Keep plot data out of HTML pages and Documenter's text search index.
+function tutorial_figures(content, title, outpath, name)
+    index = 0
+    content = replace(
+        content, r"```@raw html\n<img [^\n]+>\n```" => block -> begin
+            image = match(r"src=\"data:image/png;base64,\s*([^\"]+)\"", block)
+            isnothing(image) && return block
+            index += 1
+            filename = "$name-figure-$index.png"
+            write(joinpath(outpath, filename), base64decode(image.captures[1]))
+            "![Trajectory plot for $title]($filename)"
+        end
+    )
+    return replace(content, "![](" => "![Trajectory plot for $title](")
+end
+
 function preprocess_script(content)
-    content = replace(content, "TODAY" => Date(now()))
+    content = replace(
+        content, "TODAY" => string(Date(now())),
+        "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
+            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)"
+    )
     content *= """
             # ## Appendix
             # ```@raw html
@@ -49,53 +71,35 @@ function make_tutorial(path)
     isfile(path) || return nothing
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
-    fname = replace(lowercase(get(metadata, "title", first(splitext(scriptname)))), " " => "_")
+    title = get(something(metadata, Dict()), "title", first(splitext(scriptname)))
+    fname = replace(lowercase(title), " " => "_")
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
     Literate.markdown(
         path, outpath,
         execute = true,
         preprocess = preprocess_script,
-        flavor = Literate.CommonMarkFlavor(),
+        postprocess = content -> tutorial_figures(content, title, outpath, fname),
+        flavor = Literate.DocumenterFlavor(),
         name = fname
     )
+    metadata = something(metadata, Dict("title" => fname))
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
 end
 
+# Only root-package examples using the current ShootingLayer API are built here.
+# Sibling-library tutorials are maintained separately from the root package manual.
+example_output = joinpath(@__DIR__, "src", "examples")
+isdir(example_output) && rm(example_output; recursive = true)
+
 tutorials = map(
     [
-        abspath("examples/linear_quadratic/main.jl"),
-        abspath("examples/lotka_fishing_optimal_control/main.jl"),
-        abspath("examples/mtk_lotka/main.jl"),
-        abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
-        abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
-        abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl"),
+        joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"),
+        joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"),
+        joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"),
+        joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"),
     ]
 ) do tutorial
     make_tutorial(tutorial)
 end
-
-function generate_searchable_index(tutorials)
-    data = filter(!isnothing, tutorials)
-    output_path = joinpath(@__DIR__, "src", "tutorials.md")
-    json_path = joinpath(@__DIR__, "src", "assets", "tutorial_data.json")
-    write(json_path, JSON.json(data))
-
-    output = """
-    ```@raw html
-    <script setup lang="ts">
-    import Gallery from "./components/Gallery.vue";
-    import data from "./assets/tutorial_data.json";
-    </script>
-
-    # Tutorials
-
-    <Gallery :items="data" />
-    ```
-    """
-
-    return write(output_path, output)
-end
-
-generate_searchable_index(tutorials)

@@ -1,25 +1,16 @@
 module CorleoneModelingToolkitExtension
 
-@info "Loading MTK Extension"
-
-using Corleone
-using ModelingToolkit
-
-using Corleone.LuxCore
-using Corleone.Random
-using Corleone.DocStringExtensions
-using SciMLBase
-
-using ModelingToolkit.Symbolics
-using ModelingToolkit.SymbolicUtils
-using ModelingToolkit.Setfield
-using ModelingToolkit.SymbolicIndexingInterface
-using ModelingToolkit.Symbolics.RuntimeGeneratedFunctions
-
-RuntimeGeneratedFunctions.init(@__MODULE__)
+import Corleone
+import ModelingToolkit
+import SciMLBase
+using Corleone: ShootingLayer, Tunable, Constant
+using Corleone.DocStringExtensions: SIGNATURES
+using Corleone.Random: default_rng
+using Corleone.SymbolicIndexingInterface: variable_symbols, parameter_symbols, variable_index, parameter_index, default_values, symbolic_type, ArraySymbolic
+using ModelingToolkit: Symbolics, SymbolicUtils
 
 include("MTKExtension/utils.jl")
-
+include("MTKExtension/annotations.jl")
 include("MTKExtension/optimal_control.jl")
 
 end

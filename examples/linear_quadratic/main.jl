@@ -1,6 +1,6 @@
 #src ---
 #src title: The Linear Quadratic Regulator
-#src description: A super beginner-friendly guide to your optimal control problem
+#src description: Control a linear system with a tracking cost and a control penalty
 #src tags:
 #src   - Beginner
 #src   - Optimal Control
@@ -8,27 +8,31 @@
 #src icon: 🌊
 #src ---
 
-# ## [Linear Quadratic Regulator](@id linear_quad_reg)
+# # [Linear Quadratic Regulator](@id linear_quad_reg)
 
-# Let’s start by modeling the [linear quadratic regulator](https://en.wikipedia.org/wiki/Linear–quadratic_regulator). This example is one of the simplest optimal control problems. Lets assume we want to It reads as
+# We control two linear states with a shared input. The cost penalizes the first
+# state's deviation from three and the control effort:
 
 # ```math
 # \begin{aligned}
-# \min_u & \int_0^T w_1 (x - x_f)^2 + w_2 u^2 dt \\
-# \text{s.t.} \quad & \dot{x} = a x + b u
+# \min_u & \int_0^{12} \bigl(10 (x_1 - 3)^2 + 0.1 u^2\bigr) \, dt \\
+# \text{s.t.} \quad & \dot{x}_i = -x_i + u, \quad i = 1, 2, \\
+# & x_1(0)=1,\quad x_2(0)=2.
 # \end{aligned}
 # ```
-# First, we load the necessary packages to model the problem.
 
 # ## Setup
-# We will use `Corleone` to define our optimal control problem.
+
+# Use Corleone to define the shooting layer and optimization model.
 using Corleone
 
-# Additionally, we will need the following packages
-# - [`LuxCore`]() and [`Random`]() for basic setup functions
-# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`Optimization`](), [`OptimizationLBFGSB`](), and [`ComponentArrays`]() to setup and solve the optimization problem
-# - [`CairoMakie`]() to plot the solution
+# The other packages provide:
+
+# - Layer initialization: `LuxCore` and `Random`
+# - ODE integration: `OrdinaryDiffEqTsit5`
+# - Optimization: `Optimization`, `OptimizationLBFGSB`, and `ComponentArrays`
+# - Objective gradients: `ForwardDiff`
+# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random
@@ -37,68 +41,68 @@ using Optimization
 using OptimizationLBFGSB
 using ForwardDiff
 using ComponentArrays
+using SymbolicIndexingInterface
 using CairoMakie
-
+Makie.inline!()
 # ## LQR Dynamics
-# Next, we set up the dynamics and the objective as a single function.
+
+# The first two states follow the linear dynamics. The third accumulates the
+# running cost, which depends on the first state and the control.
 
 function lqr_dynamics(x, p, t)
     a, b, u = p
-    du = a .* x[1] .+ b .* u
+    du = a .* x[1:(end - 1)] .+ b .* u
     costs = 10.0 .* (x[1] .- 3.0) .^ 2 .+ 0.1 .* u .^ 2
     return vcat(du, costs)
 end
 
 tspan = (0.0, 12.0)
-u0 = [1.0, 0.0]
+u0 = [1.0, 2.0, 0.0]
 p0 = [-1.0, 1.0, 0.0]
 lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 
 # ## [Optimal Control Problem](@id control_lqr)
-# To convert this into an optimal control problem, we want to apply a piecewise constant control
 
-control_function = ControlParameter(
-    0.0:0.1:11.9, name = :input
-)
+# Make the third parameter a piecewise constant control and keep `a` and `b` fixed.
 
-predictor = SingleShootingLayer(
+control_grid = collect(0.1:0.1:11.9)
+predictor = ShootingLayer(
     lqr_problem, Tsit5(),
-    controls = (3 => control_function,),
-    bounds_p = ([-1.0, 1.0], [-1.0, 1.0])
+    Tunable(3; kind = Val(:parameter), default = (rng, n) -> rand(rng, n)) => control_grid,
+    Constant(1; kind = Val(:parameter)) => nothing,
+    Constant(2; kind = Val(:parameter)) => nothing;
+    controls = [3], quadratures = [3],
 )
+# The 119 switching times define 120 control intervals. Initial control values
+# are sampled uniformly from [0, 1). The fixed parameters are stored in Lux state.
 
-# Lets solve the problem to have a look at its initial behavior.
+# Preview the trajectory with the initialized control.
 
-ps, st = LuxCore.setup(Random.default_rng(), predictor)
+ps, st = LuxCore.setup(MersenneTwister(42), predictor)
 solution, _ = predictor(nothing, ps, st)
-
-# We define a plotting function here
-function plot_lqr_solution(solution; show_setpoint = true)
-    f = Figure()
-    axes = [CairoMakie.Axis(f[i, 1], xlabel = i == 3 ? "t" : "") for i in 1:3]
-    plot!(axes[1], solution, vars = [:x₁])
-    if show_setpoint
-        hlines!(axes[1], [3.0], color = :black, linestyle = :dash)
-    end
-    stairs!(axes[2], solution, vars = [:input])
-    plot!(axes[3], solution, vars = [:x₂])
-    for (i, title) in enumerate(["State", "Control", "Costs"])
-        f[i, 2] = Legend(f, axes[i], title, framevisible = false)
-    end
-    return f
-end
-
-plot_lqr_solution(solution)
+trajectoryplot(solution)
 
 # ## Optimize
-# Transforming the given layer into an [`SciMLBase.OptimizationProblem`](@extref) is a one liner. We simply give in the predictor and the cost to minimize.
-optprob = OptimizationProblem(
-    predictor, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₂
-);
-# And solve it using [`OptimizationLBFGSB.LBFGSB`](@extref)
-uopt = solve(
-    optprob, OptimizationLBFGSB.LBFGSB()
-);
-# Finally, lets have a look at the optimized solution.
-optimized_solution, _ = predictor(nothing, uopt + zero(ComponentArray(ps)), st)
-plot_lqr_solution(optimized_solution)
+
+# Use the accumulated cost `u₃` at the final time as the objective. Retain the
+# seeded parameters and state from the preview as the optimization's initial guess.
+
+dynprob = CorleoneDynamicOptProblem(
+    predictor, :(u₃(12.0)); ps, st
+)
+
+# OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
+opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
+usol = solve(opt, OptimizationLBFGSB.LBFGSB());
+@assert successful_retcode(usol)
+
+# Reconstruct the optimized parameters and plot the trajectory.
+_, reconstruct = pack(default_vectorizer(), dynprob.ps)
+optimized_parameters = reconstruct(usol.u)
+optimized_solution, _ = predictor(nothing, optimized_parameters, opt.p)
+trajectoryplot(optimized_solution)
+
+# The optimized first state approaches the target of three. The second state
+# follows the same input but does not enter the objective. This example uses an
+# unbounded piecewise-constant control; the random initial guesses are not bounds.
+usol.objective

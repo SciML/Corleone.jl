@@ -13,7 +13,7 @@ const LIB_DIR = joinpath(dirname(@__DIR__), "lib")
 # selects a named group. We then activate the sublibrary's own test environment
 # and hand off to its runtests.jl via CORLEONE_TEST_GROUP. Otherwise the main-package
 # suite below runs via run_tests: GROUP="All"/"Core" run the light
-# Core group; "Examples" and "QA" each activate their own test/<group> environment.
+# Core group; the other named groups use their own test environments.
 base_group, test_group = detect_sublibrary_group(GROUP, LIB_DIR)
 
 if !isempty(base_group) && isdir(joinpath(LIB_DIR, base_group))
@@ -26,23 +26,93 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
-            @safetestset "Local controls" begin
-                include("core/local_controls.jl")
+            @safetestset "Annotations" begin
+                include("core/annotations.jl")
             end
-            @safetestset "Precompile workload" begin
-                include("core/precompile_workload.jl")
+            @safetestset "Annotation initialization" begin
+                include("core/annotation_initialization.jl")
             end
-            @safetestset "Generic layer interface" begin
+            @safetestset "Shared-grid collections" begin
+                include("core/shared_grid_collections.jl")
+            end
+            @safetestset "Symbolic bookkeeping" begin
+                include("core/symbolic_metadata.jl")
+            end
+            @safetestset "Per-variable initial conditions" begin
+                include("core/initial_conditions.jl")
+            end
+            @safetestset "Initial-condition differentiation" begin
+                include("core/initial_conditions_ad.jl")
+            end
+            @safetestset "Optimization contracts" begin
+                include("core/optimization_contracts.jl")
+            end
+            @safetestset "Optimization contract differentiation" begin
+                include("core/optimization_contracts_ad.jl")
+            end
+            @safetestset "Optimization facade" begin
+                include("core/optimization_facade.jl")
+            end
+            @safetestset "Optimization facade differentiation" begin
+                include("core/optimization_facade_ad.jl")
+            end
+            @safetestset "Parameter packing" begin
+                include("core/parameter_packing.jl")
+            end
+            @safetestset "Parameter shooting segments" begin
+                include("core/parameter_segments.jl")
+            end
+            @safetestset "Parameter segment differentiation" begin
+                include("core/parameter_segments_ad.jl")
+            end
+            @safetestset "Cached shooting timestops" begin
+                include("core/shooting_timestops.jl")
+            end
+            @safetestset "Parallel shooting" begin
+                include("core/shooting_parallel.jl")
+            end
+            @safetestset "Parallel shooting differentiation" begin
+                include("core/shooting_parallel_ad.jl")
+            end
+            @safetestset "Legacy single-shooting constructor" begin
+                include("core/legacy_single_shooting.jl")
+            end
+            @safetestset "Trajectory" begin
+                include("core/trajectory.jl")
+            end
+            @safetestset "Native Lux interface" begin
                 include("core/interface_contracts.jl")
             end
-            @safetestset "Multiple shooting" begin
-                include("core/multiple_shooting.jl")
-            end
-            return @safetestset "Segment state handoff" begin
+            @safetestset "State handoff" begin
                 include("core/state_handoff.jl")
             end
+            @safetestset "Shooting initialization" begin
+                include("core/shooting_initialization.jl")
+            end
+            return @safetestset "Trajectory differentiation" begin
+                include("core/trajectory_ad.jl")
+            end
+
         end,
         groups = Dict(
+            "Distributed" => (;
+                env = joinpath(@__DIR__, "distributed"),
+                body = function ()
+                    return @safetestset "Distributed shooting and differentiation" include("core/shooting_distributed.jl")
+                end,
+            ),
+            "Differentiation" => (;
+                env = joinpath(@__DIR__, "differentiation"),
+                body = function ()
+                    return @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                end,
+            ),
+            "Plotting" => (;
+                env = joinpath(@__DIR__, "plotting"),
+                body = function ()
+                    return @safetestset "Makie plotting" include("plotting/makie.jl")
+                end,
+            ),
             # Examples: the optimal-control example scripts pull in the heavy
             # MTK + Ipopt/MOI + SciMLSensitivity stack, isolated in test/examples
             # so those deps never enter the light main test target's resolve.
@@ -55,7 +125,10 @@ else
                     @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
                     end
-                    return @safetestset "Lotka MTK" begin
+                    @safetestset "Optimization facade bridge" begin
+                        include("examples/optimization_facade.jl")
+                    end
+                    return @safetestset "ModelingToolkit frontend" begin
                         include("examples/mtk.jl")
                     end
                 end,

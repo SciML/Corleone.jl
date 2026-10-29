@@ -19,55 +19,63 @@ prob = ODEProblem(
 )
 cgrid = collect(0.0:0.1:11.9)
 N = length(cgrid)
-control = ControlParameter(
-    cgrid; name = :fishing, bounds = (0.0, 1.0), controls = zeros(N)
-)
+# AirspeedVelocity runs this same script against both the PR and its base.
+# Keep the old API branch until main also provides the annotation-based layers.
+if isdefined(Corleone, :PiecewiseConstant)
+    control = Corleone.PiecewiseConstant(cgrid[2:end], zeros(N); name = :fishing)
+    SUITE["control"] = BenchmarkGroup()
+    SUITE["control"]["construct"] = @benchmarkable Corleone.PiecewiseConstant(
+        $(cgrid[2:end]), zeros($N); name = :fishing
+    )
+    SUITE["control"]["setup"] = @benchmarkable LuxCore.setup($rng, $control)
+    cps, cst = LuxCore.setup(rng, control)
+    SUITE["control"]["lookup"] = @benchmarkable $control(1.25, $cps, $cst)
 
-# =============================================================================
-# ControlParameter construction and checks
-# =============================================================================
+    control_definition = Tunable(1; default = zeros(N), lowerbound = 0.0, upperbound = 1.0) => cgrid[2:end]
+    resets = map(1:3) do i
+        Tunable(i; kind = Val(:variable), default = u0[i], lowerbound = 0.0, upperbound = 100.0) => [3.0, 6.0, 9.0]
+    end
+    SUITE["layer"] = BenchmarkGroup()
+    SUITE["layer"]["single_shooting"] = @benchmarkable ShootingLayer(
+        $prob, Tsit5(), $control_definition; fixed_parameters = [2, 3]
+    )
+    SUITE["layer"]["multiple_shooting"] = @benchmarkable ShootingLayer(
+        $prob, Tsit5(), $control_definition, $(resets)...; fixed_parameters = [2, 3]
+    )
+    layer = ShootingLayer(prob, Tsit5(), control_definition; fixed_parameters = [2, 3])
+    mlayer = ShootingLayer(prob, Tsit5(), control_definition, resets...; fixed_parameters = [2, 3])
+else
+    control = ControlParameter(
+        cgrid; name = :fishing, bounds = (0.0, 1.0), controls = zeros(N)
+    )
+    SUITE["control"] = BenchmarkGroup()
+    SUITE["control"]["construct"] = @benchmarkable ControlParameter(
+        $cgrid; name = :fishing, bounds = (0.0, 1.0), controls = zeros($N)
+    )
+    SUITE["control"]["check_consistency"] = @benchmarkable Corleone.check_consistency($rng, $control)
+    SUITE["control"]["get_controls"] = @benchmarkable Corleone.get_controls($rng, $control)
 
-SUITE["control"] = BenchmarkGroup()
+    SUITE["layer"] = BenchmarkGroup()
+    SUITE["layer"]["single_shooting"] = @benchmarkable SingleShootingLayer(
+        $prob, Tsit5(); controls = (1 => $control,), bounds_p = ([1.0, 1.0], [1.0, 1.0])
+    )
+    SUITE["layer"]["multiple_shooting"] = @benchmarkable MultipleShootingLayer(
+        $prob, Tsit5(), 0.0, 3.0, 6.0, 9.0; controls = (1 => $control,),
+        bounds_ic = ([0.1, 0.1, 0.0], [100.0, 100.0, 100.0]),
+        bounds_p = ([1.0, 1.0], [1.0, 1.0])
+    )
+    layer = SingleShootingLayer(
+        prob, Tsit5(); controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0])
+    )
+    mlayer = MultipleShootingLayer(
+        prob, Tsit5(), 0.0, 3.0, 6.0, 9.0; controls = (1 => control,),
+        bounds_ic = ([0.1, 0.1, 0.0], [100.0, 100.0, 100.0]),
+        bounds_p = ([1.0, 1.0], [1.0, 1.0])
+    )
+end
 
-SUITE["control"]["construct"] = @benchmarkable ControlParameter(
-    $cgrid; name = :fishing, bounds = (0.0, 1.0), controls = zeros($N)
-)
-SUITE["control"]["check_consistency"] = @benchmarkable Corleone.check_consistency(
-    $rng, $control
-)
-SUITE["control"]["get_controls"] = @benchmarkable Corleone.get_controls(
-    $rng, $control
-)
-
-# =============================================================================
-# Shooting layers
-# =============================================================================
-
-SUITE["layer"] = BenchmarkGroup()
-
-SUITE["layer"]["single_shooting"] = @benchmarkable SingleShootingLayer(
-    $prob, Tsit5(); controls = (1 => $control,),
-    bounds_p = ([1.0, 1.0], [1.0, 1.0])
-)
-SUITE["layer"]["multiple_shooting"] = @benchmarkable MultipleShootingLayer(
-    $prob, Tsit5(), 0.0, 3.0, 6.0, 9.0; controls = (1 => $control,),
-    bounds_ic = ([0.1, 0.1, 0.0], [100.0, 100.0, 100.0]),
-    bounds_p = ([1.0, 1.0], [1.0, 1.0])
-)
-
-layer = SingleShootingLayer(
-    prob, Tsit5(); controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0])
-)
 ps, st = LuxCore.setup(rng, layer)
-
+mps, mst = LuxCore.setup(rng, mlayer)
 SUITE["layer"]["setup"] = @benchmarkable LuxCore.setup($rng, $layer)
 SUITE["layer"]["forward"] = @benchmarkable $layer(nothing, $ps, $st)
-
-mlayer = MultipleShootingLayer(
-    prob, Tsit5(), 0.0, 3.0, 6.0, 9.0; controls = (1 => control,),
-    bounds_ic = ([0.1, 0.1, 0.0], [100.0, 100.0, 100.0]),
-    bounds_p = ([1.0, 1.0], [1.0, 1.0])
-)
-mps, mst = LuxCore.setup(rng, mlayer)
-
 SUITE["layer"]["ms_forward"] = @benchmarkable $mlayer(nothing, $mps, $mst)

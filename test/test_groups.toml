@@ -12,3 +12,15 @@ versions = ["lts", "1", "pre"]
 
 [QA]
 versions = ["lts", "1"]
+
+[Plotting]
+versions = ["1"]
+os = ["ubuntu-latest"]
+
+[Distributed]
+versions = ["1"]
+os = ["ubuntu-latest"]
+
+[Differentiation]
+versions = ["1"]
+os = ["ubuntu-latest"]

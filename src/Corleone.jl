@@ -3,13 +3,14 @@ module Corleone
 using Reexport
 using DocStringExtensions
 import PrecompileTools: @compile_workload, @setup_workload
-using Random
 
-using RecursiveArrayTools
-using LinearAlgebra
+using Random
+using ConcreteStructs
+
 using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
+import RecursiveArrayTools
 
 using OhMyThreads
 using Distributed
@@ -17,75 +18,55 @@ using Distributed
 using ChainRulesCore
 
 using LuxCore
-using Functors
+
+"""
+    trajectoryplot(trajectory; figure = (;), kwargs...)
+
+Create a Makie figure displaying trajectory states, controls, and quadratures.
+Load Makie to activate this method. `figure` configures the figure; remaining
+keywords are passed to [`trajectoryplot!`](@ref).
+"""
+function trajectoryplot end
+"""
+    trajectoryplot!(container, trajectory; skips = [], show_legend = true, kwargs...)
+
+Add trajectory axes and optional legends to a Makie figure or layout position.
+`skips` excludes selected symbols. State, control, and quadrature axes share the
+time axis. Load Makie to activate this method; remaining keywords configure lines.
+"""
+function trajectoryplot! end
+
+export trajectoryplot, trajectoryplot!
 
 # For evaluation
 mythreadmap(::EnsembleSerial, args...) = map(args...)
 mythreadmap(::EnsembleThreads, args...) = tmap(args...)
 mythreadmap(::EnsembleDistributed, args...) = pmap(args...)
 
-"""
-    get_block_structure(layer; kwargs...)
+# Extensions
+is_extension_loaded(::Val) = false
 
-Return cumulative parameter boundaries for a Corleone layer. The first entry is
-zero and the final entry is the number of optimization parameters. Layer wrappers
-should extend this method when their parameter blocks have additional structure.
-"""
-get_block_structure(layer::LuxCore.AbstractLuxLayer; kwargs...) = [0, LuxCore.parameterlength(layer)]
+include("optimization.jl")
+include("utilities/Utilities.jl")
 
-"""
-    get_bounds(layer; kwargs...)
+include("layers/Layers.jl")
+export ShootingLayer
 
-Return lower and upper bounds for the optimization variables of `layer` as a tuple
-`(lower, upper)`. A layer extension must preserve the same structure in both values.
-"""
-get_bounds(layer::LuxCore.AbstractLuxLayer; kwargs...) = (
-    get_lower_bound(layer), get_upper_bound(layer),
-)
-to_val(::T, val) where {T <: Number} = T(val)
-to_val(x::AbstractArray{T}, val) where {T <: Number} = T(val) .+ zero(x)
-get_lower_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, -Inf), LuxCore.initialparameters(Random.default_rng(), layer))
-get_upper_bound(layer::AbstractLuxLayer) = Functors.fmapstructure(Base.Fix2(to_val, Inf), LuxCore.initialparameters(Random.default_rng(), layer))
+export get_bounds, get_lower_bound, get_upper_bound, get_number_of_shooting_constraints
+export shooting_constraints, shooting_constraints!, add_parameter_segments!
 
-# Random
-_random_value(rng::Random.AbstractRNG, lb::AbstractVector, ub::AbstractVector) = lb .+ rand(rng, eltype(lb), size(lb)...) .* (ub .- lb)
-
-include("trajectory.jl")
-export Trajectory
-
-include("local_controls.jl")
-export ControlParameter
-
-include("single_shooting.jl")
-export SingleShootingLayer
-include("multiple_shooting.jl")
-export MultipleShootingLayer
-export default_initialization
-include("node_initialization.jl")
-export random_initialization, forward_initialization, linear_initialization
-export custom_initialization, constant_initialization, hybrid_initialization
-
-abstract type AbstractCorleoneFunctionWrapper end
-
+include("optimization_expressions.jl")
+export default_evaluator, compile_evaluator
 include("dynprob.jl")
-export CorleoneDynamicOptProblem
+export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
+include("optimization_bridge.jl")
+export pack, default_vectorizer
 
-@setup_workload begin
-    @compile_workload begin
-        rng = Random.MersenneTwister(1)
-        controls = ControlParameter(
-            collect(0.0:0.25:0.75);
-            name = :u,
-            controls = [0.1, 0.2, 0.3, 0.4],
-            bounds = (0.0, 1.0),
-        )
-        get_timegrid(controls, (0.0, 0.75))
-        control_length(controls)
-        get_controls(rng, controls)
-        get_bounds(controls)
-        check_consistency(rng, controls)
-        build_index_grid(controls; tspan = (0.0, 0.75))
-    end
-end
+include("deprecation/controls.jl")
+include("deprecation/single_shooting.jl")
+include("multiple_shooting.jl")
+export ControlParameter, SingleShootingLayer, MultipleShootingLayer
+
+include("precompile.jl")
 
 end
