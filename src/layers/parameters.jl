@@ -107,8 +107,10 @@ end
 
 function canonical_output_expression(types, outs)
     scalars = reduce(vcat, map(child_scalar_expressions, types, outs); init = Any[])
+    isempty(scalars) && return :(Any[])
     flat = gensym(:flat)
     promoted = gensym(:promoted)
+    scalar_types = [:(typeof($flat[$i])) for i in eachindex(scalars)]
     assembly = Expr(:vect, [:(convert($promoted, $flat[permutation[$i]])) for i in eachindex(scalars)]...)
-    return Expr(:block, :($flat = ($(scalars...),)), :($promoted = Base.promote_typeof($flat...)), assembly)
+    return Expr(:block, :($flat = ($(scalars...),)), :($promoted = promote_type($(scalar_types...))), assembly)
 end

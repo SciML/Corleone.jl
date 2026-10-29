@@ -7,6 +7,23 @@ function shared_grid_rhs!(du, u, p, t)
     return nothing
 end
 
+@testset "Empty parameter collections" begin
+    prob = ODEProblem((u, p, t) -> ones(2), zeros(2), (0.0, 2.0), Float64[])
+    for ensemblealg in (EnsembleSerial(), EnsembleThreads())
+        layer = ShootingLayer(prob, Tsit5(), Tunable([1, 2]; kind = Val(:variable)) => [1.0]; ensemblealg)
+        ps, st = LuxCore.setup(MersenneTwister(1), layer)
+        parameters, _ = @inferred layer.parameter(0.0, ps.parameter, st.parameter)
+        @test isempty(parameters)
+        for time in (0.0, 1.0)
+            ((initial, _), _) = @inferred layer.initialcondition((prob.u0, time), ps.initialcondition, st.initialcondition)
+            @test initial == zeros(2)
+        end
+        trajectory, _ = layer(nothing, ps, st)
+        @test last(trajectory.u) ≈ ones(2)
+        @test shooting_constraints(trajectory) ≈ -ones(2)
+    end
+end
+
 @testset "Scalar buffers share lookups across equal grids" begin
     prob = ODEProblem(
         ODEFunction{true, SciMLBase.FullSpecialize}(shared_grid_rhs!),

@@ -87,7 +87,8 @@ end
 
 function (layer::InitialCondition)((incoming, t)::Tuple{<:AbstractVector, Any}, ps, st)
     T = promote_type(eltype(incoming), collection_scalar_type(layer.parameter, ps.parameter, st.parameter))
-    haskey(layer.lookup, t, ps.lookup, st.lookup) || return [T(value) for value in incoming], merge(st, (; active = false))
+    # Specialize conversion on T; capturing it in a comprehension loses inference on Julia 1.10.
+    haskey(layer.lookup, t, ps.lookup, st.lookup) || return promote_reset_values(T, incoming), merge(st, (; active = false))
     (index, _), lookup_st = LuxCore.apply(layer.lookup, t, ps.lookup, st.lookup)
     out, parameter_st = apply_scalar_collections(layer.parameter, index, ps.parameter, st.parameter)
     return promote_reset_values(T, out), (; lookup = lookup_st, parameter = parameter_st, active = true)
