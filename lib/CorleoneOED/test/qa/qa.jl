@@ -5,10 +5,17 @@ using Test
 # These are the deliberate `@reexport using` facade APIs. Keep this snapshot explicit:
 # additions are user-facing API changes and must be reviewed with their documentation.
 const CORLEONE_REEXPORTS = (
-    :ControlParameter, :Corleone, :CorleoneDynamicOptProblem, :MultipleShootingLayer,
-    :SingleShootingLayer, :Trajectory, :constant_initialization, :custom_initialization,
-    :default_initialization, :forward_initialization, :hybrid_initialization,
-    :linear_initialization, :random_initialization,
+    :Corleone, :ControlParameter, :SingleShootingLayer, :MultipleShootingLayer,
+    :ShootingLayer, :Trajectory, :InitialConditions, :Parameter,
+    :Annotations, :Tunable, :Constant, :ControlSymbolCache,
+    :control_symbols, :control_indices, :quadrature_symbols, :quadrature_indices, :default_bounds,
+    :get_bounds, :get_lower_bound, :get_upper_bound, :get_number_of_shooting_constraints,
+    :shooting_constraints, :shooting_constraints!, :add_parameter_segments!,
+    :CorleoneDynamicOptProblem, :optimization_objective, :optimization_constraints,
+    :optimization_constraints!, :pack, :default_vectorizer, :default_evaluator, :compile_evaluator,
+    :forward_initialization, :linear_initialization, :random_initialization,
+    :constant_initialization, :custom_initialization, :hybrid_initialization,
+    :trajectoryplot, :trajectoryplot!,
 )
 const SYMBOLICS_REEXPORTS = (
     Symbol("@acrule"), Symbol("@arrayop"), Symbol("@derivative_rule"), Symbol("@makearray"),
@@ -48,22 +55,16 @@ run_qa(
     # explicit import is a sizable refactor tracked in SciML/Corleone.jl#103.
     ei_broken = (:no_implicit_imports,),
     ei_kwargs = (;
-        # Names still not declared public in their owning modules: SciMLBase
-        # internals (`AbstractDEAlgorithm`, `AbstractDEProblem`, `get_colorizers`),
-        # SciMLStructures internals (`Tunable`, `canonicalize`), SymbolicUtils
-        # internal (`Code`), Symbolics internals (`getdefaultval`, `setdefaultval`,
-        # `variables`), ForwardDiff internal (`jacobian`), and Corleone's own
-        # as-yet-unexported helpers reached through `Corleone.*`.
+        # Private hooks used by the augmentation and shooting-layer adapter.
         all_qualified_accesses_are_public = (;
             ignore = (
-                :AbstractDEAlgorithm, :AbstractDEProblem, :Code, :Tunable,
-                :build_index_grid, :canonicalize, :get_block_structure,
-                :get_bounds, :get_colorizers,
-                :get_number_of_shooting_constraints, :get_timegrid, :getdefaultval,
-                :jacobian, :retrieve_symbol_cache, :setdefaultval,
-                :shooting_constraints, :shooting_constraints!, :variables,
+                :AbstractDEAlgorithm, :AbstractDEProblem, :AbstractAnnotation,
+                :FixedLayer, :PassThrough, :Tunable, :canonicalize,
+                :getdefaultval, :setdefaultval, :variables, :jacobian,
+                :get_timestops, :is_tunable, :parameter_values_at_time,
             ),
         ),
     ),
+    api_docs_kwargs = (; docs_src = joinpath(@__DIR__, "..", "..", "docs", "src")),
     reexports_allow = (CORLEONE_REEXPORTS..., SYMBOLICS_REEXPORTS...),
 )

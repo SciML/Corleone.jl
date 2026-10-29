@@ -1,634 +1,355 @@
-# Helper for weighting the controls over the trajectory
-struct WeightedObservation
-    grid::Vector{Vector{Int64}}
-end
-
-function (w::WeightedObservation)(controls::AbstractVector{T}, i::Int64, G::AbstractArray) where {T}
-    psub = [iszero(j) ? zero(T) : controls[j] for j in w.grid[i]]
-    G = psub .* G
-    return G'G
-end
-
-function (w::WeightedObservation)(controls::AbstractVector{T}, G::AbstractVector{<:AbstractArray}) where {T}
-    return sum(eachindex(G)) do i
-        w(controls, i, G[i])
-    end
-end
-
-default_observed = (u, p, t) -> u
+# Measurement-based design adapted from Christoph Plate (@chplate)'s fork.
+# See README.md for the original commits and license attribution.
 
 """
 $(TYPEDEF)
 
-Wraps a Corleone shooting layer with the augmented dynamics needed for optimal experimental
-design. The `DISCRETE` type parameter selects discrete or continuous information accumulation,
-and optional measurement controls can restrict where observations are collected.
+A shooting layer for local optimal experimental design. The augmented state holds
+physical states, parameter sensitivities, and the upper triangle of the continuous
+Fisher information matrix. Discrete observations are accumulated on demand.
+
+Call `OEDLayer(problem, algorithm, definitions...; params, measurements, kwargs...)`
+or wrap an existing `ShootingLayer`. Unspecified physical parameters are fixed at
+their nominal values; explicit annotations select design variables. All measurement
+weights are tunable in `[0, 1]`. `params` selects the physical parameters whose
+sensitivities define the information matrix, independently of their tunability.
+
+Lux parameters retain the shooting layer's layout. State additionally stores
+`F_init`, a prior information matrix, included once by `fisher_information`.
+Evaluation returns `(trajectory, next_st)` and preserves derivatives through
+current parameters and numerical state. Full physical-state shooting resets also
+lift the sensitivity and information states, with ordinary continuity constraints.
 
 # Fields
 $(FIELDS)
 """
-struct OEDLayer{DISCRETE, SAMPLED, FIXED, L, O} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    "The underlying layer"
-    layer::L
-    "The observed functions"
-    observed::O
-    "The sampling indices"
-    sampling_indices::Vector{Int64}
+struct OEDLayer{L, P, M, I, B} <: LuxCore.AbstractLuxWrapperLayer{:shooting}
+    "The augmented shooting layer."
+    shooting::L
+    "The augmented differential equation problem, shared with `shooting.problem`."
+    augmented_prob::P
+    "Discrete/continuous measurement specifications and numerical observation getters."
+    measurements::M
+    "Original physical parameter indices in sensitivity-column order."
+    params::I
+    "The fixed parameter-direction basis; identity without SVD reduction."
+    basis::B
 end
 
-is_fixed(oed::OEDLayer{<:Any, <:Any, T}) where {T} = T
+function annotation_indices(sys, definition, kind)
+    selector = first(definition)
+    if selector isa Corleone.AbstractAnnotation
+        is_variable(selector) == (kind === :variable) || return Int[]
+        selector = isnothing(selector.index) ? selector.sym : selector.index
+    elseif kind === :variable
+        return Int[]
+    end
+    selectors = selector isa Union{Tuple, AbstractVector} ? selector : (selector,)
+    indexof = kind === :variable ? variable_index : parameter_index
+    return map(collect(selectors)) do key
+        index = key isa Integer ? key : indexof(sys, key)
+        index isa Integer || throw(ArgumentError("Unknown $kind selector: $key"))
+        Int(index)
+    end
+end
 
-function Base.show(io::IO, oed::OEDLayer{DISCRETE, SAMPLED, FIXED}) where {DISCRETE, SAMPLED, FIXED}
-    (; layer, observed, sampling_indices) = oed
-    type_color, no_color = SciMLBase.get_colorizers(io)
-    layer_text = FIXED ? "Fixed " : ""
-    preposition = SAMPLED ? "with " : "without "
-    measurement_color = SAMPLED ? type_color : no_color
-    measurement_text = SAMPLED ? (DISCRETE ? "discrete " : "continuous ") : "specified "
-    print(
-        io,
-        no_color, layer_text,
-        type_color, "OEDLayer ",
-        no_color, preposition,
-        measurement_color, measurement_text,
-        no_color, "measurement model ",
-        no_color, "and ", type_color, "$(size(sampling_indices, 1)) ", no_color, "observed functions.\n"
+function OEDLayer(
+        problem::SciMLBase.AbstractDEProblem, algorithm::SciMLBase.AbstractDEAlgorithm,
+        definitions...; params = eachindex(problem.p), measurements = (),
+        fixed_parameters = nothing, controls = (), quadratures = (), bounds = nothing,
+        ensemblealg = EnsembleSerial(), svd = false, ns = nothing,
+        threshold_singular_values = 0.95, threshold_singular_vectors = 0.1,
     )
-    print(io, no_color, "Underlying problem: ")
-    return Base.show(io, "text/plain", isa(layer, SingleShootingLayer) ? layer.problem : layer.layer.problem)
+    sys = ControlSymbolCache(problem)
+    selected = [key isa Integer ? Int(key) : parameter_index(sys, key) for key in params]
+    !isempty(selected) && allunique(selected) && all(i -> i isa Integer && i in eachindex(problem.p), selected) ||
+        throw(ArgumentError("Select valid, unique physical parameter indices or symbols."))
+    selected = Int.(selected)
+    normalized = map(m -> measurement_schedule(m, problem.tspan), Tuple(measurements))
+    ids = map(m -> m.id, normalized)
+    allunique(ids) && all(id -> !is_parameter(sys, id) && !is_variable(sys, id), ids) ||
+        throw(ArgumentError("Measurement identifiers must be unique and distinct from model symbols."))
+    discrete = filter(m -> m isa DiscreteMeasurement, normalized)
+    continuous = filter(m -> m isa ContinuousMeasurement, normalized)
+    augmented, observed, basis = augment_system(
+        problem, algorithm; params = selected, continuous_measurements = continuous,
+        discrete_measurements = discrete, svd, ns, threshold_singular_values,
+        threshold_singular_vectors,
+    )
+    points = sort!(unique!(reduce(vcat, map(m -> m.tpoints, discrete); init = eltype(problem.tspan)[])))
+    if !isempty(points)
+        original = get(problem.kwargs, :saveat, eltype(points)[])
+        saveat = original isa Number ? collect(first(problem.tspan):original:last(problem.tspan)) : collect(original)
+        augmented = remake(augmented; saveat = sort!(unique!(vcat(saveat, points))))
+    end
+    weights = map((discrete..., continuous...)) do measurement
+        Tunable(measurement.id; default = 1.0, lowerbound = 0.0, upperbound = 1.0) =>
+            measurement_switches(measurement, problem.tspan)
+    end
+    defined = reduce(vcat, map(def -> annotation_indices(sys, def, :parameter), definitions); init = Int[])
+    fixed = isnothing(fixed_parameters) ? setdiff(eachindex(problem.p), defined) : fixed_parameters
+    augmented_definitions = Pair[definitions...]
+    # Inspect schedules without running initializers or drawing from an RNG.
+    resets = filter(def -> !isempty(annotation_indices(sys, def, :variable)), definitions)
+    for definition in resets
+        if !Corleone.is_tunable(first(definition)) && !isnothing(last(definition)) &&
+                any(t -> first(problem.tspan) < t <= last(problem.tspan), last(definition))
+            throw(ArgumentError("Prescribed physical resets after the initial time need sensitivity reset maps; use tunable matching resets for shooting."))
+        end
+    end
+    times = sort!(unique!(reduce(vcat, [collect(last(def)) for def in resets if !isnothing(last(def))]; init = eltype(problem.tspan)[])))
+    full_resets = filter(times) do time
+        first(problem.tspan) < time < last(problem.tspan) && all(eachindex(problem.u0)) do index
+            any(def -> !isnothing(last(def)) && time in last(def) && index in annotation_indices(sys, def, :variable), resets)
+        end
+    end
+    if !isempty(full_resets)
+        extra = (length(problem.u0) + 1):length(augmented.u0)
+        push!(augmented_definitions, Tunable(collect(extra); kind = Val(:variable), default = zeros(length(extra))) => full_resets)
+    end
+    cache = ControlSymbolCache(augmented; controls = (controls..., ids...), quadratures, bounds = Dict(Symbol(key) => interval for (key, interval) in (isnothing(bounds) ? default_bounds(sys) : bounds)))
+    # Pass the cache through the problem so original annotation bounds remain available.
+    f = remake(augmented.f; sys = cache)
+    augmented = remake(augmented; f)
+    shooting = ShootingLayer(augmented, algorithm, augmented_definitions..., weights...; fixed_parameters = fixed, ensemblealg)
+    return OEDLayer(shooting, augmented, (; observed, discrete, continuous), selected, basis)
+end
+
+function shooting_definitions(layer::ShootingLayer)
+    definitions = Pair[]
+    for (kind, collection, indices) in (
+            (Val(:parameter), layer.parameter.parameters, layer.parameter.indices),
+            (Val(:variable), layer.initialcondition.initialconditions, layer.initialcondition.indices),
+        )
+        for (group, entry) in enumerate(values(collection))
+            fixed = entry isa Corleone.FixedLayer
+            child = fixed ? entry.layer : entry
+            child isa Corleone.PassThrough && continue
+            grid = child.lookup.collection
+            grid = grid isa AbstractDict ? sort!(collect(keys(grid)); by = time -> grid[time]) : grid
+            members = child.parameter isa NamedTuple ? values(child.parameter) : (child.parameter,)
+            for (index, member) in zip(indices[group], members)
+                held = fixed || member isa Corleone.FixedLayer
+                parameter = member isa Corleone.FixedLayer ? member.layer : member
+                symbols = kind === Val(:variable) ? variable_symbols(layer.sys) : parameter_symbols(layer.sys)
+                indexof = kind === Val(:variable) ? variable_index : parameter_index
+                sym = only(filter(sym -> indexof(layer.sys, sym) == index, symbols))
+                lo, hi = get_bounds(layer.sys, sym)
+                constructor = held ? Constant : Tunable
+                push!(definitions, constructor(index; kind, default = parameter.init_parameters, lowerbound = lo, upperbound = hi) => grid)
+            end
+        end
+    end
+    return definitions
+end
+
+function OEDLayer(layer::ShootingLayer; kwargs...)
+    return OEDLayer(
+        layer.problem, layer.alg, shooting_definitions(layer)...;
+        controls = control_symbols(layer.sys), quadratures = quadrature_symbols(layer.sys),
+        bounds = default_bounds(layer.sys), ensemblealg = layer.ensemblealg, kwargs...
+    )
+end
+
+LuxCore.initialparameters(rng::Random.AbstractRNG, oed::OEDLayer) = LuxCore.initialparameters(rng, oed.shooting)
+function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer)
+    n = size(oed.basis, 2)
+    return merge(LuxCore.initialstates(rng, oed.shooting), (; F_init = zeros(eltype(oed.augmented_prob.u0), n, n)))
+end
+LuxCore.statelength(oed::OEDLayer) = LuxCore.statelength(oed.shooting) + size(oed.basis, 2)^2
+(oed::OEDLayer)(x, ps, st) = oed.shooting(x, ps, st)
+SymbolicIndexingInterface.symbolic_container(oed::OEDLayer) = symbolic_container(oed.shooting)
+get_size_F(oed::OEDLayer) = (size(oed.basis, 2), size(oed.basis, 2))
+n_observed(oed::OEDLayer) = length(oed.measurements.continuous) + length(oed.measurements.discrete)
+Corleone.get_number_of_shooting_constraints(oed::OEDLayer, ps, st) = get_number_of_shooting_constraints(oed.shooting, ps, st)
+Corleone.add_parameter_segments!(oed::OEDLayer, ps, st) = add_parameter_segments!(oed.shooting, ps, st)
+
+sample_index(traj, t) = begin
+    i = searchsortedlast(traj.t, t)
+    i > 0 && traj.t[i] == t || throw(ArgumentError("Measurement time $t was not saved."))
+    i
+end
+@non_differentiable sample_index(traj, t)
+weight_at(oed, traj, id, time) = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, time)[parameter_index(traj, id)]
+
+function discrete_information(oed::OEDLayer, traj::Trajectory)
+    measurements = oed.measurements.discrete
+    isempty(measurements) && return zeros(eltype(first(traj.u)), get_size_F(oed))
+    values = oed.measurements.observed.hx_G_discrete(traj)
+    ranges = oed.measurements.observed.discrete_ranges
+    contributions = map(measurements, ranges) do measurement, block
+        sum(measurement.tpoints) do time
+            J = values[sample_index(traj, time)][block, :]
+            weight_at(oed, traj, measurement.id, time) * (J' * J)
+        end
+    end
+    return sum(contributions)
 end
 
 """
 $(SIGNATURES)
 
-Constructs an `OEDLayer` from a differential equation problem and solver algorithm.
-
-# Arguments
-- `prob`: Differential equation problem whose parameters are considered for experimental design.
-- `alg`: Differential equation solver algorithm.
-
-# Keywords
-- `params`: Parameter indices included in the Fisher information matrix.
-- `measurements`: Optional `ControlParameter`s that define measurement schedules.
-- `observed`: Observation map `(u, p, t) -> y`.
-
-# Returns
-An `OEDLayer` that can be initialized with `LuxCore.setup` and evaluated like the wrapped
-Corleone layer.
+Return continuous plus discrete Fisher information from an existing trajectory,
+without solving again. Weights multiply information linearly. Include `st.F_init`
+once unless `add_initial=false`. Layer calls return `(F, next_st)`.
 """
-function OEDLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    layer = SingleShootingLayer(prob, alg; kwargs...)
-    return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
+function fisher_information(oed::OEDLayer, traj::Trajectory; add_initial = true)
+    F = last(oed.measurements.observed.fisher(traj)) + discrete_information(oed, traj)
+    return add_initial ? F + traj.st.F_init : F
+end
+function fisher_information(oed::OEDLayer, x, ps, st; add_initial = true)
+    traj, next_st = oed(x, ps, st)
+    return fisher_information(oed, traj; add_initial), next_st
 end
 
-function OEDLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points...; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    layer = MultipleShootingLayer(prob, alg, shooting_points...; kwargs...)
-    return OEDLayer{DISCRETE}(layer; params = params, measurements = measurements, observed = observed, kwargs...)
+"""
+$(SIGNATURES)
+
+Return the saved physical-state sensitivity matrices, with one column per selected
+parameter direction. With `svd=true`, columns use `oed.basis`. The four-argument
+form solves once and returns `(matrices, next_st)`.
+"""
+sensitivities(oed::OEDLayer, traj::Trajectory) = oed.measurements.observed.sensitivities(traj)
+function sensitivities(oed::OEDLayer, x, ps, st)
+    traj, next_st = oed(x, ps, st)
+    return sensitivities(oed, traj), next_st
+end
+"""
+$(SIGNATURES)
+
+Return measurement outputs at each saved state time, ordered continuous then
+discrete. Vector-valued measurements contribute consecutive entries. This does
+not select discrete measurement events; use each measurement's `tpoints` for those.
+The four-argument form returns `(outputs, next_st)`.
+"""
+observed_equations(oed::OEDLayer, traj::Trajectory) = map(
+    vcat,
+    oed.measurements.observed.observed_continuous(traj),
+    oed.measurements.observed.observed_discrete(traj),
+)
+function observed_equations(oed::OEDLayer, x, ps, st)
+    traj, next_st = oed(x, ps, st)
+    return observed_equations(oed, traj), next_st
 end
 
-function OEDLayer{DISCRETE}(layer::MultipleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
+"""
+$(SIGNATURES)
 
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer.layer
-
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
-    SAMPLED = !isempty(measurements)
-    mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-    p_length = length(problem.p)
-    samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
-    samplings = samplings .+ length(controls)
-
-    newproblem, observed = augment_system(
-        mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
-        kwargs...
-    )
-
-    # Replace the saveat with the sampling times
-    saveats = if SAMPLED
-        ts = reduce(vcat, Corleone.get_timegrid.(measurements))
-        unique!(sort!(ts))
-    else
-        collect(problem.tspan)
-    end
-    newproblem = remake(newproblem, saveat = saveats)
-
-    shooting_points = [t[1] for t in layer.shooting_intervals]
-    newlayer = MultipleShootingLayer(
-        newproblem, algorithm, shooting_points...; controls = ctrls, tunable_ic = copy(tunable_ic), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
-    )
-
-    return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
-end
-
-function OEDLayer{DISCRETE}(layer::SingleShootingLayer, args...; measurements = [], kwargs...) where {DISCRETE}
-
-    (; problem, algorithm, controls, control_indices, tunable_ic, bounds_ic, state_initialization, bounds_p, parameter_initialization, quadrature_indices) = layer
-
-    FIXED = isempty(control_indices) && isempty(tunable_ic)
-    SAMPLED = !isempty(measurements)
-    mode = DISCRETE ? (SAMPLED ? Val{:DiscreteSampled}() : Val{:Discrete}()) : (SAMPLED ? Val{:ContinuousSampled}() : Val{:Continuous}())
-    p_length = length(problem.p)
-    samplings = SAMPLED ? collect(eachindex(measurements)) : Int64[]
-    ctrls = vcat(collect(control_indices .=> controls), samplings .+ p_length .=> measurements)
-    samplings = samplings .+ length(controls)
-
-    newproblem, observed = augment_system(
-        mode, problem, algorithm;
-        tunable_ic = copy(tunable_ic),
-        control_indices = copy(control_indices), fixed = FIXED,
-        kwargs...
-    )
-
-    # Replace the saveat with the sampling times
-    saveats = if SAMPLED
-        ts = reduce(vcat, Corleone.get_timegrid.(measurements))
-        unique!(sort!(ts))
-    else
-        collect(problem.tspan)
-    end
-    newproblem = remake(newproblem, saveat = saveats)
-
-    lb, ub = copy.(bounds_ic)
-    for i in eachindex(newproblem.u0)
-        i <= lastindex(problem.u0) && continue
-        push!(lb, zero(eltype(newproblem.u0)))
-        push!(ub, zero(eltype(newproblem.u0)))
-    end
-    newlayer = SingleShootingLayer(
-        newproblem, algorithm; controls = ctrls, tunable_ic = copy(tunable_ic), bounds_ic = (lb, ub), state_initialization, bounds_p, parameter_initialization, quadrature_indices = Int64[]
-    )
-
-    return OEDLayer{DISCRETE, SAMPLED, FIXED, typeof(newlayer), typeof(observed)}(newlayer, observed, samplings)
-end
-
-function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:SingleShootingLayer}, experiments, st::NamedTuple) where {SAMPLED, FIXED}
-    FIM = sum(
-        map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+Return the sum of the event weights for each discrete measurement. Pass a
+trajectory, or a callable `lookup(id, time)`. Measurements retain their declared order.
+"""
+function discrete_sampling_sums(oed::OEDLayer, lookup)
+    return collect(
+        map(oed.measurements.discrete) do m
+            sum(time -> lookup(m.id, time), m.tpoints)
         end
     )
-
-    return merge(st, (; F_init = FIM + st.F_init))
 end
+"""
+$(SIGNATURES)
 
-function update_fim(oed::OEDLayer{<:Any, SAMPLED, FIXED, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {SAMPLED, FIXED}
-    FIM = sum(
-        map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
+Integrate each continuous measurement's piecewise-constant weight over the full
+problem time span. Pass a trajectory, or `lookup(id, time)` and the sorted interval
+boundaries. Measurements retain their declared order.
+"""
+function continuous_sampling_sums(oed::OEDLayer, lookup, times)
+    return collect(
+        map(oed.measurements.continuous) do m
+            sum(i -> (times[i + 1] - times[i]) * lookup(m.id, times[i]), 1:(length(times) - 1))
         end
     )
-
-    st1 = merge(st[1], (; F_init = FIM + st[1].F_init))
-
-    return merge(st, (; interval_1 = st1))
 end
-
-n_observed(layer::OEDLayer) = length(layer.sampling_indices)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = Corleone.get_number_of_shooting_constraints(oed.layer)
-Corleone.get_number_of_shooting_constraints(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
-Corleone.get_bounds(oed::OEDLayer; kwargs...) = Corleone.get_bounds(oed.layer; kwargs...)
-
-get_size_F(oed::OEDLayer{true, true, <:Any}) = begin
-    size_hxG = size(oed.observed.fisher.getters)
-    if length(size_hxG) > 2
-        size_hxG = size_hxG[1:2]
-    end
-    return (size_hxG[2], size_hxG[2])
-end
-get_size_F(oed::OEDLayer{false, true, true}) = begin
-    sizeF = size(oed.observed.fisher.getters)
-    if length(sizeF) > 2
-        sizeF = sizeF[1:2]
-    end
-    return sizeF
-end
-
-# This is the only case where we need to sample the trajectory
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::Union{OEDLayer{true, true, <:Any, <:SingleShootingLayer}, OEDLayer{false, true, true}})
-    (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer
-    st = LuxCore.initialstates(rng, layer)
-    # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
-    overall_grid = vcat(reduce(vcat, grids), collect(problem.tspan))
-    unique!(sort!(overall_grid))
-    observed_grid = map(grids[sampling_indices]) do grid
-        unique!(sort!(grid))
-        findall(∈(grid), overall_grid)
-    end
-    _measurement_indices = Corleone.build_index_grid(controls...; problem.tspan)
-    measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
-        unique(mi)
-    end
-    # Lets order this by time
-    weighting_grid = map(eachindex(overall_grid)) do i
-        map(eachindex(observed_grid)) do j
-            id = findfirst(i .== observed_grid[j])
-            isnothing(id) && return 0
-            measurement_indices[j][id]
-        end
-    end
-
-    # in active controls, also the indices of the original, non-sampling controls must be added
-    measurement_indices = typeof(oed) <: OEDLayer{true, true} ? begin
-            indices_all_controls = collect(1:length(control_indices))
-            map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
-                unique(mi)
-        end
-        end : measurement_indices
-
-    T = eltype(problem.u0)
-    F_init = zeros(T, get_size_F(oed))
-
-    return merge(
-        st, (;
-            observation_grid = WeightedObservation(weighting_grid),
-            active_controls = measurement_indices,
-            F_init = F_init,
-        )
-    )
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{true, true, <:Any, <:MultipleShootingLayer})
-    (; layer, sampling_indices) = oed
-    (; problem, controls, control_indices) = layer.layer
-    st = LuxCore.initialstates(rng, layer)
-    # Our goal is to build a weigthing matrix similar to the indexgrid
-    grids = Corleone.get_timegrid.(controls)
-    T = eltype(problem.u0)
-    F_init = zeros(T, get_size_F(oed))
-
-    st_new = map(st) do sti
-        tspan = (first(first(sti.tspans)), last(last(sti.tspans)))
-        overall_grid = vcat(reduce(vcat, grids), collect(tspan))
-        unique!(sort!(overall_grid))
-        overall_grid = overall_grid[overall_grid .>= first(tspan) .&& overall_grid .< last(tspan)]
-        observed_grid = map(grids[sampling_indices]) do grid
-            unique!(sort!(grid))
-            findall(∈(grid), overall_grid)
-        end
-        _measurement_indices = Corleone.build_index_grid(controls...; tspan = tspan)
-        measurement_indices = map(eachrow(_measurement_indices[sampling_indices, :])) do mi
-            unique(mi)
-        end
-        # Lets order this by time
-        weighting_grid = map(eachindex(overall_grid)) do i
-            map(eachindex(observed_grid)) do j
-                id = findfirst(i .== observed_grid[j])
-                isnothing(id) && return 0
-                measurement_indices[j][id]
-            end
-        end
-
-        # in active controls, also the indices of the original, non-sampling controls must be added
-        measurement_indices = begin
-            indices_all_controls = collect(1:length(control_indices))
-            map(eachrow(_measurement_indices[indices_all_controls, :])) do mi
-                unique(mi)
-            end
-        end
-
-        merge(
-            sti, (;
-                observation_grid = WeightedObservation(weighting_grid),
-                active_controls = measurement_indices,
+function sampling_times(oed, ps, st)
+    return sort!(
+        unique!(
+            vcat(
+                collect(oed.augmented_prob.tspan),
+                Corleone.get_timestops(oed.shooting.parameter, nothing, st.parameter, eltype(oed.augmented_prob.tspan))
             )
         )
-    end
-
-    st1 = merge(st_new[1], (; F_init = F_init))
-    return merge(st_new, (; interval_1 = st1))
-end
-
-get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = oed.layer.problem
-get_problem(oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}) = oed.layer.layer.problem
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer})
-    (; layer, sampling_indices) = oed
-    st = LuxCore.initialstates(rng, layer)
-    problem = get_problem(oed)
-    T = eltype(problem.u0)
-    F_init = zeros(T, size(oed.observed.fisher.getters))
-
-    return merge(st, (; F_init = F_init))
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, oed::OEDLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer})
-    (; layer, sampling_indices) = oed
-    st = LuxCore.initialstates(rng, layer)
-    problem = get_problem(oed)
-    T = eltype(problem.u0)
-    F_init = zeros(T, size(oed.observed.fisher.getters))
-
-    st1 = st.interval_1
-    st1 = merge(st1, (; F_init = F_init))
-    return merge(st, (; interval_1 = st1))
-end
-
-__fisher_information(oed::OEDLayer, traj::Trajectory) = oed.observed.fisher(traj)
-
-function __fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, traj::Trajectory, ps, st::NamedTuple)
-    nc = vcat(
-        0, cumsum(
-            map(1:length(st)) do i
-                sti = getproperty(st, Symbol("interval_$i"))
-                length(sti.observation_grid.grid)
-            end
-        )
     )
-
-    Gs = oed.observed.fisher(traj)
-    return [Gs[(nc[i] + 1):nc[i + 1]] for i in 1:(size(nc, 1) - 1)]
 end
+@non_differentiable sampling_times(oed, ps, st)
+discrete_sampling_sums(oed::OEDLayer, traj::Trajectory) = discrete_sampling_sums(oed, (id, time) -> weight_at(oed, traj, id, time))
+continuous_sampling_sums(oed::OEDLayer, traj::Trajectory) = continuous_sampling_sums(oed, (id, time) -> weight_at(oed, traj, id, time), sampling_times(oed, traj.ps, traj.st))
 
-function __fisher_information(oed::OEDLayer{false, true, true}, traj::Trajectory, ps, st::NamedTuple)
-    (; controls) = ps
-    (; active_controls) = st
-    fim = __fisher_information(oed, traj)
+"""
+$(SIGNATURES)
 
-    w = eachrow(reduce(hcat, map(x -> controls[x], active_controls)))
-    diffF = map(-, fim[2:end], fim[1:end])
-
-    return sum([F[:, :, k] .* wi[k] for (wi, F) in zip(w, diffF) for k in axes(F, 3)])
+Return sampling budgets, continuous measurements first and discrete measurements
+second. Continuous budgets are time integrals; discrete budgets are sums at
+measurement events. The four-argument form reads `ps` and `st` without solving
+the differential equation. Multi-experiment budgets concatenate experiment order.
+"""
+function sampling_sums(oed::OEDLayer, traj::Trajectory)
+    lookup = (id, time) -> weight_at(oed, traj, id, time)
+    times = sampling_times(oed, traj.ps, traj.st)
+    return vcat(continuous_sampling_sums(oed, lookup, times), discrete_sampling_sums(oed, lookup))
 end
-
-function __fisher_information(oed::OEDLayer{true, true, true}, traj::Trajectory, ps, st::NamedTuple)
-    (; controls) = ps
-    (; observation_grid) = st
-    Gs = __fisher_information(oed, traj)
-    return observation_grid(controls, Gs)
+function sampling_sums(oed::OEDLayer, x, ps, st)
+    lookup = (id, time) -> first(oed.shooting.parameter(time, ps.parameter, st.parameter))[parameter_index(oed.shooting, id)]
+    times = sampling_times(oed, ps, st)
+    return vcat(continuous_sampling_sums(oed, lookup, times), discrete_sampling_sums(oed, lookup))
 end
 
 """
 $(SIGNATURES)
 
-Computes the Fisher information matrix for an `OEDLayer` at parameters `ps` and state `st`.
-
-# Arguments
-- `oed`: Optimal experimental design layer.
-- `x`: External input passed through the Lux layer interface.
-- `ps`: Layer parameters, typically from `LuxCore.initialparameters` or `LuxCore.setup`.
-- `st`: Layer state, typically from `LuxCore.initialstates` or `LuxCore.setup`.
-
-# Keywords
-- `add_initial`: Include previously accumulated information stored in `st`.
-
-# Returns
-A tuple `(F, st)` containing the Fisher information matrix and updated layer state.
+Write `sampling_sums(layer, args...)` into the prefix of `res` and return `res`.
+The buffer must have at least one entry per measurement; its remaining entries
+are unchanged.
 """
-fisher_information(oed::OEDLayer, x, ps, st::NamedTuple; add_initial = true) = begin
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st.F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
-    return F, st
+function sampling_sums!(res, oed::OEDLayer, args...)
+    length(res) >= n_observed(oed) || throw(DimensionMismatch("Expected $(n_observed(oed)) sampling budgets."))
+    copyto!(res, sampling_sums(oed, args...))
+    return res
 end
-
-# Continuous ALWAYS last FIM
-fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st.F_init + last(__fisher_information(oed, traj)) : last(__fisher_information(oed, traj))
-    return F, st
-end
-
-fisher_information(oed::OEDLayer{false, <:Any, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st[1].F_init + last(__fisher_information(oed, traj)) : last(__fisher_information(oed, traj))
-    return F, st
-end
-
-# DISCRETE and SAMPLING -> weighted sum
-fisher_information(oed::OEDLayer{true, true, false, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    Gs = __fisher_information(oed, traj)
-    F = add_initial ? st.F_init + observation_grid(ps.controls, Gs) : observation_grid(ps.controls, Gs)
-    return F, st
-end
-
-# FIXED DISCRETE and SAMPLING -> use helper function
-fisher_information(oed::OEDLayer{true, true, true}, x, ps, st::NamedTuple; add_initial = true) = begin
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st.F_init + __fisher_information(oed, traj, ps, st) : __fisher_information(oed, traj, ps, st)
-    return F, st
-end
-
-fisher_information(oed::OEDLayer{true, true, false, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    traj, st = oed(x, ps, st)
-    Gs = __fisher_information(oed, traj, ps, st)
-    F = sum(
-        map(eachindex(Gs)) do i
-            psi, sti = getproperty(ps, Symbol("interval_$i")), getproperty(st, Symbol("interval_$i"))
-            sti.observation_grid(psi.controls, Gs[i])
-        end
-    )
-
-    add_initial && return st[1].F_init + F, st
-    return F, st
-end
-
-# DISCRETE -> SUM
-fisher_information(oed::OEDLayer{true, false, <:Any, <:SingleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    (; sampling_indices, layer) = oed
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st.F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
-    return F, st
-end
-
-fisher_information(oed::OEDLayer{true, false, <:Any, <:MultipleShootingLayer}, x, ps, st::NamedTuple; add_initial = true) = begin
-    (; sampling_indices, layer) = oed
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st[1].F_init + sum(__fisher_information(oed, traj)) : sum(__fisher_information(oed, traj))
-    return F, st
-end
-
-# FIXED + CONTINUOUS
-fisher_information(oed::OEDLayer{false, true, true}, x, ps, st::NamedTuple; add_initial = true) = begin
-    (; sampling_indices, layer) = oed
-    (; observation_grid) = st
-    traj, st = oed(x, ps, st)
-    F = add_initial ? st.F_init + __fisher_information(oed, traj, ps, st) : __fisher_information(oed, traj, ps, st)
-    return F, st
-end
+get_sampling_sums(args...) = sampling_sums(args...)
+get_sampling_sums!(args...) = sampling_sums!(args...)
 
 """
 $(SIGNATURES)
 
-Returns the parameter sensitivities of the observed outputs for an OED trajectory.
-
-# Returns
-For trajectory inputs, the sensitivity arrays are returned directly. For layer inputs, the
-return value is `(sensitivities, st)` with the updated layer state.
+Return state with the information from completed experiments added to `F_init`.
+Each experiment supplies `ps` and may supply its own `st` (otherwise use `st`).
+Existing priors are excluded from each experiment's contribution to avoid counting
+them repeatedly. The two-argument form starts from freshly initialized state.
+An empty collection leaves state unchanged.
 """
-sensitivities(oed::OEDLayer, traj::Trajectory) = oed.observed.sensitivities(traj)
-
-sensitivities(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    sensitivities(oed, traj), st
+function update_fim(oed::OEDLayer, experiments, st)
+    isempty(experiments) && return st
+    added = sum(experiments) do experiment
+        local_st = hasproperty(experiment, :st) ? experiment.st : st
+        first(fisher_information(oed, nothing, experiment.ps, local_st; add_initial = false))
+    end
+    return merge(st, (; F_init = st.F_init + added))
 end
-
-"""
-$(SIGNATURES)
-
-Evaluates the observation equations associated with an `OEDLayer`.
-
-# Returns
-For trajectory inputs, observed values are returned directly. For layer inputs, the return
-value is `(observed, st)` with the updated layer state.
-"""
-observed_equations(oed::OEDLayer, traj::Trajectory) = oed.observed.observed(traj)
-
-observed_equations(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    observed_equations(oed, traj), st
-end
-
-_local_information_gain(oed::OEDLayer, traj::Trajectory) = oed.observed.local_weighted_sensitivity(traj)
+update_fim(oed::OEDLayer, experiments) = update_fim(oed, experiments, LuxCore.initialstates(Random.default_rng(), oed))
 
 """
 $(SIGNATURES)
 
-Computes local information gain contributions from each observed quantity along the OED
-trajectory.
-
-# Returns
-A tuple `(gains, st)` containing per-observation information matrices and the updated layer
-state.
+Solve once and return `(gains, next_st)`. Each saved time contains the unweighted
+outer products `J[i:i, :]' * J[i:i, :]` of individual observation-sensitivity rows,
+continuous observations first, then discrete observations. These are per output
+row, even when several rows share one measurement weight.
 """
-local_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    # This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
-    hxGs = _local_information_gain(oed, traj)
-    map(hxGs) do hxGi
-            map(axes(hxGi, 1)) do i
-                xi = hxGi[i:i, :]
-                xi'xi
-        end
-    end, st
+function local_information_gain(oed::OEDLayer, x, ps, st)
+    traj, next_st = oed(x, ps, st)
+    values = oed.measurements.observed.local_information_gain(traj)
+    return map(J -> [J[i:i, :]' * J[i:i, :] for i in axes(J, 1)], values), next_st
 end
-
 """
 $(SIGNATURES)
 
-Computes global information gain contributions scaled by the inverse final Fisher information
-matrix.
-
-# Returns
-A tuple `(gains, st)` containing per-observation information matrices and the updated layer
-state.
+Solve once and return `(gains, next_st)`. Each saved time contains per output-row
+matrices `(J[i:i, :] * inv(F))' * (J[i:i, :] * inv(F))`. Here `F` includes the prior
+and all continuous/discrete information and must be nonsingular. Their traces
+measure the marginal improvement in A-optimality before interval/event weighting.
 """
-global_information_gain(oed::OEDLayer, x, ps, st::NamedTuple) = begin
-    traj, st = oed(x, ps, st)
-    F_tf, st = fisher_information(oed, x, ps, st)
-    C = inv(F_tf)
-    # This returns hx G but stacked as a matrix [h_1_x G; h_2_x G; ...]
-    hxGs = _local_information_gain(oed, traj)
-    map(hxGs) do hxGi
-            map(axes(hxGi, 1)) do i
-                xi = hxGi[i:i, :] * C
-                xi'xi
-        end
-    end, st
+function global_information_gain(oed::OEDLayer, x, ps, st)
+    traj, next_st = oed(x, ps, st)
+    inverse = inv(fisher_information(oed, traj))
+    values = oed.measurements.observed.local_information_gain(traj)
+    return map(J -> [(J[i:i, :] * inverse)' * (J[i:i, :] * inverse) for i in axes(J, 1)], values), next_st
 end
-
-get_sampling_sums(::OEDLayer{<:Any, false}, x, ps, st) = []
-get_sampling_sums!(res, ::OEDLayer{<:Any, false}, x, ps, st) = nothing
-get_sampling_sums(::OEDLayer{<:Any, false, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields} = []
-get_sampling_sums!(res, ::OEDLayer{<:Any, false, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields} = nothing
-
-__get_subsets(active_controls::AbstractVector, indices) = active_controls[indices]
-__get_subsets(index_grid::AbstractMatrix, indices) = index_grid[indices, :]
-__get_subsets(active_controls::Tuple, indices) = reduce(vcat, map(Base.Fix2(__get_subsets, indices), active_controls))
-__get_subsets(active_controls::Tuple{AbstractMatrix, Vararg{AbstractMatrix}}, indices) = reduce(hcat, map(Base.Fix2(__get_subsets, indices), active_controls))
-
-__get_dts(tspans::Tuple{Vararg{Tuple{<:Real, <:Real}}}) = vcat(first.(Base.front(tspans))..., collect(last(tspans))...)
-__get_dts(tspans::Tuple) = reduce(
-    vcat, map(eachindex(tspans)) do i
-        i == lastindex(tspans) ? __get_dts(tspans[i]) : __get_dts(Base.front(tspans[i]))
-    end
-)
-
-_get_dts(tspans) = diff(__get_dts(tspans))
-
-get_sampling_sums(oed::OEDLayer, x, ps, st) = _get_sampling_sums(oed, x, ps, st)
-get_sampling_sums!(res, oed::OEDLayer, x, ps, st) = _get_sampling_sums!(res, oed, x, ps, st, Val{true}())
-
-function get_sampling_sums(oed::OEDLayer{<:Any, <:Any, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
-    return sum(fields) do f
-        _get_sampling_sums(oed, x, getproperty(ps, f), getproperty(st, f))
-    end
-end
-
-function get_sampling_sums!(res, oed::OEDLayer{<:Any, <:Any, <:Any, <:Corleone.MultipleShootingLayer}, x, ps, st::NamedTuple{fields}) where {fields}
-    return foreach(enumerate(fields)) do (i, f)
-        _get_sampling_sums!(res, oed, x, getproperty(ps, f), getproperty(st, f), Val{i == 1}())
-    end
-end
-
-function _get_sampling_sums(oed::OEDLayer{true, true}, x, ps, st)
-    (; sampling_indices) = oed
-    (; active_controls) = st
-    (; controls) = ps
-    return map(__get_subsets(active_controls, sampling_indices)) do subset
-        sum(controls[subset])
-    end
-end
-
-function _get_sampling_sums(oed::OEDLayer{false, true, true}, x, ps, st)
-    (; active_controls, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return map(active_controls) do subset
-        sum(controls[subset] .* dts)
-    end
-end
-
-function _get_sampling_sums!(res, oed::OEDLayer{false, true, true}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; active_controls, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return foreach(enumerate(active_controls)) do (i, subset)
-        res[i] = sum(controls[subset] .* dts)
-    end
-end
-
-function _get_sampling_sums!(res::AbstractArray, oed::OEDLayer{true, true}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; sampling_indices) = oed
-    (; active_controls) = st
-    (; controls) = ps
-    return foreach(enumerate(__get_subsets(active_controls, sampling_indices))) do (i, subset)
-        if RESET
-            res[i] = sum(controls[subset])
-        else
-            res[i] += sum(controls[subset])
-        end
-    end
-end
-
-function _get_sampling_sums(oed::OEDLayer{false, true, false}, x, ps, st)
-    (; sampling_indices) = oed
-    (; index_grid, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return map(enumerate(eachrow(__get_subsets(index_grid, sampling_indices)))) do (i, subset)
-        sum(controls[subset] .* dts)
-    end
-end
-
-function _get_sampling_sums!(res::AbstractVector, oed::OEDLayer{false, true, false}, x, ps, st, ::Val{RESET}) where {RESET}
-    (; sampling_indices) = oed
-    (; index_grid, tspans) = st
-    (; controls) = ps
-    dts = _get_dts(tspans)
-    return foreach(enumerate(eachrow(__get_subsets(index_grid, sampling_indices)))) do (i, subset)
-        if RESET
-            res[i] = sum(controls[subset] .* dts)
-        else
-            res[i] += sum(controls[subset] .* dts)
-        end
-    end
-end
-
-get_block_structure(layer::OEDLayer) = get_block_structure(layer.layer)

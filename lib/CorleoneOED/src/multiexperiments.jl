@@ -1,352 +1,115 @@
 """
 $(TYPEDEF)
 
-Generalization of OEDLayer to multiple experiments that can be jointly optimized.
+Joint experimental design with independent Lux parameter/state trees per experiment.
+Local information matrices are embedded in common physical-parameter index order
+before summation. A global `st.F_init` is included once. SVD-reduced experiments
+contribute their information projected back through their fixed direction bases.
+
+Construct from a tuple/NamedTuple of OED layers, or `MultiExperimentLayer(oed, n)`.
+Different experiments must use the same meaning for each physical parameter index.
 
 # Fields
 $(FIELDS)
 """
-struct MultiExperimentLayer{DISCRETE, FIXED, SPLIT, SHOOTING, L, P} <: LuxCore.AbstractLuxLayer
-    "Layers defining multiexperiments"
-    layers::L
-    "Number of experiments"
-    n_exp::Int
-    "Parameters considered in the different experiments"
+struct MultiExperimentLayer{E, P, B} <: LuxCore.AbstractLuxContainerLayer{(:experiments,)}
+    "The OED layers, keyed by experiment name."
+    experiments::E
+    "The union of physical parameter indices in information-matrix order."
     params::P
+    "Fixed embeddings of local sensitivity directions into the common parameter axes."
+    embeddings::B
 end
 
-function Base.show(io::IO, oed::MultiExperimentLayer{DISCRETE, FIXED, SPLIT}) where {DISCRETE, FIXED, SPLIT}
-    (; n_exp, params) = oed
-    type_color, no_color = SciMLBase.get_colorizers(io)
-    measurement_text = DISCRETE ? "discrete " : "continuous "
-    layer_text = FIXED ? "Fixed " : ""
-
-    print(
-        io,
-        no_color, layer_text,
-        type_color, "MultiExperimentLayer ", no_color, "with ",
-        type_color, measurement_text,
-        no_color, "measurement model and ",
-        no_color, n_exp,
-        no_color, " experiments.\n"
-    )
-    return if SPLIT
-        print(
-            io,
-            no_color, "Considered parameters are split among the experiments:\n"
-        )
+function MultiExperimentLayer(experiments::NamedTuple)
+    !isempty(experiments) && all(layer -> layer isa OEDLayer, values(experiments)) ||
+        throw(ArgumentError("Supply at least one OED layer."))
+    params = sort!(unique!(reduce(vcat, map(layer -> layer.params, values(experiments)))))
+    embeddings = map(values(experiments)) do layer
         [
-            print(
-                io, "Experiment $i considers parameters: $param." * (i == length(params.original) ? "" : "\n")
-            ) for (i, param) in enumerate(params.original)
+            index in layer.params ? layer.basis[findfirst(==(index), layer.params), j] : zero(eltype(layer.basis))
+                for index in params, j in axes(layer.basis, 2)
         ]
     end
+    return MultiExperimentLayer(experiments, params, embeddings)
+end
+function MultiExperimentLayer(experiments::Tuple)
+    names = ntuple(i -> Symbol(:experiment_, i), length(experiments))
+    return MultiExperimentLayer(NamedTuple{names}(experiments))
+end
+function MultiExperimentLayer(layer::OEDLayer, n::Integer)
+    n > 0 || throw(ArgumentError("The number of experiments must be positive."))
+    return MultiExperimentLayer(ntuple(_ -> layer, n))
 end
 
-"""
-$(SIGNATURES)
-
-Constructs a multi-experiment OED layer from one differential equation problem.
-
-# Arguments
-- `prob`: Differential equation problem shared by the experiments.
-- `alg`: Differential equation solver algorithm.
-- `nexp`: Number of experiments, or pass a vector of parameter-index vectors to split
-  parameters across experiments.
-- `shooting_points`: Optional multiple-shooting points.
-
-# Keywords
-- `params`: Parameter indices included in each experiment.
-- `measurements`: Optional measurement controls.
-- `observed`: Observation map `(u, p, t) -> y`.
-
-# Returns
-A `MultiExperimentLayer` whose parameters and states are grouped by experiment.
-"""
-function MultiExperimentLayer{DISCRETE}(
-        prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, nexp::Int;
-        params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...
-    ) where {DISCRETE}
-    layer = OEDLayer{DISCRETE}(prob, alg; params = params, measurements = measurements, observed = observed, kwargs...)
-    fixed = is_fixed(layer)
-    return MultiExperimentLayer{DISCRETE, fixed, false, SingleShootingLayer, typeof(layer), typeof(params)}(layer, nexp, params)
+function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer)
+    experiments = map(layer -> LuxCore.initialstates(rng, layer), multi.experiments)
+    T = eltype(first(values(multi.experiments)).augmented_prob.u0)
+    return (; experiments, F_init = zeros(T, length(multi.params), length(multi.params)))
 end
+LuxCore.statelength(multi::MultiExperimentLayer) = sum(LuxCore.statelength, values(multi.experiments)) + length(multi.params)^2
 
-function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, params::Vector{Vector{Int64}}; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    nexp = length(params)
-    layers = map(params) do param
-        OEDLayer{DISCRETE}(prob, alg; params = param, measurements = measurements, observed = observed, kwargs...)
-    end |> Tuple
-    fixed = all(is_fixed.(layers))
-
-    all_params = union(params...)
-    common = sort(all_params)
-    idxmap = Dict(val => i for (i, val) in enumerate(common))
-
-    new_params = (; original = params, all = common, permutation = idxmap)
-
-    return MultiExperimentLayer{DISCRETE, fixed, true, SingleShootingLayer, typeof(layers), typeof(new_params)}(layers, nexp, new_params)
-end
-
-function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points::AbstractVector{<:Real}, nexp::Int; params = eachindex(prob.p), measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    layers = OEDLayer{DISCRETE}(prob, alg, shooting_points...; params = params, measurements = measurements, observed = observed, kwargs...)
-    return MultiExperimentLayer{DISCRETE, false, false, MultipleShootingLayer, typeof(layers), typeof(params)}(layers, nexp, params)
-end
-
-function MultiExperimentLayer{DISCRETE}(prob::SciMLBase.AbstractDEProblem, alg::SciMLBase.AbstractDEAlgorithm, shooting_points::AbstractVector{<:Real}, params::Vector{Vector{Int64}} = [eachindex(prob.p) for _ in 1:nexp]; measurements = [], observed = default_observed, kwargs...) where {DISCRETE}
-    nexp = length(params)
-    layers = map(params) do param
-        OEDLayer{DISCRETE}(prob, alg, shooting_points...; params = param, measurements = measurements, observed = observed, kwargs...)
-    end |> Tuple
-    all_params = union(params...)
-    common = sort(all_params)
-    idxmap = Dict(val => i for (i, val) in enumerate(common))
-
-    new_params = (; original = params, all = common, permutation = idxmap)
-
-    return MultiExperimentLayer{DISCRETE, false, true, MultipleShootingLayer, typeof(layers), typeof(new_params)}(layers, nexp, new_params)
-end
-
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true})
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
-    exp_ps = Tuple(
-        map(1:multi.n_exp) do i
-            LuxCore.initialparameters(rng, multi.layers[i])
-        end
+# Parameter containers need only provide named access: iterating a ComponentArray
+# yields scalar storage, not its experiment subtrees.
+function apply_experiment(operation, multi, ps, st, ::Val{name}) where {name}
+    return operation(
+        getproperty(multi.experiments, name),
+        getproperty(ps.experiments, name), getproperty(st.experiments, name)
     )
-    return NamedTuple{exp_names}(exp_ps)
 end
-
-function LuxCore.initialparameters(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
-    exp_ps = Tuple([LuxCore.initialparameters(rng, multi.layers) for _ in 1:multi.n_exp])
-    return NamedTuple{exp_names}(exp_ps)
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true, <:SingleShootingLayer})
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
-    exp_ps = Tuple(
-        map(1:multi.n_exp) do i
-            LuxCore.initialstates(rng, multi.layers[i])
-        end
-    )
-    np = length(multi.params.all)
-
-    st1 = exp_ps[1]
-    F_init = zeros(eltype(exp_ps[1].F_init), np, np)
-    st1 = merge(st1, (; F_init = F_init))
-
-    new_sts = (st1, exp_ps[2:end]...)
-
-    return NamedTuple{exp_names}(new_sts)
-end
-
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer})
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
-    exp_ps = Tuple(
-        map(1:multi.n_exp) do i
-            LuxCore.initialstates(rng, multi.layers[i])
-        end
-    )
-    np = length(multi.params.all)
-
-    exp1 = exp_ps[1]
-    int1 = exp1[1]
-    F_init = zeros(eltype(int1.F_init), np, np)
-    int1 = merge(int1, (; F_init = F_init))
-    st1 = merge(exp1, (; interval_1 = int1))
-
-    new_sts = (st1, exp_ps[2:end]...)
-
-    return NamedTuple{exp_names}(new_sts)
-end
-
-function LuxCore.initialstates(rng::Random.AbstractRNG, multi::MultiExperimentLayer{<:Any, <:Any, false})
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:multi.n_exp])
-    exp_ps = Tuple([LuxCore.initialstates(rng, multi.layers) for _ in 1:multi.n_exp])
-    return NamedTuple{exp_names}(exp_ps)
-end
-
-function (layer::MultiExperimentLayer{<:Any, <:Any, false})(x, ps, st)
-    sols = map(1:layer.n_exp) do i
-        ps_local, st_local = getproperty(ps, Symbol("experiment_$i")), getproperty(st, Symbol("experiment_$i"))
-        sol, _ = layer.layers(x, ps_local, st_local)
-        sol
+function map_experiments(operation, multi, ps, st)
+    return map(Val.(keys(multi.experiments))) do name
+        apply_experiment(operation, multi, ps, st, name)
     end
-    return sols, st
 end
 
-function (layer::MultiExperimentLayer{<:Any, <:Any, true})(x, ps, st)
-    sols = map(enumerate(layer.layers)) do (i, _layer)
-        ps_local, st_local = getproperty(ps, Symbol("experiment_$i")), getproperty(st, Symbol("experiment_$i"))
-        sol, _ = _layer(x, ps_local, st_local)
-        sol
+function (multi::MultiExperimentLayer)(x, ps, st)
+    results = map_experiments((layer, parameters, state) -> layer(x, parameters, state), multi, ps, st)
+    names = keys(multi.experiments)
+    trajectories = NamedTuple{names}(map(first, results))
+    states = NamedTuple{names}(map(last, results))
+    return trajectories, merge(st, (; experiments = states))
+end
+
+function experiment_information(multi, trajectories)
+    blocks = map(values(multi.experiments), values(trajectories), multi.embeddings) do layer, trajectory, embedding
+        F = fisher_information(layer, trajectory; add_initial = false)
+        embedding * F * embedding'
     end
-    return sols, st
+    return sum(blocks)
+end
+function fisher_information(multi::MultiExperimentLayer, x, ps, st; add_initial = true)
+    trajectories, next_st = multi(x, ps, st)
+    F = experiment_information(multi, trajectories)
+    return add_initial ? F + st.F_init : F, next_st
 end
 
-n_observed(layer::MultiExperimentLayer{<:Any, <:Any, false}) = layer.n_exp * length(layer.layers.sampling_indices)
-n_observed(layer::MultiExperimentLayer{<:Any, <:Any, true}) = sum(map(x -> length(x.sampling_indices), layer.layers))
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, false, <:MultipleShootingLayer}) = multi.n_exp * Corleone.get_number_of_shooting_constraints(multi.layers)
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, true, <:MultipleShootingLayer}) = sum(map(Corleone.get_number_of_shooting_constraints, multi.layers))
-Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}) = 0
-
-function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:SingleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED}
-    FIM = sum(
-        map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
-        end
-    )
-
-    st1 = getproperty(st, Symbol("experiment_1"))
-    st1 = merge(st1, (; F_init = FIM + st[1].F_init))
-
-    return merge(st, (; experiment_1 = st1))
-end
-
-
-function update_fim(oed::MultiExperimentLayer{DISCRETE, FIXED, <:Any, <:MultipleShootingLayer}, experiments, st::NamedTuple) where {DISCRETE, FIXED}
-    FIM = sum(
-        map(experiments) do experiment
-            fisher_information(oed, nothing, experiment.ps, experiment.st)[1]
-        end
-    )
-
-    st1 = getproperty(st, Symbol("experiment_1"))
-    int1 = merge(st1.interval_1, (; F_init = FIM + st[1][1].F_init))
-    st1 = merge(st1, (; interval_1 = int1))
-
-    return merge(st, (; experiment_1 = st1))
-end
-
-function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
+sampling_sums(multi::MultiExperimentLayer, trajectories::NamedTuple) = reduce(vcat, values(map(sampling_sums, multi.experiments, trajectories)))
+function sampling_sums(multi::MultiExperimentLayer, x, ps, st)
     return reduce(
-        vcat, map(enumerate(fields)) do (i, field)
-            get_sampling_sums(multi.layers[i], x, getproperty(ps, field), getproperty(st, field))
-        end
+        vcat, map_experiments(
+            (layer, parameters, state) -> sampling_sums(layer, x, parameters, state), multi, ps, st
+        )
     )
 end
-
-function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}) where {fields}
-    n_obs = cumsum(vcat(0, [length(x.sampling_indices) for x in multi.layers]))
-    for (i, field) in zip(1:length(multi.layers), fields)
-        get_sampling_sums!(view(res, (n_obs[i] + 1):n_obs[i + 1]), multi.layers[i], x, getproperty(ps, field), getproperty(st, field))
+function sampling_sums!(res, multi::MultiExperimentLayer, args...)
+    length(res) >= n_observed(multi) || throw(DimensionMismatch("Incorrect sampling budget buffer length."))
+    copyto!(res, sampling_sums(multi, args...))
+    return res
+end
+n_observed(multi::MultiExperimentLayer) = sum(n_observed, values(multi.experiments))
+Corleone.get_number_of_shooting_constraints(multi::MultiExperimentLayer, ps, st) = sum(map_experiments(get_number_of_shooting_constraints, multi, ps, st))
+Corleone.shooting_constraints(multi::MultiExperimentLayer, trajectories::NamedTuple) = reduce(vcat, values(map(shooting_constraints, trajectories)))
+function Corleone.shooting_constraints!(res, multi::MultiExperimentLayer, trajectories::NamedTuple)
+    copyto!(res, shooting_constraints(multi, trajectories))
+    return res
+end
+function update_fim(multi::MultiExperimentLayer, experiments, st)
+    isempty(experiments) && return st
+    added = sum(experiments) do experiment
+        local_st = hasproperty(experiment, :st) ? experiment.st : st
+        first(fisher_information(multi, nothing, experiment.ps, local_st; add_initial = false))
     end
-    return
+    return merge(st, (; F_init = st.F_init + added))
 end
-
-function get_sampling_sums(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
-    return reduce(
-        vcat, map(fields) do field
-            get_sampling_sums(multi.layers, x, getproperty(ps, field), getproperty(st, field))
-        end
-    )
-end
-
-function get_sampling_sums!(res::AbstractVector, multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}) where {fields}
-    n_obs = length(multi.layers.sampling_indices)
-    for (i, field) in enumerate(fields)
-        get_sampling_sums!(view(res, ((i - 1) * n_obs + 1):(i * n_obs)), multi.layers, x, getproperty(ps, field), getproperty(st, field))
-    end
-    return
-end
-
-function __fisher_information(multi::MultiExperimentLayer{<:Any, true, false}, trajs::Vector{<:Trajectory}, ps, st::NamedTuple{fields}) where {fields}
-    return sum(
-        map(zip(trajs, fields)) do (traj, field)
-            __fisher_information(multi.layers, traj, getproperty(ps, field), getproperty(st, field))
-        end
-    )
-end
-
-function __fisher_information(multi::MultiExperimentLayer{<:Any, true, true}, trajs::Vector{<:Trajectory}, ps, st::NamedTuple{fields}) where {fields}
-    fims = map(zip(enumerate(trajs), fields)) do ((i, traj), field)
-        __fisher_information(multi.layers[i], traj, getproperty(ps, field), getproperty(st, field))
-    end
-
-    np = length(multi.params.all)
-    F = zeros(eltype(fims[1]), (np, np))
-
-    for (i, fim) in enumerate(fims)
-        idxs = [multi.params.permutation[j] for j in multi.params.original[i]]
-        F[idxs, idxs] .+= fim
-    end
-
-    return F
-end
-
-function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, false}, x, ps, st::NamedTuple{fields}; add_initial = true) where {fields}
-    F = sum(
-        map(fields) do field
-            fisher_information(multi.layers, x, getproperty(ps, field), getproperty(st, field), add_initial = false)[1]
-        end
-    )
-    F_init = isa(multi.layers.layer, MultipleShootingLayer) ? st[1][1].F_init : st[1].F_init
-    add_initial && return F + F_init, st
-    return F, st
-end
-
-function fisher_information(multi::MultiExperimentLayer{<:Any, <:Any, true}, x, ps, st::NamedTuple{fields}; add_initial = true) where {fields}
-    fim = map(enumerate(fields)) do (i, field)
-        fisher_information(multi.layers[i], x, getproperty(ps, field), getproperty(st, field); add_initial = false)[1]
-    end
-    np = length(multi.params.all)
-    F = zeros(eltype(fim[1]), (np, np))
-    for (i, fimi) in enumerate(fim)
-        idxs = [multi.params.permutation[j] for j in multi.params.original[i]]
-        F[idxs, idxs] .+= fimi
-    end
-    F_init = isa(multi.layers[1].layer, MultipleShootingLayer) ? st[1][1].F_init : st[1].F_init
-    add_initial && return F + F_init, st
-    return F, st
-end
-
-Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, true}) = begin
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        Corleone.get_bounds(layer.layers[i])
-    end
-    NamedTuple{exp_names}(first.(exp_bounds)), NamedTuple{exp_names}(last.(exp_bounds))
-end
-
-Corleone.get_bounds(layer::MultiExperimentLayer{<:Any, <:Any, false}) = begin
-    exp_names = Tuple([Symbol("experiment_$i") for i in 1:layer.n_exp])
-    exp_bounds = map(Tuple(1:layer.n_exp)) do i
-        Corleone.get_bounds(layer.layers)
-    end
-    NamedTuple{exp_names}(first.(exp_bounds)), NamedTuple{exp_names}(last.(exp_bounds))
-end
-
-"""
-$(SIGNATURES)
-
-Computes the block structure as defined by the `MultiExperimentLayer`, which may come from
-two levels: 1) the different experiments, and 2) multiple shooting discretizations on the
-experiment level.
-"""
-function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, true})
-    blocks = map(layer.layers) do _layer
-        Corleone.get_block_structure(_layer)
-    end |> Tuple
-
-    for i in 1:(layer.n_exp - 1)
-        blocks[i + 1] .= blocks[i + 1] .+ blocks[i][end]
-    end
-    block_structure = reduce(vcat, [i == 1 ? blocks[i] : blocks[i][2:end] for i in 1:layer.n_exp])
-
-    return block_structure
-end
-
-function Corleone.get_block_structure(layer::MultiExperimentLayer{<:Any, <:Any, false})
-    blocks = map(1:layer.n_exp) do i
-        Corleone.get_block_structure(layer.layers)
-    end |> Tuple
-
-    for i in 1:(layer.n_exp - 1)
-        blocks[i + 1] .= blocks[i + 1] .+ blocks[i][end]
-    end
-    block_structure = reduce(vcat, [i == 1 ? blocks[i] : blocks[i][2:end] for i in 1:layer.n_exp])
-
-    return block_structure
-end
+update_fim(multi::MultiExperimentLayer, experiments) = update_fim(multi, experiments, LuxCore.initialstates(Random.default_rng(), multi))

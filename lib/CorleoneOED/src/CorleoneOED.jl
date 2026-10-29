@@ -1,5 +1,6 @@
 module CorleoneOED
 
+using ChainRulesCore: @non_differentiable
 using Reexport
 @reexport using Corleone
 @reexport using Symbolics
@@ -12,25 +13,20 @@ using SciMLBase
 using DocStringExtensions
 using LinearAlgebra
 
-# TODO Clean and more tests (also for LV)
+include("measurements.jl")
+export AbstractMeasurement, DiscreteMeasurement, ContinuousMeasurement
 include("augmentation.jl")
-
-# TODO Docs
 include("oed.jl")
 export OEDLayer
 export fisher_information, observed_equations, sensitivities
 export local_information_gain, global_information_gain
-
+export sampling_sums, sampling_sums!, discrete_sampling_sums, continuous_sampling_sums
+export update_fim
 include("multiexperiments.jl")
 export MultiExperimentLayer
-
-# TODO
-# Dispatch for optimality(crit, oed, x, ps, st)
-# --> Compute optimality condition for specific crit
-# e.g. tr(\Pi) for the ACriterion
 include("criteria.jl")
-export ACriterion, DCriterion, ECriterion
+include("optimization.jl")
+export AbstractCriterion, ACriterion, DCriterion, ECriterion
 export FisherACriterion, FisherECriterion, FisherDCriterion
-
 
 end

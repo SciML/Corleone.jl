@@ -1,0 +1,8 @@
+[deps]
+CorleoneOED = "6590a4b1-d036-41fe-a5b4-03a980244101"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+
+[compat]
+CorleoneOED = "1"
+Documenter = "1"
+julia = "1.10"

@@ -1,509 +1,100 @@
 module CorleoneOEDOptimizationExtension
+
 using CorleoneOED
-using Corleone
 using ComponentArrays
-using LuxCore
 using Optimization
-using SymbolicIndexingInterface
-using Random
+using LuxCore, Random
+import CorleoneOED: n_observed
 
-default_M(layer::OEDLayer{false}) = zeros(CorleoneOED.n_observed(layer)) .+ last(Corleone.get_tspan(layer.layer))
-default_M(layer::OEDLayer{true}) = zeros(CorleoneOED.n_observed(layer)) .+ [length(x.t) for x in layer.controls]
-default_M(layer::MultiExperimentLayer{false, <:Any, false}) = reduce(vcat, [default_M(layer.layers) for _ in 1:layer.n_exp])
-default_M(layer::MultiExperimentLayer{false, <:Any, true}) = reduce(vcat, map(default_M, layer.layers))
+matching(::OEDLayer, trajectory) = shooting_constraints(trajectory)
+matching(layer::MultiExperimentLayer, trajectories) = shooting_constraints(layer, trajectories)
 
-check_constraints(layer::OEDLayer, constraints) = begin
-    if !isnothing(constraints)
-        @assert all(collect(keys(constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
-    end
-end
-
-check_constraints(layer::MultiExperimentLayer, constraints) = begin
-    if !isnothing(constraints)
-        @assert typeof(constraints) <: NamedTuple
-        for local_constraints in constraints
-            @assert all(collect(keys(local_constraints)) .|> typeof .<: Union{Expr, Symbol}) "Keys of the constraint dictionary need to be of type Symbol or Expr!"
-        end
-    end
-end
-
-function extract_constraint_bounds(layer::Union{OEDLayer, MultiExperimentLayer}, constraints::Nothing, M)
-    nshooting = Corleone.get_number_of_shooting_constraints(layer)
-    lcons, ucons = begin
-        zeros(nshooting + length(M)), vcat(zeros(nshooting), M)
-    end
-    return lcons, ucons
-end
-
-function extract_constraint_bounds(layer::OEDLayer, constraints::Dict, M)
-    nshooting = Corleone.get_number_of_shooting_constraints(layer)
-    lcons, ucons = begin
-        _lb = reduce(
-            vcat, map(enumerate(constraints)) do (i, (k, v))
-                first(v.bounds)
+function sampling_integrality!(mask, layer::OEDLayer)
+    ids = (map(m -> m.id, layer.measurements.discrete)..., map(m -> m.id, layer.measurements.continuous)...)
+    for (name, pc) in pairs(layer.shooting.parameter.parameters)
+        pc isa Corleone.FixedLayer && continue
+        child = getproperty(mask.parameter.parameters, name).parameter
+        if pc.parameter isa NamedTuple
+            for id in keys(pc.parameter)
+                id in ids && (getproperty(child, id).ps .= true)
             end
-        )
-        _ub = reduce(
-            vcat, map(enumerate(constraints)) do (i, (k, v))
-                last(v.bounds)
-            end
-        )
-        vcat(_lb, zeros(nshooting + length(M))), vcat(_ub, zeros(nshooting), M)
-    end
-    return lcons, ucons
-end
-
-function extract_constraint_bounds(layer::MultiExperimentLayer, constraints::NamedTuple{fields}, M) where {fields}
-    nshooting = Corleone.get_number_of_shooting_constraints(layer)
-    lcons, ucons = begin
-        _lb = reduce(
-            vcat, map(fields) do field
-                local_constraint = getproperty(constraints, field)
-                reduce(
-                    vcat, map(enumerate(local_constraint)) do (i, (k, v))
-                        first(v.bounds)
-                    end
-                )
-            end
-        )
-        _ub = reduce(
-            vcat, map(fields) do field
-                local_constraint = getproperty(constraints, field)
-                reduce(
-                    vcat, map(enumerate(local_constraint)) do (i, (k, v))
-                        last(v.bounds)
-                    end
-                )
-            end
-        )
-        vcat(_lb, zeros(nshooting), zero(M)), vcat(_ub, zeros(nshooting), M)
-    end
-    return lcons, ucons
-end
-
-function setup_constraints(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLayer}, sol, constraints::Nothing)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            CorleoneOED.get_sampling_sums!(res, layer, nothing, ps, st)
+        elseif name in ids
+            child.ps .= true
         end
     end
-    return sampling_cons
+    return mask
 end
-
-function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:SingleShootingLayer}, sol, constraints::Nothing)
-    return nothing
-end
-
-function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:MultipleShootingLayer}, sol, constraints::Nothing)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            shooting = Corleone.shooting_constraints(sols)
-            res .= shooting
-        end
+function sampling_integrality!(mask, layer::MultiExperimentLayer)
+    for name in keys(layer.experiments)
+        sampling_integrality!(getproperty(mask.experiments, name), layer.experiments[name])
     end
-    return sampling_cons
-end
-
-
-function setup_constraints(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLayer}, sol, constraints)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    getter_constraints = []
-    for (k, v) in constraints
-        push!(getter_constraints, getsym(sol, k))
-    end
-
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-
-            cons = map(enumerate(constraints)) do (i, (k, v))
-                # Caution: timepoints for controls need to be in sols.t!
-                idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
-                getter[i](sols)[idxs]
-            end
-
-            res .= vcat(reduce(vcat, cons), sampling)
-        end
-    end
-
-    return sampling_cons
-end
-
-function setup_constraints(layer::OEDLayer{<:Any, false, <:Any, <:SingleShootingLayer}, sol, constraints)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    getter_constraints = []
-    for (k, v) in constraints
-        push!(getter_constraints, getsym(sol, k))
-    end
-
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            cons = map(enumerate(constraints)) do (i, (k, v))
-                # Caution: timepoints for controls need to be in sols.t!
-                idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
-                getter[i](sols)[idxs]
-            end
-
-            res .= reduce(vcat, cons)
-        end
-    end
-
-    return sampling_cons
-end
-
-function setup_constraints(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, sol, constraints::Nothing)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            shooting = Corleone.shooting_constraints(sols)
-            sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            res .= vcat(shooting, sampling)
-        end
-    end
-    return sampling_cons
-end
-
-function setup_constraints(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, sol, constraints)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    getter_constraints = []
-    for (k, v) in constraints
-        push!(getter_constraints, getsym(sol, k))
-    end
-
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            shooting = Corleone.shooting_constraints(sols)
-            cons = map(enumerate(constraints)) do (i, (k, v))
-                # Caution: timepoints for controls need to be in sols.t!
-                idxs = map(ti -> findfirst(x -> x .== ti, sols.t), v.t)
-                getter[i](sols)[idxs]
-            end
-
-            res .= vcat(reduce(vcat, cons), shooting, sampling)
-        end
-    end
-
-    return sampling_cons
-end
-
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}, sols, constraints::Nothing)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            CorleoneOED.get_sampling_sums!(res, layer, nothing, ps, st)
-        end
-    end
-    return sampling_cons
-end
-
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:SingleShootingLayer}, sols, constraints::NamedTuple)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    getter_constraints = []
-    constrained_experiments = Int64[]
-    for i in 1:layer.n_exp
-        field = Symbol("experiment_$i")
-        if hasproperty(constraints, field)
-            local_constraints = getproperty(constraints, field)
-            push!(getter_constraints, [getsym(sols[i], k) for (k, v) in local_constraints])
-            push!(constrained_experiments, i)
-        else
-            push!(getter_constraints, [])
-        end
-    end
-
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints, idxs = constrained_experiments
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            cons = map(constrained_experiments) do i
-                local_constraints = getproperty(constraints, Symbol("experiment_$i"))
-                reduce(
-                    vcat, map(zip(local_constraints, getter[i])) do ((k, v), getter_i)
-                        # Caution: timepoints for controls need to be in sols.t!
-                        idxs = map(ti -> findfirst(x -> x .== ti, sols[i].t), v.t)
-                        getter_i(sols[i])[idxs]
-                    end
-                )
-            end
-
-            res .= vcat(reduce(vcat, cons), sampling)
-        end
-    end
-
-    return sampling_cons
-end
-
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}, sols, constraints::Nothing)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            shooting = Corleone.shooting_constraints(sols)
-            matching = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            res .= vcat(shooting, matching)
-        end
-    end
-    return sampling_cons
-end
-
-function setup_constraints(layer::MultiExperimentLayer{<:Any, <:Any, <:Any, <:MultipleShootingLayer}, sols, constraints::NamedTuple)
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    getter_constraints = []
-    constrained_experiments = Int64[]
-    for i in 1:layer.n_exp
-        field = Symbol("experiment_$i")
-        if hasproperty(constraints, field)
-            local_constraints = getproperty(constraints, field)
-            push!(getter_constraints, [getsym(sols[i], k) for (k, v) in local_constraints])
-            push!(constrained_experiments, i)
-        else
-            push!(getter_constraints, [])
-        end
-    end
-
-    sampling_cons = let layer = layer, ax = getaxes(ComponentArray(ps)), getter = getter_constraints, constraints = constraints, idxs = constrained_experiments
-        (res, p, st) -> begin
-            ps = ComponentArray(p, ax)
-            sols, _ = layer(nothing, ps, st)
-            sampling = CorleoneOED.get_sampling_sums(layer, nothing, ps, st)
-            shooting = Corleone.shooting_constraints(sols)
-            cons = map(constrained_experiments) do i
-                local_constraints = getproperty(constraints, Symbol("experiment_$i"))
-                reduce(
-                    vcat, map(zip(local_constraints, getter[i])) do ((k, v), getter_i)
-                        # Caution: timepoints for controls need to be in sols.t!
-                        idxs = map(ti -> findfirst(x -> x .== ti, sols[i].t), v.t)
-                        getter_i(sols[i])[idxs]
-                    end
-                )
-            end
-
-            res .= vcat(reduce(vcat, cons), shooting, sampling)
-        end
-    end
-
-    return sampling_cons
-end
-
-function get_integrality(layer::OEDLayer{<:Any, true, false, <:MultipleShootingLayer}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
-    int_u0 = Bool.(ps * 0)
-    !integer &&  return int_u0
-
-    for field in fields
-        _ps = getproperty(int_u0, field)
-        _st = getproperty(st, field)
-        subsets = CorleoneOED.__get_subsets(_st.active_controls, layer.sampling_indices)
-        for subset in subsets
-            _ps.controls[subset] .= true
-        end
-    end
-    return int_u0
-end
-
-function get_integrality(layer::OEDLayer{false, true, <:Any, <:SingleShootingLayer}, integer::Bool, ps::ComponentArray, st)
-    int_u0 = Bool.(ps * 0)
-    !integer &&  return int_u0
-    subsets = CorleoneOED.__get_subsets(st.index_grid, layer.sampling_indices)
-    for subset in subsets
-        int_u0.controls[unique(subset)] .= true
-    end
-    return int_u0
-end
-
-function get_integrality(layer::OEDLayer{<:Any, true, <:Any, <:SingleShootingLayer}, integer::Bool, ps::ComponentArray, st)
-    int_u0 = Bool.(ps * 0)
-    !integer &&  return int_u0
-
-    subsets = CorleoneOED.__get_subsets(st.active_controls, layer.sampling_indices)
-    for subset in subsets
-        int_u0.controls[subset] .= true
-    end
-    return int_u0
-end
-
-function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, true}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
-    int_u0 = Bool.(ps * 0)
-    !integer &&  return int_u0
-    for (i, field) in enumerate(fields)
-        int_u0[field] = get_integrality(layer.layers[i], integer, getproperty(int_u0, field), getproperty(st, field))
-    end
-    return int_u0
-end
-
-function get_integrality(layer::MultiExperimentLayer{<:Any, <:Any, false}, integer::Bool, ps::ComponentArray, st::NamedTuple{fields}) where {fields}
-    int_u0 = Bool.(ps * 0)
-    !integer &&  return int_u0
-    for field in fields
-        int_u0[field] = get_integrality(layer.layers, integer, getproperty(int_u0, field), getproperty(st, field))
-    end
-    return int_u0
-end
-
-
-function Optimization.OptimizationProblem(
-        layer::Union{OEDLayer{<:Any, true, false}, MultiExperimentLayer{<:Any, false}},
-        crit::CorleoneOED.AbstractCriterion;
-        AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
-        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
-        variable_type::Type{T} = Float64, integer_weights = false,
-        M = default_M(layer),
-        kwargs...
-    ) where {T}
-
-    u0 = T.(u0)
-    check_constraints(layer, constraints)
-
-    # Our objective function
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    sol, _ = layer(nothing, ps, st)
-    objective = let layer = layer, ax = getaxes(ComponentArray(ps))
-        (p, st) -> begin
-            ps = ComponentArray(p, ax)
-            first(crit(layer, nothing, ps, st))
-        end
-    end
-
-    @assert length(M) == CorleoneOED.n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(CorleoneOED.n_observed(layer)), got $(length(M))."
-
-    # Bounds based on the variables
-    lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
-
-    @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
-
-    integer_sampling = get_integrality(layer, integer_weights, u0, st)
-
-    # Constraints
-    cons = setup_constraints(layer, sol, constraints)
-    lcons, ucons = extract_constraint_bounds(layer, constraints, M)
-
-    # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD; cons = cons)
-
-    # Return the optimization problem
-    return OptimizationProblem(
-        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
-        lcons = lcons, ucons = ucons, int = integer_sampling[:]
-    )
+    return mask
 end
 
 function Optimization.OptimizationProblem(
-        layer::Union{OEDLayer{<:Any, true, true, <:SingleShootingLayer}, MultiExperimentLayer{<:Any, true}},
-        crit::CorleoneOED.AbstractCriterion;
-        AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
-        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}, <:NamedTuple} = nothing,
-        variable_type::Type{T} = Float64, integer_weights = false,
-        M = default_M(layer),
+        layer::OEDLayer, criterion::AbstractCriterion;
+        AD = AutoForwardDiff(), vectorize = default_vectorizer(),
+        ps = nothing, st = nothing, rng = Random.default_rng(), M = nothing,
+        integer_weights::Bool = false, constraints = (), lcons = nothing, ucons = nothing,
         kwargs...
-    ) where {T}
-
-    u0 = T.(u0)
-    check_constraints(layer, constraints)
-
-    # Our objective function
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    p = ComponentArray(ps)
-    if isa(layer, OEDLayer)
-        p.controls .= 1.0 # Solve initial system with all ones for sampling
-    else # MultiExperiments
-        for field in keys(st)
-            p[field].controls .= 1.0
-        end
-    end
-
-    sol, _ = layer(nothing, p, st)
-
-    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), sol = sol
-        (p, st) -> begin
-            ps = ComponentArray(p, ax)
-            first(crit(CorleoneOED.__fisher_information(layer, sol, ps, st)))
-        end
-    end
-
-    @assert length(M) == CorleoneOED.n_observed(layer) "Dimensions of upper bound on sampling constraints do not match, expected $(CorleoneOED.n_observed(layer)), got $(length(M))."
-
-    # Bounds based on the variables
-    lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
-
-    @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
-
-    integer_sampling = get_integrality(layer, integer_weights, u0, st)
-
-    # Constraints
-    cons = setup_constraints(layer, sol, constraints)
-    lcons, ucons = extract_constraint_bounds(layer, constraints, M)
-
-    # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD; cons = cons)
-
-    # Return the optimization problem
-    return OptimizationProblem(
-        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
-        lcons = lcons, ucons = ucons, int = integer_sampling
     )
+    model = CorleoneDynamicOptProblem(layer, criterion, constraints...; ps, st, rng, M, lcons, ucons)
+    if integer_weights
+        vectorize === Val(:ComponentArrays) || throw(ArgumentError("Integer weights require ComponentArrays vectorization."))
+        mask = sampling_integrality!(zero(ComponentArray(model.ps)), layer)
+        return OptimizationProblem(model, AD; vectorize, int = Bool.(getdata(mask)), kwargs...)
+    end
+    return OptimizationProblem(model, AD; vectorize, kwargs...)
 end
 
+"""
+    OptimizationProblem(layer::Union{OEDLayer,MultiExperimentLayer}, criterion;
+        AD=AutoForwardDiff(), ps, st, M, vectorize=default_vectorizer(), kwargs...)
+
+Pack existing Lux parameters and their bounds using Corleone's vectorizer. `M`
+sets nonnegative upper sampling budgets, ordered continuous then discrete within
+each experiment. Budgets precede shooting equalities. Omit `ps` and `st` together
+to run setup once. `integer_weights=true` marks only measurement weights as integer.
+Use a solver supporting integer variables when requesting integrality.
+"""
 function Optimization.OptimizationProblem(
-        layer::OEDLayer{<:Any, false},
-        crit::CorleoneOED.AbstractCriterion;
-        AD::Optimization.ADTypes.AbstractADType = AutoForwardDiff(),
-        u0::ComponentVector = ComponentArray(first(LuxCore.setup(Random.default_rng(), layer))),
-        constraints::Union{Nothing, <:Dict{Any, <:NamedTuple{(:t, :bounds)}}} = nothing,
-        variable_type::Type{T} = Float64,
-        kwargs...
-    ) where {T}
-
-    u0 = T.(u0)
-    check_constraints(layer, constraints)
-
-    # Our objective function
-    ps, st = LuxCore.setup(Random.default_rng(), layer)
-    p = ComponentArray(ps)
-
-    sol, _ = layer(nothing, p, st)
-
-    objective = let layer = layer, ax = getaxes(ComponentArray(ps)), sol = sol
-        (p, st) -> begin
-            ps = ComponentArray(p, ax)
-            first(crit(CorleoneOED.fisher_information(layer, sol, ps, st)[1]))
-        end
+        layer::MultiExperimentLayer, criterion::AbstractCriterion;
+        AD = AutoForwardDiff(), vectorize = default_vectorizer(),
+        ps = nothing, st = nothing, rng = Random.default_rng(), M = nothing,
+        integer_weights::Bool = false, inplace::Bool = true, kwargs...
+    )
+    isnothing(ps) == isnothing(st) || throw(ArgumentError("Supply ps and st together."))
+    if isnothing(ps)
+        ps, st = LuxCore.setup(rng, layer)
     end
-
-    # Bounds based on the variables
-    lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
-
-    @assert all(lb .<= u0 .<= ub) "The initial variables are not within the bounds. Please check the input!"
-
-    # Constraints
-    cons = setup_constraints(layer, sol, constraints)
-    lcons, ucons = extract_constraint_bounds(layer, constraints, eltype(lb)[])
-
-    # Declare the Optimization function
-    opt_f = OptimizationFunction(objective, AD; cons = cons)
-
-    # Return the optimization problem
+    q0, reconstruct = pack(vectorize, ps)
+    lower, upper = get_bounds(layer, ps, st)
+    lb, _ = pack(vectorize, lower)
+    ub, _ = pack(vectorize, upper)
+    nshooting = get_number_of_shooting_constraints(layer, ps, st)
+    budgets = isnothing(M) ? Float64[] : collect(M)
+    isnothing(M) || length(budgets) == n_observed(layer) || throw(DimensionMismatch("Supply one sampling budget per measurement."))
+    all(x -> x >= 0, budgets) || throw(ArgumentError("Sampling budgets must be nonnegative."))
+    objective = (q, state) -> first(criterion(layer, nothing, reconstruct(q), state))
+    constraints = (q, state) -> begin
+        current = reconstruct(q)
+        trajectories, _ = layer(nothing, current, state)
+        residuals = matching(layer, trajectories)
+        isempty(budgets) ? residuals : vcat(sampling_sums(layer, trajectories), residuals)
+    end
+    nconstraints = nshooting + length(budgets)
+    cons = nconstraints == 0 ? nothing : inplace ?
+        ((res, q, state) -> copyto!(res, constraints(q, state))) : constraints
+    fun = OptimizationFunction{inplace}(objective, AD; cons)
+    # Retain named axes; broadcasting on ComponentArrays preserves its structure.
+    mask = integer_weights ? sampling_integrality!(zero(ComponentArray(ps)), layer) : nothing
+    integer_weights && vectorize !== Val(:ComponentArrays) && throw(ArgumentError("Integer weights require ComponentArrays vectorization."))
     return OptimizationProblem(
-        opt_f, u0[:], st, lb = lb[:], ub = ub[:],
-        lcons = lcons, ucons = ucons,
+        fun, q0, st; lb, ub,
+        lcons = nconstraints == 0 ? nothing : zeros(nconstraints),
+        ucons = nconstraints == 0 ? nothing : vcat(budgets, zeros(nshooting)),
+        int = isnothing(mask) ? falses(length(q0)) : Bool.(getdata(mask)), kwargs...
     )
 end
-
 
 end
