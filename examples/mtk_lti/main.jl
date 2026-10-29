@@ -36,8 +36,8 @@ end
     a[1:2] = [-0.2, -0.1], [tunable = true, bounds = (-0.5, -0.05)]
     b₁ = 0.5, [tunable = true, bounds = (0.1, 1.0)]
 end
-@constants begin 
-    x_t[1:3] = [3., 1., -2.]
+@constants begin
+    x_t[1:3] = [3.0, 1.0, -2.0]
 end
 
 
