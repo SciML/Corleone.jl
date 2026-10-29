@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Lotka Volterra Fishing · Corleone.jl</title><meta name="title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="og:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="twitter:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li class="is-active"><a class="tocitem" href>Lotka Volterra Fishing</a><ul class="internal"><li><a class="tocitem" href="#lotka_oc_setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Lotka–Volterra-Dynamics"><span>Lotka–Volterra Dynamics</span></a></li><li><a class="tocitem" href="#Single-Shooting-Approach"><span>Single Shooting Approach</span></a></li><li><a class="tocitem" href="#Multiple-Shooting"><span>Multiple Shooting</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li></ul></li><li><span class="tocitem">User Guide</span><ul><li><a class="tocitem" href="../../shooting/">Shooting Formulation</a></li><li><a class="tocitem" href="../../trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../initialization/">Initialization</a></li><li><a class="tocitem" href="../../optimization_contracts/">Optimization Contracts</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../parallel_shooting/">Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Symbolic Bookkeeping</a></li></ul></li><li><span class="tocitem">Automatic Differentiation</span><ul><li><a class="tocitem" href="../../automatic_differentiation/">Backend Guide</a></li><li><a class="tocitem" href="../../automatic_differentiation_history/">Historical Validation</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><a class="tocitem" href="../../legacy_constructors/">Deprecated Constructors</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="lotka_fishing"><a class="docs-heading-anchor" href="#lotka_fishing">Lotka–Volterra Fishing Problem</a><a id="lotka_fishing-1"></a><a class="docs-heading-anchor-permalink" href="#lotka_fishing" title="Permalink"></a></h1><p>This example is based on the <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">Lotka-Volterra fishing problem</a>.</p><h2 id="lotka_oc_setup"><a class="docs-heading-anchor" href="#lotka_oc_setup">Setup</a><a id="lotka_oc_setup-1"></a><a class="docs-heading-anchor-permalink" href="#lotka_oc_setup" title="Permalink"></a></h2><p>Use Corleone to define the shooting layers and optimization models.</p><pre><code class="language-julia hljs">using Corleone</code></pre><p>The other packages provide:</p><ul><li>Layer initialization: <code>LuxCore</code> and <code>Random</code></li><li>ODE integration: <code>OrdinaryDiffEqTsit5</code></li><li>Optimization: <code>Optimization</code>, <code>OptimizationMOI</code>, <code>Ipopt</code>, and <code>ComponentArrays</code></li><li>Objective and constraint gradients: <code>ForwardDiff</code></li><li>Plotting: <code>CairoMakie</code></li></ul><pre><code class="language-julia hljs">using LuxCore
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Lotka Volterra Fishing · Corleone.jl</title><meta name="title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="og:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="twitter:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li class="is-active"><a class="tocitem" href>Lotka Volterra Fishing</a><ul class="internal"><li><a class="tocitem" href="#lotka_oc_setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Lotka–Volterra-Dynamics"><span>Lotka–Volterra Dynamics</span></a></li><li><a class="tocitem" href="#Single-Shooting-Approach"><span>Single Shooting Approach</span></a></li><li><a class="tocitem" href="#Multiple-Shooting"><span>Multiple Shooting</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li></ul></li><li><span class="tocitem">User Guide</span><ul><li><a class="tocitem" href="../../shooting/">Shooting Formulation</a></li><li><a class="tocitem" href="../../trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../initialization/">Initialization</a></li><li><a class="tocitem" href="../../optimization_contracts/">Optimization Contracts</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../parallel_shooting/">Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Symbolic Bookkeeping</a></li></ul></li><li><span class="tocitem">Optimal Experimental Design</span><ul><li><a class="tocitem" href="../../oed/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete Compartmental Design</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a></li></ul></li><li><a class="tocitem" href="../../oed/formulation/">Measurements and Information</a></li><li><a class="tocitem" href="../../oed/designs/">Constructing and Optimizing Designs</a></li><li><a class="tocitem" href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a></li><li><a class="tocitem" href="../../oed/api/">API Reference</a></li><li><a class="tocitem" href="../../oed/references/">References and Attribution</a></li></ul></li><li><span class="tocitem">Automatic Differentiation</span><ul><li><a class="tocitem" href="../../automatic_differentiation/">Backend Guide</a></li><li><a class="tocitem" href="../../automatic_differentiation_history/">Historical Validation</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><a class="tocitem" href="../../legacy_constructors/">Deprecated Constructors</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="lotka_fishing"><a class="docs-heading-anchor" href="#lotka_fishing">Lotka–Volterra Fishing Problem</a><a id="lotka_fishing-1"></a><a class="docs-heading-anchor-permalink" href="#lotka_fishing" title="Permalink"></a></h1><p>This example is based on the <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">Lotka-Volterra fishing problem</a>.</p><h2 id="lotka_oc_setup"><a class="docs-heading-anchor" href="#lotka_oc_setup">Setup</a><a id="lotka_oc_setup-1"></a><a class="docs-heading-anchor-permalink" href="#lotka_oc_setup" title="Permalink"></a></h2><p>Use Corleone to define the shooting layers and optimization models.</p><pre><code class="language-julia hljs">using Corleone</code></pre><p>The other packages provide:</p><ul><li>Layer initialization: <code>LuxCore</code> and <code>Random</code></li><li>ODE integration: <code>OrdinaryDiffEqTsit5</code></li><li>Optimization: <code>Optimization</code>, <code>OptimizationMOI</code>, <code>Ipopt</code>, and <code>ComponentArrays</code></li><li>Objective and constraint gradients: <code>ForwardDiff</code></li><li>Plotting: <code>CairoMakie</code></li></ul><pre><code class="language-julia hljs">using LuxCore
 using Random
 using OrdinaryDiffEqTsit5
 using SymbolicIndexingInterface
@@ -68,25 +68,25 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 
-Number of Iterations....: 135
+Number of Iterations....: 130
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3443410156615019e+00    1.3443410156615019e+00
-Dual infeasibility......:   9.3110901751459884e-07    9.3110901751459884e-07
+Objective...............:   1.3443410149542359e+00    1.3443410149542359e+00
+Dual infeasibility......:   6.9706210016380391e-07    6.9706210016380391e-07
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.0397554573784411e-07    1.0397554573784411e-07
-Overall NLP error.......:   9.3110901751459884e-07    9.3110901751459884e-07
+Complementarity.........:   1.0571858558884292e-07    1.0571858558884292e-07
+Overall NLP error.......:   6.9706210016380391e-07    6.9706210016380391e-07
 
 
-Number of objective function evaluations             = 677
-Number of objective gradient evaluations             = 136
+Number of objective function evaluations             = 675
+Number of objective gradient evaluations             = 131
 Number of equality constraint evaluations            = 0
 Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 32.471
+Total seconds in IPOPT                               = 47.713
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), dynprob.ps)
@@ -145,334 +145,366 @@ iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
   10  5.7183850e-01 1.95e+00 1.24e+08   2.8 2.75e+00    -  7.69e-01 1.04e-02h  1
   11  5.7280755e-01 1.95e+00 3.10e+10   2.8 3.06e+00    -  1.91e-01 7.58e-04h  1
   12  5.7285686e-01 1.95e+00 9.38e+14   2.8 3.77e+00    -  1.00e+00 3.29e-05h  1
-  13  1.8950134e+00 2.38e+00 7.25e+14   2.8 2.13e+00    -  2.27e-01 7.06e-01h  1
-  14  1.8950049e+00 2.38e+00 1.16e+15   2.8 4.95e+01    -  2.28e-07 5.93e-07f  1
-  15  1.8949999e+00 2.38e+00 2.12e+15   2.8 5.96e+00    -  2.26e-09 8.10e-07f  1
-  16  1.8252151e+00 2.35e+00 3.03e+15   2.8 1.18e+01    -  4.05e-07 1.38e-02f  1
-  17  1.5097128e+00 2.19e+00 2.96e+15   2.8 1.18e+01    -  1.34e-02 6.99e-02h  1
-  18  1.5073103e+00 2.19e+00 2.86e+15   1.3 1.18e+01    -  6.87e-02 7.02e-04h  1
-  19r 1.5073103e+00 2.19e+00 9.90e+02   1.3 0.00e+00    -  0.00e+00 4.39e-07R  5
+  13  1.8950136e+00 2.38e+00 7.25e+14   2.8 2.13e+00    -  2.27e-01 7.06e-01h  1
+  14  1.8625499e+00 2.38e+00 7.25e+14   2.8 1.66e+04    -  2.59e-05 9.05e-07h  1
+  15  1.8625496e+00 2.38e+00 1.07e+15   1.0 1.08e+01    -  2.57e-07 5.89e-07f  1
+  16  1.8625631e+00 2.38e+00 1.94e+15   2.8 1.04e+01    -  2.67e-09 8.78e-07f  1
+  17  1.8084840e+00 2.36e+00 2.77e+15   2.1 1.19e+01    -  3.38e-07 1.08e-02f  1
+  18  1.4821890e+00 2.19e+00 2.70e+15   2.8 1.19e+01    -  1.04e-02 7.25e-02h  1
+  19  1.4797076e+00 2.19e+00 2.61e+15   2.8 1.18e+01    -  7.70e-02 7.34e-04h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  20r 1.2832252e+00 2.09e+00 7.97e+02   1.8 5.12e+00    -  2.87e-01 1.93e-01f  1
-  21r 7.2258771e-01 1.27e+00 1.23e+03   2.3 1.97e+00    -  6.29e-01 4.80e-01f  1
-  22  7.1323041e-01 9.98e-01 1.18e+08  -1.1 1.46e-01   9.3 8.77e-01 1.00e+00h  1
-  23  6.9768835e-01 9.77e-01 1.17e+08   0.0 5.38e+00    -  8.86e-01 2.14e-02h  1
-  24  6.9851690e-01 9.75e-01 1.19e+08   0.7 1.45e+00   8.9 1.00e+00 1.82e-03h  1
-  25  6.9855829e-01 9.74e-01 1.19e+08   1.4 5.43e-01   8.4 1.00e+00 9.91e-04h  1
-  26  1.2025350e+00 6.00e-01 1.25e+08   2.1 1.61e+00   7.9 1.00e+00 5.05e-01h  1
-  27  1.2348279e+00 5.77e-01 1.20e+08   2.2 1.02e+00    -  1.00e+00 3.86e-02h  1
-  28  1.9903417e+00 1.57e-01 3.78e+07   2.1 9.85e-01    -  1.00e+00 7.85e-01f  1
-  29  2.0109549e+00 1.47e-01 3.57e+07   2.8 2.79e-01    -  4.87e-01 6.68e-02h  1
+  20r 1.4797076e+00 2.19e+00 9.92e+02   1.3 0.00e+00    -  0.00e+00 4.59e-07R  5
+  21r 9.4220597e-01 2.23e+00 8.16e+02   1.7 6.31e+00    -  2.68e-01 1.75e-01f  1
+  22r 2.8902929e-01 1.81e+00 1.28e+03   2.2 3.04e+00    -  4.73e-01 4.27e-01f  1
+  23  4.2794437e-01 1.59e+00 1.97e+09  -6.2 1.57e+00  10.0 9.23e-02 1.26e-01h  1
+  24  4.2821368e-01 1.59e+00 1.97e+09   0.5 3.25e+00    -  1.00e+00 2.84e-04h  1
+  25  4.2839722e-01 1.59e+00 1.97e+09   1.2 1.37e+00    -  1.00e+00 1.51e-04h  1
+  26  7.4090187e-01 1.23e+00 2.10e+09   1.3 1.37e+00    -  1.00e+00 2.45e-01h  1
+  27  1.8228937e-01 1.31e+00 5.15e+09   2.8 1.92e+01    -  9.90e-01 3.58e-02f  1
+  28  3.0734969e-01 1.17e+00 5.36e+09   2.8 1.21e+00    -  8.86e-03 1.10e-01f  1
+  29  8.0789656e-01 7.33e-01 4.09e+09   2.8 1.30e+00    -  3.78e-01 4.08e-01f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  30  1.9697460e+00 8.75e-02 2.15e+04   2.8 3.85e-01    -  9.91e-01 1.00e+00f  1
-  31  1.9604427e+00 7.65e-03 3.38e+02   1.6 4.24e-02    -  9.97e-01 1.00e+00f  1
-  32  1.9650570e+00 3.19e-05 7.26e+00  -0.3 4.39e-03    -  9.98e-01 1.00e+00f  1
-  33  1.9604613e+00 2.88e-05 9.05e-01  -1.4 6.16e-03    -  9.87e-01 1.00e+00f  1
-  34  1.8036500e+00 6.37e-03 3.62e-01  -1.5 1.29e-01    -  9.94e-01 1.00e+00f  1
-  35  1.5843618e+00 1.84e-02 2.57e-01  -2.1 2.09e-01    -  9.94e-01 1.00e+00f  1
-  36  1.4370748e+00 8.10e-03 1.57e-01  -2.4 1.54e-01    -  9.84e-01 1.00e+00h  1
-  37  1.3672091e+00 1.15e-02 1.17e-01  -3.1 1.98e-01    -  1.00e+00 1.00e+00h  1
-  38  1.3665943e+00 9.11e-04 1.24e-01  -3.1 1.22e-01    -  1.00e+00 9.67e-01h  1
-  39  1.3526062e+00 1.65e-03 3.14e-02  -3.6 1.29e-01    -  1.00e+00 1.00e+00h  1
+  30  1.5327181e+00 1.56e-01 8.23e+08   2.8 9.09e-01    -  4.18e-01 8.22e-01f  1
+  31  1.7065616e+00 2.33e-02 1.22e+08   2.8 2.22e-01    -  7.07e-01 8.57e-01f  1
+  32  1.7436020e+00 6.75e-06 4.00e+04   2.8 3.86e-02    -  9.85e-01 1.00e+00f  1
+  33  1.7436159e+00 8.32e-09 3.50e+02   1.2 5.84e-04    -  1.00e+00 1.00e+00f  1
+  34  1.7447324e+00 3.76e-06 1.75e+01  -0.2 7.16e-03    -  9.94e-01 1.00e+00f  1
+  35  1.8336506e+00 1.53e-02 1.52e+01  -0.3 2.33e-01    -  1.00e+00 1.00e+00f  1
+  36  1.8495383e+00 7.39e-05 4.80e+07  -0.3 1.44e-02   9.5 1.00e+00 1.00e+00h  1
+  37  1.8497634e+00 1.09e-07 3.87e+00  -0.3 1.14e-03    -  1.00e+00 1.00e+00h  1
+  38  1.8322332e+00 6.27e-05 3.10e+00  -1.0 2.27e-02    -  1.00e+00 1.00e+00f  1
+  39  1.7646995e+00 1.52e-03 3.15e+00  -1.0 1.13e-01    -  1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  40  1.3482754e+00 5.77e-04 2.96e-02  -4.1 1.52e-01    -  1.00e+00 7.58e-01h  1
-  41  1.3450116e+00 1.67e-03 8.97e-02  -4.6 1.80e-01    -  9.99e-01 1.00e+00h  1
-  42  1.3462543e+00 7.15e-04 3.04e-02  -4.2 1.31e-01    -  1.00e+00 1.00e+00h  1
-  43  1.3484561e+00 1.20e-05 1.44e-01  -5.0 3.68e-02    -  1.00e+00 1.00e+00H  1
-  44  1.3453252e+00 6.95e-04 2.90e-02  -5.5 2.88e-02    -  1.00e+00 7.86e-01h  1
-  45  1.3458759e+00 6.38e-05 8.48e-03  -5.6 8.01e-03    -  1.00e+00 9.99e-01h  1
-  46  1.3458847e+00 4.47e-06 6.41e-03  -6.3 8.72e-03    -  1.00e+00 1.00e+00h  1
-  47  1.3458476e+00 1.41e-05 1.99e-02  -7.2 7.48e-02    -  1.00e+00 3.14e-01h  1
-  48  1.3457672e+00 1.83e-05 9.69e-03  -5.9 4.35e-02    -  1.00e+00 4.87e-01h  1
-  49  1.3457238e+00 1.90e-05 7.04e-03  -6.5 2.21e-02    -  1.00e+00 1.00e+00h  1
+  40  1.7693300e+00 4.13e-06 3.16e+00  -1.0 4.94e-03    -  1.00e+00 1.00e+00h  1
+  41  1.7697144e+00 3.18e-06 3.14e+00  -1.0 1.91e-03    -  1.00e+00 1.00e+00h  1
+  42  1.7696295e+00 2.46e-08 5.68e-01  -1.0 1.89e-04    -  1.00e+00 1.00e+00h  1
+  43  1.7250721e+00 5.77e-04 2.22e-01  -1.7 5.48e-02    -  1.00e+00 1.00e+00f  1
+  44  1.4752583e+00 2.07e-02 4.35e-01  -2.2 2.17e-01    -  9.98e-01 1.00e+00f  1
+  45  1.4167101e+00 6.37e-03 2.32e-01  -2.5 1.91e-01    -  1.00e+00 1.00e+00h  1
+  46  1.3623291e+00 5.02e-03 2.70e-02  -3.4 1.28e-01    -  1.00e+00 1.00e+00h  1
+  47  1.3529450e+00 1.15e-03 6.71e-02  -3.7 1.06e-01    -  9.96e-01 1.00e+00h  1
+  48  1.3466400e+00 1.67e-03 1.00e-01  -4.2 1.83e-01    -  1.00e+00 1.00e+00h  1
+  49  1.3514375e+00 3.84e-04 1.64e-01  -4.1 2.14e-01    -  1.00e+00 9.00e-01H  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  50  1.3457234e+00 1.09e-05 1.40e-02  -6.2 3.23e-02    -  1.00e+00 1.00e+00h  1
-  51  1.3457135e+00 2.52e-05 1.98e-02  -6.2 5.01e-02    -  1.00e+00 9.10e-01h  1
-  52  1.3456795e+00 4.60e-05 1.62e-02  -5.9 3.00e-02    -  1.00e+00 6.80e-01h  1
-  53  1.3455965e+00 6.98e-05 2.12e-02  -6.0 2.12e-02    -  1.00e+00 1.00e+00h  1
-  54  1.3456745e+00 3.07e-05 5.99e-03  -5.4 2.02e-02    -  1.00e+00 7.15e-01h  1
-  55  1.3456732e+00 1.77e-06 2.32e-03  -6.8 1.24e-02    -  1.00e+00 1.00e+00h  1
-  56  1.3456570e+00 1.15e-05 9.74e-03  -7.4 1.01e-02    -  1.00e+00 6.53e-01h  1
-  57  1.3456578e+00 5.89e-06 2.73e-03  -6.6 3.72e-03    -  1.00e+00 1.00e+00h  1
-  58  1.3456565e+00 3.40e-07 5.15e-04  -7.8 6.87e-03    -  1.00e+00 1.00e+00h  1
-  59  1.3456490e+00 1.13e-06 3.60e-03  -7.9 8.28e-02    -  1.00e+00 2.57e-01h  1
+  50  1.3453704e+00 1.96e-03 2.09e-02  -3.9 1.91e-01    -  7.16e-01 1.00e+00h  1
+  51  1.3469114e+00 7.68e-05 1.00e-02  -4.4 3.25e-02    -  1.00e+00 1.00e+00h  1
+  52  1.3463002e+00 8.79e-04 1.06e-01  -5.1 7.51e-02    -  1.00e+00 1.00e+00h  1
+  53  1.3448385e+00 9.07e-04 2.24e-02  -5.5 3.47e-02    -  1.00e+00 1.00e+00h  1
+  54  1.3459696e+00 3.54e-06 5.04e-03  -5.7 3.51e-03    -  1.00e+00 1.00e+00h  1
+  55  1.3458749e+00 4.60e-06 2.75e-03  -6.6 1.71e-02    -  1.00e+00 8.08e-01h  1
+  56  1.3457799e+00 7.83e-06 4.92e-03  -7.2 5.50e-02    -  1.00e+00 6.98e-01h  1
+  57  1.3458015e+00 8.80e-05 3.39e-02  -6.0 8.41e-02    -  1.00e+00 4.57e-01h  2
+  58  1.3455537e+00 2.02e-04 2.15e-02  -6.0 4.55e-02    -  1.00e+00 1.00e+00h  1
+  59  1.3457219e+00 8.65e-05 1.01e-02  -5.1 5.49e-02    -  1.00e+00 9.37e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  60  1.3456487e+00 1.69e-04 4.34e-02  -5.9 2.46e-01    -  1.00e+00 4.48e-01f  1
-  61  1.3455006e+00 1.48e-04 1.15e-02  -6.0 8.46e-02    -  1.00e+00 1.00e+00h  1
-  62  1.3460433e+00 1.54e-06 5.02e-02  -5.4 7.28e-02    -  1.00e+00 1.00e+00H  1
-  63  1.3454413e+00 1.31e-04 6.32e-03  -5.5 2.87e-02    -  6.27e-01 1.00e+00h  1
-  64  1.3456667e+00 2.17e-05 1.42e-02  -5.9 3.44e-02    -  1.00e+00 9.98e-01h  1
-  65  1.3456349e+00 2.58e-05 5.25e-03  -6.0 2.68e-02    -  4.90e-01 1.00e+00h  1
-  66  1.3457582e+00 1.97e-06 2.10e-02  -5.7 7.57e-02    -  1.00e+00 9.66e-01H  1
-  67  1.3456035e+00 3.96e-05 2.65e-03  -5.8 6.48e-02    -  8.64e-01 1.00e+00h  1
-  68  1.3456363e+00 8.27e-06 4.84e-03  -6.3 1.93e-02    -  1.00e+00 1.00e+00h  1
-  69  1.3456279e+00 7.51e-06 5.31e-03  -6.7 5.41e-03    -  1.00e+00 9.95e-01h  1
+  60  1.3456794e+00 3.96e-05 1.20e-02  -6.0 2.02e-02    -  1.00e+00 1.00e+00h  1
+  61  1.3457184e+00 4.63e-05 9.81e-03  -5.5 4.35e-02    -  1.00e+00 9.58e-01h  1
+  62  1.3456642e+00 1.14e-04 1.88e-02  -5.6 3.96e-02    -  1.00e+00 9.67e-01h  1
+  63  1.3456093e+00 5.07e-05 8.87e-03  -5.9 2.55e-02    -  1.00e+00 9.95e-01h  1
+  64  1.3456696e+00 3.38e-06 3.05e-03  -6.2 6.24e-03    -  1.00e+00 9.95e-01h  1
+  65  1.3456571e+00 2.83e-06 4.57e-03  -6.5 1.45e-02    -  1.00e+00 9.33e-01h  1
+  66  1.3456556e+00 1.15e-05 1.08e-02  -6.2 1.13e-01    -  1.00e+00 2.30e-01h  3
+  67  1.3456427e+00 8.57e-06 5.70e-03  -6.2 2.99e-02    -  1.00e+00 1.00e+00h  1
+  68  1.3457499e+00 6.37e-05 1.75e-02  -5.4 2.82e-02    -  1.00e+00 1.00e+00h  1
+  69  1.3456876e+00 3.48e-05 3.20e-03  -5.5 1.67e-02    -  1.00e+00 7.71e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  70  1.3456383e+00 5.31e-06 4.77e-03  -6.4 3.88e-03    -  1.00e+00 1.00e+00h  1
-  71  1.3456312e+00 2.41e-06 1.96e-03  -7.1 2.85e-03    -  1.00e+00 1.00e+00h  1
-  72  1.3456337e+00 4.45e-07 1.20e-04  -7.3 2.25e-03    -  1.00e+00 9.90e-01h  1
-  73  1.3456352e+00 3.29e-11 1.04e-03  -8.8 2.25e-03    -  1.00e+00 1.00e+00H  1
-  74  1.3456326e+00 6.53e-07 5.59e-05  -8.0 9.06e-04    -  1.00e+00 1.00e+00h  1
-  75  1.3456331e+00 3.41e-09 4.78e-05  -9.9 3.42e-04    -  1.00e+00 1.00e+00h  1
-  76  1.3456328e+00 3.42e-08 6.75e-05 -10.4 5.61e-03    -  1.00e+00 4.63e-01h  1
-  77  1.3456327e+00 3.89e-08 1.28e-04  -9.2 1.24e-02    -  1.00e+00 3.86e-02h  1
-  78  1.3456323e+00 5.95e-07 2.09e-03  -8.4 5.71e-03    -  1.00e+00 7.55e-01h  1
-  79  1.3456322e+00 3.31e-07 1.73e-04  -7.9 2.96e-03    -  1.00e+00 1.00e+00h  1
+  70  1.3456809e+00 1.91e-05 4.57e-03  -5.5 1.89e-02    -  1.00e+00 5.00e-01f  2
+  71  1.3457046e+00 5.93e-06 4.48e-03  -5.5 6.56e-03    -  1.00e+00 1.00e+00h  1
+  72  1.3457051e+00 3.85e-06 4.64e-03  -5.5 8.79e-03    -  1.00e+00 1.00e+00h  1
+  73  1.3457207e+00 9.86e-09 2.00e-03  -5.5 1.83e-02    -  1.00e+00 1.00e+00H  1
+  74  1.3456429e+00 1.84e-05 1.12e-02  -6.4 8.49e-03    -  1.00e+00 1.00e+00h  1
+  75  1.3456193e+00 2.52e-05 7.26e-03  -6.4 2.12e-02    -  5.09e-01 1.00e+00h  1
+  76  1.3456126e+00 1.72e-05 5.02e-03  -6.5 1.65e-02    -  1.00e+00 1.00e+00h  1
+  77  1.3457097e+00 1.04e-08 1.87e-03  -5.8 2.04e-02    -  1.00e+00 1.00e+00H  1
+  78  1.3456531e+00 8.79e-06 1.89e-03  -5.9 1.77e-02    -  1.00e+00 6.55e-01h  1
+  79  1.3456707e+00 7.48e-06 1.73e-02  -6.0 8.61e-03    -  1.00e+00 8.93e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  80  1.3456324e+00 4.85e-07 1.90e-04  -7.6 1.79e-03    -  1.00e+00 1.00e+00h  1
-  81  1.3456323e+00 9.27e-08 2.32e-04  -8.6 2.06e-03    -  1.00e+00 9.98e-01h  1
-  82  1.3456322e+00 1.81e-06 3.97e-03  -7.7 3.50e-03    -  1.00e+00 1.00e+00h  1
-  83  1.3456311e+00 1.16e-06 1.56e-04  -8.1 1.44e-03    -  7.64e-01 1.00e+00h  1
-  84  1.3456321e+00 3.29e-09 2.46e-05  -8.8 3.65e-04    -  1.00e+00 1.00e+00h  1
-  85  1.3456324e+00 1.27e-07 2.84e-04  -8.0 2.13e-03    -  1.00e+00 1.00e+00h  1
-  86  1.3456341e+00 5.14e-10 1.02e-03  -8.1 1.06e-03    -  9.68e-01 1.00e+00H  1
-  87  1.3456311e+00 8.34e-07 6.76e-04  -8.1 1.81e-03    -  1.00e+00 1.00e+00h  1
-  88  1.3456321e+00 1.64e-08 4.02e-05  -8.1 9.20e-04    -  1.00e+00 1.00e+00h  1
-  89  1.3456323e+00 1.63e-11 1.99e-04  -8.4 2.68e-03    -  1.00e+00 1.00e+00H  1
+  80  1.3456335e+00 1.31e-05 6.51e-03  -6.0 5.17e-03    -  1.00e+00 1.00e+00f  1
+  81  1.3456345e+00 1.63e-06 3.78e-03  -7.5 1.29e-03    -  1.00e+00 1.00e+00h  1
+  82  1.3456339e+00 2.27e-07 2.51e-04  -8.1 6.24e-04    -  1.00e+00 9.96e-01h  1
+  83  1.3456335e+00 9.66e-08 2.11e-04  -8.2 9.31e-04    -  1.00e+00 6.55e-01h  1
+  84  1.3456323e+00 6.73e-07 2.71e-03  -9.4 3.51e-03    -  1.00e+00 9.09e-01h  1
+  85  1.3456315e+00 1.06e-06 1.66e-03  -7.4 7.98e-03    -  1.00e+00 3.48e-01h  1
+  86  1.3456320e+00 4.01e-07 9.98e-05  -8.1 2.83e-03    -  1.00e+00 1.00e+00h  1
+  87  1.3456322e+00 1.70e-07 1.59e-04 -10.0 1.27e-03    -  1.00e+00 1.00e+00h  1
+  88  1.3456325e+00 1.24e-07 2.11e-04  -8.0 1.01e-03    -  1.00e+00 9.67e-01h  1
+  89  1.3456323e+00 4.00e-08 1.17e-04  -8.2 6.83e-04    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-  90  1.3456329e+00 2.22e-15 5.80e-04  -8.4 2.18e-03    -  1.00e+00 1.00e+00H  1
-  91  1.3456321e+00 1.40e-07 3.34e-04  -8.5 3.71e-03    -  8.66e-01 3.33e-01f  1
-  92  1.3456317e+00 3.42e-07 1.12e-04  -8.5 1.14e-03    -  7.72e-01 9.64e-01f  1
-  93  1.3456317e+00 1.89e-07 7.24e-05  -8.3 1.21e-03    -  1.00e+00 5.00e-01f  2
-  94  1.3456384e+00 2.10e-09 2.05e-03  -7.3 2.83e-03    -  1.00e+00 1.00e+00H  1
-  95  1.3456296e+00 2.73e-06 2.86e-04  -7.4 2.33e-03    -  1.00e+00 1.00e+00h  1
-  96  1.3456318e+00 2.62e-08 6.69e-05  -8.6 4.39e-04    -  1.00e+00 1.00e+00h  1
-  97  1.3456318e+00 1.51e-07 1.39e-04 -10.5 7.99e-04    -  1.00e+00 1.00e+00h  1
-  98  1.3456317e+00 1.08e-07 2.53e-05  -9.0 8.94e-04    -  1.00e+00 1.00e+00h  1
-  99  1.3456317e+00 1.81e-09 4.95e-05 -10.3 7.16e-04    -  1.00e+00 1.00e+00h  1
+  90  1.3456322e+00 2.82e-08 1.01e-04  -9.8 2.90e-04    -  1.00e+00 1.00e+00h  1
+  91  1.3456322e+00 3.44e-08 5.42e-05  -8.4 8.44e-04    -  1.00e+00 8.13e-01h  1
+  92  1.3456322e+00 1.13e-08 2.99e-05  -8.5 1.10e-03    -  1.00e+00 1.00e+00h  1
+  93  1.3456880e+00 1.97e-08 2.73e-03  -6.8 1.63e-02    -  5.75e-01 1.00e+00H  1
+  94  1.3456013e+00 2.66e-05 1.03e-03  -6.9 1.15e-02    -  1.00e+00 9.90e-01h  1
+  95  1.3456018e+00 2.62e-05 9.90e-04  -7.3 4.29e-03    -  1.00e+00 1.56e-02f  7
+  96  1.3456315e+00 1.06e-06 2.03e-03  -7.6 7.21e-03    -  1.00e+00 1.00e+00h  1
+  97  1.3456308e+00 1.03e-06 1.59e-03  -8.0 1.29e-02    -  1.00e+00 2.15e-01h  2
+  98  1.3456395e+00 3.75e-07 1.53e-03  -7.1 4.01e-03    -  1.00e+00 9.14e-01H  1
+  99  1.3456306e+00 1.98e-06 1.42e-04  -7.2 2.50e-03    -  4.28e-01 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 100  1.3456317e+00 8.99e-09 6.84e-05 -10.0 8.12e-02    -  1.00e+00 1.51e-02h  1
- 101  1.3456314e+00 3.41e-07 1.49e-04  -9.0 2.45e-02    -  1.00e+00 4.85e-01h  1
- 102  1.3456371e+00 6.65e-06 6.49e-03  -7.0 3.32e-02    -  8.32e-01 2.58e-01f  1
- 103  1.3456277e+00 5.42e-06 1.47e-03  -7.2 1.14e-02    -  1.00e+00 1.00e+00h  1
- 104  1.3456360e+00 3.43e-06 2.75e-03  -6.3 1.23e-02    -  1.00e+00 5.86e-01h  1
- 105  1.3456380e+00 4.58e-06 4.28e-03  -6.4 4.01e-03    -  1.00e+00 1.00e+00h  1
- 106  1.3456375e+00 1.40e-06 1.06e-03  -6.4 7.80e-03    -  1.00e+00 1.00e+00h  1
- 107  1.3456410e+00 1.48e-10 4.05e-04  -6.4 8.17e-03    -  1.00e+00 1.00e+00H  1
- 108  1.3456476e+00 1.13e-12 7.71e-04  -6.4 3.78e-03    -  1.00e+00 1.00e+00H  1
- 109  1.3456337e+00 2.87e-06 4.59e-04  -6.4 7.00e-03    -  1.00e+00 1.00e+00f  1
+ 100  1.3456339e+00 1.45e-07 1.01e-04  -6.9 3.95e-03    -  1.00e+00 1.00e+00h  1
+ 101  1.3456334e+00 2.56e-08 4.70e-05  -7.0 2.13e-03    -  1.00e+00 1.00e+00h  1
+ 102  1.3456329e+00 8.30e-07 3.23e-03  -7.0 3.48e-03    -  1.00e+00 1.00e+00h  1
+ 103  1.3456325e+00 6.06e-07 2.69e-04  -7.0 2.79e-03    -  1.00e+00 1.00e+00h  1
+ 104  1.3456334e+00 3.54e-08 5.87e-05  -7.0 4.24e-04    -  1.00e+00 1.00e+00h  1
+ 105  1.3456334e+00 8.61e-09 5.48e-05  -7.0 3.87e-04    -  1.00e+00 1.00e+00h  1
+ 106  1.3456315e+00 3.40e-07 4.29e-04  -9.1 1.57e-03    -  1.00e+00 1.00e+00h  1
+ 107  1.3456312e+00 7.14e-07 1.64e-03  -9.3 1.40e-03    -  1.00e+00 1.00e+00h  1
+ 108  1.3456315e+00 3.61e-07 2.14e-04 -11.0 9.07e-04    -  6.59e-01 1.00e+00h  1
+ 109  1.3456314e+00 9.91e-08 5.89e-05 -10.6 8.91e-04    -  2.16e-01 9.61e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 110  1.3456394e+00 1.49e-07 3.41e-04  -6.4 1.15e-03    -  1.00e+00 1.00e+00h  1
- 111  1.3456394e+00 1.63e-07 2.16e-04  -6.4 1.05e-03    -  1.00e+00 1.00e+00h  1
- 112  1.3456394e+00 1.28e-07 7.53e-05  -6.4 1.88e-03    -  1.00e+00 1.00e+00h  1
- 113  1.3456394e+00 7.23e-08 1.14e-04  -6.4 1.10e-03    -  1.00e+00 1.00e+00h  1
- 114  1.3456395e+00 2.43e-08 5.01e-05  -6.4 1.05e-03    -  1.00e+00 1.00e+00h  1
- 115  1.3456409e+00 9.79e-11 6.43e-04  -6.4 1.62e-03    -  1.00e+00 1.00e+00H  1
- 116  1.3456389e+00 3.80e-07 1.69e-05  -6.4 1.42e-03    -  1.00e+00 1.00e+00h  1
- 117  1.3456395e+00 1.82e-10 1.33e-05  -6.4 3.40e-04    -  1.00e+00 1.00e+00h  1
- 118  1.3456398e+00 2.74e-11 2.05e-04  -6.4 4.61e-03    -  1.00e+00 1.00e+00H  1
- 119  1.3456397e+00 3.33e-15 2.12e-04  -6.4 7.05e-03    -  1.00e+00 1.00e+00H  1
+ 110  1.3456316e+00 9.47e-09 3.48e-05 -10.3 2.98e-04    -  1.00e+00 1.00e+00h  1
+ 111  1.3456315e+00 2.76e-08 8.65e-05 -10.3 8.28e-04    -  1.00e+00 1.00e+00h  1
+ 112  1.3456316e+00 5.62e-08 1.31e-04  -8.7 1.20e-03    -  1.00e+00 1.00e+00h  1
+ 113  1.3456315e+00 7.52e-08 2.44e-04  -8.8 3.69e-03    -  1.00e+00 6.94e-01h  1
+ 114  1.3456314e+00 3.26e-07 1.71e-04  -8.3 2.96e-03    -  6.41e-01 1.00e+00f  1
+ 115  1.3456315e+00 6.36e-07 9.85e-05  -7.9 2.53e-03    -  1.00e+00 1.00e+00h  1
+ 116  1.3456313e+00 3.49e-07 1.15e-04  -7.9 3.05e-03    -  1.00e+00 1.00e+00h  1
+ 117  1.3456327e+00 2.51e-07 2.77e-04  -7.4 5.85e-03    -  1.00e+00 6.61e-01H  1
+ 118  1.3456315e+00 5.83e-07 4.25e-04  -7.5 3.80e-03    -  8.86e-01 1.00e+00h  1
+ 119  1.3456469e+00 3.69e-09 2.04e-03  -7.5 8.96e-03    -  3.89e-01 1.00e+00H  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 120  1.3456397e+00 1.10e-11 1.70e-04  -6.4 1.99e-02    -  1.00e+00 1.95e-03h 10
- 121  1.3456726e+00 1.33e-15 2.37e-03  -6.4 5.90e-02    -  1.00e+00 1.00e+00H  1
- 122  1.3456275e+00 1.44e-05 4.05e-03  -6.4 3.37e-02    -  1.00e+00 1.00e+00f  1
- 123  1.3456515e+00 7.86e-05 1.58e-02  -5.7 9.35e-02    -  1.00e+00 7.40e-01h  1
- 124  1.3455411e+00 9.08e-05 1.22e-02  -5.8 4.95e-02    -  1.00e+00 1.00e+00h  1
- 125  1.3456452e+00 2.03e-04 3.64e-02  -5.1 1.12e-01    -  1.00e+00 3.98e-01h  2
- 126  1.3455475e+00 1.40e-04 9.16e-03  -5.2 3.00e-02    -  8.76e-01 1.00e+00h  1
- 127  1.3457256e+00 1.08e-05 8.21e-03  -5.2 1.51e-02    -  1.00e+00 1.00e+00h  1
- 128  1.3457456e+00 4.70e-06 3.24e-03  -5.2 1.58e-02    -  1.00e+00 1.00e+00h  1
- 129  1.3457655e+00 5.04e-09 1.01e-03  -5.2 1.31e-02    -  1.00e+00 1.00e+00H  1
+ 120  1.3456274e+00 4.02e-06 2.81e-03  -7.5 8.02e-03    -  1.00e+00 1.00e+00h  1
+ 121  1.3456345e+00 9.15e-06 6.92e-03  -6.3 1.14e-02    -  1.00e+00 8.98e-01h  1
+ 122  1.3456375e+00 6.32e-06 6.24e-03  -6.4 8.20e-03    -  9.17e-01 1.00e+00h  1
+ 123  1.3456343e+00 1.02e-05 5.04e-03  -6.4 7.67e-03    -  1.00e+00 1.00e+00h  1
+ 124  1.3456292e+00 8.79e-06 3.06e-03  -6.4 9.02e-03    -  1.00e+00 7.81e-01h  1
+ 125  1.3456347e+00 9.03e-06 6.62e-03  -6.4 5.57e-03    -  1.00e+00 1.00e+00f  1
+ 126  1.3456311e+00 4.88e-06 6.14e-04  -6.4 3.64e-03    -  1.00e+00 1.00e+00h  1
+ 127  1.3456388e+00 1.19e-07 2.05e-04  -6.4 1.40e-03    -  1.00e+00 1.00e+00h  1
+ 128  1.3456389e+00 6.63e-08 9.04e-05  -6.4 6.95e-04    -  1.00e+00 1.00e+00h  1
+ 129  1.3456390e+00 7.61e-08 3.15e-04  -6.4 3.65e-04    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 130  1.3457402e+00 6.65e-06 5.30e-03  -5.2 1.28e-02    -  1.00e+00 1.00e+00h  1
- 131  1.3458002e+00 2.61e-11 2.26e-03  -5.2 2.13e-02    -  1.00e+00 1.00e+00H  1
- 132  1.3457151e+00 2.29e-05 7.63e-04  -5.2 1.73e-02    -  1.00e+00 1.00e+00f  1
- 133  1.3457513e+00 3.74e-07 4.60e-04  -5.2 1.46e-03    -  1.00e+00 1.00e+00h  1
- 134  1.3457518e+00 2.11e-07 7.18e-05  -5.2 1.15e-03    -  1.00e+00 1.00e+00h  1
- 135  1.3457518e+00 7.04e-08 1.14e-04  -5.2 1.06e-03    -  1.00e+00 1.00e+00h  1
- 136  1.3457503e+00 9.90e-08 1.63e-04  -5.2 2.42e-03    -  1.00e+00 1.00e+00h  1
- 137  1.3457509e+00 6.56e-07 1.87e-03  -5.2 1.09e-02    -  1.00e+00 1.00e+00h  1
- 138  1.3457541e+00 3.85e-07 1.29e-04  -5.2 2.63e-03    -  1.00e+00 1.00e+00h  1
- 139  1.3457497e+00 3.39e-07 1.22e-04  -5.2 1.81e-03    -  1.00e+00 1.00e+00h  1
+ 130  1.3456389e+00 4.85e-08 1.16e-05  -6.4 3.49e-04    -  1.00e+00 1.00e+00h  1
+ 131  1.3456389e+00 1.13e-09 1.98e-05  -6.4 2.43e-04    -  1.00e+00 1.00e+00h  1
+ 132  1.3456308e+00 1.85e-06 3.64e-03  -7.9 3.49e-03    -  1.00e+00 1.00e+00h  1
+ 133  1.3456326e+00 1.44e-06 1.41e-03  -6.8 2.19e-03    -  1.00e+00 1.00e+00h  1
+ 134  1.3456353e+00 6.16e-10 4.31e-04  -7.0 1.99e-03    -  1.00e+00 1.00e+00H  1
+ 135  1.3456302e+00 8.64e-07 6.92e-04  -9.0 2.47e-03    -  1.00e+00 9.98e-01h  1
+ 136  1.3456335e+00 3.26e-10 7.24e-04  -7.8 3.82e-03    -  1.00e+00 1.00e+00H  1
+ 137  1.3456308e+00 8.39e-07 1.64e-03  -8.6 4.14e-03    -  1.00e+00 1.00e+00h  1
+ 138  1.3457292e+00 4.77e-08 7.93e-03  -8.7 1.19e-02    -  2.06e-01 1.00e+00H  1
+ 139  1.3455805e+00 4.89e-05 1.04e-04  -8.7 1.21e-02    -  8.58e-01 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 140  1.3457515e+00 2.21e-07 6.18e-05  -5.2 2.48e-03    -  1.00e+00 1.00e+00h  1
- 141  1.3457527e+00 2.36e-07 3.16e-04  -5.2 1.24e-03    -  1.00e+00 1.00e+00h  1
- 142  1.3457526e+00 2.19e-07 1.66e-04  -5.2 1.84e-03    -  1.00e+00 1.00e+00h  1
- 143  1.3457491e+00 7.06e-07 1.86e-03  -5.2 2.06e-03    -  1.00e+00 1.00e+00h  1
- 144  1.3457518e+00 5.62e-07 1.61e-04  -5.2 9.80e-04    -  1.00e+00 1.00e+00h  1
- 145  1.3457522e+00 3.54e-07 1.66e-04  -5.2 1.24e-03    -  1.00e+00 5.00e-01h  2
- 146  1.3457520e+00 1.66e-08 1.57e-05  -5.2 3.12e-04    -  1.00e+00 1.00e+00h  1
- 147  1.3456452e+00 4.70e-06 4.78e-03  -7.0 7.90e-03    -  9.61e-01 1.00e+00h  1
- 148  1.3456311e+00 3.94e-06 3.76e-03  -7.0 1.50e-02    -  1.00e+00 1.00e+00h  1
- 149  1.3456301e+00 3.56e-06 5.13e-03  -7.0 1.19e-02    -  1.00e+00 1.60e-01h  2
+ 140  1.3456314e+00 5.65e-10 1.49e-05 -10.6 1.50e-04    -  1.00e+00 1.00e+00h  1
+ 141  1.3456314e+00 2.42e-08 9.81e-05 -11.0 1.43e-03    -  1.00e+00 6.69e-01h  1
+ 142  1.3456314e+00 9.41e-09 2.01e-05 -10.2 3.37e-04    -  1.00e+00 1.00e+00h  1
+ 143  1.3456314e+00 6.93e-09 2.25e-05 -11.0 4.59e-04    -  1.00e+00 1.00e+00h  1
+ 144  1.3456314e+00 1.77e-08 5.47e-05  -9.8 1.72e-03    -  1.00e+00 3.77e-01h  1
+ 145  1.3456318e+00 3.28e-07 2.98e-04  -8.1 4.96e-03    -  1.00e+00 1.00e+00f  1
+ 146  1.3456312e+00 5.61e-07 2.29e-04  -8.1 1.78e-03    -  1.00e+00 1.00e+00h  1
+ 147  1.3456314e+00 5.07e-07 2.96e-04  -7.8 7.31e-03    -  1.00e+00 5.94e-01h  1
+ 148  1.3456310e+00 4.21e-07 8.59e-05  -7.9 4.60e-03    -  1.00e+00 4.31e-01h  1
+ 149  1.3456324e+00 2.97e-11 5.52e-04  -9.5 1.54e-03    -  1.00e+00 1.00e+00H  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 150  1.3456327e+00 7.85e-07 1.76e-03  -7.0 2.49e-03    -  1.00e+00 1.00e+00h  1
- 151  1.3456336e+00 1.04e-07 8.21e-05  -7.0 8.93e-04    -  1.00e+00 9.26e-01h  1
- 152  1.3456336e+00 1.27e-06 3.28e-03  -7.0 3.11e-03    -  1.00e+00 1.00e+00f  1
- 153  1.3456328e+00 8.89e-07 1.19e-03  -7.0 8.91e-04    -  1.00e+00 1.00e+00h  1
- 154  1.3456336e+00 2.82e-08 6.42e-05  -7.0 4.29e-04    -  1.00e+00 1.00e+00h  1
- 155  1.3456335e+00 3.61e-09 3.02e-05  -7.0 5.40e-04    -  1.00e+00 1.00e+00h  1
- 156  1.3456332e+00 3.04e-08 1.09e-04  -7.0 2.98e-03    -  1.00e+00 1.00e+00h  1
- 157  1.3456355e+00 1.17e-10 5.28e-04  -7.0 7.62e-03    -  1.00e+00 1.00e+00H  1
- 158  1.3456309e+00 1.44e-06 1.64e-03  -7.0 4.30e-03    -  1.00e+00 1.00e+00h  1
- 159  1.3456465e+00 6.88e-09 1.94e-03  -7.2 8.88e-03    -  1.00e+00 1.00e+00H  1
+ 150  1.3456308e+00 4.87e-07 4.81e-05  -9.4 1.13e-03    -  3.07e-01 1.00e+00h  1
+ 151  1.3456313e+00 6.83e-08 9.23e-05  -9.0 3.75e-04    -  1.00e+00 1.00e+00h  1
+ 152  1.3456313e+00 2.38e-08 1.31e-05  -9.2 3.41e-04    -  1.00e+00 1.00e+00h  1
+ 153  1.3456314e+00 3.79e-10 1.28e-05 -11.0 2.32e-04    -  1.00e+00 1.00e+00h  1
+ 154  1.3456314e+00 1.87e-09 3.16e-05 -11.0 1.57e-03    -  1.00e+00 8.70e-02h  3
+ 155  1.3456314e+00 4.91e-10 5.42e-06 -10.9 1.06e-04    -  7.32e-01 1.00e+00h  1
+ 156  1.3456314e+00 2.86e-10 8.30e-06 -11.0 1.09e-04    -  1.00e+00 1.00e+00h  1
+ 157  1.3456313e+00 6.16e-09 3.00e-05 -11.0 8.28e-04    -  1.00e+00 1.00e+00h  1
+ 158  1.3456314e+00 8.42e-14 1.04e-04 -11.0 3.44e-04    -  1.00e+00 1.00e+00H  1
+ 159  1.3456314e+00 1.53e-08 3.19e-05 -11.0 6.93e-04    -  1.00e+00 3.09e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 160  1.3456213e+00 6.97e-06 2.62e-04  -7.3 8.48e-03    -  1.00e+00 1.00e+00h  1
- 161  1.3456315e+00 5.26e-08 2.22e-04  -8.5 1.66e-03    -  1.00e+00 1.00e+00h  1
- 162  1.3456314e+00 1.98e-07 9.06e-05  -9.7 1.60e-03    -  1.00e+00 1.00e+00h  1
- 163  1.3456314e+00 6.97e-08 3.72e-05  -8.5 1.18e-03    -  1.00e+00 1.00e+00h  1
- 164  1.3456316e+00 2.42e-08 8.90e-05  -8.5 2.23e-03    -  1.00e+00 8.61e-01H  1
- 165  1.3456314e+00 7.07e-08 5.50e-05  -9.5 6.38e-04    -  1.00e+00 1.00e+00h  1
- 166  1.3456314e+00 1.40e-07 2.44e-04  -8.6 9.32e-04    -  1.00e+00 1.00e+00h  1
- 167  1.3456313e+00 9.02e-08 5.44e-05  -8.7 5.93e-04    -  1.00e+00 1.00e+00h  1
- 168  1.3456314e+00 3.18e-08 7.92e-05 -10.4 6.73e-04    -  1.00e+00 1.00e+00h  1
- 169  1.3456314e+00 2.47e-08 5.93e-05 -11.0 2.57e-04    -  1.00e+00 1.00e+00h  1
+ 160  1.3456313e+00 2.19e-08 3.54e-05 -11.0 3.72e-04    -  1.00e+00 1.00e+00f  1
+ 161  1.3456314e+00 1.82e-13 4.46e-05  -9.7 5.70e-04    -  1.00e+00 1.00e+00H  1
+ 162  1.3456313e+00 1.21e-08 4.16e-05 -10.1 5.90e-04    -  1.00e+00 1.00e+00h  1
+ 163  1.3456313e+00 1.16e-08 2.31e-05 -10.2 1.71e-03    -  1.00e+00 1.59e-01h  1
+ 164  1.3456313e+00 1.09e-08 2.76e-05  -9.1 2.91e-03    -  1.00e+00 1.09e-01f  4
+ 165  1.3456314e+00 4.86e-13 7.10e-05  -9.6 1.08e-03    -  1.00e+00 1.00e+00H  1
+ 166  1.3456314e+00 1.01e-08 6.32e-05  -9.7 8.62e-04    -  1.00e+00 3.05e-01h  1
+ 167  1.3456313e+00 1.59e-07 8.71e-05  -9.7 9.01e-04    -  1.51e-01 1.00e+00f  1
+ 168  1.3456312e+00 8.78e-08 1.89e-05  -9.5 7.10e-04    -  1.00e+00 1.00e+00h  1
+ 169  1.3456314e+00 4.24e-08 1.24e-04  -8.4 9.19e-04    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 170  1.3456315e+00 2.89e-12 2.77e-04  -9.7 8.23e-04    -  1.00e+00 1.00e+00H  1
- 171  1.3456313e+00 3.80e-08 7.24e-06 -11.0 6.85e-04    -  1.00e+00 1.00e+00h  1
- 172  1.3456314e+00 5.51e-11 7.82e-06 -11.0 6.90e-05    -  1.00e+00 1.00e+00h  1
- 173  1.3456314e+00 6.22e-10 1.10e-05 -11.0 3.27e-03    -  1.00e+00 6.96e-02h  1
- 174  1.3456314e+00 2.07e-07 3.62e-04 -11.0 5.82e-03    -  1.00e+00 6.27e-01h  1
- 175  1.3456310e+00 3.95e-07 2.69e-04 -11.0 1.24e-03    -  7.54e-01 1.00e+00h  1
- 176  1.3456310e+00 3.87e-07 2.40e-04 -11.0 1.87e-03    -  3.94e-01 2.06e-02h  1
- 177  1.3456309e+00 2.05e-06 2.64e-03 -10.8 4.11e-03    -  1.00e+00 1.00e+00h  1
- 178  1.3456294e+00 1.63e-06 9.35e-04 -10.8 2.73e-03    -  5.04e-01 1.00e+00h  1
- 179  1.3456336e+00 4.19e-10 7.27e-04  -9.4 5.79e-03    -  1.00e+00 1.00e+00H  1
+ 170  1.3456314e+00 3.46e-08 2.72e-05  -8.5 7.09e-04    -  1.00e+00 1.00e+00h  1
+ 171  1.3456314e+00 2.11e-08 4.48e-05  -8.5 8.52e-04    -  1.00e+00 9.99e-01h  1
+ 172  1.3456314e+00 1.64e-08 1.77e-05  -8.5 4.82e-04    -  1.00e+00 1.00e+00f  1
+ 173  1.3456314e+00 1.05e-08 5.09e-05  -8.5 4.64e-04    -  1.00e+00 1.00e+00h  1
+ 174  1.3456315e+00 7.15e-12 2.76e-04  -8.5 4.47e-04    -  1.00e+00 1.00e+00H  1
+ 175  1.3456312e+00 1.04e-07 3.47e-05  -8.5 3.07e-04    -  1.00e+00 1.00e+00h  1
+ 176  1.3456313e+00 1.57e-09 8.22e-06  -9.8 6.67e-05    -  1.00e+00 1.00e+00h  1
+ 177  1.3456313e+00 9.66e-11 3.20e-06 -11.0 4.73e-05    -  1.00e+00 1.00e+00h  1
+ 178  1.3456313e+00 7.92e-11 7.58e-06 -11.0 4.68e-05    -  1.00e+00 1.00e+00h  1
+ 179  1.3456313e+00 2.33e-09 3.78e-05 -11.0 1.08e-03    -  1.00e+00 3.34e-01h  2
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 180  1.3456294e+00 1.07e-06 2.72e-04  -9.5 3.34e-03    -  9.85e-01 1.00e+00h  1
- 181  1.3456314e+00 1.70e-08 2.03e-05 -10.0 6.09e-04    -  1.00e+00 1.00e+00h  1
- 182  1.3456314e+00 3.86e-13 9.96e-05  -9.2 1.45e-03    -  1.00e+00 1.00e+00H  1
- 183  1.3456377e+00 4.81e-13 1.44e-03  -9.3 5.01e-03    -  4.09e-01 1.00e+00H  1
- 184  1.3456265e+00 3.53e-06 1.61e-04  -9.3 5.74e-03    -  1.00e+00 1.00e+00f  1
- 185  1.3456314e+00 6.70e-09 4.97e-05 -10.4 1.62e-04    -  1.00e+00 1.00e+00h  1
- 186  1.3456314e+00 4.65e-09 2.81e-05 -11.0 2.55e-04    -  1.00e+00 1.00e+00h  1
- 187  1.3456314e+00 1.60e-14 2.46e-05 -11.0 1.81e-04    -  1.00e+00 1.00e+00H  1
- 188  1.3456313e+00 3.89e-09 8.43e-06 -11.0 3.69e-04    -  1.00e+00 1.00e+00h  1
- 189  1.3456314e+00 3.88e-13 2.96e-05 -11.0 4.90e-04    -  1.00e+00 1.00e+00H  1
+ 180  1.3456313e+00 2.17e-09 7.20e-06 -11.0 1.87e-04    -  1.00e+00 1.00e+00h  1
+ 181  1.3456313e+00 4.19e-10 3.93e-06 -11.0 8.43e-05    -  1.00e+00 1.00e+00h  1
+ 182  1.3456314e+00 1.44e-13 7.98e-05 -11.0 3.52e-04    -  1.00e+00 1.00e+00H  1
+ 183  1.3456313e+00 6.73e-09 2.24e-06 -11.0 2.43e-04    -  1.00e+00 1.00e+00h  1
+ 184  1.3456313e+00 1.52e-10 4.78e-06 -11.0 6.99e-05    -  1.00e+00 1.00e+00h  1
+ 185  1.3456313e+00 5.09e-10 1.07e-05 -11.0 4.15e-04    -  1.00e+00 1.00e+00h  1
+ 186  1.3456313e+00 3.76e-09 4.64e-05  -9.6 6.15e-02    -  1.00e+00 2.91e-02h  2
+ 187  1.3456313e+00 1.14e-08 5.44e-05  -9.8 7.67e-03    -  1.00e+00 2.14e-01h  2
+ 188  1.3456366e+00 1.89e-10 1.18e-03  -9.8 9.06e-03    -  2.97e-01 1.00e+00H  1
+ 189  1.3456279e+00 2.58e-06 1.03e-04  -9.8 1.10e-02    -  1.74e-01 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 190  1.3456313e+00 6.68e-09 7.18e-06 -11.0 3.69e-04    -  1.00e+00 1.00e+00h  1
- 191  1.3456314e+00 3.92e-09 4.98e-05 -11.0 1.55e-04    -  1.00e+00 1.00e+00h  1
- 192  1.3456313e+00 2.79e-09 4.93e-06 -11.0 1.27e-04    -  1.00e+00 1.00e+00h  1
- 193  1.3456314e+00 2.89e-11 3.07e-06 -11.0 6.65e-05    -  1.00e+00 1.00e+00h  1
- 194  1.3456314e+00 3.85e-08 1.89e-04  -9.7 2.53e-02    -  1.00e+00 4.02e-02h  2
- 195  1.3456314e+00 3.13e-08 8.15e-05  -9.9 2.35e-03    -  1.00e+00 4.34e-01h  1
- 196  1.3456309e+00 1.15e-06 2.22e-03  -9.9 1.57e-03    -  3.34e-01 1.00e+00f  1
- 197  1.3456304e+00 7.91e-07 8.53e-05 -10.3 1.41e-03    -  1.00e+00 1.00e+00h  1
- 198  1.3456313e+00 9.79e-10 1.48e-05 -11.0 1.36e-04    -  1.00e+00 1.00e+00h  1
- 199  1.3456313e+00 7.57e-10 9.47e-06 -10.2 6.91e-04    -  1.00e+00 3.99e-01h  1
+ 190  1.3456313e+00 3.68e-08 1.09e-04 -10.0 1.51e-03    -  1.00e+00 1.00e+00h  1
+ 191  1.3456322e+00 2.39e-11 4.42e-04 -10.1 6.64e-03    -  3.04e-01 1.00e+00H  1
+ 192  1.3456309e+00 3.95e-07 1.52e-03 -10.1 9.30e-03    -  1.00e+00 7.74e-01h  1
+ 193  1.3456307e+00 4.69e-07 1.25e-03 -10.1 1.10e-01    -  1.66e-01 2.32e-02f  1
+ 194  1.3456307e+00 4.65e-07 1.29e-03  -8.1 6.77e-02    -  6.15e-01 1.19e-02f  5
+ 195  1.3456307e+00 4.93e-07 7.08e-04  -8.5 4.86e-02    -  1.07e-01 5.46e-02h  3
+ 196  1.3456327e+00 1.14e-07 2.35e-04  -7.3 2.34e-03    -  1.00e+00 1.00e+00h  1
+ 197  1.3456318e+00 4.59e-07 1.91e-04  -7.4 6.73e-03    -  1.00e+00 1.00e+00h  1
+ 198  1.3456314e+00 6.55e-07 1.60e-04  -7.4 1.32e-02    -  1.00e+00 1.94e-01h  2
+ 199  1.3456334e+00 1.38e-10 5.38e-04  -7.4 3.19e-03    -  1.00e+00 1.00e+00H  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 200  1.3456313e+00 1.33e-07 1.23e-04 -10.8 3.13e-03    -  1.00e+00 1.00e+00h  1
- 201  1.3456311e+00 1.14e-07 5.23e-05  -8.8 2.99e-03    -  5.87e-01 1.00e+00h  1
- 202  1.3456320e+00 7.51e-07 1.38e-03  -7.2 7.47e-02    -  1.00e+00 1.43e-01h  1
- 203  1.3456309e+00 1.86e-06 2.64e-03  -7.3 9.53e-03    -  9.11e-01 1.00e+00h  1
- 204  1.3456308e+00 2.93e-06 2.58e-03  -7.3 1.77e-02    -  4.19e-01 1.09e-01h  4
- 205  1.3456307e+00 8.81e-07 6.01e-04  -7.3 7.74e-03    -  1.00e+00 1.00e+00h  1
- 206  1.3456378e+00 1.45e-10 1.32e-03  -7.3 1.04e-02    -  1.00e+00 1.00e+00H  1
- 207  1.3456313e+00 1.29e-06 1.41e-03  -7.3 7.75e-03    -  1.00e+00 1.00e+00h  1
- 208  1.3456296e+00 2.13e-06 2.03e-03  -7.3 1.92e-02    -  7.85e-01 5.31e-01h  1
- 209  1.3456304e+00 1.25e-06 1.75e-03  -7.3 7.97e-03    -  1.00e+00 5.00e-01f  2
+ 200  1.3456307e+00 1.51e-06 1.76e-03  -7.4 4.83e-03    -  1.00e+00 1.00e+00h  1
+ 201  1.3456674e+00 5.84e-11 2.90e-03  -7.4 1.34e-02    -  5.92e-01 1.00e+00H  1
+ 202  1.3456130e+00 1.08e-05 7.35e-04  -7.4 1.10e-02    -  4.52e-01 1.00e+00f  1
+ 203  1.3456325e+00 1.07e-07 1.14e-04  -7.2 4.85e-03    -  1.00e+00 1.00e+00h  1
+ 204  1.3456333e+00 3.25e-11 4.54e-04  -7.3 4.55e-03    -  1.00e+00 1.00e+00H  1
+ 205  1.3456315e+00 5.77e-07 1.44e-03  -7.3 7.69e-03    -  1.00e+00 1.00e+00h  1
+ 206  1.3456300e+00 8.05e-06 6.91e-03  -7.3 7.10e-02    -  5.66e-01 1.70e-01h  2
+ 207  1.3456250e+00 6.03e-06 3.58e-03  -7.3 1.21e-02    -  1.00e+00 1.00e+00h  1
+ 208  1.3462140e+00 8.94e-07 6.75e-02  -6.5 8.67e-02    -  9.10e-01 1.00e+00H  1
+ 209  1.3460022e+00 1.40e-05 5.48e-02  -6.6 8.28e-02    -  1.00e+00 1.87e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 210  1.3456271e+00 1.03e-05 8.58e-03  -7.3 1.73e-02    -  1.00e+00 9.58e-01h  1
- 211  1.3456178e+00 2.44e-05 9.66e-03  -7.3 9.94e-03    -  6.77e-01 1.00e+00f  1
- 212  1.3456469e+00 3.23e-05 1.63e-02  -6.2 1.56e-02    -  1.00e+00 9.85e-01h  1
- 213  1.3455897e+00 4.49e-05 1.03e-02  -6.2 2.37e-02    -  8.53e-01 1.00e+00h  1
- 214  1.3456430e+00 3.12e-05 1.90e-02  -6.2 1.51e-02    -  1.00e+00 9.74e-01h  1
- 215  1.3456140e+00 2.08e-05 4.74e-03  -6.3 1.48e-02    -  3.60e-01 6.03e-01h  1
- 216  1.3456147e+00 1.84e-05 3.69e-03  -6.9 7.67e-03    -  1.00e+00 1.25e-01f  4
- 217  1.3456313e+00 1.68e-06 7.73e-04  -7.0 2.65e-03    -  1.00e+00 1.00e+00h  1
- 218  1.3456331e+00 1.82e-08 5.86e-05  -7.1 3.63e-04    -  1.00e+00 1.00e+00h  1
- 219  1.3456329e+00 8.61e-08 3.16e-04  -7.1 9.74e-04    -  1.00e+00 1.00e+00h  1
+ 210  1.3456704e+00 9.25e-05 3.09e-02  -6.6 5.77e-02    -  1.00e+00 5.73e-01f  1
+ 211  1.3454668e+00 1.41e-04 8.81e-03  -6.6 3.37e-01    -  2.13e-01 1.27e-01f  1
+ 212  1.3457481e+00 2.42e-04 3.37e-02  -4.7 1.06e+00    -  5.53e-01 6.50e-02f  1
+ 213  1.3459579e+00 2.46e-04 2.73e-02  -4.8 6.06e-02    -  6.30e-01 1.00e+00h  1
+ 214  1.3459988e+00 2.12e-04 3.84e-02  -4.8 2.41e-02    -  1.00e+00 1.00e+00h  1
+ 215  1.3458041e+00 1.12e-04 1.24e-02  -4.8 4.16e-02    -  1.00e+00 1.00e+00h  1
+ 216  1.3459392e+00 3.32e-05 1.11e-02  -4.8 2.51e-02    -  1.00e+00 1.00e+00h  1
+ 217  1.3460319e+00 1.04e-07 1.65e-03  -4.8 2.23e-02    -  1.00e+00 1.00e+00H  1
+ 218  1.3459721e+00 1.82e-05 3.16e-03  -4.8 1.37e-02    -  1.00e+00 1.00e+00h  1
+ 219  1.3460516e+00 2.11e-08 3.29e-03  -4.8 1.65e-02    -  1.00e+00 1.00e+00H  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 220  1.3456328e+00 2.17e-07 2.53e-04  -7.1 9.48e-04    -  1.00e+00 1.00e+00h  1
- 221  1.3456327e+00 1.09e-07 7.00e-05  -7.1 1.39e-03    -  1.00e+00 1.00e+00h  1
- 222  1.3456328e+00 1.48e-08 1.83e-05  -7.1 4.30e-04    -  1.00e+00 1.00e+00h  1
- 223  1.3456329e+00 2.61e-09 1.28e-05  -7.1 4.28e-04    -  1.00e+00 1.00e+00h  1
- 224  1.3456329e+00 1.25e-08 7.90e-05  -7.1 1.01e-03    -  1.00e+00 1.00e+00h  1
- 225  1.3456350e+00 3.47e-10 8.50e-04  -7.1 5.20e-03    -  1.00e+00 1.00e+00H  1
- 226  1.3456315e+00 1.14e-06 8.80e-04  -7.1 3.78e-03    -  1.00e+00 1.00e+00h  1
- 227  1.3456317e+00 1.22e-06 1.65e-03  -7.1 8.26e-03    -  1.00e+00 4.93e-01h  2
- 228  1.3456327e+00 4.48e-07 1.79e-03  -7.1 5.05e-03    -  1.00e+00 1.00e+00h  1
- 229  1.3456321e+00 6.01e-07 1.10e-03  -7.1 1.40e-02    -  1.00e+00 1.85e-01h  2
+ 220  1.3459671e+00 2.07e-05 1.22e-03  -4.8 1.77e-02    -  1.00e+00 1.00e+00h  1
+ 221  1.3460033e+00 7.08e-07 2.96e-03  -4.8 2.78e-03    -  1.00e+00 1.00e+00h  1
+ 222  1.3460025e+00 1.84e-06 3.05e-03  -4.8 2.47e-03    -  1.00e+00 1.00e+00h  1
+ 223  1.3459960e+00 5.65e-07 1.17e-03  -4.8 3.38e-03    -  1.00e+00 1.00e+00h  1
+ 224  1.3459993e+00 3.07e-07 3.86e-04  -4.8 3.45e-03    -  1.00e+00 1.00e+00h  1
+ 225  1.3460020e+00 1.36e-07 1.71e-04  -4.8 4.02e-03    -  1.00e+00 1.00e+00h  1
+ 226  1.3459999e+00 2.05e-06 3.86e-03  -4.8 1.05e-02    -  1.00e+00 1.00e+00h  1
+ 227  1.3459999e+00 1.72e-06 1.06e-03  -4.8 4.16e-03    -  1.00e+00 1.00e+00h  1
+ 228  1.3459987e+00 1.82e-06 3.54e-03  -4.8 3.55e-03    -  1.00e+00 1.00e+00h  1
+ 229  1.3460021e+00 1.73e-06 1.07e-03  -4.8 2.63e-03    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 230  1.3456324e+00 2.39e-07 5.78e-05  -7.1 2.35e-03    -  1.00e+00 1.00e+00h  1
- 231  1.3456329e+00 6.91e-08 1.60e-04  -7.1 5.10e-04    -  1.00e+00 1.00e+00h  1
- 232  1.3456328e+00 7.51e-08 8.23e-05  -7.1 1.71e-03    -  1.00e+00 1.00e+00h  1
- 233  1.3456351e+00 1.02e-10 7.73e-04  -7.1 4.30e-03    -  1.00e+00 1.00e+00H  1
- 234  1.3456308e+00 2.07e-06 1.03e-03  -7.1 1.41e-03    -  1.00e+00 1.00e+00h  1
- 235  1.3456327e+00 9.04e-08 2.05e-04  -7.1 1.45e-03    -  1.00e+00 1.00e+00h  1
- 236  1.3456328e+00 3.20e-08 4.66e-05  -7.1 1.09e-03    -  1.00e+00 1.00e+00h  1
- 237  1.3456329e+00 2.21e-12 7.33e-05  -7.1 5.18e-04    -  1.00e+00 1.00e+00H  1
- 238  1.3456328e+00 3.31e-08 6.11e-05  -7.1 1.22e-03    -  1.00e+00 1.00e+00h  1
- 239  1.3456328e+00 2.59e-08 5.80e-05  -7.1 3.95e-04    -  1.00e+00 5.00e-01h  2
+ 230  1.3460025e+00 6.69e-07 2.05e-03  -4.8 3.25e-03    -  1.00e+00 1.00e+00h  1
+ 231  1.3460011e+00 3.38e-07 5.45e-05  -4.8 3.33e-03    -  1.00e+00 1.00e+00h  1
+ 232  1.3456077e+00 8.51e-05 1.97e-02  -7.0 5.53e-02    -  8.64e-01 1.00e+00h  1
+ 233  1.3455627e+00 1.14e-04 2.42e-02  -7.0 1.83e-02    -  5.77e-01 7.60e-01h  1
+ 234  1.3457313e+00 6.74e-05 1.36e-02  -5.1 4.52e-02    -  1.00e+00 1.00e+00f  1
+ 235  1.3456479e+00 3.70e-04 4.88e-02  -5.2 6.64e-02    -  8.33e-01 1.00e+00h  1
+ 236  1.3454387e+00 2.24e-04 1.53e-02  -5.2 4.67e-02    -  1.00e+00 1.00e+00h  1
+ 237  1.3479730e+00 8.45e-06 9.14e-02  -4.9 5.94e-02    -  1.00e+00 1.00e+00H  1
+ 238  1.3444728e+00 9.84e-04 2.52e-03  -5.0 5.38e-02    -  1.00e+00 1.00e+00h  1
+ 239  1.3456470e+00 1.04e-05 4.18e-03  -6.4 1.12e-02    -  1.00e+00 9.99e-01h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 240  1.3456328e+00 1.22e-08 2.39e-05  -7.1 8.11e-04    -  1.00e+00 1.00e+00h  1
- 241  1.3456333e+00 6.22e-15 2.83e-04  -7.1 1.10e-03    -  1.00e+00 1.00e+00H  1
- 242  1.3456325e+00 2.84e-07 2.77e-05  -7.1 1.21e-03    -  1.00e+00 1.00e+00f  1
- 243  1.3456328e+00 5.22e-09 6.16e-05  -7.1 1.95e-04    -  1.00e+00 1.00e+00h  1
- 244  1.3456328e+00 2.41e-09 2.48e-06  -7.1 1.48e-04    -  1.00e+00 1.00e+00h  1
- 245  1.3456328e+00 1.01e-11 2.39e-06  -7.1 1.53e-05    -  1.00e+00 1.00e+00h  1
- 246  1.3456329e+00 1.15e-13 8.84e-05  -7.1 8.66e-04    -  1.00e+00 1.00e+00H  1
- 247  1.3456329e+00 1.33e-15 6.96e-05  -7.1 7.45e-04    -  1.00e+00 1.00e+00H  1
- 248  1.3456327e+00 1.04e-07 6.95e-05  -7.1 1.83e-03    -  1.00e+00 1.00e+00f  1
- 249  1.3456327e+00 7.58e-08 7.63e-05  -7.1 1.15e-03    -  1.00e+00 1.00e+00h  1
+ 240  1.3456669e+00 6.03e-09 2.51e-03  -6.3 1.01e-02    -  1.00e+00 1.00e+00H  1
+ 241  1.3456274e+00 3.04e-05 1.36e-02  -6.3 3.94e-03    -  1.00e+00 1.00e+00h  1
+ 242  1.3456297e+00 8.44e-06 3.02e-03  -6.3 8.56e-03    -  7.18e-01 1.00e+00h  1
+ 243  1.3456431e+00 8.61e-07 1.49e-03  -6.3 2.93e-03    -  1.00e+00 1.00e+00h  1
+ 244  1.3456430e+00 3.03e-07 8.96e-05  -6.3 1.67e-03    -  1.00e+00 1.00e+00h  1
+ 245  1.3456427e+00 1.37e-07 3.23e-04  -6.3 1.62e-03    -  1.00e+00 1.00e+00h  1
+ 246  1.3456424e+00 4.54e-07 2.26e-04  -6.3 1.29e-03    -  1.00e+00 1.00e+00h  1
+ 247  1.3456426e+00 1.13e-07 6.50e-05  -6.3 8.74e-04    -  1.00e+00 1.00e+00h  1
+ 248  1.3456427e+00 4.48e-09 3.07e-05  -6.3 5.54e-04    -  1.00e+00 1.00e+00h  1
+ 249  1.3456423e+00 1.37e-07 2.64e-04  -6.3 2.61e-03    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 250  1.3456331e+00 6.66e-16 2.21e-04  -7.1 6.70e-04    -  1.00e+00 1.00e+00H  1
- 251  1.3456329e+00 1.78e-15 1.69e-04  -7.1 5.62e-04    -  1.00e+00 1.00e+00F  1
- 252  1.3456328e+00 2.97e-08 5.73e-05  -7.1 6.86e-04    -  1.00e+00 1.00e+00h  1
- 253  1.3456328e+00 2.67e-09 2.65e-05  -7.1 5.33e-05    -  1.00e+00 1.00e+00h  1
- 254  1.3456328e+00 6.69e-10 3.99e-06  -7.1 4.29e-05    -  1.00e+00 1.00e+00h  1
- 255  1.3456328e+00 5.19e-11 1.69e-06  -7.1 1.17e-05    -  1.00e+00 1.00e+00h  1
- 256  1.3456328e+00 7.80e-11 3.92e-06  -7.1 2.46e-05    -  1.00e+00 1.00e+00h  1
- 257  1.3456328e+00 1.00e-10 3.40e-06  -7.1 6.55e-05    -  1.00e+00 1.00e+00h  1
- 258  1.3456328e+00 2.10e-10 6.36e-06  -7.1 1.15e-04    -  1.00e+00 1.00e+00h  1
- 259  1.3456328e+00 6.91e-14 4.64e-05  -7.1 3.88e-04    -  1.00e+00 1.00e+00H  1
+ 250  1.3456415e+00 1.43e-06 2.54e-03  -6.3 9.04e-03    -  1.00e+00 1.00e+00h  1
+ 251  1.3456402e+00 2.83e-06 3.90e-03  -6.3 4.78e-03    -  1.00e+00 1.00e+00h  1
+ 252  1.3456376e+00 4.12e-06 3.31e-03  -6.3 1.17e-02    -  1.00e+00 1.00e+00h  1
+ 253  1.3456377e+00 2.95e-06 1.90e-03  -6.3 1.13e-02    -  1.00e+00 4.41e-01h  2
+ 254  1.3456447e+00 9.78e-10 3.85e-04  -6.3 7.02e-03    -  1.00e+00 1.00e+00H  1
+ 255  1.3456406e+00 1.12e-06 1.45e-03  -6.3 4.36e-03    -  1.00e+00 1.00e+00h  1
+ 256  1.3456464e+00 2.15e-13 1.52e-03  -6.3 6.84e-03    -  1.00e+00 1.00e+00H  1
+ 257  1.3456426e+00 8.92e-10 3.91e-04  -6.3 7.02e-03    -  1.00e+00 1.00e+00F  1
+ 258  1.3456710e+00 2.99e-12 2.73e-03  -6.3 7.45e-03    -  1.00e+00 1.00e+00H  1
+ 259  1.3456269e+00 1.16e-05 7.89e-04  -6.3 5.83e-03    -  1.00e+00 1.00e+00f  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 260  1.3456328e+00 4.77e-09 9.32e-06  -7.1 2.80e-04    -  1.00e+00 1.00e+00h  1
- 261  1.3456328e+00 1.11e-09 1.62e-05  -7.1 1.16e-04    -  1.00e+00 1.00e+00h  1
- 262  1.3456329e+00 1.33e-15 7.27e-05  -7.1 4.27e-04    -  1.00e+00 1.00e+00H  1
- 263  1.3456328e+00 9.59e-09 1.45e-06  -7.1 3.99e-04    -  1.00e+00 1.00e+00h  1
- 264  1.3456328e+00 2.16e-11 2.10e-06  -7.1 1.51e-05    -  1.00e+00 1.00e+00h  1
- 265  1.3456328e+00 2.89e-15 2.01e-05  -7.1 2.70e-04    -  1.00e+00 1.00e+00H  1
- 266  1.3456328e+00 7.30e-10 1.44e-05  -7.1 2.48e-03    -  1.00e+00 2.50e-01h  3
- 267  1.3456352e+00 1.11e-15 4.19e-04  -7.1 9.50e-03    -  1.00e+00 1.00e+00H  1
- 268  1.3456329e+00 6.66e-16 1.13e-04  -7.1 8.57e-03    -  1.00e+00 1.00e+00F  1
- 269  1.3456328e+00 3.97e-08 5.10e-05  -7.1 5.61e-02    -  6.53e-01 3.12e-02f  6
+ 260  1.3456418e+00 2.46e-07 2.55e-04  -6.3 1.70e-03    -  1.00e+00 1.00e+00h  1
+ 261  1.3456421e+00 7.80e-08 1.92e-05  -6.3 9.41e-04    -  1.00e+00 1.00e+00h  1
+ 262  1.3456422e+00 1.03e-08 1.83e-05  -6.3 2.93e-04    -  1.00e+00 1.00e+00h  1
+ 263  1.3456422e+00 1.27e-13 4.39e-05  -6.3 3.02e-04    -  1.00e+00 1.00e+00H  1
+ 264  1.3456423e+00 1.11e-15 1.28e-04  -6.3 3.62e-04    -  1.00e+00 1.00e+00H  1
+ 265  1.3456423e+00 2.47e-08 3.90e-05  -6.3 7.61e-04    -  1.00e+00 1.00e+00h  1
+ 266  1.3456422e+00 1.38e-08 2.66e-05  -6.3 3.98e-04    -  1.00e+00 1.00e+00h  1
+ 267  1.3456422e+00 8.74e-09 2.62e-05  -6.3 3.03e-04    -  1.00e+00 5.00e-01h  2
+ 268  1.3456422e+00 3.21e-08 9.34e-05  -6.3 7.54e-04    -  1.00e+00 1.00e+00h  1
+ 269  1.3456422e+00 2.21e-08 1.87e-05  -6.3 4.55e-04    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 270  1.3456328e+00 2.69e-08 4.81e-05  -7.1 1.25e-03    -  1.00e+00 5.00e-01h  2
- 271  1.3456329e+00 4.94e-12 1.15e-04  -7.1 1.03e-03    -  1.00e+00 1.00e+00H  1
- 272  1.3456329e+00 1.77e-12 1.11e-04  -7.1 1.05e-03    -  1.00e+00 1.00e+00H  1
- 273  1.3456369e+00 1.89e-14 7.74e-04  -7.1 2.99e-03    -  1.00e+00 1.00e+00H  1
- 274  1.3456305e+00 1.57e-06 4.96e-05  -7.1 2.77e-03    -  1.00e+00 1.00e+00f  1
- 275  1.3456328e+00 1.98e-10 4.69e-06  -7.1 8.23e-05    -  1.00e+00 1.00e+00h  1
- 276  1.3456328e+00 3.80e-14 5.84e-05  -7.1 2.47e-04    -  1.00e+00 1.00e+00H  1
- 277  1.3456328e+00 4.25e-09 2.86e-06  -7.1 2.42e-04    -  1.00e+00 1.00e+00h  1
- 278  1.3456328e+00 2.27e-09 7.96e-06  -7.1 1.14e-04    -  1.00e+00 5.00e-01h  2
- 279  1.3456328e+00 1.17e-09 1.49e-06  -7.1 5.27e-05    -  1.00e+00 5.00e-01h  2
+ 270  1.3456423e+00 3.18e-09 1.96e-05  -6.3 2.39e-04    -  1.00e+00 1.00e+00h  1
+ 271  1.3456422e+00 9.80e-09 6.57e-05  -6.3 2.14e-04    -  1.00e+00 1.00e+00h  1
+ 272  1.3456422e+00 6.27e-09 2.70e-05  -6.3 2.01e-04    -  1.00e+00 1.00e+00h  1
+ 273  1.3456422e+00 4.21e-09 1.78e-05  -6.3 3.18e-04    -  1.00e+00 1.00e+00h  1
+ 274  1.3456422e+00 6.53e-10 5.49e-06  -6.3 2.08e-04    -  1.00e+00 1.00e+00h  1
+ 275  1.3456320e+00 2.00e-06 4.31e-03  -7.0 2.48e-03    -  1.00e+00 1.00e+00h  1
+ 276  1.3456384e+00 7.54e-10 1.70e-03  -7.0 3.14e-03    -  1.00e+00 1.00e+00H  1
+ 277  1.3456314e+00 1.51e-06 7.39e-04  -7.0 1.57e-03    -  9.53e-01 1.00e+00h  1
+ 278  1.3456333e+00 2.75e-09 4.52e-05  -7.0 2.46e-04    -  1.00e+00 1.00e+00h  1
+ 279  1.3456331e+00 8.33e-08 6.62e-05  -7.0 9.43e-04    -  1.00e+00 1.00e+00h  1
 iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
- 280  1.3456328e+00 7.92e-10 1.17e-05  -7.1 1.78e-04    -  1.00e+00 1.00e+00h  1
- 281  1.3456329e+00 4.44e-16 1.13e-04  -7.1 2.41e-04    -  1.00e+00 1.00e+00H  1
- 282  1.3456328e+00 1.54e-08 1.71e-06  -7.1 3.63e-04    -  1.00e+00 1.00e+00h  1
- 283  1.3456328e+00 7.91e-12 6.49e-07  -7.1 1.40e-05    -  1.00e+00 1.00e+00h  1
+ 280  1.3456329e+00 7.54e-08 1.97e-04  -7.0 1.05e-03    -  1.00e+00 1.00e+00h  1
+ 281  1.3456332e+00 1.71e-11 3.42e-04  -7.0 5.19e-04    -  1.00e+00 1.00e+00H  1
+ 282  1.3456330e+00 5.74e-08 2.24e-05  -7.0 4.78e-04    -  1.00e+00 1.00e+00h  1
+ 283  1.3456330e+00 1.05e-09 1.37e-05  -7.0 2.46e-04    -  1.00e+00 1.00e+00h  1
+ 284  1.3456330e+00 1.50e-08 1.03e-04  -7.0 9.52e-04    -  1.00e+00 1.00e+00h  1
+ 285  1.3456330e+00 3.40e-08 1.09e-04  -7.0 1.97e-03    -  1.00e+00 1.00e+00h  1
+ 286  1.3456329e+00 3.99e-08 5.02e-05  -7.0 7.38e-04    -  1.00e+00 1.00e+00h  1
+ 287  1.3456330e+00 1.75e-08 1.68e-05  -7.0 5.05e-04    -  1.00e+00 1.00e+00h  1
+ 288  1.3456330e+00 1.63e-09 8.29e-06  -7.0 2.28e-04    -  1.00e+00 1.00e+00h  1
+ 289  1.3456330e+00 7.64e-14 7.11e-05  -7.0 4.17e-04    -  1.00e+00 1.00e+00H  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 290  1.3456330e+00 6.37e-09 3.54e-05  -7.0 3.72e-04    -  1.00e+00 1.00e+00h  1
+ 291  1.3456330e+00 4.29e-09 1.88e-05  -7.0 2.32e-04    -  1.00e+00 1.00e+00h  1
+ 292  1.3456330e+00 6.76e-10 5.05e-06  -7.0 1.70e-04    -  1.00e+00 1.00e+00h  1
+ 293  1.3456330e+00 3.66e-10 3.60e-06  -7.0 1.08e-04    -  1.00e+00 1.00e+00h  1
+ 294  1.3456330e+00 1.72e-10 4.08e-06  -7.0 5.93e-05    -  1.00e+00 1.00e+00h  1
+ 295  1.3456330e+00 5.31e-14 2.88e-05  -7.0 1.43e-04    -  1.00e+00 1.00e+00H  1
+ 296  1.3456330e+00 1.56e-09 3.10e-06  -7.0 7.05e-05    -  1.00e+00 1.00e+00h  1
+ 297  1.3456330e+00 1.87e-10 1.05e-05  -7.0 6.28e-05    -  1.00e+00 1.00e+00h  1
+ 298  1.3456330e+00 9.52e-11 2.17e-06  -7.0 7.88e-05    -  1.00e+00 1.00e+00h  1
+ 299  1.3456330e+00 3.11e-15 3.13e-05  -7.0 1.11e-04    -  1.00e+00 1.00e+00H  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 300  1.3456330e+00 6.85e-10 9.45e-06  -7.0 5.92e-05    -  1.00e+00 1.00e+00h  1
+ 301  1.3456330e+00 3.48e-10 3.19e-06  -7.0 6.65e-05    -  1.00e+00 1.00e+00h  1
+ 302  1.3456330e+00 4.27e-11 3.17e-06  -7.0 3.99e-05    -  1.00e+00 1.00e+00h  1
+ 303  1.3456330e+00 3.36e-11 3.68e-06  -7.0 4.39e-05    -  1.00e+00 1.00e+00h  1
+ 304  1.3456330e+00 1.55e-15 4.62e-05  -7.0 9.53e-04    -  1.00e+00 1.00e+00H  1
+ 305  1.3456330e+00 7.62e-09 2.86e-05  -7.0 5.82e-04    -  1.00e+00 1.00e+00h  1
+ 306  1.3456333e+00 1.33e-15 4.45e-04  -7.0 5.74e-04    -  1.00e+00 1.00e+00H  1
+ 307  1.3456328e+00 1.52e-07 1.74e-06  -7.0 5.19e-04    -  1.00e+00 1.00e+00f  1
+ 308  1.3456330e+00 4.34e-12 1.26e-06  -7.0 2.74e-05    -  1.00e+00 1.00e+00h  1
+ 309  1.3456330e+00 9.20e-10 4.21e-06  -7.0 4.60e-04    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 310  1.3456332e+00 1.33e-15 3.66e-04  -7.0 7.55e-04    -  1.00e+00 1.00e+00H  1
+ 311  1.3456328e+00 1.34e-07 7.05e-07  -7.0 1.00e-03    -  1.00e+00 1.00e+00f  1
 
-Number of Iterations....: 283
+Number of Iterations....: 311
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3456328267214988e+00    1.3456328267214988e+00
-Dual infeasibility......:   6.4915668204113537e-07    6.4915668204113537e-07
-Constraint violation....:   7.9141138087379659e-12    7.9141138087379659e-12
+Objective...............:   1.3456328025101982e+00    1.3456328025101982e+00
+Dual infeasibility......:   7.0490188623355968e-07    7.0490188623355968e-07
+Constraint violation....:   1.3369305884580740e-07    1.3369305884580740e-07
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   8.3249267374269510e-08    8.3249267374269510e-08
-Overall NLP error.......:   6.4915668204113537e-07    6.4915668204113537e-07
+Complementarity.........:   9.0909090909692798e-08    9.0909090909692798e-08
+Overall NLP error.......:   7.0490188623355968e-07    7.0490188623355968e-07
 
 
-Number of objective function evaluations             = 413
-Number of objective gradient evaluations             = 283
-Number of equality constraint evaluations            = 413
+Number of objective function evaluations             = 419
+Number of objective gradient evaluations             = 311
+Number of equality constraint evaluations            = 419
 Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 285
+Number of equality constraint Jacobian evaluations   = 313
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 50.022
+Total seconds in IPOPT                               = 74.555
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct_ms = pack(default_vectorizer(), ms_dynprob.ps)
 optimized_parameters = reconstruct_ms(ms_uopt.u)
 ms_optsol, _ = mslayer(nothing, optimized_parameters, ms_opt.p)
-trajectoryplot(ms_optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-3.png" alt="Trajectory plot for The Lotka Volterra Fishing Problem"/></p><p>Matching residuals measure feasibility of the lifted states and inserted control intervals. The single- and multiple-shooting problems use different control grids, and this multiple-shooting model also bounds its lifted states (including the quadrature) by two. Their objective values need not coincide.</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(ms_optsol))</code></pre><pre><code class="nohighlight hljs">7.914113808737966e-12</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+trajectoryplot(ms_optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-3.png" alt="Trajectory plot for The Lotka Volterra Fishing Problem"/></p><p>Matching residuals measure feasibility of the lifted states and inserted control intervals. The single- and multiple-shooting problems use different control grids, and this multiple-shooting model also bounds its lifted states (including the quadrature) by two. Their objective values need not coincide.</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(ms_optsol))</code></pre><pre><code class="nohighlight hljs">1.336930588458074e-7</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
         Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.16
   [b0b7db55] ComponentArrays v0.15.50
   [2751e0db] Corleone v1.0.1 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v1.0.0 `../lib/CorleoneOED`
   [e30172f5] Documenter v1.19.0
   [daee34ce] DocumenterCitations v1.5.0
   [f6369f11] ForwardDiff v1.4.6
@@ -495,9 +527,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -560,6 +592,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
   [2751e0db] Corleone v1.0.1 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v1.0.0 `../lib/CorleoneOED`
   [a8cc5b0e] Crayons v4.2.0
   [9a962f9c] DataAPI v1.16.0
   [864edb3b] DataStructures v0.19.6
@@ -844,7 +877,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [9a68df92] isoband_jll v0.2.3+0
   [a4ae2306] libaom_jll v3.15.2+0
   [0ac62f75] libass_jll v0.17.5+0
-  [46979653] libdeflate_jll v1.26.0+0
+  [46979653] libdeflate_jll v1.26.0+1
   [8e53e030] libdrm_jll v2.4.134+0
 ⌅ [f638f0a6] libfdk_aac_jll v2.0.4+0
   [b53b4c65] libpng_jll v1.6.59+1
@@ -907,4 +940,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear Quadratic Regulator</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 29 October 2026 13:54">Thursday 29 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear Quadratic Regulator</a><a class="docs-footer-nextpage" href="../modelingtoolkit_integration/">ModelingToolkit Integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 29 October 2026 18:18">Thursday 29 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
