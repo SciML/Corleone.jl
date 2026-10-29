@@ -40,13 +40,13 @@ Makie.inline!()
 # their squared deviations from one. The first parameter is fishing intensity.
 
 function lotka_dynamics(du, u, p, t)
-    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
-    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    du[1] = u[1] - p[1] * prod(u[1:2]) - 0.4 * p[2] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[2] * u[2]
     return du[3] = (u[1] - 1.0)^2 + (u[2] - 1.0)^2
 end
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
-p0 = [0.0, 1.0, 1.0]
+p0 = [1.0, 0.0, 1.0]
 prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-9, reltol = 1.0e-9)
 
 # ## Single Shooting Approach
@@ -56,16 +56,15 @@ prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-9, reltol = 1.0e-
 # The initial state is taken from the ODE problem.
 cgrid = collect(0.1:0.1:11.9)
 control = Tunable(
-    1; kind = Val(:parameter), default = 1.0,
+    2; kind = Val(:parameter), default = 1.0,
     lowerbound = 0.0, upperbound = 1.0
 ) => cgrid
 physical_parameters = (
-    Constant(2; kind = Val(:parameter)) => nothing,
-    Constant(3; kind = Val(:parameter)) => nothing,
+    Constant([3, 1]; kind = Val(:parameter)) => nothing,
 )
 layer = ShootingLayer(
     prob, Tsit5(), control, physical_parameters...;
-    controls = [1], quadratures = [3]
+    controls = [2], quadratures = [3]
 )
 
 # Minimize the terminal accumulated cost. The model initializes parameters and
@@ -100,7 +99,7 @@ trajectoryplot(optsol)
 # lie inside intervals; 9.75 already coincides with a control switch.
 shooting_points = [3.4, 6.1, 9.75]
 initial_conditions = (
-    Tunable(i; kind = Val(:variable), lowerbound = 0.0) => shooting_points for i in 1:3
+    Tunable(i; kind = Val(:variable), lowerbound = 0.0, upperbound = 2.0) => shooting_points for i in 1:3
 )
 mslayer = ShootingLayer(
     prob, Tsit5(), first(control) => collect(0.25:0.25:11.75), physical_parameters...,
@@ -130,8 +129,8 @@ ms_uopt = solve(
     Ipopt.Optimizer(),
     tol = 1.0e-6,
     hessian_approximation = "limited-memory",
-    max_iter = 300,
-    print_level = 3
+    max_iter = 1000,
+    print_level = 5
 );
 
 # Reconstruct the optimized parameters and plot the trajectory.
