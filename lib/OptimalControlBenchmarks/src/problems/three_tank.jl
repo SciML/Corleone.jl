@@ -1,10 +1,9 @@
 function three_tank(grids)
 
-    num_states = 4
     num_controls = 3
     tspan = (0.0, 12.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x₁(..) = 2.0, [tunable = false]
@@ -63,7 +62,8 @@ function three_tank(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Three Tank multimode problem",
     )
 
