@@ -27,25 +27,29 @@ using LuxCore, Random, LinearAlgebra
 # its components during setup and stores each in its own scalar vector buffer.
 
 @variables begin
-    x₁(..) = 0.0, [tunable = false]
-    x₂(..) = 0.0, [tunable = false]
-    x₃(..) = 0.0, [tunable = false]
-    u(..) = 0.0, [input = true, bounds = (-3.0, 3.0)]
+    x₁(t) = 0.0, [tunable = false]
+    x₂(t) = 0.0, [tunable = false]
+    x₃(t) = 0.0, [tunable = false]
+    u(t) = 0.0, [input = true, bounds = (-3.0, 3.0)]
 end
 @parameters begin
     a[1:2] = [-0.2, -0.1], [tunable = true, bounds = (-0.5, -0.05)]
     b₁ = 0.5, [tunable = true, bounds = (0.1, 1.0)]
 end
+@constants begin 
+    x_t[1:3] = [3., 1., -2.]
+end
+
 
 A = [0.0 1.0 0.0; a[1] 0.0 1.0; 0.0 0.0 a[2]]
 b = [b₁, 0.0, 1.0]
-x = [x₁(t), x₂(t), x₃(t)]
-equations = D.(x) .~ A * x + b * u(t)
+x = [x₁, x₂, x₃]
+equations = D.(x) .~ A * x + b * u
 t_inf = 10.0
-target = [3.0, 1.0, -2.0]
-terminal = [x₁(t_inf), x₂(t_inf), x₃(t_inf)]
-energy = Symbolics.Integral(t in (0.0, t_inf))(0.5 * u(t)^2)
-@named lti = System(equations, t; costs = [energy], constraints = terminal .~ target)
+terminal_constraint = EvalAt(t_inf).(x) .~ scalarize(x_t)
+energy = Symbolics.Integral(t in (0.0, t_inf))(0.5 * u^2)
+
+@named lti = System(equations, t; costs = [energy], constraints = terminal_constraint)
 
 # ## Shooting formulation
 # Twenty piecewise-constant input intervals share one lookup. The three unknown
@@ -57,7 +61,7 @@ energy = Symbolics.Integral(t in (0.0, t_inf))(0.5 * u(t)^2)
 step = 0.5
 starts = collect(0.0:step:(t_inf - step))
 dynopt = CorleoneDynamicOptProblem(
-    lti, [], u(t) => starts;
+    scalarize(lti), [], u => starts;
     algorithm = Tsit5(), tspan = (0.0, t_inf),
     shooting = collect(2.0:2.0:8.0), rng = MersenneTwister(42),
     problem_kwargs = (; abstol = 1.0e-10, reltol = 1.0e-10),
@@ -77,9 +81,9 @@ transition = exp([A_nominal b_nominal; zeros(1, 4)] * step)
 Φ, Γ = transition[1:3, 1:3], transition[1:3, 4]
 N = length(starts)
 reachability = hcat([Φ^(N - k) * Γ for k in 1:N]...)
-control_guess = reachability \ target
+control_guess = reachability \ ModelingToolkit.getdefault(x_t)
 @assert maximum(abs, control_guess) < 3.0
-input_name = Symbol(u(t))
+input_name = Symbol(u)
 dynopt.ps.parameter.parameters[input_name].parameter.ps .= control_guess
 forward_initialization(MersenneTwister(42), dynopt.layer, dynopt.ps, dynopt.st)
 initial_energy = optimization_objective(dynopt)
@@ -100,7 +104,7 @@ optimized = optprob.f.f.reconstruct(result.u)
 trajectory, _ = dynopt.layer(nothing, optimized, optprob.p)
 terminal_state = [last(trajectory[state]) for state in x]
 coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]))
-@assert isapprox(terminal_state, target; atol = 1.0e-5, rtol = 0.0)
+@assert isapprox(terminal_state, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
 @assert maximum(abs, optimization_constraints(dynopt, optimized, optprob.p)) < 1.0e-5
 @assert result.objective <= initial_energy + 1.0e-6
 # Replaying the fitted constant system provides a check independent of lifted states.
@@ -110,9 +114,9 @@ fitted_transition = exp([A_fitted b_fitted; zeros(1, 4)] * step)
 Φ_fitted, Γ_fitted = fitted_transition[1:3, 1:3], fitted_transition[1:3, 4]
 replayed_terminal = foldl(
     (state, input) -> Φ_fitted * state + Γ_fitted * input,
-    trajectory[u(t)]; init = zeros(3)
+    trajectory[u]; init = zeros(3)
 )
-@assert isapprox(replayed_terminal, target; atol = 1.0e-5, rtol = 0.0)
+@assert isapprox(replayed_terminal, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
 (; coefficients, terminal_state, energy = result.objective)
 
 # ## Plot

@@ -8,9 +8,26 @@ scalar_symbols(symbols) = reduce(
     init = eltype(symbols)[]
 )
 
+scalar_expression(expression) = Symbolics.scalarize(expression)
+# Symbolics.scalarize preserves array inequalities as a single relationship.
+scalar_expression(inequality::Symbolics.Inequality) = Symbolics.Inequality.(
+    Symbolics.scalarize(inequality.lhs), Symbolics.scalarize(inequality.rhs), Ref(inequality.relational_op)
+)
+
+scalar_expressions(expressions) = reduce(
+    vcat, map(expressions) do expression
+        scalar = scalar_expression(expression)
+        scalar isa AbstractArray ? vec(collect(scalar)) : [scalar]
+    end; init = eltype(expressions)[]
+)
+
 function scalarize_system(sys::ModelingToolkit.System)
     variables, parameters = variable_symbols(sys), parameter_symbols(sys)
-    any(sym -> symbolic_type(sym) isa ArraySymbolic, (variables..., parameters...)) || return sys
+    costs = scalar_expressions(ModelingToolkit.get_costs(sys))
+    constraints = scalar_expressions(ModelingToolkit.get_constraints(sys))
+    arrays = any(sym -> symbolic_type(sym) isa ArraySymbolic, (variables..., parameters...))
+    !arrays && isequal(costs, ModelingToolkit.get_costs(sys)) &&
+        isequal(constraints, ModelingToolkit.get_constraints(sys)) && return sys
     scalar = ModelingToolkit.System(
         ModelingToolkit.equations(sys), ModelingToolkit.get_iv(sys),
         scalar_symbols(variables), scalar_symbols(parameters);
@@ -18,6 +35,7 @@ function scalarize_system(sys::ModelingToolkit.System)
         initial_conditions = ModelingToolkit.initial_conditions(sys),
         bindings = ModelingToolkit.bindings(sys), guesses = ModelingToolkit.guesses(sys),
         observed = ModelingToolkit.observed(sys),
+        costs, constraints,
         continuous_events = ModelingToolkit.continuous_events(sys),
         discrete_events = ModelingToolkit.discrete_events(sys),
         tstops = ModelingToolkit.symbolic_tstops(sys), checks = false

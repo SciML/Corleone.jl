@@ -8,6 +8,8 @@ using Optimization, OptimizationMOI, Ipopt
 using SymbolicIndexingInterface
 using LuxCore, Random
 
+include("mtk_scalarization.jl")
+
 parameter_group_key(layer, sym) = keys(layer.parameter.parameters)[
     findfirst(indices -> parameter_index(layer.sys, sym) in indices, layer.parameter.indices),
 ]
