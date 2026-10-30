@@ -4,7 +4,7 @@ CorleoneGame.jl is a component of the [Corleone.jl](https://github.com/SciML/Cor
 monorepo. It computes approximate open-loop Nash equilibria of N-player dynamic
 games by damped sequential best responses, where every best response is an
 optimal control problem solved with Corleone.jl (single or multiple shooting;
-Ipopt, Uno, or BlockSQP2). The directory also contains the benchmark library of
+Ipopt or Uno). The directory also contains the benchmark library of
 biological dynamic games described in the preprint
 
 > Sager, Plate, Martensen, Ohl, *CorleoneGame: A library of biological dynamic games with a
@@ -45,10 +45,8 @@ in Lux state. Multiple shooting lifts interior states and quadratures while
 sharing the control histories and physical coefficients. Objectives, bounds, and
 continuity constraints use Corleone's shared optimization bridge.
 
-BlockSQP2 currently uses its generic Optimization interface with one full Hessian
-block. Stage-specific layouts and condensing are deferred. Version 0.2.1 of
-BlockSQP2 also reports an error from its legacy Corleone layout extension when
-loading; this is separate from its generic optimizer interface.
+Ipopt is the default solver for both shooting modes; Uno is available with
+`nlp_solver=:uno`.
 
 Check the installation by solving the reference case (a few minutes):
 

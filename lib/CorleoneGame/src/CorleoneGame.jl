@@ -1,7 +1,7 @@
 module CorleoneGame
 
 using Corleone, LuxCore, Random, ComponentArrays, OrdinaryDiffEqTsit5
-using Optimization, OptimizationMOI, Ipopt, BlockSQP2, UnoSolver
+using Optimization, OptimizationMOI, Ipopt, UnoSolver
 using Printf
 using ForwardDiff
 using SymbolicIndexingInterface: parameter_values, parameter_values_at_time
@@ -126,7 +126,7 @@ Base.@kwdef struct Options
     constraint_samples::Int = 4
     audit_samples::Int = 8
     use_synthetic::Bool = false
-    nlp_solver::Symbol = :auto  # Ipopt for single, BlockSQP2 for multiple shooting
+    nlp_solver::Symbol = :auto  # Ipopt for both shooting modes
     fallback_solver::Union{Nothing, Symbol} = :ipopt
     solver_options::NamedTuple = (;)
     fallback_options::NamedTuple = (;)
@@ -162,10 +162,8 @@ function validate(g::Game, o::Options)
     o.shooting in (:single, :multiple) || error("Choose :single or :multiple shooting")
     o.intervals > 0 && o.refined_intervals >= o.intervals && o.shooting_intervals > 0 || error("Invalid grids")
     check_grid(o, o.intervals); check_grid(o, o.refined_intervals)
-    o.nlp_solver in (:auto, :ipopt, :blocksqp, :uno) || error("Unknown NLP solver")
-    o.fallback_solver in (nothing, :ipopt, :uno, :blocksqp) || error("Unknown fallback solver")
-    o.shooting == :single && (o.nlp_solver == :blocksqp || o.fallback_solver == :blocksqp) &&
-        error("BlockSQP2 requires multiple shooting")
+    o.nlp_solver in (:auto, :ipopt, :uno) || error("Unknown NLP solver")
+    o.fallback_solver in (nothing, :ipopt, :uno) || error("Unknown fallback solver")
     all(x -> isfinite(x)&&0 <= x <= 1, o.extra_starts) || error("Extra starts must be fractions in [0,1]")
     0 < o.damping <= 1 && min(o.max_rounds, o.max_iters, o.constraint_samples, o.audit_samples) > 0 || error("Invalid algorithm settings")
     all(x -> isfinite(x)&&x > 0, (o.tolerance, o.feasibility_tolerance, o.ode_tolerance)) || error("Invalid tolerances")
@@ -325,15 +323,7 @@ function solve_ocp(prob, solver, o; attributes = o.solver_options)
         opts = merge((; preset = "filtersqp", max_iterations = o.max_iters, logger = "SILENT"), attributes)
         return solve(prob, UnoSolver.Optimizer(; opts...))
     end
-    opts = BlockSQP2.sparse_options()
-    opts.enable_premature_termination = true; opts.max_extra_steps = 1
-    opts.par_QPs = false; opts.automatic_scaling = false; opts.print_level = 0; opts.feas_tol = 1.0e-9
-    settings = merge(
-        (;
-            options = opts, abstol = 1.0e-8, maxiters = o.max_iters,
-        ), attributes
-    )
-    return solve(prob, BlockSQP2.Optimizer(); settings...)
+    return error("Unknown NLP solver: $solver")
 end
 
 function nlp_iterations(result)
@@ -376,7 +366,7 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     model = CorleoneDynamicOptProblem(layer, loss, constraints...; ps = p, st, lcons = lc, ucons = uc)
     nm = model.nshooting
     prob = OptimizationProblem(model, AutoForwardDiff())
-    solver = options.nlp_solver == :auto ? (options.shooting == :single ? :ipopt : :blocksqp) : options.nlp_solver
+    solver = options.nlp_solver == :auto ? :ipopt : options.nlp_solver
     sec_precompile = (ccall(:clock, Clong, ()) - cpu_start) / 1.0e6
     cpu_start = ccall(:clock, Clong, ())
     result = solve_ocp(prob, solver, options)

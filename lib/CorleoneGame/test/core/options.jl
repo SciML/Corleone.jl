@@ -42,6 +42,8 @@ end
     @test_throws ErrorException CorleoneGame.validate(g, Options(extra_starts = [1.1]))
     @test_throws ErrorException CorleoneGame.validate(g, Options(nlp_solver = :unknown))
     @test_throws ErrorException CorleoneGame.validate(g, Options(nlp_solver = :blocksqp))
+    @test_throws ErrorException CorleoneGame.validate(g, Options(shooting = :multiple, nlp_solver = :blocksqp))
+    @test_throws ErrorException CorleoneGame.validate(g, Options(fallback_solver = :blocksqp))
     c = [0.1 0.8 0.4; 0.7 0.2 0.6]
     @test CorleoneGame.transfer_controls(c, 6) ≈ repeat(c; inner = (1, 2))
     @test vec(sum(CorleoneGame.transfer_controls(c, 5); dims = 2)) / 5 ≈ vec(sum(c; dims = 2)) / 3
@@ -49,7 +51,7 @@ end
 
 @testset "Solver choices and primal warm starts" begin
     g = analytic_game()
-    for (shooting, solver) in ((:single, :ipopt), (:single, :uno), (:multiple, :ipopt), (:multiple, :uno), (:multiple, :blocksqp))
+    for (shooting, solver) in ((:single, :ipopt), (:single, :uno), (:multiple, :ipopt), (:multiple, :uno), (:single, :auto), (:multiple, :auto))
         o = Options(;
             shooting, nlp_solver = solver, fallback_solver = nothing, shooting_intervals = 2,
             intervals = 4, refined_intervals = 4, max_iters = 100, extra_starts = Float64[], warm_start = true
@@ -58,7 +60,7 @@ end
         c = initial_controls(g, 4)
         a = best_response(g, c, 1; options = o, workspace)
         @test !a.warm_started
-        @test a.solver == solver
+        @test a.solver == (solver == :auto ? :ipopt : solver)
         @test a.controls[1:2, :] ≈ repeat([0.2, 0.3], 1, 4) atol = 1.0e-4
         # Change objective coefficients, opponent policy, bounds, and constraints.
         updated = analytic_game(target = [0.1, 0.25, 0.4], bound = 0.6, cap = 0.065)

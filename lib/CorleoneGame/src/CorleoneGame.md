@@ -9,7 +9,7 @@ CorleoneGame computes approximate **open-loop Nash equilibria** of N-player
 dynamic games by damped sequential best responses. Each best response is an
 optimal control problem (OCP) of one player against the fixed controls of the
 others, transcribed with Corleone.jl (single or multiple shooting) and solved by
-Ipopt, Uno, or BlockSQP2.
+Ipopt or Uno.
 
 ## Source files
 
@@ -122,7 +122,7 @@ objectives and parameter layouts.
 using CorleoneGame
 g = Game(; ...)                         # see above
 options = Options(shooting=:multiple, shooting_intervals=10,
-    intervals=20, refined_intervals=40, nlp_solver=:blocksqp, warm_start=true)
+    intervals=20, refined_intervals=40, nlp_solver=:ipopt, warm_start=true)
 workspace = Workspace()
 result = solve_game(g; options, workspace)        # no files written
 # result = run_game(g; options, workspace, folder="output")  # CSVs, report, plots
@@ -187,7 +187,7 @@ grids is required.
 | `max_iters` | 300 | NLP iterations, unless overridden by solver-specific attributes |
 | `ode_tolerance` | `1e-9` | Integrator tolerance inside the transcription |
 | `constraint_samples`, `audit_samples` | 4, 8 | Samples per control interval for path constraints and audits |
-| `nlp_solver` | `:auto` | Ipopt for single, BlockSQP2 for multiple shooting; or `:ipopt`, `:uno`, `:blocksqp` |
+| `nlp_solver` | `:auto` | Ipopt for both shooting modes; or `:ipopt`, `:uno` |
 | `fallback_solver` | `:ipopt` | Retry after an unsuccessful return code; `nothing` disables it |
 | `solver_options`, `fallback_options` | `(;)` | Named tuples overriding the solver defaults |
 | `extra_starts` | `[0.0,0.5,1.0]` | Extra constant starts (fractions of each owned component's range) for multistart audits |
@@ -201,19 +201,12 @@ tentative convergence is disabled.
 
 ### Solvers
 
-Ipopt and Uno support both transcriptions. The `:blocksqp` option uses BlockSQP2's
-generic NLP interface for multiple shooting, with one full Hessian block and no
-stage layout or condensing metadata. Structured integration with the rewritten
-Corleone API is deferred. BlockSQP2 0.2.1's own Corleone layout extension still
-references legacy layer types and reports an extension-loading error; the generic
-Optimization interface is independent of that extension.
+Ipopt and Uno support both transcriptions. `:auto` selects Ipopt for either
+shooting mode.
 Ipopt uses limited-memory Hessians by default
 (`solver_options=(;hessian_approximation="exact")` selects exact AD Hessians).
 Uno uses `preset="filtersqp"` via
 [its Julia interface](https://github.com/cvanaret/Uno/blob/main/interfaces/Julia/README.md).
-A custom `BlockSQP2.sparse_options()` object can be passed as
-`solver_options=(;options=my_options)`.
-
 The fallback solver starts from the failed solver's finite primal iterate,
 projected to the current bounds. If the final return code is still unsuccessful,
 a message is printed and the solution is accepted only if the subsequent
