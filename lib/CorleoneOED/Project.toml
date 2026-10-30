@@ -18,6 +18,9 @@ SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
+[sources]
+Corleone = {path = "../.."}
+
 [compat]
 ADTypes = "1"
 ChainRulesCore = "1.25.1"

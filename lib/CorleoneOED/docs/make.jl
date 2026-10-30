@@ -5,7 +5,7 @@ realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..", "..", "..")) ||
     error("Develop both checked-out packages in the documentation environment; see docs/README.md.")
 
-# Follow the root manual's convention: external PNGs keep figures out of search
+# Follow the root manual's convention: external images keep figures out of search
 # indices and allow ordinary Markdown alternative text instead of embedded HTML.
 function tutorial_figures(content, output, name, alt)
     index = 0
