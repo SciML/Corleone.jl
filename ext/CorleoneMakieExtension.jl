@@ -108,6 +108,8 @@ function Makie.convert_arguments(
 
 
     if show_variable_residuals && !isempty(sol.reset_indices)
+        # Early Makie 0.24 releases do not support line styles on range bars.
+        style = Makie.is_attribute(Makie.Rangebars, :linestyle) ? (; linestyle = :dot) : (;)
         for (variable_color, var) in enumerate(selected_variables)
             i = variable_index(sys, var)
             indices = variable_reset_indices(sol, i)
@@ -123,7 +125,7 @@ function Makie.convert_arguments(
                     min.(before, after),
                     max.(before, after),
                     ;
-                    color, linestyle = :dot, label = "Δ$(var)", whiskerwidth = whiskerwidth,
+                    color, label = "Δ$(var)", whiskerwidth = whiskerwidth, style...,
                 )
             )
         end
