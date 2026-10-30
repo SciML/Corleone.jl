@@ -127,11 +127,38 @@ end
     tr = simulate(g, fill(0.7, 1, 4))
     @test tr.objectives[1] ≈ (0.35 - 0.25)^2 + 1.0e-3 * 0.49 atol = 1.0e-9
     @test_throws ErrorException simulate(g, fill(0.7, 1, 3)) # t = 0.5 is not a grid node
-    response = best_response(g, fill(0.7, 1, 4), 1; options = Options(intervals = 4, refined_intervals = 4))
-    @test response.status == "Success"
-    k = findfirst(t -> isapprox(t, 0.5), response.trajectory.t)
-    @test abs(response.trajectory.x[1, k] - 0.25) < 1.0e-3
-    @test maximum(response.controls[1, 3:4]) < 1.0e-3 # interior-point solution near the bound
+    for shooting in (:single, :multiple)
+        options = Options(;
+            shooting, intervals = 4, refined_intervals = 4,
+            shooting_intervals = 2, nlp_solver = :ipopt
+        )
+        response = best_response(g, fill(0.7, 1, 4), 1; options)
+        @test response.status == "Success"
+        k = findfirst(t -> isapprox(t, 0.5), response.trajectory.t)
+        @test abs(response.trajectory.x[1, k] - 0.25) < 1.0e-3
+        @test maximum(response.controls[1, 3:4]) < 1.0e-3 # interior-point solution near the bound
+    end
+end
+
+@testset "Sampled path constraints with shooting resets" begin
+    g = Game(;
+        name = "State cap", state_labels = ["x"], control_labels = ["u"], owners = [1],
+        dynamics! = (dx, x, p, t) -> (dx[1] = p[1]; dx[2] = (p[1] - 1)^2),
+        objective = (x, i) -> x[2], x0 = zeros(2), T = 1.0, quadratures = [2],
+        lower = [0.0], upper = [1.0], initial = [0.1],
+        constraints = [StateConstraint(; player = 1, index = 1, label = "cap", upper = 0.2, path = true)]
+    )
+    for shooting in (:single, :multiple)
+        options = Options(;
+            shooting, intervals = 4, refined_intervals = 4,
+            shooting_intervals = 2, nlp_solver = :ipopt
+        )
+        response = best_response(g, initial_controls(g, 4), 1; options)
+        @test response.status == "Success"
+        @test response.controls ≈ fill(0.2, 1, 4) atol = 1.0e-4
+        @test maximum(response.trajectory.x[1, :]) <= 0.2 + options.feasibility_tolerance
+        @test response.matching < options.feasibility_tolerance
+    end
 end
 
 @testset "Periodic-return constraints and forcing clocks" begin

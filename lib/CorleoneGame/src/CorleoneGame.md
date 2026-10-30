@@ -9,7 +9,7 @@ CorleoneGame computes approximate **open-loop Nash equilibria** of N-player
 dynamic games by damped sequential best responses. Each best response is an
 optimal control problem (OCP) of one player against the fixed controls of the
 others, transcribed with Corleone.jl (single or multiple shooting) and solved by
-Ipopt, Uno, or BlockSQP2.
+Ipopt or Uno.
 
 ## Source files
 
@@ -64,7 +64,8 @@ bounds the terminal value of state `index`, or the trajectory sampled at the
 transcription points if `path=true`. A constraint belongs to one player and is
 imposed only in that player's OCP; a restriction shared by several players is
 entered once per player. State-dependent shared constraints therefore lead to a
-generalized Nash interpretation.
+generalized Nash interpretation. At a shooting reset, path constraints and point
+costs use the outgoing state; continuity constraints match the incoming endpoint.
 
 `periodic_constraints(x0, nplayers; tolerance, log_indices=Int[])` returns two
 terminal inequalities per physical state and player, i.e., a return band
@@ -82,7 +83,7 @@ costs; `CorleoneGame.trajectory_objective` combines them with point costs
 consistently for optimization and independent audits. Point-cost times must be
 control-grid nodes on every grid used (otherwise an error is raised); they are
 evaluated exactly, without nearest-sample approximation. Point costs must not
-depend on quadratures, which preserves stage-local Hessian structure.
+depend on quadratures.
 
 ### Player-owned constant parameters and free end time
 
@@ -91,8 +92,8 @@ optional constant decisions. With parameters, the dynamics receive
 `[controls; parameters]` and the objective is `objective(xT, player, parameters)`;
 with empty parameter vectors the two-argument callback is used. Best responses
 expose only the owning player's parameter bounds; other players' parameters are
-fixed. Corleone's multiple-shooting constraints match parameter copies between
-stages.
+fixed in Lux state. Each physical coefficient is shared across all shooting
+segments; no parameter copies or parameter matching constraints are needed.
 
 `simulate`, `make_layer`, `best_response`, `audit`, `equilibrium`, `solve_game`,
 and `run_game` accept `parameters=g.parameters`. Responses, trajectories, runs,
@@ -107,12 +108,13 @@ physical rates by `D` explicitly; the core performs no hidden time scaling.
 Plots and the primary CSV time columns use physical time; free-time CSVs
 additionally contain `normalized_time` and constant `parameter_j` columns.
 
-### Block-structured Hessians
+### Hessian structure
 
-For BlockSQP2, terminal objectives must be affine in accumulated quadratures to
-preserve stage Hessian blocks. Nonlinear terminal costs in physical states are
-supported; nonlinear functions of accumulated quadratures are outside this
-block-structured interface.
+The current solver bridge uses a full NLP representation. It does not assume
+stage-local Hessian blocks. Accumulated quadratures are ordinary continuous
+states, shared across segments through shooting constraints. Structured Hessian
+and condensing integration is deferred; it may impose additional restrictions on
+objectives and parameter layouts.
 
 ## Solving
 
@@ -120,7 +122,7 @@ block-structured interface.
 using CorleoneGame
 g = Game(; ...)                         # see above
 options = Options(shooting=:multiple, shooting_intervals=10,
-    intervals=20, refined_intervals=40, nlp_solver=:blocksqp, warm_start=true)
+    intervals=20, refined_intervals=40, nlp_solver=:ipopt, warm_start=true)
 workspace = Workspace()
 result = solve_game(g; options, workspace)        # no files written
 # result = run_game(g; options, workspace, folder="output")  # CSVs, report, plots
@@ -165,9 +167,12 @@ All grids are equidistant. In multiple-shooting mode, `shooting_intervals` is th
 number of shooting stages, and every control grid (`intervals`,
 `refined_intervals`, and the actual control matrix) must be an integer multiple of
 it. Each stage may contain several control intervals and control components;
-shooting node states are initialized from an independent simulation at the stage
-boundaries. No divisibility between the coarse and refined control grids is
-required.
+shooting node states, including accumulated quadratures, are initialized from an
+independent simulation at the stage boundaries. The global initial state remains
+fixed, and interior values have continuity constraints. Controls are shared-grid
+parameter histories; opponents' values are fixed in Lux state rather than included
+in the optimizer vector. No divisibility between the coarse and refined control
+grids is required.
 
 ### Options
 
@@ -182,7 +187,7 @@ required.
 | `max_iters` | 300 | NLP iterations, unless overridden by solver-specific attributes |
 | `ode_tolerance` | `1e-9` | Integrator tolerance inside the transcription |
 | `constraint_samples`, `audit_samples` | 4, 8 | Samples per control interval for path constraints and audits |
-| `nlp_solver` | `:auto` | Ipopt for single, BlockSQP2 for multiple shooting; or `:ipopt`, `:uno`, `:blocksqp` |
+| `nlp_solver` | `:auto` | Ipopt for both shooting modes; or `:ipopt`, `:uno` |
 | `fallback_solver` | `:ipopt` | Retry after an unsuccessful return code; `nothing` disables it |
 | `solver_options`, `fallback_options` | `(;)` | Named tuples overriding the solver defaults |
 | `extra_starts` | `[0.0,0.5,1.0]` | Extra constant starts (fractions of each owned component's range) for multistart audits |
@@ -196,15 +201,12 @@ tentative convergence is disabled.
 
 ### Solvers
 
-Ipopt and Uno support both transcriptions; BlockSQP2 requires multiple shooting
-and receives Corleone's stage Hessian blocks and variable-block metadata
-(condensing remains disabled). Ipopt uses limited-memory Hessians by default
+Ipopt and Uno support both transcriptions. `:auto` selects Ipopt for either
+shooting mode.
+Ipopt uses limited-memory Hessians by default
 (`solver_options=(;hessian_approximation="exact")` selects exact AD Hessians).
 Uno uses `preset="filtersqp"` via
 [its Julia interface](https://github.com/cvanaret/Uno/blob/main/interfaces/Julia/README.md).
-A custom `BlockSQP2.sparse_options()` object can be passed as
-`solver_options=(;options=my_options)`.
-
 The fallback solver starts from the failed solver's finite primal iterate,
 projected to the current bounds. If the final return code is still unsuccessful,
 a message is printed and the solution is accepted only if the subsequent

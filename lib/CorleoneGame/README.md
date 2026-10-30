@@ -4,7 +4,7 @@ CorleoneGame.jl is a component of the [Corleone.jl](https://github.com/SciML/Cor
 monorepo. It computes approximate open-loop Nash equilibria of N-player dynamic
 games by damped sequential best responses, where every best response is an
 optimal control problem solved with Corleone.jl (single or multiple shooting;
-Ipopt, Uno, or BlockSQP2). The directory also contains the benchmark library of
+Ipopt or Uno). The directory also contains the benchmark library of
 biological dynamic games described in the preprint
 
 > Sager, Plate, Martensen, Ohl, *CorleoneGame: A library of biological dynamic games with a
@@ -31,13 +31,22 @@ the first instantiation. After cloning the repository:
 juliaup add 1.11            # once, if Julia 1.11 is not installed
 juliaup default 1.11
 cd Corleone.jl/lib/CorleoneGame
-julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+julia --project=. -e 'using Pkg; Pkg.develop(path="../.."); Pkg.instantiate(); Pkg.precompile()'
 ```
 
 `Pkg.instantiate()` resolves the dependencies, writes `Manifest.toml`, and
 installs the packages into the Julia depot; nothing global is modified otherwise. The first precompilation takes
 several minutes. Command-line runs additionally need the system `tee` utility on
 `PATH` (used for the dual console/log output).
+
+The solver uses the rewritten Corleone APIs (version 1.0.1 or later). Player-owned
+controls and coefficients are tunable annotations; opponents' values remain fixed
+in Lux state. Multiple shooting lifts interior states and quadratures while
+sharing the control histories and physical coefficients. Objectives, bounds, and
+continuity constraints use Corleone's shared optimization bridge.
+
+Ipopt is the default solver for both shooting modes; Uno is available with
+`nlp_solver=:uno`.
 
 Check the installation by solving the reference case (a few minutes):
 

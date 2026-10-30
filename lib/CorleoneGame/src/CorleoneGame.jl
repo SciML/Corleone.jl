@@ -1,8 +1,10 @@
 module CorleoneGame
 
 using Corleone, LuxCore, Random, ComponentArrays, OrdinaryDiffEqTsit5
-using Optimization, OptimizationMOI, Ipopt, BlockSQP2, UnoSolver
+using Optimization, OptimizationMOI, Ipopt, UnoSolver
 using Printf
+using ForwardDiff
+using SymbolicIndexingInterface: parameter_values, parameter_values_at_time
 export periodic_constraints, validate_periodic_clock, Game, StateConstraint, PointCost, Options, Workspace, solve_game, initial_controls, simulate, make_layer,
     setup_layer, best_response, audit, equilibrium, run_game, run_logged, replot_outputs, constraint_norms, create_synthetic_data, player_count, player_label, subscript
 
@@ -59,8 +61,7 @@ end
 """
 N-player open-loop game, with arbitrary state and control dimensions.
 Controls are matrices (component × interval); owners[j] identifies the player who controls component j.
-objective(xT,player) returns a cost to MINIMIZE. For block multiple shooting,
-it must be affine in accumulated quadratures to preserve stage Hessian blocks.
+objective(xT,player) returns a cost to MINIMIZE.
 Quadratures start at zero and cannot enter the dynamics. decode(x) maps numerical
 states to displayed states, keeping quadratures intact.
 """
@@ -98,7 +99,7 @@ function trajectory_objective(g, t, states, player, parameters = g.parameters)
     value = isempty(g.parameters) ? g.objective(last(states), player) : g.objective(last(states), player, parameters)
     for c in g.point_costs
         c.player == player || continue
-        k = findfirst(s -> isapprox(s, c.time; atol = 1.0e-12 * g.T, rtol = 1.0e-12), t)
+        k = findlast(s -> isapprox(s, c.time; atol = 1.0e-12 * g.T, rtol = 1.0e-12), t)
         k === nothing && error("Point-cost time $(c.time) missing from trajectory")
         value += c.cost(states[k])
     end
@@ -125,7 +126,7 @@ Base.@kwdef struct Options
     constraint_samples::Int = 4
     audit_samples::Int = 8
     use_synthetic::Bool = false
-    nlp_solver::Symbol = :auto  # Ipopt for single, BlockSQP2 for multiple shooting
+    nlp_solver::Symbol = :auto  # Ipopt for both shooting modes
     fallback_solver::Union{Nothing, Symbol} = :ipopt
     solver_options::NamedTuple = (;)
     fallback_options::NamedTuple = (;)
@@ -146,6 +147,9 @@ layout_signature(g, o, n) = (
     Tuple(g.owners), Tuple(g.quadratures), g.T, Tuple(g.parameter_owners), g.time_parameter,
 )
 
+shooting_times(g, o) = o.shooting == :multiple ?
+    collect(range(0, g.T; length = o.shooting_intervals + 1))[2:(end - 1)] : Float64[]
+
 function check_grid(o, n)
     n > 0 || error("Control grid must have positive interval count")
     return if o.shooting == :multiple
@@ -158,10 +162,8 @@ function validate(g::Game, o::Options)
     o.shooting in (:single, :multiple) || error("Choose :single or :multiple shooting")
     o.intervals > 0 && o.refined_intervals >= o.intervals && o.shooting_intervals > 0 || error("Invalid grids")
     check_grid(o, o.intervals); check_grid(o, o.refined_intervals)
-    o.nlp_solver in (:auto, :ipopt, :blocksqp, :uno) || error("Unknown NLP solver")
-    o.fallback_solver in (nothing, :ipopt, :uno, :blocksqp) || error("Unknown fallback solver")
-    o.shooting == :single && (o.nlp_solver == :blocksqp || o.fallback_solver == :blocksqp) &&
-        error("BlockSQP2 requires multiple shooting")
+    o.nlp_solver in (:auto, :ipopt, :uno) || error("Unknown NLP solver")
+    o.fallback_solver in (nothing, :ipopt, :uno) || error("Unknown fallback solver")
     all(x -> isfinite(x)&&0 <= x <= 1, o.extra_starts) || error("Extra starts must be fractions in [0,1]")
     0 < o.damping <= 1 && min(o.max_rounds, o.max_iters, o.constraint_samples, o.audit_samples) > 0 || error("Invalid algorithm settings")
     all(x -> isfinite(x)&&x > 0, (o.tolerance, o.feasibility_tolerance, o.ode_tolerance)) || error("Invalid tolerances")
@@ -195,7 +197,9 @@ function check_parameters(g, parameters)
     return g.time_parameter == 0 || g.bounds_p[1][g.time_parameter] > 0 || error("Duration must be positive")
 end
 physical_times(g, tr) = g.time_parameter == 0 ? tr.t : tr.parameters[g.time_parameter] .* tr.t
-fitted_parameters(p, shooting) = shooting == :single ? p.p : getproperty(p, first(propertynames(p))).p
+# Physical coefficients are shared across all shooting intervals, after controls
+# in the ODE parameter vector. Query the current trajectory, including fixed values.
+fitted_parameters(g, trajectory) = parameter_values(trajectory)[(length(g.owners) + 1):end]
 
 initial_controls(g::Game, n::Int) = repeat(g.initial, 1, n)
 function check_controls(g, controls)
@@ -234,50 +238,64 @@ function make_layer(g::Game, controls, player; options = Options(), parameters =
     n = size(controls, 2)
     check_grid(options, n)
     grid = collect(range(0, g.T; length = n + 1))
-    cs = [
-        j => ControlParameter(
-            grid[1:(end - 1)]; name = Symbol("u_", j), controls = copy(controls[j, :]),
-            bounds = g.owners[j] == player ? (g.lower[j], g.upper[j]) : (copy(max.(g.lower[j], controls[j, :] .- 1.0e-8)), copy(min.(g.upper[j], controls[j, :] .+ 1.0e-8)))
-        ) for j in eachindex(g.owners)
+    definitions = Any[
+        (g.owners[j] == player ? Tunable : Constant)(
+            j; kind = Val(:parameter), default = collect(controls[j, :]),
+            lowerbound = g.lower[j], upperbound = g.upper[j]
+        ) => grid[2:(end - 1)] for j in eachindex(g.owners)
     ]
     check_parameters(g, parameters)
-    plower = [g.parameter_owners[j] == player ? g.bounds_p[1][j] : parameters[j] for j in eachindex(parameters)]
-    pupper = [g.parameter_owners[j] == player ? g.bounds_p[2][j] : parameters[j] for j in eachindex(parameters)]
+    for j in eachindex(parameters)
+        annotation = (g.parameter_owners[j] == player ? Tunable : Constant)(
+            length(g.owners) + j; kind = Val(:parameter), default = parameters[j],
+            lowerbound = g.bounds_p[1][j], upperbound = g.bounds_p[2][j]
+        )
+        push!(definitions, annotation => nothing)
+    end
+    if options.shooting == :multiple
+        resets = shooting_times(g, options)
+        for j in eachindex(g.x0)
+            push!(
+                definitions, Tunable(
+                    j; kind = Val(:variable), default = g.x0[j],
+                    lowerbound = g.state_lower[j], upperbound = g.state_upper[j]
+                ) => resets
+            )
+        end
+    end
     prob = ODEProblem(
-        g.dynamics!, copy(g.x0), (0.0, g.T), vcat(zeros(length(cs)), parameters);
-        abstol = options.ode_tolerance, reltol = options.ode_tolerance, saveat = g.T / n / options.constraint_samples
+        g.dynamics!, copy(g.x0), (0.0, g.T), vcat(controls[:, 1], parameters);
+        abstol = options.ode_tolerance, reltol = options.ode_tolerance,
+        saveat = collect(range(0, g.T; length = n * options.constraint_samples + 1))
     )
-    kwargs = (; tunable_ic = Int[], controls = cs, bounds_p = (plower, pupper), bounds_ic = (g.state_lower, g.state_upper), quadrature_indices = g.quadratures)
-    return options.shooting == :single ? SingleShootingLayer(prob, Tsit5(); kwargs...) :
-        MultipleShootingLayer(prob, Tsit5(), grid[1:(n ÷ options.shooting_intervals):end]; kwargs...)
+    return ShootingLayer(
+        prob, Tsit5(), definitions...;
+        controls = collect(eachindex(g.owners)), quadratures = g.quadratures
+    )
 end
 
 function setup_layer(g, controls, player; options = Options(), warm = nothing, parameters = g.parameters)
     layer = make_layer(g, controls, player; options, parameters)
-    ps, st = LuxCore.setup(MersenneTwister(20260908), layer)
+    rng = MersenneTwister(20260908)
+    ps, st = LuxCore.setup(rng, layer)
     p = ComponentArray(ps)
     if options.shooting == :multiple
-        nodes = warm === nothing ? simulate(g, controls; samples = 1, parameters).x : nothing
-        idx = setdiff(eachindex(g.x0), g.quadratures)
-        stride = size(controls, 2) ÷ options.shooting_intervals
-        for (k, key) in enumerate(keys(ps))
-            k == 1 && continue
-            # Symbol indexing copies a ComponentArray block; property access gives a view.
-            getproperty(p, key).u0 .= warm === nothing ? nodes[idx, 1 + (k - 1) * stride] : getproperty(warm, key).u0
-            getproperty(p, key).u0 .= clamp.(getproperty(p, key).u0, g.state_lower[idx], g.state_upper[idx])
+        reference = warm === nothing ? simulate(g, controls; samples = 1, parameters) : warm
+        resets = shooting_times(g, options)
+        nodes = map(resets) do t
+            k = findlast(s -> isapprox(s, t; atol = 1.0e-12 * g.T, rtol = 1.0e-12), reference.t)
+            isnothing(k) && error("Warm-start trajectory is missing shooting time $t")
+            k
         end
+        u0s = [clamp.(reference.x[j, nodes], g.state_lower[j], g.state_upper[j]) for j in eachindex(g.x0)]
+        custom_initialization(rng, layer, p, st; u0s)
     end
     return (; layer, p, st)
 end
 
-function unpack_controls(g, fitted, shooting, n)
-    nc = length(g.owners)
-    shooting == :single && return permutedims(reshape(collect(fitted.controls), n, nc))
-    stages = propertynames(fitted)
-    n % length(stages) == 0 || error("Unexpected stage count")
-    perstage = n ÷ length(stages)
-    all(length(fitted[key].controls) == nc * perstage for key in stages) || error("Unexpected stage control layout")
-    return reduce(hcat, (permutedims(reshape(collect(fitted[key].controls), perstage, nc)) for key in stages))
+function unpack_controls(g, trajectory, n)
+    times = range(0, g.T; length = n + 1)[1:(end - 1)]
+    return reduce(hcat, [parameter_values_at_time(trajectory, trajectory, t)[1:length(g.owners)] for t in times])
 end
 
 function constraint_norms(g, trajectory, controls)
@@ -292,7 +310,7 @@ function constraint_norms(g, trajectory, controls)
     return norms
 end
 
-function solve_ocp(prob, solver, layer, st, o; attributes = o.solver_options)
+function solve_ocp(prob, solver, o; attributes = o.solver_options)
     if solver == :ipopt
         opts = merge(
             (;
@@ -305,17 +323,7 @@ function solve_ocp(prob, solver, layer, st, o; attributes = o.solver_options)
         opts = merge((; preset = "filtersqp", max_iterations = o.max_iters, logger = "SILENT"), attributes)
         return solve(prob, UnoSolver.Optimizer(; opts...))
     end
-    opts = BlockSQP2.sparse_options()
-    opts.enable_premature_termination = true; opts.max_extra_steps = 1
-    opts.par_QPs = false; opts.automatic_scaling = false; opts.print_level = 0; opts.feas_tol = 1.0e-9
-    layout = BlockSQP2.NLPlayouts.get_layout(layer, LuxCore.initialparameters(MersenneTwister(20260908), layer), st)
-    settings = merge(
-        (;
-            options = opts, abstol = 1.0e-8, maxiters = o.max_iters,
-            blockIdx = Corleone.get_block_structure(layer), vblocks = BlockSQP2.create_vblocks(layout),
-        ), attributes
-    )
-    return solve(prob, BlockSQP2.Optimizer(); settings...)
+    return error("Unknown NLP solver: $solver")
 end
 
 function nlp_iterations(result)
@@ -332,7 +340,7 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     signature = layout_signature(g, options, size(controls, 2))
     previous = options.warm_start && workspace !== nothing ? get(workspace.responses, player, nothing) : nothing
     compatible = previous !== nothing && previous.signature == signature
-    warm = compatible && start === nothing ? previous.p : nothing
+    warm = compatible && start === nothing ? previous.shooting : nothing
     if compatible && start === nothing
         candidate[owned, :] .= clamp.(previous.controls[owned, :], g.lower[owned], g.upper[owned])
     end
@@ -342,47 +350,35 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     end
     cpu_start = ccall(:clock, Clong, ())
     layer, p, st = setup_layer(g, candidate, player; options, warm, parameters)
-    axes = getaxes(p)
-    trajectory = z -> first(layer(nothing, ComponentArray(z, axes), st))
-    shot = trajectory(p)
-    nm = options.shooting == :multiple ? length(Corleone.shooting_constraints(shot)) : 0
+    q0, reconstruct = pack(default_vectorizer(), p)
+    trajectory = z -> first(layer(nothing, reconstruct(z), st))
+    shot = trajectory(q0)
+    # At shooting boundaries constrain the outgoing value once; continuity
+    # separately ties it to the incoming endpoint.
+    path_indices = [i for i in eachindex(shot.t) if i == lastindex(shot.t) || shot.t[i] != shot.t[i + 1]]
     selected = filter(c -> c.player == player, g.constraints)
-    lc, uc = zeros(nm), zeros(nm)
-    for c in selected
-        count = c.path ? length(shot.u) : 1
-        append!(lc, fill(c.lower, count)); append!(uc, fill(c.upper, count))
+    constraints = map(selected) do c
+        c.path ? (sol -> [sol.u[i][c.index] for i in path_indices]) : (sol -> last(sol.u)[c.index])
     end
-    function cons!(res, z, _)
-        sol = trajectory(z)
-        nm == 0 || Corleone.shooting_constraints!(view(res, 1:nm), sol)
-        k = nm
-        for c in selected
-            for x in (c.path ? sol.u : (last(sol.u),))
-                res[k += 1] = x[c.index]
-            end
-        end
-        return res
-    end
-    loss = (z, _) -> begin
-        sol = trajectory(z)
-        trajectory_objective(g, sol.t, sol.u, player, fitted_parameters(ComponentArray(z, axes), options.shooting))
-    end
-    fun = isempty(lc) ? OptimizationFunction(loss, AutoForwardDiff()) : OptimizationFunction(loss, AutoForwardDiff(); cons = cons!)
-    lb, ub = Corleone.get_bounds(layer) .|> ComponentArray
-    prob = OptimizationProblem(fun, collect(p); lb = collect(lb), ub = collect(ub), lcons = lc, ucons = uc)
-    solver = options.nlp_solver == :auto ? (options.shooting == :single ? :ipopt : :blocksqp) : options.nlp_solver
+    lc = [c.path ? fill(c.lower, length(path_indices)) : c.lower for c in selected]
+    uc = [c.path ? fill(c.upper, length(path_indices)) : c.upper for c in selected]
+    loss = sol -> trajectory_objective(g, sol.t, sol.u, player, fitted_parameters(g, sol))
+    model = CorleoneDynamicOptProblem(layer, loss, constraints...; ps = p, st, lcons = lc, ucons = uc)
+    nm = model.nshooting
+    prob = OptimizationProblem(model, AutoForwardDiff())
+    solver = options.nlp_solver == :auto ? :ipopt : options.nlp_solver
     sec_precompile = (ccall(:clock, Clong, ()) - cpu_start) / 1.0e6
     cpu_start = ccall(:clock, Clong, ())
-    result = solve_ocp(prob, solver, layer, st, options)
+    result = solve_ocp(prob, solver, options)
     attempts = [(; solver, status = string(result.retcode), iterations = nlp_iterations(result))]
     fallback = options.fallback_solver
     if !Corleone.SciMLBase.successful_retcode(result) && fallback !== nothing && fallback != solver
         @warn "OCP solver did not report success; retrying" solver fallback retcode = result.retcode
         # Reuse the failed solver's finite primal iterate, projected to current bounds.
         if length(result.u) == length(p) && all(isfinite, result.u)
-            prob = Corleone.SciMLBase.remake(prob; u0 = clamp.(collect(result.u), collect(lb), collect(ub)))
+            prob = Corleone.SciMLBase.remake(prob; u0 = clamp.(collect(result.u), prob.lb, prob.ub))
         end
-        result = solve_ocp(prob, fallback, layer, st, options; attributes = options.fallback_options)
+        result = solve_ocp(prob, fallback, options; attributes = options.fallback_options)
         solver = fallback
         push!(attempts, (; solver, status = string(result.retcode), iterations = nlp_iterations(result)))
     end
@@ -395,12 +391,13 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     flush(stdout)
     #    Corleone.SciMLBase.successful_retcode(result) || error("Player $player response failed: $(result.retcode)")
     Corleone.SciMLBase.successful_retcode(result) || print("Player $player response failed: $(result.retcode)")
-    newcontrols = unpack_controls(g, ComponentArray(result.u, axes), options.shooting, size(controls, 2))
+    optimal_shot = trajectory(result.u)
+    newcontrols = unpack_controls(g, optimal_shot, size(controls, 2))
     frozen = findall(!=(player), g.owners)
     maximum(abs.(newcontrols[frozen, :] .- controls[frozen, :]); init = 0.0) <= 1.0e-6 || error("Opponent policy changed")
     newcontrols .= clamp.(newcontrols, g.lower, g.upper)
     newcontrols[frozen, :] .= controls[frozen, :]
-    newparameters = collect(fitted_parameters(ComponentArray(result.u, axes), options.shooting))
+    newparameters = collect(fitted_parameters(g, optimal_shot))
     for j in eachindex(newparameters)
         if g.parameter_owners[j] != player
             abs(newparameters[j] - parameters[j]) <= 1.0e-7 || error("Opponent parameter changed")
@@ -411,12 +408,19 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     dense = simulate(g, newcontrols; samples = options.audit_samples, parameters = newparameters)
     norms = constraint_norms(g, dense, newcontrols)
     norms[player] <= options.feasibility_tolerance || error("Player $player fails independent feasibility check: $(norms[player])")
-    optimal_shot = trajectory(result.u)
     matching = nm == 0 ? 0.0 : maximum(abs, Corleone.shooting_constraints(optimal_shot))
     matching <= options.feasibility_tolerance || error("Shooting continuity failed: $matching")
     abs(trajectory_objective(g, optimal_shot.t, optimal_shot.u, player, newparameters) - dense.objectives[player]) <= 1.0e-5 * g.gain_scales[player] || error("Shooting and independent objectives disagree")
     if options.warm_start && workspace !== nothing
-        workspace.responses[player] = (; signature, controls = copy(newcontrols), p = ComponentArray(copy(result.u), axes))
+        times = shooting_times(g, options)
+        states = reduce(
+            hcat, (optimal_shot.u[findlast(==(t), optimal_shot.t)] for t in times);
+            init = zeros(length(g.x0), 0)
+        )
+        workspace.responses[player] = (;
+            signature, controls = copy(newcontrols),
+            shooting = (; t = times, x = states),
+        )
     end
     return (;
         controls = newcontrols, parameters = newparameters, trajectory = dense, status = string(result.retcode), matching, iterations,
