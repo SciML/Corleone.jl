@@ -210,12 +210,12 @@ Total number of inequality constraints...............:        0
 Number of Iterations....: 65
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3443372108771732e+00    1.3443372108771732e+00
-Dual infeasibility......:   4.9190600048118855e-06    4.9190600048118855e-06
+Objective...............:   1.3443372108948126e+00    1.3443372108948126e+00
+Dual infeasibility......:   4.9179197543533273e-06    4.9179197543533273e-06
 Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
 Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
-Complementarity.........:   1.8799698832865775e-08    1.8799698832865775e-08
-Overall NLP error.......:   4.9190600048118855e-06    4.9190600048118855e-06
+Complementarity.........:   1.8800381310719517e-08    1.8800381310719517e-08
+Overall NLP error.......:   4.9179197543533273e-06    4.9179197543533273e-06
 
 
 Number of objective function evaluations             = 216
@@ -225,7 +225,7 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 19.549
+Total seconds in IPOPT                               = 15.452
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Restore the parameter structure, evaluate the optimized layer, and plot it.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), dynopt.ps)
@@ -288,31 +288,31 @@ Total number of inequality constraints...............:        0
         inequality constraints with only upper bounds:        0
 
 
-Number of Iterations....: 90
+Number of Iterations....: 88
 
                                    (scaled)                 (unscaled)
-Objective...............:   1.3456313296016118e+00    1.3456313296016118e+00
-Dual infeasibility......:   3.5960047266210261e-07    3.5960047266210261e-07
-Constraint violation....:   1.7569501409298027e-11    1.7569501409298027e-11
-Variable bound violation:   9.9707275528864736e-09    9.9707275528864736e-09
-Complementarity.........:   1.0000000000000003e-11    1.0000000000000003e-11
-Overall NLP error.......:   3.5960047266210261e-07    3.5960047266210261e-07
+Objective...............:   1.3456313300038718e+00    1.3456313300038718e+00
+Dual infeasibility......:   7.4825005806076381e-07    7.4825005806076381e-07
+Constraint violation....:   4.4229064855016986e-12    4.4229064855016986e-12
+Variable bound violation:   9.9707275672306590e-09    9.9707275672306590e-09
+Complementarity.........:   1.0010431179977679e-11    1.0010431179977679e-11
+Overall NLP error.......:   7.4825005806076381e-07    7.4825005806076381e-07
 
 
-Number of objective function evaluations             = 91
-Number of objective gradient evaluations             = 91
-Number of equality constraint evaluations            = 91
+Number of objective function evaluations             = 90
+Number of objective gradient evaluations             = 89
+Number of equality constraint evaluations            = 90
 Number of inequality constraint evaluations          = 0
-Number of equality constraint Jacobian evaluations   = 91
+Number of equality constraint Jacobian evaluations   = 89
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 80.914
+Total seconds in IPOPT                               = 47.523
 
 EXIT: Optimal Solution Found.
 </code></pre><p>Reconstruct and plot the multiple-shooting solution in the same way.</p><pre><code class="language-julia hljs">_, reconstruct_ms = pack(default_vectorizer(), dynopt.ps)
 optimized_parameters = reconstruct_ms(optsol.u)
 optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
-trajectoryplot(optsol)</code></pre><p><img src="../modelingtoolkit_integration-figure-2.png" alt="Trajectory plot for ModelingToolkit Integration"/></p><p>Check continuity after optimization. Small residuals connect the lifted physical states and quadrature; integration and optimizer tolerances are separate controls on the numerical result. The two formulations use different control grids, so their objective values are not an exact discretization-to-discretization check.</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(optsol))</code></pre><pre><code class="nohighlight hljs">1.7569501409298027e-11</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+trajectoryplot(optsol)</code></pre><p><img src="../modelingtoolkit_integration-figure-2.png" alt="Trajectory plot for ModelingToolkit Integration"/></p><p>Check continuity after optimization. Small residuals connect the lifted physical states and quadrature; integration and optimizer tolerances are separate controls on the numerical result. The two formulations use different control grids, so their objective values are not an exact discretization-to-discretization check.</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(optsol))</code></pre><pre><code class="nohighlight hljs">4.422906485501699e-12</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
         Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.16
   [b0b7db55] ComponentArrays v0.15.50
@@ -341,9 +341,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, icelake-server)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
@@ -516,7 +516,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [2e0e35c7] Moshi v0.3.13
   [46d2c3a1] MuladdMacro v0.2.7
   [102ac46a] MultivariatePolynomials v0.5.20
-  [d8a4904e] MutableArithmetics v1.9.2
+  [d8a4904e] MutableArithmetics v1.9.3
   [77ba4419] NaNMath v1.1.5
   [f09324ee] Netpbm v1.1.1
   [be0214bd] NonlinearSolveBase v2.55.0
@@ -755,4 +755,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 30 October 2026 06:16">Friday 30 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_lotka_volterra_fishing_problem/">« Lotka Volterra Fishing</a><a class="docs-footer-nextpage" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Friday 30 October 2026 10:59">Friday 30 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
