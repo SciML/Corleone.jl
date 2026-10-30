@@ -31,13 +31,24 @@ the first instantiation. After cloning the repository:
 juliaup add 1.11            # once, if Julia 1.11 is not installed
 juliaup default 1.11
 cd Corleone.jl/lib/CorleoneGame
-julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+julia --project=. -e 'using Pkg; Pkg.develop(path="../.."); Pkg.instantiate(); Pkg.precompile()'
 ```
 
 `Pkg.instantiate()` resolves the dependencies, writes `Manifest.toml`, and
 installs the packages into the Julia depot; nothing global is modified otherwise. The first precompilation takes
 several minutes. Command-line runs additionally need the system `tee` utility on
 `PATH` (used for the dual console/log output).
+
+The solver uses the rewritten Corleone APIs (version 1.0.1 or later). Player-owned
+controls and coefficients are tunable annotations; opponents' values remain fixed
+in Lux state. Multiple shooting lifts interior states and quadratures while
+sharing the control histories and physical coefficients. Objectives, bounds, and
+continuity constraints use Corleone's shared optimization bridge.
+
+BlockSQP2 currently uses its generic Optimization interface with one full Hessian
+block. Stage-specific layouts and condensing are deferred. Version 0.2.1 of
+BlockSQP2 also reports an error from its legacy Corleone layout extension when
+loading; this is separate from its generic optimizer interface.
 
 Check the installation by solving the reference case (a few minutes):
 

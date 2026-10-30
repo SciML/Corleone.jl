@@ -64,7 +64,8 @@ bounds the terminal value of state `index`, or the trajectory sampled at the
 transcription points if `path=true`. A constraint belongs to one player and is
 imposed only in that player's OCP; a restriction shared by several players is
 entered once per player. State-dependent shared constraints therefore lead to a
-generalized Nash interpretation.
+generalized Nash interpretation. At a shooting reset, path constraints and point
+costs use the outgoing state; continuity constraints match the incoming endpoint.
 
 `periodic_constraints(x0, nplayers; tolerance, log_indices=Int[])` returns two
 terminal inequalities per physical state and player, i.e., a return band
@@ -82,7 +83,7 @@ costs; `CorleoneGame.trajectory_objective` combines them with point costs
 consistently for optimization and independent audits. Point-cost times must be
 control-grid nodes on every grid used (otherwise an error is raised); they are
 evaluated exactly, without nearest-sample approximation. Point costs must not
-depend on quadratures, which preserves stage-local Hessian structure.
+depend on quadratures.
 
 ### Player-owned constant parameters and free end time
 
@@ -91,8 +92,8 @@ optional constant decisions. With parameters, the dynamics receive
 `[controls; parameters]` and the objective is `objective(xT, player, parameters)`;
 with empty parameter vectors the two-argument callback is used. Best responses
 expose only the owning player's parameter bounds; other players' parameters are
-fixed. Corleone's multiple-shooting constraints match parameter copies between
-stages.
+fixed in Lux state. Each physical coefficient is shared across all shooting
+segments; no parameter copies or parameter matching constraints are needed.
 
 `simulate`, `make_layer`, `best_response`, `audit`, `equilibrium`, `solve_game`,
 and `run_game` accept `parameters=g.parameters`. Responses, trajectories, runs,
@@ -107,12 +108,13 @@ physical rates by `D` explicitly; the core performs no hidden time scaling.
 Plots and the primary CSV time columns use physical time; free-time CSVs
 additionally contain `normalized_time` and constant `parameter_j` columns.
 
-### Block-structured Hessians
+### Hessian structure
 
-For BlockSQP2, terminal objectives must be affine in accumulated quadratures to
-preserve stage Hessian blocks. Nonlinear terminal costs in physical states are
-supported; nonlinear functions of accumulated quadratures are outside this
-block-structured interface.
+The current solver bridge uses a full NLP representation. It does not assume
+stage-local Hessian blocks. Accumulated quadratures are ordinary continuous
+states, shared across segments through shooting constraints. Structured Hessian
+and condensing integration is deferred; it may impose additional restrictions on
+objectives and parameter layouts.
 
 ## Solving
 
@@ -165,9 +167,12 @@ All grids are equidistant. In multiple-shooting mode, `shooting_intervals` is th
 number of shooting stages, and every control grid (`intervals`,
 `refined_intervals`, and the actual control matrix) must be an integer multiple of
 it. Each stage may contain several control intervals and control components;
-shooting node states are initialized from an independent simulation at the stage
-boundaries. No divisibility between the coarse and refined control grids is
-required.
+shooting node states, including accumulated quadratures, are initialized from an
+independent simulation at the stage boundaries. The global initial state remains
+fixed, and interior values have continuity constraints. Controls are shared-grid
+parameter histories; opponents' values are fixed in Lux state rather than included
+in the optimizer vector. No divisibility between the coarse and refined control
+grids is required.
 
 ### Options
 
@@ -196,9 +201,13 @@ tentative convergence is disabled.
 
 ### Solvers
 
-Ipopt and Uno support both transcriptions; BlockSQP2 requires multiple shooting
-and receives Corleone's stage Hessian blocks and variable-block metadata
-(condensing remains disabled). Ipopt uses limited-memory Hessians by default
+Ipopt and Uno support both transcriptions. The `:blocksqp` option uses BlockSQP2's
+generic NLP interface for multiple shooting, with one full Hessian block and no
+stage layout or condensing metadata. Structured integration with the rewritten
+Corleone API is deferred. BlockSQP2 0.2.1's own Corleone layout extension still
+references legacy layer types and reports an extension-loading error; the generic
+Optimization interface is independent of that extension.
+Ipopt uses limited-memory Hessians by default
 (`solver_options=(;hessian_approximation="exact")` selects exact AD Hessians).
 Uno uses `preset="filtersqp"` via
 [its Julia interface](https://github.com/cvanaret/Uno/blob/main/interfaces/Julia/README.md).

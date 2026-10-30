@@ -1,5 +1,6 @@
 # Grids, solver choices, primal warm starts, fallback accounting, and audits.
 using CorleoneGame, Test, Corleone
+using CorleoneGame: LuxCore
 
 function analytic_game(; target = [0.2, 0.3, 0.4], bound = 1.0, cap = Inf, owners = [1, 1, 2])
     function rhs!(dx, x, u, t)
@@ -21,13 +22,16 @@ end
 
 @testset "Equidistant grids and control reconstruction" begin
     g = analytic_game()
-    for (ns, n) in ((1, 6), (2, 6), (3, 6), (4, 8))
+    for (ns, n) in ((1, 1), (1, 6), (2, 6), (3, 6), (4, 8))
         o = Options(shooting = :multiple, shooting_intervals = ns, intervals = n, refined_intervals = n)
         c = reshape(collect(range(0.05, 0.95; length = 3n)), 3, n)
         layer, p, st = setup_layer(g, c, 1; options = o)
-        @test length(propertynames(p)) == ns
-        @test CorleoneGame.unpack_controls(g, p, :multiple, n) ≈ c
         shot, _ = layer(nothing, p, st)
+        @test layer isa ShootingLayer
+        @test Corleone.get_number_of_shooting_constraints(layer, p, st) == (ns - 1) * length(g.x0)
+        # Opponent histories are absent from the optimizer, even on varying grids.
+        @test LuxCore.parameterlength(layer) == 2n + (ns - 1) * length(g.x0)
+        @test CorleoneGame.unpack_controls(g, shot, n) ≈ c
         @test maximum(abs, Corleone.shooting_constraints(shot); init = 0.0) < 1.0e-8
         @test last(shot.u)[1:3] ≈ simulate(g, c).x[:, end] atol = 1.0e-8
     end
