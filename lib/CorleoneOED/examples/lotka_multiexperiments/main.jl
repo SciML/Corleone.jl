@@ -1,181 +1,98 @@
 #src ---
-#src title: The Lotka Volterra Multiexperiment problem
-#src description: A beginner-friendly guide to multiexperiments in OED
-#src tags:
-#src   - Beginner
-#src   - Optimal Experimental Design
-#src   - Multiexperiments
-#src icon: 🌊
+#src title: Joint Lotka–Volterra experiments
+#src description: Combine information from independent experimental designs.
 #src ---
 
-# ## [Lotka-Volterra Multiexperiments](@id lotka_multiexp)
-# `CorleoneOED` also provides features to optimize multiple experiments at once. This page
-# shows how to do this, again with the example of the Lotka-Volterra system shown before in
-# the [OED example](@ref lotka_oed).
+# # [Multiple experiments](@id lotka_multiexp)
+# Two experiments have independent fishing and measurement schedules. Their
+# information matrices add in a common physical-parameter coordinate system.
+# Both use `p = [fishing, interaction_1, interaction_2]`, estimating `[2,3]` while
+# holding those rates fixed at nominal values. Fishing and both measurement
+# densities are tunable. This repeats the [single-experiment model](@ref lotka_oed);
+# identical nominal experiments may yield symmetric optimal designs. Independence
+# of their parameter trees does not force different schedules.
+#
+# ComponentArrays supplies packing; Optimization/OptimizationMOI and Ipopt solve
+# the relaxation; CairoMakie plots each experiment. No shooting resets are used,
+# so there are no automatic shooting equalities in this example.
+using CorleoneOED, LuxCore, Random, OrdinaryDiffEqTsit5, LinearAlgebra
+using Optimization, OptimizationMOI, Ipopt, ComponentArrays, CairoMakie
+using SymbolicIndexingInterface: variable_symbols, variable_index
 
-# ## Setup
-# We will use `Corleone` and `CorleoneOED`to model the optimal experimental design problem
-# with multiple experiments optimized simultaneously.
-using Corleone, CorleoneOED
-
-# Additionally, we will need the following packages
-# - [`LuxCore`]() and [`Random`]() for basic setup functions
-# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`SymbolicIndexingInterface`]() to conveniently access variables and controls of the solution
-# - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
-# - [`CairoMakie`]() to plot the solution
-
-using LuxCore
-using Random
-using OrdinaryDiffEqTsit5
-using SymbolicIndexingInterface
-using Optimization
-using OptimizationMOI
-using Ipopt
-using ComponentArrays
-using CairoMakie
-
-# ## Lotka Volterrra Dynamics
-
-function lotka_dynamics(du, u, p, t)
-    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
-    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
-    return
+function lotka_dynamics(x, p, t)
+    return [
+        x[1] - p[2] * x[1] * x[2] - 0.4 * p[1] * x[1],
+        -x[2] + p[3] * x[1] * x[2] - 0.2 * p[1] * x[2],
+    ]
 end
-tspan = (0.0, 12.0)
-u0 = [0.5, 0.7]
-p0 = [0.0, 1.0, 1.0]
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
-
-# ## Construct the `MultiExperimentLayer`
-
-# For designing multiple experiments at once, `CorleoneOED` provides the `MultiExperimentLayer`.
-# It can be constructed analogous to the `OEDLayer` from an `ODEProblem` and a suitable algorithm,
-# with an additional integer specifying the number of experiments to optimize. In this case we want to
-# design two experiments.
-
-cgrid = collect(0.0:0.25:11.75)
-control = ControlParameter(
-    cgrid, name = :fishing, bounds = (0.0, 1.0)
+problem = ODEProblem(lotka_dynamics, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0])
+control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => collect(0.25:0.25:11.75)
+measurements = (
+    ContinuousMeasurement(:w1, collect(0.0:0.25:11.75), (x, p, t) -> x[1]),
+    ContinuousMeasurement(:w2, collect(0.0:0.25:11.75), (x, p, t) -> x[2]),
 )
+oed = OEDLayer(problem, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+multi = MultiExperimentLayer(oed, 2)
+ps, st = LuxCore.setup(Xoshiro(1), multi);
 
-multi_exp = MultiExperimentLayer{false}(
-    prob, Tsit5(), 2;
-    params = [2, 3],
-    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
-    controls = (1 => control,),
-    measurements = [
-        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
-        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
-    ],
-    observed = (u, p, t) -> u[1:2]
-)
-
-# Calling this layer with the appropriate arguments integrates the two experiments.
-# We can define a plotting function and look at the initial experiments for the initial values
-# provided above.
-
-function plot_experiments(sols)
-    f = Figure()
-    for (i, sol) in enumerate(sols)
-        ax = CairoMakie.Axis(f[1, i], xticks = 0:2:12, title = "Experiment $i\nStates")
-        ax2 = CairoMakie.Axis(f[2, i], xticks = 0:2:12, title = "Sensitivities")
-        ax3 = CairoMakie.Axis(f[3, i], xticks = 0:1:12, title = "Sampling")
-        ax4 = CairoMakie.Axis(f[4, i], xticks = 0:1:12, title = "Controls")
-        plot!(ax, sol, idxs = [1, 2])
-        plot!(ax2, sol, idxs = collect(values(sol.sys.variables))[startswith.(string.(keys(sol.sys.variables)), "G")])
-        stairs!(ax3, sol, vars = [:w₁, :w₂])
-        stairs!(ax4, sol, vars = [:p₁])
-    end
-    return f
+# ## Optimize the joint information
+# Budgets follow experiment order, with continuous measurements before discrete
+# measurements within each experiment. Here each experiment has two densities.
+# Setup uses a reproducible seed; parameter and state trees are independent.
+optprob = OptimizationProblem(multi, ACriterion(); ps, st, M = fill(4.0, 4))
+result = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-6,
+    hessian_approximation = "limited-memory", max_iter = 100, print_level = 0
+);
+@assert CorleoneOED.SciMLBase.successful_retcode(result)
+@assert isfinite(result.objective)
+_, reconstruct = pack(default_vectorizer(), ps)
+optimal_ps = reconstruct(result.u)
+trajectories, _ = multi(nothing, optimal_ps, st)
+F, _ = fisher_information(multi, nothing, optimal_ps, st)
+optimal_budgets = sampling_sums(multi, trajectories)
+@assert isposdef(Symmetric(F))
+@assert all(optimal_budgets .<= 4.0 + 1.0e-5)
+@assert isapprox(result.objective, ACriterion()(F); rtol = 1.0e-5)
+local_information = map(values(multi.experiments), values(trajectories)) do layer, trajectory
+    fisher_information(layer, trajectory; add_initial = false)
 end
-ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
+@assert F ≈ sum(local_information) # both experiments use the same full coordinates
+(; termination = result.retcode, objective = result.objective, budgets = optimal_budgets)
 
-sols, _ = multi_exp(nothing, ps, st)
-plot_experiments(sols)
+# The first experiment's physical populations, fishing (`p₁`), and densities
+# (`w1`, `w2`). Exclude augmented sensitivity/information states from these plots.
+augmented_states = filter(variable_symbols(trajectories.experiment_1)) do symbol
+    variable_index(trajectories.experiment_1, symbol) > length(problem.u0)
+end
+trajectoryplot(trajectories.experiment_1; skips = augmented_states, state_string = "Population")
 
-# ## Set up and solve the problem
+# The second experiment's populations and independent schedules. Access experiments
+# by name: iterating a ComponentArray would yield its numerical entries instead.
+trajectoryplot(trajectories.experiment_2; skips = augmented_states, state_string = "Population")
 
-# The problem is set up like the single experiment problem by providing a suitable criterion
-# and an upper bound on the measurements. Here, we take the `ACriterion`, i.e., the trace
-# of the inverse of the Fisher information matrix.
+# ## Carry information into another design
+# A global prior is added once, rather than once per experiment. Here an identity
+# prior is an illustrative input, not a statistical calibration recommendation.
+prior_state = merge(st, (; F_init = Matrix{Float64}(I, 2, 2)))
+F_with_prior, _ = fisher_information(multi, nothing, optimal_ps, prior_state)
+@assert F_with_prior ≈ F + prior_state.F_init
+next_st = update_fim(multi, [(; ps = optimal_ps, st)], prior_state)
+@assert next_st.F_init ≈ prior_state.F_init + F
+next_st.F_init
 
-optprob = OptimizationProblem(
-    multi_exp, ACriterion(); M = zeros(4) .+ 4.0
-)
-
-uopt = solve(
-    optprob, Ipopt.Optimizer(),
-    tol = 1.0e-7,
-    hessian_approximation = "limited-memory",
-    max_iter = 300
+# ## Different estimated parameter subsets
+# Experiments may target different subsets. Indices must refer to the same
+# physical quantities in both models. Each local matrix is embedded before
+# summation; missing parameter directions contribute zero information.
+first_design = OEDLayer(problem, Tsit5(), control; params = [2], measurements, controls = [1])
+second_design = OEDLayer(problem, Tsit5(), control; params = [3], measurements, controls = [1])
+split_design = MultiExperimentLayer((first_design, second_design))
+split_ps, split_st = LuxCore.setup(Xoshiro(2), split_design)
+split_problem = OptimizationProblem(
+    split_design, ACriterion();
+    ps = split_ps, st = split_st, M = fill(4.0, 4)
 );
-
-#
-ps, st = LuxCore.setup(Random.default_rng(), multi_exp)
-optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st)
-
-plot_experiments(optsol)
-
-# ## Updating the FIM
-
-# As before in [the Lotka OED example](@ref lotka_oed), the initial FIM can be updated from
-# the obtained solution. This way, the `MultiExperimentLayer` can be easily used in an iterative
-# measurement campaign in which it is necessary to also consider previous experiments.
-
-previous_experiment = (ps = uopt.u + zero(ComponentArray(ps)), st = st)
-
-st_new = CorleoneOED.update_fim(multi_exp, [previous_experiment], st)
-optprob = remake(optprob, p = st_new)
-
-uopt = solve(
-    optprob, Ipopt.Optimizer(),
-    tol = 1.0e-7,
-    hessian_approximation = "limited-memory",
-    max_iter = 300
-);
-
-#
-optsol, _ = multi_exp(nothing, uopt + zero(ComponentArray(ps)), st_new)
-
-plot_experiments(optsol)
-
-
-# ## Different parameters per experiment
-
-# The `MultiExperimentLayer` can also be used to target different subsets of parameters per experiment.
-# In this case, instead of specifying how many experiments shall be optimized, a vector of
-# experiment-specific parameters must be provided. In the following example, we will design
-# one experiment targeting parameter 2, with the second targeting parameter 3. Of course,
-# also combinations of the parameters can be targeted in each experiment.
-
-params_per_experiment = [[2], [3]]
-
-split_exp = MultiExperimentLayer{false}(
-    prob, Tsit5(), params_per_experiment;
-    bounds_p = ([1.0, 1.0], [1.0, 1.0]),
-    controls = (1 => control,),
-    measurements = [
-        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
-        ControlParameter(cgrid, controls = ones(48), bounds = (0.0, 1.0)),
-    ],
-    observed = (u, p, t) -> u[1:2]
-)
-
-
-optprob = OptimizationProblem(
-    split_exp, ACriterion(); M = zeros(4) .+ 4.0
-)
-
-uopt = solve(
-    optprob, Ipopt.Optimizer(),
-    tol = 1.0e-7,
-    hessian_approximation = "limited-memory",
-    max_iter = 300
-);
-
-#
-ps, st = LuxCore.setup(Random.default_rng(), split_exp)
-split_sols, _ = split_exp(nothing, uopt + zero(ComponentArray(ps)), st)
-
-plot_experiments(split_sols)
+# This last problem is prepared but not solved. Each experiment contributes one
+# parameter direction; missing directions are zero-filled during embedding. SVD
+# reductions use the approximation described in [the reduction guide](@ref oed_svd).

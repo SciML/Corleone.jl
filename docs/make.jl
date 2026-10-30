@@ -1,6 +1,8 @@
 using Documenter, Corleone
+import CorleoneOED
 
-realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) ||
+realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
+    realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) ||
     error("Develop this checkout in the documentation environment before building; see docs/README.md.")
 
 using DocumenterCitations
@@ -15,7 +17,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone],
+    modules = [Corleone, CorleoneOED],
     format = Documenter.HTML(
         edit_link = "main",
         repolink = "https://github.com/SciML/Corleone.jl",
@@ -42,6 +44,19 @@ makedocs(
             "ModelingToolkit" => "modelingtoolkit.md",
             "Parallel Shooting" => "parallel_shooting.md",
             "Symbolic Bookkeeping" => "symbolic_metadata.md",
+        ],
+        "Optimal Experimental Design" => [
+            "Overview" => "oed/index.md",
+            "Tutorials" => [
+                "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
+                "Discrete Compartmental Design" => "examples/compartmental_oed_problem.md",
+                "Multiple Experiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
+            ],
+            "Measurements and Information" => "oed/formulation.md",
+            "Constructing and Optimizing Designs" => "oed/designs.md",
+            "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
+            "API Reference" => "oed/api.md",
+            "References and Attribution" => "oed/references.md",
         ],
         "Automatic Differentiation" => [
             "Backend Guide" => "automatic_differentiation.md",

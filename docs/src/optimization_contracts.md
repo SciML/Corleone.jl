@@ -197,7 +197,13 @@ julia> length(optimization_constraints(model)) # Four path values and two shooti
 
 ### Callbacks and structured bounds
 
-The objective callback is `traj -> scalar`. A constraint callback is either
+The objective callback is `traj -> scalar`, or `(prediction, st) -> scalar` when
+it needs the current Lux state supplied through the optimizer problem. A one-argument
+method takes precedence when both forms are applicable. Callback-based layer
+containers can use the same facade with a collection of trajectories as their
+prediction; timed expressions and terminal selectors require a `ShootingLayer`.
+
+A constraint callback is either
 `traj -> scalar_or_vector` or `(res, traj) -> ...`. Calling convention is detected
 once during preparation. In-place callback return values are ignored. Callable
 structs are supported as well as functions.

@@ -13,6 +13,12 @@ const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SU
 withenv("GROUP" => GROUP) do
     run_tests(;
         core = function ()
+            @safetestset "Shared optimization bridge" begin
+                include("core/optimization_bridge.jl")
+            end
+            @safetestset "Measurements, sensitivities, and DAEs" begin
+                include("core/measurements.jl")
+            end
             @safetestset "1D Example" begin
                 include("core/1d_oed.jl")
             end

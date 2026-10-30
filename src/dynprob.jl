@@ -2,8 +2,12 @@
 $(TYPEDEF)
 
 Prepare `CorleoneDynamicOptProblem(layer, objective, constraints...; lcons, ucons,
-ps, st, rng, eval_module)`. The objective is a scalar trajectory callback, a Julia
+ps, st, rng, eval_module)`. The objective is a scalar trajectory callback `f(prediction)` or
+`f(prediction, st)`, a Julia
 `Expr`, or a terminal state/parameter selector. Omitting it sums terminal quadratures.
+
+Callback-based Lux layers may return a collection of trajectories. Timed
+expressions and terminal selectors require a `ShootingLayer`.
 
 Each constraint is a scalar/vector callback `f(traj)`, an in-place callback
 `f!(res, traj)` whose return is ignored, or a numerical Julia expression. Supply
@@ -35,7 +39,7 @@ SciMLBase optimization bridge, or supply another packing implementation.
 $(FIELDS)
 """
 struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
-    "The shooting layer shared with forward predictions."
+    "The Lux layer shared with forward predictions."
     layer::L
     "The scalar objective callback or prepared expression/terminal selector."
     objective::O
@@ -47,11 +51,11 @@ struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
     st::S
     "Signal names mapped to requested expression times; discrete setup metadata."
     timepoints::T
-    "The union of cached shooting stops and expression times used for prediction."
+    "The evaluation grid, or nothing when prediction uses the layer's own grids."
     evaluation_grid::G
-    "The original cached shooting stops used to detect schedule changes."
+    "The original cached shooting-stop tree used to detect schedule changes."
     source_timestops::B
-    "The actual saved trajectory grid against which expressions were compiled."
+    "The actual saved prediction grid or grid tree, retained for layout checks."
     times::V
     "Flattened user lower bounds followed by shooting equality bounds."
     lcons::LB
@@ -79,12 +83,8 @@ function terminal_optimization_sample(traj)
 end
 
 function trajectory_objective(layer, loss)
-    if isnothing(loss)
-        symbols = Tuple(quadrature_symbols(layer.sys))
-        isempty(symbols) && throw(ArgumentError("Supply an objective or declare quadrature states."))
-        return sum ∘ getsym(layer.sys, symbols) ∘ terminal_optimization_sample
-    elseif loss isa Union{Symbol, Integer}
-        return getsym(layer.sys, loss) ∘ terminal_optimization_sample
+    if isnothing(loss) || loss isa Union{Symbol, Integer}
+        throw(ArgumentError("Default objectives and terminal selectors require a ShootingLayer; supply a callback."))
     end
     return loss
 end
@@ -114,11 +114,15 @@ struct PreparedTrajectoryConstraint{F, I}
 end
 Base.length(c::PreparedTrajectoryConstraint) = c.n
 
-function constraint_buffer(traj, n)
+function constraint_eltype(traj)
     T = eltype(first(state_values(traj)))
-    p = parameter_values(traj)
-    P = eltype(p)
-    return similar(first(state_values(traj)), P <: Real ? promote_type(T, P) : T, n)
+    P = eltype(parameter_values(traj))
+    return P <: Real ? promote_type(T, P) : T
+end
+constraint_buffer(traj, n) = similar(first(state_values(traj)), constraint_eltype(traj), n)
+function constraint_buffer(trajectories::NamedTuple, n)
+    T = promote_type(map(constraint_eltype, values(trajectories))...)
+    return similar(first(state_values(first(values(trajectories)))), T, n)
 end
 function (c::PreparedTrajectoryConstraint{F, false})(traj) where {F}
     values = constraint_vector(c.f(traj))
@@ -187,7 +191,7 @@ function prepare_constraint_bounds(lcons, ucons, n)
 end
 
 function CorleoneDynamicOptProblem(
-        layer::ShootingLayer, loss, constraints...;
+        layer::LuxCore.AbstractLuxLayer, loss, constraints...;
         ps = nothing, st = nothing, rng::Random.AbstractRNG = Random.default_rng(),
         lcons = nothing, ucons = nothing, eval_module::Module = @__MODULE__,
         evaluator = default_evaluator()
@@ -195,6 +199,7 @@ function CorleoneDynamicOptProblem(
     isnothing(ps) == isnothing(st) || throw(ArgumentError("Supply initialized ps and st together."))
     bounds = prepare_constraint_bounds(lcons, ucons, length(constraints))
     uses_expressions = loss isa Expr || any(c -> c isa Expr, constraints)
+    uses_expressions && !(layer isa ShootingLayer) && throw(ArgumentError("Timed expressions require a ShootingLayer; use callbacks for other layers."))
     indices = uses_expressions ? expression_symbol_indices(layer) : Dict{Symbol, Int}()
     timepoints = Dict{Symbol, Vector{Real}}()
     loss isa Expr && collect_expression_times!(timepoints, loss, indices)
@@ -205,23 +210,23 @@ function CorleoneDynamicOptProblem(
     if isnothing(ps)
         ps, st = LuxCore.setup(rng, layer)
     end
-    grid = expression_evaluation_grid(layer, st, timepoints)
-    trajectory, _ = layer((layer.problem, grid), ps, st)
-    objective = loss isa Expr ? compile_trajectory_expression(loss, indices, trajectory.t, eval_module, evaluator) : trajectory_objective(layer, loss)
-    scalar_objective(objective(trajectory))
+    grid = optimization_grid(layer, st, timepoints)
+    trajectory = optimization_prediction(layer, ps, st, grid)
+    objective = loss isa Expr ? compile_trajectory_expression(loss, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, loss)
+    scalar_objective(evaluate_trajectory_objective(objective, trajectory, st))
     prepared = map(constraints, bounds) do c, bound
-        f = c isa Expr ? compile_trajectory_expression(c, indices, trajectory.t, eval_module, evaluator) : trajectory_objective(layer, c)
+        f = c isa Expr ? compile_trajectory_expression(c, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, c)
         prepare_trajectory_constraint(f, trajectory, length(first(bound)))
     end
-    nshooting = get_number_of_shooting_constraints(layer, ps, merge(st, (; timestops = grid)))
+    nshooting = get_number_of_shooting_constraints(layer, ps, optimization_state(layer, st, grid))
     lower = vcat(map(first, bounds)..., zeros(nshooting))
     upper = vcat(map(last, bounds)..., zeros(nshooting))
     return CorleoneDynamicOptProblem(
-        Val(:Prepared), layer, objective, prepared, ps, st, timepoints, grid, copy(st.timestops),
-        trajectory.t, lower, upper, nshooting
+        Val(:Prepared), layer, objective, prepared, ps, st, timepoints, grid, deepcopy(optimization_schedule(layer, st)),
+        optimization_times(trajectory), lower, upper, nshooting
     )
 end
-CorleoneDynamicOptProblem(layer::ShootingLayer; loss = nothing, constraints = (), kwargs...) =
+CorleoneDynamicOptProblem(layer::LuxCore.AbstractLuxLayer; loss = nothing, constraints = (), kwargs...) =
     CorleoneDynamicOptProblem(layer, loss, constraints...; kwargs...)
 
 function check_optimization_layout(expected, actual, expected_count, actual_count)
@@ -237,9 +242,9 @@ end
 @non_differentiable check_optimization_schedule(::Any, ::Any)
 
 function optimization_trajectory(prob, ps, st)
-    check_optimization_schedule(prob.source_timestops, st.timestops)
-    traj, _ = prob.layer((prob.layer.problem, prob.evaluation_grid), ps, st)
-    check_optimization_layout(prob.times, traj.t, prob.nshooting, get_number_of_shooting_constraints(prob.layer, ps, st))
+    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
+    traj = optimization_prediction(prob.layer, ps, st, prob.evaluation_grid)
+    check_optimization_layout(prob.times, optimization_times(traj), prob.nshooting, get_number_of_shooting_constraints(prob.layer, ps, st))
     return traj
 end
 
@@ -251,7 +256,7 @@ Parameters/state default to those retained by the model. No numerical solution
 cache is shared between calls or AD contexts.
 """
 optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st) =
-    scalar_objective(prob.objective(optimization_trajectory(prob, ps, st)))
+    scalar_objective(evaluate_trajectory_objective(prob.objective, optimization_trajectory(prob, ps, st), st))
 
 """
 $(SIGNATURES)
@@ -263,7 +268,7 @@ AD support depends on the callback and backend's support for mutation.
 """
 function optimization_constraints(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
     traj = optimization_trajectory(prob, ps, st)
-    return vcat(map(c -> c(traj), prob.constraints)..., shooting_constraints(traj))
+    return vcat(map(c -> c(traj), prob.constraints)..., optimization_matching(prob.layer, traj))
 end
 
 """
@@ -282,6 +287,23 @@ function optimization_constraints!(res, prob::CorleoneDynamicOptProblem, ps = pr
         c(view(res, index:(index + length(c) - 1)), traj)
         index += length(c)
     end
-    shooting_constraints!(view(res, index:lastindex(res)), traj)
+    optimization_matching!(view(res, index:lastindex(res)), prob.layer, traj)
     return res
 end
+
+# Callback-based layers can specialize these hooks without duplicating optimizer
+# construction. Shooting-specific grid handling lives alongside ShootingLayer.
+optimization_grid(layer, st, timepoints) = nothing
+optimization_schedule(layer, st) = nothing
+optimization_state(layer, st, grid) = st
+optimization_prediction(layer, ps, st, grid) = first(layer(nothing, ps, st))
+optimization_times(trajectory) = current_time(trajectory)
+optimization_times(trajectories::NamedTuple) = map(optimization_times, trajectories)
+optimization_matching(layer, trajectory) = shooting_constraints(trajectory)
+optimization_matching!(res, layer, trajectory) = shooting_constraints!(res, trajectory)
+
+# The optional state argument supports objectives such as information criteria
+# with a prior supplied by OptimizationProblem.p rather than captured at setup.
+evaluate_trajectory_objective(f, trajectory, st) = applicable(f, trajectory) ? f(trajectory) : f(trajectory, st)
+@non_differentiable optimization_schedule(::Any, ::Any)
+@non_differentiable optimization_times(::Any)
