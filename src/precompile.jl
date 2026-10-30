@@ -22,5 +22,33 @@
         end
         get_timestops(conditions, ps_ic, st_ic, Float64)
         get_timestops(parameters, ps_p, st_p, Float64)
+
+        # Exercise the shared-grid layout used for multi-index annotations.
+        # Defaults are vectors over the selected indices; each entry is itself
+        # initialized over the common time grid.
+        times = [0.5, 1.0]
+        grouped_conditions = InitialConditions(
+            problem,
+            Tunable(
+                [1, 3]; kind = Val(:variable), default = [[0.4, 0.6], [0.8, 1.0]]
+            ) => times,
+            Constant(2; kind = Val(:variable), default = [1.5, 1.6]) => times;
+            sys
+        )
+        # Two parameter switches define three intervals.
+        grouped_parameters = Parameter(
+            problem,
+            Tunable([1, 2]; default = [[0.2, 0.3, 0.4], [0.1, 0.2, 0.3]]) => times,
+            Constant(3; default = [0.0, 0.0, 0.0]) => times;
+            sys
+        )
+        ps_grouped_ic, st_grouped_ic = LuxCore.setup(rng, grouped_conditions)
+        ps_grouped_p, st_grouped_p = LuxCore.setup(rng, grouped_parameters)
+        for t in (0.0, 0.5, 1.0, 1.5)
+            grouped_conditions((problem.u0, t), ps_grouped_ic, st_grouped_ic)
+            grouped_parameters(t, ps_grouped_p, st_grouped_p)
+        end
+        get_timestops(grouped_conditions, ps_grouped_ic, st_grouped_ic, Float64)
+        get_timestops(grouped_parameters, ps_grouped_p, st_grouped_p, Float64)
     end
 end
