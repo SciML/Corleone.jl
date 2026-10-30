@@ -1,10 +1,9 @@
 function bryson_denham(grids)
 
-    num_states = 2
     num_controls = 1
     tspan = (0.0, 1.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x(..) = 0.0, [tunable = false]
@@ -41,7 +40,8 @@ function bryson_denham(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Bryson Denham",
     )
 

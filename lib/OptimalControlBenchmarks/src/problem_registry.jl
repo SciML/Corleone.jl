@@ -1,42 +1,22 @@
-"""
-    load_benchmarks()
-
-Loads all benchmark problem constructors from the `problems` directory.
-
-# Returns
-A vector of benchmark constructor functions. Each function accepts a benchmark grid
-configuration and returns the corresponding optimal control problem data.
-"""
-function load_benchmarks()
-    benchmarks = []
-    problems_dir = joinpath(@__DIR__, "problems")
-
-    for f in readdir(problems_dir)
-        # Skip non-julia files
-        endswith(f, ".jl") || continue
-
-
-        # Get the path and the expected function name (stripping .jl)
-        path = joinpath(problems_dir, f)
-        func_name_sym = Symbol(splitext(f)[1])
-
-        # Evaluate the file content into the current module
-        include(path)
-
-        # Retrieve the function object by its name
-        try
-            # Look up the symbol in the current module's scope
-            func_obj = getfield(@__MODULE__, func_name_sym)
-
-            if func_obj isa Function
-                push!(benchmarks, func_obj)
-            else
-                @warn "File $f included, but $func_name_sym is not a function."
-            end
-        catch e
-            @error "Failed to load function $func_name_sym from $f" exception = e
-        end
-    end
-
-    return benchmarks
+# Include problem definitions once, before callers can obtain their constructors.
+# Keeping discovery here preserves automatic registration of new problem files.
+const BENCHMARK_FILES = filter(name -> endswith(name, ".jl"), readdir(joinpath(@__DIR__, "problems")))
+for file in BENCHMARK_FILES
+    include(joinpath("problems", file))
 end
+const BENCHMARK_CONSTRUCTORS = map(BENCHMARK_FILES) do file
+    name = Symbol(splitext(file)[1])
+    constructor = getfield(@__MODULE__, name)
+    constructor isa Function || throw(ArgumentError("$file must define a benchmark constructor named $name."))
+    constructor
+end
+
+"""
+$(SIGNATURES)
+
+Return the benchmark constructor functions in alphabetical order. Definitions are
+loaded once with the package; repeated calls do not redefine methods. Each
+constructor accepts [`BenchmarkGrids`](@ref) and returns a system, independent
+scaled grids, declared state/control counts, time span, and descriptive name.
+"""
+load_benchmarks() = copy(BENCHMARK_CONSTRUCTORS)

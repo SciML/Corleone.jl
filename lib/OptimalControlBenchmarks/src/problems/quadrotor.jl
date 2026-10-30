@@ -1,10 +1,9 @@
 function quadrotor(grids)
 
-    num_states = 7
     num_controls = 4
     tspan = (0.0, 7.5)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x₁(..) = 0.0, [tunable = false]
@@ -61,7 +60,8 @@ function quadrotor(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Quadrotor helicopter control problem",
     )
 

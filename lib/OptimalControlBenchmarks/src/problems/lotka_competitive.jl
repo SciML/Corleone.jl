@@ -1,10 +1,9 @@
 function lotka_competitive(grids)
 
-    num_states = 3
     num_controls = 1
     tspan = (0.0, 40.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x₀(..) = 0.5, [tunable = false]
@@ -39,7 +38,8 @@ function lotka_competitive(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Lotka Volterra Competitive",
     )
 

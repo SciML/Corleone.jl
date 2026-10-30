@@ -48,6 +48,7 @@ using SymbolicIndexingInterface
     @test bars.args[3] ≈ [20.0, 23.0]
     @test bars.kwargs[:color] == curves[2].kwargs[:color]
     @test bars.kwargs[:label] == "Δ$(symbols[2])"
+    @test !haskey(bars.kwargs, :linestyle) || Makie.is_attribute(Makie.Rangebars, :linestyle)
     @test traj.st == original_state
 
     hidden = Makie.convert_arguments(Makie.Lines, traj; show_segments = false, show_variable_residuals = false)

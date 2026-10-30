@@ -1,42 +1,26 @@
-using BenchmarkTools
+benchmark_name(benchmark) = nameof(typeof(benchmark))
+benchmark_name(benchmark::Function) = nameof(benchmark)
+benchmark_name(benchmark::OptimalControlBenchmark) = benchmark.name
 
 """
-    run_all(benchmarks, optimizer, grids)
+$(SIGNATURES)
 
-Runs each benchmark problem with the Corleone benchmark solver.
+Run each benchmark once and return records with `name`, elapsed `time` in seconds,
+`objective`, and `retcode`. Timing includes model construction, compilation, and
+optimization; it is not a warmed microbenchmark. Inspect solver statuses before
+comparing objective values. Exceptions propagate to the caller.
 
-# Arguments
-- `benchmarks`: Iterable of benchmark constructor functions, such as the result of
-  `load_benchmarks()`.
-- `optimizer`: Optimization solver passed to `solve_with_corleone`.
-- `grids`: Grid configuration passed to each benchmark constructor.
-
-# Returns
-A vector of named tuples containing each benchmark name and measured runtime placeholder.
+Plotting is disabled by default. Other keywords are forwarded to
+[`solve_with_corleone`](@ref). The normalized input grids are reusable and remain
+unchanged throughout the run.
 """
-function run_all(benchmarks, optimizer, grids)
-
-    results = []
-
-    for prob in benchmarks
-        name = nameof(prob)
-        println("Running ", name)
-        sol = solve_with_corleone(
-            prob,
-            optimizer,
-            grids
+function run_all(benchmarks, optimizer, grids::BenchmarkGrids; plot_res::Bool = false, kwargs...)
+    return map(collect(benchmarks)) do benchmark
+        measured = @timed solve_with_corleone(benchmark, optimizer, grids, plot_res; kwargs...)
+        solution = measured.value
+        (;
+            name = benchmark_name(benchmark), time = measured.time,
+            objective = solution.objective, retcode = solution.retcode,
         )
-        println(sol)
-        t = 0  # @belapsed solve_with_corleone($prob)
-
-        push!(
-            results, (
-                name = name,
-                time = t,
-            )
-        )
-
     end
-
-    return results
 end

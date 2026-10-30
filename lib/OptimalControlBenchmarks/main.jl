@@ -1,29 +1,15 @@
-using OptimalControlBenchmarks
-using Corleone
-using UnoSolver
-using Ipopt
-using ModelingToolkit
+using OptimalControlBenchmarks, Ipopt
 
-benchmarks = load_benchmarks()
-
-# choose the optimizer
-# optimizer = UnoSolver.Optimizer()
-optimizer = Ipopt.Optimizer()
-
-# settings for discretization, given as grids in [0.,1.]
-
-# the constraint grid is assumed to contain 0. and 1.
-constraint_grid = collect(0.0:0.05:1.0)
-control_grid = collect(0.0:0.05:1.0)[1:(end - 1)]
-shooting_grid = collect(0.0:0.05:1.0)
-
-grids = OptimalControlBenchmarks.BenchmarkGrids(
-    constraint_grid,
-    control_grid,
-    shooting_grid
+# One normalized configuration can be reused across different problem horizons.
+grids = BenchmarkGrids(;
+    control_grid = 0.0:0.05:0.95,
+    shooting_grid = Float64[], # Start with single shooting.
+    constraint_grid = 0.0:0.05:1.0,
 )
 
-# run all benchmarks from the `problems` folder
-df = run_all(benchmarks, optimizer, grids)
-
-println(df)
+# Start with the LQR benchmark. Use load_benchmarks() for the complete catalog.
+benchmarks = filter(benchmark -> nameof(benchmark) == :lqr, load_benchmarks())
+# Integration accuracy must resolve the requested optimization tolerance.
+model_kwargs = (; problem_kwargs = (; abstol = 1.0e-10, reltol = 1.0e-10))
+results = run_all(benchmarks, Ipopt.Optimizer(), grids; model_kwargs, print_level = 0)
+println(results)

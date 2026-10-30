@@ -1,10 +1,9 @@
 function ducted_fan(grids)
 
-    num_states = 7
     num_controls = 2
     tspan = (0.0, 10.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x₁(..) = 0.0, [tunable = false]
@@ -71,7 +70,8 @@ function ducted_fan(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Ducted Fan",
     )
 

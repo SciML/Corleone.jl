@@ -1,10 +1,9 @@
 function ocean(grids)
 
-    num_states = 3
     num_controls = 2
     tspan = (0.0, 400.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         S(..) = 2.0e3, [tunable = false]
@@ -71,7 +70,8 @@ function ocean(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Ocean",
     )
 

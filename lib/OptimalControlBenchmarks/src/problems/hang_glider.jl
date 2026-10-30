@@ -1,10 +1,9 @@
 function hang_glider(grids)
 
-    num_states = 4
     num_controls = 1
     tspan = (0.0, 100.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x(..) = 0.0, [tunable = false]
@@ -70,7 +69,8 @@ function hang_glider(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Hang Glider",
     )
 
