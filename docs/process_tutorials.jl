@@ -116,6 +116,19 @@ tutorials = map(
     make_tutorial(path; name)
 end
 
+# Include the benchmark guide/API from its authoritative sublibrary source.
+benchmark_output = joinpath(@__DIR__, "src", "benchmarks")
+mkpath(benchmark_output)
+benchmark_source = joinpath(
+    @__DIR__, "..", "lib", "OptimalControlBenchmarks", "docs", "src", "index.md"
+)
+benchmark_edit_url = "https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/index.md"
+write(
+    joinpath(benchmark_output, "index.md"),
+    "```@meta\nCurrentModule = OptimalControlBenchmarks\nEditURL = \"$benchmark_edit_url\"\n```\n\n" *
+        read(benchmark_source, String)
+)
+
 # Keep the OED guide/API authoritative in the sublibrary; generate root-site pages
 # with local cross-references and edit links pointing back to those source files.
 oed_output = joinpath(@__DIR__, "src", "oed")

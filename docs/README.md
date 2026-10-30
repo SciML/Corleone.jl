@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED")]); Pkg.instantiate()'
+julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/OptimalControlBenchmarks")]); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
@@ -28,11 +28,17 @@ Edit tutorials in their `examples/<name>/main.jl` sources, not the generated
 Markdown. Literate executes each tutorial once and Documenter includes its rendered
 output. Introductory guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone and CorleoneOED modules. OED tutorials
+The manual documents the checked-out Corleone, CorleoneOED, and
+OptimalControlBenchmarks modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
 `docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
 duplicates. The root site retains main's established OED tutorial URLs.
+
+The Optimal Control Benchmarks section is generated from
+`lib/OptimalControlBenchmarks/docs/src/index.md` and documents the checked-out
+OptimalControlBenchmarks module. Edit that source rather than
+`docs/src/benchmarks/`. Its LQR example executes during the documentation build.
 
 The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local

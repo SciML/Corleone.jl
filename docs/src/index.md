@@ -67,7 +67,8 @@ start with the [ModelingToolkit Lotka–Volterra tutorial](@ref mtk).
 | Define dynamics and costs symbolically | [ModelingToolkit](modelingtoolkit.md) |
 | Choose a tested gradient configuration | [Automatic differentiation](automatic_differentiation.md) |
 | Run independent shooting blocks concurrently | [Parallel shooting](parallel_shooting.md) |
+| Prepare, solve, and time benchmark problems | [Optimal Control Benchmarks](benchmarks/index.md) |
 | Look up constructors and fields | [API reference](api.md) |
 
-This manual covers the root Corleone package. Independent packages under `lib`
-and their tutorials are documented separately.
+This manual covers Corleone, CorleoneOED, and OptimalControlBenchmarks. The
+sublibrary sections share their sources with the standalone documentation.

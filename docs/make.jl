@@ -1,9 +1,13 @@
 using Documenter, Corleone
 import CorleoneOED
+import OptimalControlBenchmarks
 
 realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) ||
     error("Develop this checkout in the documentation environment before building; see docs/README.md.")
+realpath(pkgdir(OptimalControlBenchmarks)) ==
+    realpath(joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")) ||
+    error("Develop OptimalControlBenchmarks from this checkout; see docs/README.md.")
 
 using DocumenterCitations
 using Literate
@@ -17,7 +21,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED],
+    modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
     format = Documenter.HTML(
         edit_link = "main",
         repolink = "https://github.com/SciML/Corleone.jl",
@@ -58,6 +62,7 @@ makedocs(
             "API Reference" => "oed/api.md",
             "References and Attribution" => "oed/references.md",
         ],
+        "Optimal Control Benchmarks" => "benchmarks/index.md",
         "Automatic Differentiation" => [
             "Backend Guide" => "automatic_differentiation.md",
             "Historical Validation" => "automatic_differentiation_history.md",
