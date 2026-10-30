@@ -257,10 +257,12 @@ function make_layer(g::Game, controls, player; options = Options(), parameters =
     if options.shooting == :multiple
         resets = shooting_times(g, options)
         for j in eachindex(g.x0)
-            push!(definitions, Tunable(
-                j; kind = Val(:variable), default = g.x0[j],
-                lowerbound = g.state_lower[j], upperbound = g.state_upper[j]
-            ) => resets)
+            push!(
+                definitions, Tunable(
+                    j; kind = Val(:variable), default = g.x0[j],
+                    lowerbound = g.state_lower[j], upperbound = g.state_upper[j]
+                ) => resets
+            )
         end
     end
     prob = ODEProblem(
@@ -268,8 +270,10 @@ function make_layer(g::Game, controls, player; options = Options(), parameters =
         abstol = options.ode_tolerance, reltol = options.ode_tolerance,
         saveat = collect(range(0, g.T; length = n * options.constraint_samples + 1))
     )
-    return ShootingLayer(prob, Tsit5(), definitions...;
-        controls = collect(eachindex(g.owners)), quadratures = g.quadratures)
+    return ShootingLayer(
+        prob, Tsit5(), definitions...;
+        controls = collect(eachindex(g.owners)), quadratures = g.quadratures
+    )
 end
 
 function setup_layer(g, controls, player; options = Options(), warm = nothing, parameters = g.parameters)
@@ -419,10 +423,14 @@ function best_response(g::Game, controls, player; options = Options(), start = n
     abs(trajectory_objective(g, optimal_shot.t, optimal_shot.u, player, newparameters) - dense.objectives[player]) <= 1.0e-5 * g.gain_scales[player] || error("Shooting and independent objectives disagree")
     if options.warm_start && workspace !== nothing
         times = shooting_times(g, options)
-        states = reduce(hcat, (optimal_shot.u[findlast(==(t), optimal_shot.t)] for t in times);
-            init = zeros(length(g.x0), 0))
-        workspace.responses[player] = (; signature, controls = copy(newcontrols),
-            shooting = (; t = times, x = states))
+        states = reduce(
+            hcat, (optimal_shot.u[findlast(==(t), optimal_shot.t)] for t in times);
+            init = zeros(length(g.x0), 0)
+        )
+        workspace.responses[player] = (;
+            signature, controls = copy(newcontrols),
+            shooting = (; t = times, x = states),
+        )
     end
     return (;
         controls = newcontrols, parameters = newparameters, trajectory = dense, status = string(result.retcode), matching, iterations,

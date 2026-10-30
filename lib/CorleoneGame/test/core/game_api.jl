@@ -128,8 +128,10 @@ end
     @test tr.objectives[1] ≈ (0.35 - 0.25)^2 + 1.0e-3 * 0.49 atol = 1.0e-9
     @test_throws ErrorException simulate(g, fill(0.7, 1, 3)) # t = 0.5 is not a grid node
     for shooting in (:single, :multiple)
-        options = Options(; shooting, intervals = 4, refined_intervals = 4,
-            shooting_intervals = 2, nlp_solver = :ipopt)
+        options = Options(;
+            shooting, intervals = 4, refined_intervals = 4,
+            shooting_intervals = 2, nlp_solver = :ipopt
+        )
         response = best_response(g, fill(0.7, 1, 4), 1; options)
         @test response.status == "Success"
         k = findfirst(t -> isapprox(t, 0.5), response.trajectory.t)
@@ -147,8 +149,10 @@ end
         constraints = [StateConstraint(; player = 1, index = 1, label = "cap", upper = 0.2, path = true)]
     )
     for shooting in (:single, :multiple)
-        options = Options(; shooting, intervals = 4, refined_intervals = 4,
-            shooting_intervals = 2, nlp_solver = :ipopt)
+        options = Options(;
+            shooting, intervals = 4, refined_intervals = 4,
+            shooting_intervals = 2, nlp_solver = :ipopt
+        )
         response = best_response(g, initial_controls(g, 4), 1; options)
         @test response.status == "Success"
         @test response.controls ≈ fill(0.2, 1, 4) atol = 1.0e-4

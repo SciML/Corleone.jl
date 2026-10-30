@@ -22,6 +22,9 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 UnoSolver = "1baa60ac-02f7-4b39-a7a8-2f4f58486b05"
 
+[sources]
+Corleone = {path = "../.."}
+
 [compat]
 BlockSQP2 = "0.2.1"
 CairoMakie = "0.15"
