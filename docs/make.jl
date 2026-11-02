@@ -1,11 +1,13 @@
 using Pkg
 
 # Julia 1.10 ignores [sources]; load all documentation packages from this checkout.
-Pkg.develop([
-    PackageSpec(path = joinpath(@__DIR__, "..")),
-    PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
-    PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
-])
+Pkg.develop(
+    [
+        PackageSpec(path = joinpath(@__DIR__, "..")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
+        PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
+    ]
+)
 Pkg.instantiate()
 
 using Documenter, Corleone
@@ -21,6 +23,7 @@ realpath(pkgdir(OptimalControlBenchmarks)) ==
 
 using DocumenterCitations
 using DemoCards, PlutoStaticHTML
+include("mathengine.jl")
 
 # DemoCards uses this directory as PlutoStaticHTML's previous_dir.
 pluto_output = joinpath(@__DIR__, "pluto_output")
@@ -53,11 +56,12 @@ makedocs(
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
     modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
     format = Documenter.HTML(
+        mathengine = notebook_mathengine(),
         edit_link = "main",
         repolink = "https://github.com/SciML/Corleone.jl",
         canonical = "https://docs.sciml.ai/Corleone/stable/",
         size_threshold = 1_500_000,
-        assets = unique(filter(!isnothing, [tutorial_assets, oed_assets])),
+        assets = unique(filter(!isnothing, [tutorial_assets, oed_assets, "assets/tutorials.css"])),
     ),
     doctest = true,
     checkdocs = :exports,
@@ -66,11 +70,15 @@ makedocs(
         "Home" => "index.md",
         "Tutorials" => [
             "Overview" => "tutorials.md",
-            "Gallery" => tutorials,
-            hide("examples/optimal_control/linear_quadratic.md"),
-            hide("examples/optimal_control/lotka_fishing.md"),
-            hide("examples/modelingtoolkit/lotka.md"),
-            hide("examples/modelingtoolkit/lti.md"),
+            "Choose a tutorial" => tutorials,
+            "Control fundamentals" => [
+                "Track a target" => "examples/optimal_control/linear_quadratic.md",
+                "Control predator–prey dynamics" => "examples/optimal_control/lotka_fishing.md",
+            ],
+            "Symbolic models and constraints" => [
+                "Build a model from equations" => "examples/modelingtoolkit/lotka.md",
+                "Estimate coefficients and controls" => "examples/modelingtoolkit/lti.md",
+            ],
         ],
         "User Guide" => [
             "Shooting Formulation" => "shooting.md",
@@ -84,10 +92,10 @@ makedocs(
         "Optimal Experimental Design" => [
             "Overview" => "oed/index.md",
             "Tutorials" => [
-                "Gallery" => oed_tutorials,
-                hide("oed_examples/experimental_design/lotka_oed.md"),
-                hide("oed_examples/experimental_design/compartmental_oed.md"),
-                hide("oed_examples/experimental_design/lotka_multiexperiments.md"),
+                "Choose a measurement design" => oed_tutorials,
+                "Continuous measurement schedules" => "oed_examples/experimental_design/lotka_oed.md",
+                "Discrete sampling times" => "oed_examples/experimental_design/compartmental_oed.md",
+                "Combine experiments" => "oed_examples/experimental_design/lotka_multiexperiments.md",
             ],
             "Measurements and Information" => "oed/formulation.md",
             "Constructing and Optimizing Designs" => "oed/designs.md",

@@ -1,4 +1,5 @@
 {
-    "title": "Optimal experimental design",
-    "order": ["lotka_oed.jl", "compartmental_oed.jl", "lotka_multiexperiments.jl"]
+    "title": "Measurement schedules and shared information",
+    "order": ["lotka_oed.jl", "compartmental_oed.jl", "lotka_multiexperiments.jl"],
+    "description": "Learn how design variables determine when to observe and how experiments contribute information."
 }

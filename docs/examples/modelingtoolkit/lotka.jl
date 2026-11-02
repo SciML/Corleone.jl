@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../src/assets/logo.png"
-#> title = "ModelingToolkit Integration"
-#> description = "Define and solve an optimal control problem with ModelingToolkit"
+#> cover = "../../src/assets/tutorials/symbolic-control.svg"
+#> title = "Build constrained control models from equations"
+#> description = "Use symbolic dynamics, integral costs, and metadata bounds with single and multiple shooting."
 #> id = "mtk"
 #> author = "Corleone contributors"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ 8827e882-569a-5e3f-972e-09feaaf0e110
 md"""
-# ModelingToolkit Integration
+# Build constrained control models from equations
 This tutorial models the [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
 with [ModelingToolkit.jl](https://docs.sciml.ai/ModelingToolkit/stable/).
 We solve it using single and multiple shooting, as in the

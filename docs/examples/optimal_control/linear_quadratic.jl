@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../src/assets/logo.png"
-#> title = "The Linear Quadratic Regulator"
-#> description = "Control a linear system with a tracking cost and a control penalty"
+#> cover = "../../src/assets/tutorials/tracking.svg"
+#> title = "Track a target with linear quadratic control"
+#> description = "Build a shooting layer, optimize a piecewise constant control, and inspect state trajectories."
 #> id = "linear_quad_reg"
 #> author = "Corleone contributors"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ c41b1601-7660-504e-8d8d-5be033388cb0
 md"""
-# Linear Quadratic Regulator
+# Track a target with linear quadratic control
 
 We control two linear states with a shared input. The cost penalizes the first
 state's deviation from three and the control effort:

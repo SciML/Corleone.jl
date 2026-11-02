@@ -1,30 +1,43 @@
 # Tutorials
 
-These examples use Corleone's shooting layers and the CorleoneOED experimental-design
-wrapper. All seven tutorials are Pluto notebooks, rendered statically with DemoCards and
-PlutoStaticHTML. Matching cached outputs are reused during documentation builds.
+Learn to control a dynamical system, build constrained models from equations, and
+choose informative measurements. Each tutorial is an executed Pluto notebook with
+plots and a source download. Start with the fundamentals; the later sections build
+on the same shooting-layer and optimization workflow.
 
-- [Linear quadratic regulator](@ref linear_quad_reg):
-  parameter schedules, bounded optimization, and state/control plots.
-- [Lotka–Volterra fishing](@ref lotka_fishing):
-  single shooting, lifted initial conditions, continuity constraints, and threaded
-  multiple shooting.
-- [ModelingToolkit integration](@ref mtk):
-  symbolic dynamics and integral costs, metadata bounds, and single and multiple
-  shooting with fixed global initial values.
-- [LTI control with unknown coefficients](@ref mtk_lti):
-  three terminal state equalities, a scalar input, three unknown constant
-  coefficients, and shared-grid multiple shooting.
+## Control fundamentals
 
-## Optimal experimental design
+Basic Julia and ordinary differential equations are enough to start.
 
-These tutorials execute the same authoritative sources as the standalone
-CorleoneOED manual. See the [OED overview](@ref oed_overview) for measurement grids,
-parameter directions, optimization, and numerical scope.
+1. [Track a target with linear quadratic control](examples/optimal_control/linear_quadratic.md).
+   Build a shooting layer, initialize its parameters, optimize a piecewise constant
+   input, and inspect state and control trajectories.
+2. [Control predator–prey dynamics](examples/optimal_control/lotka_fishing.md).
+   Add bounded fishing controls, lifted initial conditions, continuity constraints,
+   and threaded multiple shooting.
 
-- [Continuous Lotka–Volterra design](@ref lotka_oed): jointly optimize fishing and
-  continuous measurement densities.
-- [Discrete compartmental design](@ref compartmental_oed): allocate relaxed weights
-  to candidate sampling events and construct a binary-weight problem description.
-- [Multiple experiments](@ref lotka_multiexp): combine independent design trees in
-  common physical coordinates and account for a global prior once.
+## Symbolic models and constraints
+
+Continue here after the fundamentals to use the ModelingToolkit frontend.
+
+1. [Build constrained control models from equations](examples/modelingtoolkit/lotka.md).
+   Express symbolic dynamics and integral costs, set metadata bounds, and compare
+   single and multiple shooting with fixed global initial values.
+2. [Estimate coefficients while controlling a system](examples/modelingtoolkit/lti.md).
+   Optimize a scalar input and three unknown constant coefficients while satisfying
+   terminal state equalities with shared-grid multiple shooting.
+
+## Measurement design
+
+Use CorleoneOED to choose when to observe a system and how to combine experiments.
+The [OED overview](@ref oed_overview) introduces measurement grids, parameter
+sensitivities, and information criteria.
+
+1. [Optimize continuous measurement schedules](oed_examples/experimental_design/lotka_oed.md).
+   Jointly optimize fishing and continuous measurement densities.
+2. [Choose discrete sampling times](oed_examples/experimental_design/compartmental_oed.md).
+   Allocate relaxed weights to candidate samples and construct a binary-weight
+   problem description.
+3. [Combine information across experiments](oed_examples/experimental_design/lotka_multiexperiments.md).
+   Combine independent design trees in common physical coordinates and account for
+   a global prior once.

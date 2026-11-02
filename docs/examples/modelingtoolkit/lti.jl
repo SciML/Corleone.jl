@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../src/assets/logo.png"
-#> title = "LTI Control with Unknown Coefficients"
-#> description = "Optimize a scalar input and three constant coefficients under terminal state constraints"
+#> cover = "../../src/assets/tutorials/joint-estimation.svg"
+#> title = "Estimate coefficients while controlling a system"
+#> description = "Optimize an input and three unknown coefficients while satisfying terminal state constraints."
 #> id = "mtk_lti"
 #> author = "Corleone contributors"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ a30dbedb-882e-5505-b33d-2cc0e6046354
 md"""
-# LTI Control with Unknown Coefficients
+# Estimate coefficients while controlling a system
 We jointly optimize a scalar input and three constant coefficients in
 ``\dot{x} = A x + b u``, with ``x(0)=0`` and
 ``x(10)=[3,1,-2]^T``. The objective is minimum control energy,

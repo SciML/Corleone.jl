@@ -1,4 +1,5 @@
 {
-    "title": "ModelingToolkit models",
-    "order": ["lotka.jl", "lti.jl"]
+    "title": "Symbolic models and constraints",
+    "order": ["lotka.jl", "lti.jl"],
+    "description": "Express dynamics as equations, impose constraints, and optimize unknown coefficients alongside controls."
 }

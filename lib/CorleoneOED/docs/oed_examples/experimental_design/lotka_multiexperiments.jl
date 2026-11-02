@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../../../../docs/src/assets/logo.png"
-#> title = "Joint Lotka–Volterra experiments"
-#> description = "Combine information from independent experimental designs."
+#> cover = "../../../../../docs/src/assets/tutorials/joint-experiments.svg"
+#> title = "Combine information across experiments"
+#> description = "Share parameter coordinates and a prior across independent experimental designs."
 #> id = "lotka_multiexp"
 #> author = "Christoph Plate; Carl Julius Martensen; Sebastian Sager"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ c76b1765-39ad-5bf9-b2c6-0dd21523fc99
 md"""
-# Multiple experiments
+# Combine information across experiments
 Two experiments have independent fishing and measurement schedules. Their
 information matrices add in a common physical-parameter coordinate system.
 Both use `p = [fishing, interaction_1, interaction_2]`, estimating `[2,3]` while

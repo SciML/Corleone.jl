@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../src/assets/logo.png"
-#> title = "The Lotka Volterra Fishing Problem"
-#> description = "Optimize fishing intensity in a predator-prey model"
+#> cover = "../../src/assets/tutorials/predator-prey.svg"
+#> title = "Control predator–prey dynamics"
+#> description = "Progress from single to multiple shooting with bounded fishing and continuity constraints."
 #> id = "lotka_fishing"
 #> author = "Corleone contributors"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ a25adae1-ca05-58ae-90bc-ed399054fe9e
 md"""
-# Lotka–Volterra Fishing Problem
+# Control predator–prey dynamics
 This example is based on the [Lotka-Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
 ## Setup

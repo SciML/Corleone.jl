@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../../../../docs/src/assets/logo.png"
-#> title = "Lotka–Volterra optimal experimental design"
-#> description = "Jointly optimize fishing and continuous measurement schedules."
+#> cover = "../../../../../docs/src/assets/tutorials/measurement-density.svg"
+#> title = "Optimize continuous measurement schedules"
+#> description = "Allocate measurement density and fishing effort to improve parameter information."
 #> id = "lotka_oed"
 #> author = "Christoph Plate; Carl Julius Martensen; Sebastian Sager"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ 6c91e2b6-bd4d-5e68-94b8-1bf7bf5363b1
 md"""
-# Lotka–Volterra OED
+# Optimize continuous measurement schedules
 We design an experiment to estimate the two interaction coefficients of a
 Lotka–Volterra model. Fishing is a physical control; two measurement densities
 select when to observe each population. This follows the

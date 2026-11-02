@@ -1,4 +1,5 @@
 {
-    "title": "Numerical models",
-    "order": ["linear_quadratic.jl", "lotka_fishing.jl"]
+    "title": "Control fundamentals",
+    "order": ["linear_quadratic.jl", "lotka_fishing.jl"],
+    "description": "Start with target tracking, then introduce bounded controls and multiple shooting."
 }

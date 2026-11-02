@@ -2,9 +2,9 @@
 # v0.19.46
 
 #> [frontmatter]
-#> cover = "../../../../../docs/src/assets/logo.png"
-#> title = "Discrete measurements for a compartmental model"
-#> description = "Allocate measurement weights at candidate sampling times."
+#> cover = "../../../../../docs/src/assets/tutorials/discrete-sampling.svg"
+#> title = "Choose discrete sampling times"
+#> description = "Allocate relaxed weights to candidate measurements in a compartmental model."
 #> id = "compartmental_oed"
 #> author = "Christoph Plate; Carl Julius Martensen; Sebastian Sager"
 #> julia = "1.10"
@@ -14,7 +14,7 @@ using InteractiveUtils
 
 # ╔═╡ 61574761-9856-52dc-acf3-c5f9d5c8f732
 md"""
-# Compartmental OED
+# Choose discrete sampling times
 Estimate three parameters by observing one state. We optimize a relaxed
 selection of six measurements from 19 candidate times, following the
 [compartmental OED benchmark](https://mintoc.de/index.php?title=Compartmental_OED).

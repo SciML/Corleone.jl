@@ -1,0 +1,62 @@
+/* Keep tutorial goals visible and give each cover a consistent aspect ratio. */
+#documenter-page .grid-card-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 1.25rem;
+    margin: 1.25rem 0 2rem;
+}
+
+#documenter-page .grid-card {
+    display: flex;
+    flex-direction: column;
+    width: auto;
+    max-height: none;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 10px;
+}
+
+#documenter-page .grid-card-cover {
+    display: contents;
+}
+
+#documenter-page .grid-card-cover > p {
+    order: 0;
+    margin: 0;
+}
+
+#documenter-page .grid-card-cover img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    border-radius: 0;
+}
+
+#documenter-page .grid-card-text {
+    order: 1;
+    padding: 1rem 1rem 0;
+    font-weight: 600;
+}
+
+#documenter-page .grid-card-text p {
+    margin: 0;
+}
+
+#documenter-page .grid-card-description {
+    order: 2;
+    position: static;
+    width: auto;
+    transform: none;
+    padding: 0.5rem 1rem 1rem;
+    background: none;
+    color: inherit;
+    text-align: left;
+    font-size: 0.9rem;
+    opacity: 1;
+    z-index: auto;
+}
+
+#documenter-page .grid-card-description p {
+    margin: 0;
+}
