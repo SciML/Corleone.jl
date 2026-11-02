@@ -1,7 +1,7 @@
 name = "OptimalControlBenchmarks"
 uuid = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 authors = ["Robert Lampel", "Julius Martensen", "Christoph Plate", "Reinhold Wittmann"]
-version = "2.0.0"
+version = "0.1.0"
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
