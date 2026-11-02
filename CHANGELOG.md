@@ -1,9 +1,9 @@
 # Rewrite release
 
-Corleone, CorleoneOED, and OptimalControlBenchmarks contain breaking public API
-changes relative to their preceding releases. CorleoneGame is prepared for its
-initial release. Test, documentation, and sibling-package environments target
-the new release series together.
+Corleone and CorleoneOED contain breaking public API changes relative to their
+preceding releases. OptimalControlBenchmarks and CorleoneGame are prepared for
+their initial releases. Test, documentation, and sibling-package environments
+target the new release series together.
 
 ## Corleone 2.0.0
 
@@ -23,11 +23,11 @@ the new release series together.
 - Replace the separate Optimization extension with the shared Corleone
   optimization bridge.
 
-## OptimalControlBenchmarks 2.0.0
+## OptimalControlBenchmarks 0.1.0 (initial release)
 
-- Migrate benchmark construction and solver integration to Corleone 2 and the
-  rewritten ModelingToolkit and optimization interfaces.
-- Update benchmark registry, grid handling, examples, and documentation.
+- Provide a collection of optimal-control benchmark problems with a shared
+  registry, grid handling, and Corleone 2 solver integration.
+- Include examples and documentation integrated into the Corleone manual.
 
 ## CorleoneGame 0.1.0 (initial release)
 
