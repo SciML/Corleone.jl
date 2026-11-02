@@ -3,6 +3,8 @@
 The entries below document OED-owned APIs and OED-specific methods of shared
 functions. Re-exported Corleone and Symbolics APIs retain their own documentation.
 See the [design guide](@ref oed_designs) for links to the shared Corleone manual.
+The shared optimization helpers include `constraint_jacobian_sparsity` and
+`lagrangian_hessian_sparsity` for supported shooting problems.
 
 ## Measurements and layers
 

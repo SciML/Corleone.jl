@@ -27,6 +27,8 @@ Corleone = {path = "../.."}
 [weakdeps]
 # Match Corleone's optional Hessian interface when Optimization loads it.
 OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
+# ImplicitDiscreteSolve 2.1.1 uses the two-parameter controller options from 4.4.
+OrdinaryDiffEqCore = "bbf590c4-e513-4bbe-9b18-05decba2e5d8"
 
 [compat]
 CairoMakie = "0.15"
@@ -40,6 +42,7 @@ LuxCore = "1.4"
 Optimization = "5"
 OptimizationBase = "5.5.3"
 OptimizationMOI = "1.4"
+OrdinaryDiffEqCore = "4.4"
 OrdinaryDiffEqTsit5 = "2"
 Printf = "1"
 Random = "1"

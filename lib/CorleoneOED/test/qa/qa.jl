@@ -13,6 +13,7 @@ const CORLEONE_REEXPORTS = (
     :shooting_constraints, :shooting_constraints!, :add_parameter_segments!,
     :CorleoneDynamicOptProblem, :optimization_objective, :optimization_constraints,
     :optimization_constraints!, :pack, :default_vectorizer, :default_evaluator, :compile_evaluator,
+    :constraint_jacobian_sparsity, :lagrangian_hessian_sparsity,
     :forward_initialization, :linear_initialization, :random_initialization,
     :constant_initialization, :custom_initialization, :hybrid_initialization,
     :trajectoryplot, :trajectoryplot!,
