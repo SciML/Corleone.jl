@@ -1,3 +1,5 @@
+using Base64: base64decode
+
 function extract_metadata(file_path)
     content = read(file_path, String)
     # Match the block between #src --- and #src ---
@@ -12,8 +14,28 @@ function extract_metadata(file_path)
     return nothing
 end
 
+# Keep plot data out of HTML pages and Documenter's text search index.
+function tutorial_figures(content, title, outpath, name)
+    index = 0
+    content = replace(
+        content, r"```@raw html\n<img [^\n]+>\n```" => block -> begin
+            image = match(r"src=\"data:image/png;base64,\s*([^\"]+)\"", block)
+            isnothing(image) && return block
+            index += 1
+            filename = "$name-figure-$index.png"
+            write(joinpath(outpath, filename), base64decode(image.captures[1]))
+            "![Trajectory plot for $title]($filename)"
+        end
+    )
+    return replace(content, "![](" => "![Trajectory plot for $title](")
+end
+
 function preprocess_script(content)
-    content = replace(content, "TODAY" => Date(now()))
+    content = replace(
+        content, "TODAY" => string(Date(now())),
+        "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
+            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)"
+    )
     content *= """
             # ## Appendix
             # ```@raw html
@@ -45,57 +67,85 @@ function preprocess_script(content)
 end
 
 
-function make_tutorial(path)
+function make_tutorial(path; name = nothing)
     isfile(path) || return nothing
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
-    fname = replace(lowercase(get(metadata, "title", first(splitext(scriptname)))), " " => "_")
+    title = get(something(metadata, Dict()), "title", first(splitext(scriptname)))
+    fname = isnothing(name) ? replace(lowercase(title), " " => "_") : name
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
     Literate.markdown(
         path, outpath,
         execute = true,
         preprocess = preprocess_script,
-        flavor = Literate.CommonMarkFlavor(),
+        postprocess = content -> tutorial_figures(content, title, outpath, fname),
+        flavor = Literate.DocumenterFlavor(),
         name = fname
     )
+    metadata = something(metadata, Dict("title" => fname))
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
 end
 
+# Both sites execute the same authoritative OED examples. Explicit names preserve
+# the OED tutorial URLs already published by main, independently of source titles.
+example_output = joinpath(@__DIR__, "src", "examples")
+isdir(example_output) && rm(example_output; recursive = true)
+
 tutorials = map(
     [
-        abspath("examples/linear_quadratic/main.jl"),
-        abspath("examples/lotka_fishing_optimal_control/main.jl"),
-        abspath("examples/mtk_lotka/main.jl"),
-        abspath("lib/CorleoneOED/examples/lotka_oed/main.jl"),
-        abspath("lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"),
-        abspath("lib/CorleoneOED/examples/compartmental_oed/main.jl"),
+        (joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
+        (
+            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
+            "the_lotka_volterra_optimal_experimental_design_problem",
+        ),
+        (
+            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_multiexperiments", "main.jl"),
+            "the_lotka_volterra_multiexperiment_problem",
+        ),
+        (
+            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "compartmental_oed", "main.jl"),
+            "compartmental_oed_problem",
+        ),
     ]
-) do tutorial
-    make_tutorial(tutorial)
+) do (path, name)
+    make_tutorial(path; name)
 end
 
-function generate_searchable_index(tutorials)
-    data = filter(!isnothing, tutorials)
-    output_path = joinpath(@__DIR__, "src", "tutorials.md")
-    json_path = joinpath(@__DIR__, "src", "assets", "tutorial_data.json")
-    write(json_path, JSON.json(data))
+# Include the benchmark guide/API from its authoritative sublibrary source.
+benchmark_output = joinpath(@__DIR__, "src", "benchmarks")
+mkpath(benchmark_output)
+benchmark_source = joinpath(
+    @__DIR__, "..", "lib", "OptimalControlBenchmarks", "docs", "src", "index.md"
+)
+benchmark_edit_url = "https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/index.md"
+write(
+    joinpath(benchmark_output, "index.md"),
+    "```@meta\nCurrentModule = OptimalControlBenchmarks\nEditURL = \"$benchmark_edit_url\"\n```\n\n" *
+        read(benchmark_source, String)
+)
 
-    output = """
-    ```@raw html
-    <script setup lang="ts">
-    import Gallery from "./components/Gallery.vue";
-    import data from "./assets/tutorial_data.json";
-    </script>
-
-    # Tutorials
-
-    <Gallery :items="data" />
-    ```
-    """
-
-    return write(output_path, output)
+# Keep the OED guide/API authoritative in the sublibrary; generate root-site pages
+# with local cross-references and edit links pointing back to those source files.
+oed_output = joinpath(@__DIR__, "src", "oed")
+isdir(oed_output) && rm(oed_output; recursive = true)
+mkpath(oed_output)
+for page in ("index", "formulation", "designs", "numerics", "api", "references")
+    source = joinpath(@__DIR__, "..", "lib", "CorleoneOED", "docs", "src", "$page.md")
+    content = read(source, String)
+    for guide in ("shooting", "initialization", "trajectories", "optimization_contracts", "automatic_differentiation")
+        content = replace(
+            content,
+            "https://github.com/SciML/Corleone.jl/blob/main/docs/src/$guide.md" => "../$guide.md"
+        )
+    end
+    edit_url = replace(relpath(source, oed_output), '\\' => '/')
+    write(
+        joinpath(oed_output, "$page.md"),
+        "```@meta\nCurrentModule = CorleoneOED\nEditURL = \"$edit_url\"\n```\n\n" * content
+    )
 end
-
-generate_searchable_index(tutorials)

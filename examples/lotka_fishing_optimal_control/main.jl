@@ -1,25 +1,27 @@
 #src ---
 #src title: The Lotka Volterra Fishing Problem
-#src description: A classic example to relaxed mixed-integer optimal control
+#src description: Optimize fishing intensity in a predator-prey model
 #src tags:
 #src   - Lotka Volterra
 #src   - Optimal Control
 #src icon: 🎣
 #src ---
 
-# ## [Lotka-Volterra Fishing Problem](@id lotka_fishing)
-# This is a quick intro based on [the lotka volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
+# # [Lotka–Volterra Fishing Problem](@id lotka_fishing)
+# This example is based on the [Lotka-Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
 # ## [Setup](@id lotka_oc_setup)
-# We will use `Corleone` to define our optimal control problem.
+
+# Use Corleone to define the shooting layers and optimization models.
 using Corleone
 
-# Additionally, we will need the following packages
-# - [`LuxCore`]() and [`Random`]() for basic setup functions
-# - [`OrdinaryDiffEqTsit5`]() as an adaptive solver for the related ODEProblem
-# - [`SymbolicIndexingInterface`]() to conveniently access variables and controls of the solution
-# - [`Optimization`](), [`OptimizationMOI`](), [`Ipopt`](), and [`ComponentArrays`]() to setup and solve the optimization problem
-# - [`CairoMakie`]() to plot the solution
+# The other packages provide:
+
+# - Layer initialization: `LuxCore` and `Random`
+# - ODE integration: `OrdinaryDiffEqTsit5`
+# - Optimization: `Optimization`, `OptimizationMOI`, `Ipopt`, and `ComponentArrays`
+# - Objective and constraint gradients: `ForwardDiff`
+# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random
@@ -29,87 +31,129 @@ using Optimization
 using OptimizationMOI
 using Ipopt
 using ComponentArrays
+using ForwardDiff
 using CairoMakie
+Makie.inline!()
+# ## Lotka–Volterra Dynamics
 
-# ## Lotka Volterrra Dynamics
+# The first two states are prey and predator populations. The third accumulates
+# their squared deviations from one. The second parameter is fishing intensity;
+# the first and third are fixed interaction rates.
 
-# First, in the ODEProblem has to be defined in a standard way.
+# ```math
+# \begin{aligned}
+# \dot{x} &= x-xy-0.4vx, & x(0)&=0.5, \\
+# \dot{y} &= -y+xy-0.2vy, & y(0)&=0.7, \\
+# J &= \int_0^{12}\bigl((x-1)^2+(y-1)^2\bigr)\,dt, & 0&\le v\le1.
+# \end{aligned}
+# ```
+# Here `v` is the fishing control, stored as `p[2]` in the numerical model.
 
 function lotka_dynamics(du, u, p, t)
-    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
-    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    du[1] = u[1] - p[1] * prod(u[1:2]) - 0.4 * p[2] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[2] * u[2]
     return du[3] = (u[1] - 1.0)^2 + (u[2] - 1.0)^2
 end
 tspan = (0.0, 12.0)
 u0 = [0.5, 0.7, 0.0]
-p0 = [0.0, 1.0, 1.0]
-prob = ODEProblem(lotka_dynamics, u0, tspan, p0)
+p0 = [1.0, 0.0, 1.0]
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0; abstol = 1.0e-9, reltol = 1.0e-9)
 
 # ## Single Shooting Approach
 
-# Then, as shown before in [the LQR example](@ref control_lqr), the discretized
-# control needs to be defined and applied to the problem by constructing a `SingleShootingLayer`
-cgrid = collect(0.0:0.1:11.9)
-control = ControlParameter(
-    cgrid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(cgrid))
+# Make fishing intensity tunable between zero and one, and keep the two
+# interaction rates fixed. The 119 switching times define 120 control intervals.
+# The initial state is taken from the ODE problem.
+cgrid = collect(0.1:0.1:11.9)
+control = Tunable(
+    2; kind = Val(:parameter), default = 1.0,
+    lowerbound = 0.0, upperbound = 1.0
+) => cgrid
+physical_parameters = (
+    Constant([3, 1]; kind = Val(:parameter)) => nothing,
 )
-layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 => control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
+layer = ShootingLayer(
+    prob, Tsit5(), control, physical_parameters...;
+    controls = [2], quadratures = [3]
+)
 
-function plot_lotka(sol)
-    f = Figure()
-    ax = CairoMakie.Axis(f[1, 1])
-    scatterlines!(ax, sol, vars = [:x₁, :x₂])
-    f[1, 2] = Legend(f, ax, "States", framevisible = false)
-    ax1 = CairoMakie.Axis(f[2, 1])
-    stairs!(ax1, sol, vars = [:fishing])
-    f[2, 2] = Legend(f, ax1, "Controls", framevisible = false)
-    return f
-end
-
-# The OptimizationProblem minimizing the terminal value of state `x₃` is easily set up and solved.
-
-optprob = OptimizationProblem(layer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
+# Minimize the terminal accumulated cost. The model initializes parameters and
+# state, then prepares the objective. OptimizationProblem applies the control bounds
+# from the annotation and uses ForwardDiff for gradients.
+dynprob = CorleoneDynamicOptProblem(
+    layer, :(u₃(12.0))
+)
+opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
 uopt = solve(
-    optprob, Ipopt.Optimizer(),
+    opt,
+    Ipopt.Optimizer(),
     tol = 1.0e-6,
     hessian_approximation = "limited-memory",
-    max_iter = 300
+    max_iter = 300,
+    print_level = 3
 );
+@assert successful_retcode(uopt)
 
-#
-ps, st = LuxCore.setup(Random.default_rng(), layer)
-optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
-
-plot_lotka(optsol)
+# Reconstruct the optimized parameters and plot the trajectory.
+_, reconstruct = pack(default_vectorizer(), dynprob.ps)
+optimized_parameters = reconstruct(uopt.u)
+optsol, _ = layer(nothing, optimized_parameters, opt.p)
+trajectoryplot(optsol)
 
 # ## Multiple Shooting
 
-# We can also partition the time horizon into smaller intervals on which the integration
-# is decoupled. At these shooting points, variables are introduced for the initial values
-# of the differential states. By this lifting approach, nonlinearities can be reduced.
-# In `Corleone`, this can be done by constructing a `MultipleShootingLayer` from the `ODEProblem`
-# and adding a vector of shooting points. The optimization problem is constructed in the
-# same way as with the `SingleShootingLayer`. However, in the background matching constraints
-# are added that require the final state on one shooting interval matches the initial state
-# on the subsequent shooting interval.
+# Lift all three states at interior shooting points. Matching constraints enforce
+# continuity, including the accumulated cost, so its final value covers the whole
+# time horizon. Full-state resets allow independent blocks with `EnsembleThreads()`.
+# Start Julia with `--threads=4` to use four threads.
 
-shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
-mslayer = MultipleShootingLayer(
-    prob, Tsit5(), shooting_points...; controls = (1 => control,),
-    bounds_p = ([1.0, 1.0], [1.0, 1.0])
+# Start with control intervals of length 0.25. The shooting points at 3.4 and 6.1
+# lie inside intervals; 9.75 already coincides with a control switch.
+shooting_points = [3.4, 6.1, 9.75]
+initial_conditions = (
+    Tunable(i; kind = Val(:variable), lowerbound = 0.0, upperbound = 2.0) => shooting_points for i in 1:3
+)
+mslayer = ShootingLayer(
+    prob, Tsit5(), first(control) => collect(0.25:0.25:11.75), physical_parameters...,
+    initial_conditions...; ensemblealg = EnsembleThreads(),
+    controls = [2], quadratures = [3]
 )
 
-msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
+# Initialize controls to one and lifted states to the corresponding ODE initial values.
+msps, msst = LuxCore.setup(MersenneTwister(42), mslayer)
 
-optprob = OptimizationProblem(mslayer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
+# Split the control intervals at 3.4 and 6.1, duplicating their current values.
+msps, msst = add_parameter_segments!(mslayer, msps, msst)
 
-uopt = solve(
-    optprob, Ipopt.Optimizer(),
-    tol = 1.0e-5,
+# Plot the initial segments and their reset jumps.
+mssol, _ = mslayer(nothing, msps, msst);
+trajectoryplot(mssol, show_legend = true, whiskerwidth = 10)
+
+# Reuse the expanded parameters and state. State continuity and matching control
+# values at inserted switches are included as equality constraints.
+ms_dynprob = CorleoneDynamicOptProblem(
+    mslayer, :(u₃(12.0)), ps = msps, st = msst
+)
+
+ms_opt = OptimizationProblem(ms_dynprob, AutoForwardDiff(); function_kwargs = (;))
+ms_uopt = solve(
+    ms_opt,
+    Ipopt.Optimizer(),
+    tol = 1.0e-6,
     hessian_approximation = "limited-memory",
-    max_iter = 300
+    max_iter = 1000,
+    print_level = 5
 );
+@assert successful_retcode(ms_uopt)
 
-mssol, _ = mslayer(nothing, uopt + zero(ComponentArray(msps)), msst);
+# Reconstruct the optimized parameters and plot the trajectory.
+_, reconstruct_ms = pack(default_vectorizer(), ms_dynprob.ps)
+optimized_parameters = reconstruct_ms(ms_uopt.u)
+ms_optsol, _ = mslayer(nothing, optimized_parameters, ms_opt.p)
+trajectoryplot(ms_optsol)
 
-plot_lotka(mssol)
+# Matching residuals measure feasibility of the lifted states and inserted control
+# intervals. The single- and multiple-shooting problems use different control
+# grids, and this multiple-shooting model also bounds its lifted states (including
+# the quadrature) by two. Their objective values need not coincide.
+maximum(abs, shooting_constraints(ms_optsol))

@@ -1,10 +1,9 @@
 function cushioned_oscillation(grids)
 
-    num_states = 3
     num_controls = 1
     tspan = (0.0, 10.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x(..) = 2.0, [tunable = false]
@@ -43,7 +42,8 @@ function cushioned_oscillation(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Cushioned Oscillation",
     )
 

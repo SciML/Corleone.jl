@@ -17,33 +17,22 @@ tspan = (0.0, 1.0)
 p = [-2.0]
 
 prob = ODEProblem(lin_dyn, u0, tspan, p)
-ol = SingleShootingLayer(prob, Tsit5(), controls = [], bounds_p = ([-2.0], [-2.0]))
-ps, st = LuxCore.setup(rng, ol)
-traj_ref, _ = ol(nothing, ps, st)
-
-oed = OEDLayer{false}(
-    ol,
-    params = [1],
-    measurements = [
-        ControlParameter(collect(0.0:0.01:0.99), controls = ones(100), bounds = (0.0, 1.0)),
-    ],
-    observed = (u, p, t) -> [u[1]]
+ol = ShootingLayer(prob, Tsit5(); fixed_parameters = [1])
+oed = OEDLayer(
+    ol; params = [1], measurements = (
+        ContinuousMeasurement(:weight, collect(0.0:0.01:0.99), (u, p, t) -> u[1]),
+    )
 )
-
 ps, st = LuxCore.setup(rng, oed)
-lb, ub = Corleone.get_bounds(oed)
-
+lb, ub = Corleone.get_bounds(oed, ps, st) .|> ComponentArray
 @test_nowarn @inferred oed(nothing, ps, st)
 traj_oed, _ = oed(nothing, ps, st)
-
 @test traj_oed.t == 0.0:0.01:1.0
-@test isapprox(CorleoneOED.__fisher_information(oed, traj_oed)[end], first(CorleoneOED.fisher_information(oed, nothing, ps, st)))
-@test reduce(vcat, first(CorleoneOED.observed_equations(oed, nothing, ps, st))) == reduce(vcat, first.(traj_oed.u))
-
+@test fisher_information(oed, traj_oed) ≈ first(fisher_information(oed, nothing, ps, st))
+@test reduce(vcat, first(observed_equations(oed, nothing, ps, st))) == first.(traj_oed.u)
 @test LuxCore.parameterlength(oed) == LuxCore.parameterlength(ol) + 100
-@test lb.p == ub.p == [-2.0]
-@test all(iszero, lb.controls)
-@test all(isone, ub.controls)
+@test all(iszero, lb)
+@test all(isone, ub)
 
 @testset "Criteria" begin
     foreach(
@@ -75,23 +64,19 @@ end
     idx = findall(optimality .> μ)
     @test !isempty(idx)
     @test all(0.4 .< traj.t[idx] .<= 0.6)
-    @test all(popt.controls[idx] .> 0.99)
+    @test all(popt.parameter.parameters.weight.parameter.ps[idx] .> 0.99)
 end
 
 @testset "Optimization" begin
     for MEASUREMENT in (true, false)
-        oed = OEDLayer{MEASUREMENT}(
-            ol,
-            params = [1],
-            measurements = [ControlParameter(collect(0.0:0.1:0.9), controls = ones(10), bounds = (0.0, 1.0))],
-            observed = (u, p, t) -> [u[1]]
+        measurement = MEASUREMENT ? DiscreteMeasurement : ContinuousMeasurement
+        oed = OEDLayer(
+            ol; params = [1], measurements = (
+                measurement(:weight, collect(0.0:0.1:0.9), (u, p, t) -> [u[1]]),
+            )
         )
         ps, st = LuxCore.setup(rng, oed)
-        # Check for the extra grid
-        if MEASUREMENT
-            @test hasfield(typeof(st), :observation_grid)
-        end
-        uref = MEASUREMENT ? vcat(-2.0, zeros(5), [1.0, 1.0], zeros(3)) : vcat(-2.0, zeros(4), [1.0, 1.0], zeros(4))
+        uref = MEASUREMENT ? vcat(zeros(5), [1.0, 1.0], zeros(3)) : vcat(zeros(4), [1.0, 1.0], zeros(4))
 
         ucon = MEASUREMENT ? 2.0 : 0.2
         for crit in (ACriterion(), DCriterion(), ECriterion())

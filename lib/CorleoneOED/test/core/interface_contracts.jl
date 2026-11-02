@@ -16,19 +16,9 @@ function _criterion_rhs(u, p, t)
 end
 
 prob = ODEProblem(_criterion_rhs, [1.0], (0.0, 1.0), [1.0])
-base_layer = SingleShootingLayer(
-    prob,
-    Tsit5();
-    controls = [],
-    bounds_p = ([1.0], [1.0]),
-)
-layer = OEDLayer{false}(
-    base_layer;
-    params = [1],
-    measurements = [
-        ControlParameter([0.0, 0.5], controls = ones(2), bounds = (0.0, 1.0)),
-    ],
-    observed = (u, p, t) -> [u[1]],
+layer = OEDLayer(
+    prob, Tsit5(); params = [1],
+    measurements = (ContinuousMeasurement(:weight, [0.0, 0.5], (u, p, t) -> u[1]),)
 )
 ps, st = LuxCore.setup(Random.default_rng(), layer)
 

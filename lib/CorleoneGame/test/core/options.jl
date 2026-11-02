@@ -1,5 +1,6 @@
 # Grids, solver choices, primal warm starts, fallback accounting, and audits.
 using CorleoneGame, Test, Corleone
+using CorleoneGame: LuxCore
 
 function analytic_game(; target = [0.2, 0.3, 0.4], bound = 1.0, cap = Inf, owners = [1, 1, 2])
     function rhs!(dx, x, u, t)
@@ -21,13 +22,16 @@ end
 
 @testset "Equidistant grids and control reconstruction" begin
     g = analytic_game()
-    for (ns, n) in ((1, 6), (2, 6), (3, 6), (4, 8))
+    for (ns, n) in ((1, 1), (1, 6), (2, 6), (3, 6), (4, 8))
         o = Options(shooting = :multiple, shooting_intervals = ns, intervals = n, refined_intervals = n)
         c = reshape(collect(range(0.05, 0.95; length = 3n)), 3, n)
         layer, p, st = setup_layer(g, c, 1; options = o)
-        @test length(propertynames(p)) == ns
-        @test CorleoneGame.unpack_controls(g, p, :multiple, n) ≈ c
         shot, _ = layer(nothing, p, st)
+        @test layer isa ShootingLayer
+        @test Corleone.get_number_of_shooting_constraints(layer, p, st) == (ns - 1) * length(g.x0)
+        # Opponent histories are absent from the optimizer, even on varying grids.
+        @test LuxCore.parameterlength(layer) == 2n + (ns - 1) * length(g.x0)
+        @test CorleoneGame.unpack_controls(g, shot, n) ≈ c
         @test maximum(abs, Corleone.shooting_constraints(shot); init = 0.0) < 1.0e-8
         @test last(shot.u)[1:3] ≈ simulate(g, c).x[:, end] atol = 1.0e-8
     end
@@ -38,6 +42,8 @@ end
     @test_throws ErrorException CorleoneGame.validate(g, Options(extra_starts = [1.1]))
     @test_throws ErrorException CorleoneGame.validate(g, Options(nlp_solver = :unknown))
     @test_throws ErrorException CorleoneGame.validate(g, Options(nlp_solver = :blocksqp))
+    @test_throws ErrorException CorleoneGame.validate(g, Options(shooting = :multiple, nlp_solver = :blocksqp))
+    @test_throws ErrorException CorleoneGame.validate(g, Options(fallback_solver = :blocksqp))
     c = [0.1 0.8 0.4; 0.7 0.2 0.6]
     @test CorleoneGame.transfer_controls(c, 6) ≈ repeat(c; inner = (1, 2))
     @test vec(sum(CorleoneGame.transfer_controls(c, 5); dims = 2)) / 5 ≈ vec(sum(c; dims = 2)) / 3
@@ -45,7 +51,7 @@ end
 
 @testset "Solver choices and primal warm starts" begin
     g = analytic_game()
-    for (shooting, solver) in ((:single, :ipopt), (:single, :uno), (:multiple, :ipopt), (:multiple, :uno), (:multiple, :blocksqp))
+    for (shooting, solver) in ((:single, :ipopt), (:single, :uno), (:multiple, :ipopt), (:multiple, :uno), (:single, :auto), (:multiple, :auto))
         o = Options(;
             shooting, nlp_solver = solver, fallback_solver = nothing, shooting_intervals = 2,
             intervals = 4, refined_intervals = 4, max_iters = 100, extra_starts = Float64[], warm_start = true
@@ -54,7 +60,7 @@ end
         c = initial_controls(g, 4)
         a = best_response(g, c, 1; options = o, workspace)
         @test !a.warm_started
-        @test a.solver == solver
+        @test a.solver == (solver == :auto ? :ipopt : solver)
         @test a.controls[1:2, :] ≈ repeat([0.2, 0.3], 1, 4) atol = 1.0e-4
         # Change objective coefficients, opponent policy, bounds, and constraints.
         updated = analytic_game(target = [0.1, 0.25, 0.4], bound = 0.6, cap = 0.065)

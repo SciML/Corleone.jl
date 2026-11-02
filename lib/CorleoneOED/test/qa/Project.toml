@@ -5,6 +5,10 @@ CorleoneOED = "6590a4b1-d036-41fe-a5b4-03a980244101"
 SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[sources]
+Corleone = {path = "../../../.."}
+CorleoneOED = {path = "../.."}
+
 [compat]
 Aqua = "0.8"
 Corleone = "0.0.8, 1"

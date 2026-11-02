@@ -14,10 +14,12 @@ const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SU
 withenv("GROUP" => GROUP) do
     run_tests(;
         core = function ()
-            # No Core unit tests yet; running the benchmarks requires the full MTK +
-            # Ipopt/MOI optimal-control stack and is too expensive for CI. Keep a
-            # trivial assertion so the Core group still emits a Test Summary.
-            return @test 1 == 1
+            @safetestset "Grids and registry" begin
+                include("core/grids_registry.jl")
+            end
+            return @safetestset "Corleone driver" begin
+                include("core/solver.jl")
+            end
         end,
         qa = (; env = joinpath(@__DIR__, "qa"), body = joinpath(@__DIR__, "qa", "qa.jl")),
     )

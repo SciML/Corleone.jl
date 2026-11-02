@@ -1,10 +1,9 @@
 function electric_car(grids)
 
-    num_states = 4
     num_controls = 1
     tspan = (0.0, 10.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x_1(..) = 0.0, [tunable = false]
@@ -66,7 +65,8 @@ function electric_car(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Electric Car",
     )
 

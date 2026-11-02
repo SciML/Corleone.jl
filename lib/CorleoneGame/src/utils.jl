@@ -238,7 +238,7 @@ function write_outputs(g, runs, refined_check, folder, options)
         refined_check === nothing || println(io, "Coarse policy on refined grid: gains=$(refined_check.normalized), feasible=$(refined_check.feasible)")
         println(io, "Local deviation checks do not certify global Nash optimality.")
         println(io, "Path constraints are sampled, with denser independent validation.")
-        options.shooting == :multiple && println(io, "$(options.shooting_intervals) shooting stages; BlockSQP2 uses stage Hessian blocks and variable-block metadata, without condensing.")
+        options.shooting == :multiple && println(io, "$(options.shooting_intervals) shooting stages; shared controls and parameters, with state and quadrature continuity constraints.")
     end
     timeseries(g, tr, controls, joinpath(folder, "timeseries.png"))
     iteration_dir = joinpath(folder, "iterations"); mkpath(iteration_dir)

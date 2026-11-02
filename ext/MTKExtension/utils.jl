@@ -1,60 +1,89 @@
-maybeop(x) = iscall(x) ? operation(x) : x
+# Only expression names are lowered; controls remain parameters.
+Corleone.expression_symbol_name(sym::Union{Symbolics.Num, SymbolicUtils.BasicSymbolic}) = Symbol(sym)
 
-function Corleone.retrieve_symbol_cache(cache::ModelingToolkit.System, u0, p, control_indices; kwargs...)
-    x = unknowns(cache)
-    p = tunable_parameters(cache)
-    iv = ModelingToolkit.get_iv(cache)
-    u = filter(ModelingToolkit.isinput, p)
-    sort!(u, by = ui -> SymbolicIndexingInterface.parameter_index(cache, ui).idx)
-    p = filter(!ModelingToolkit.isinput, p)
-    x = [x..., u...]
-    return SymbolCache(x, p, [iv])
+# MTK's non-split problem constructor needs scalar parameter entries. Keep the
+# indexed symbols and their metadata, but make the numerical ordering explicit.
+scalar_symbols(symbols) = reduce(
+    vcat, map(sym -> symbolic_type(sym) isa ArraySymbolic ? vec(collect(Symbolics.scalarize(sym))) : [sym], symbols);
+    init = eltype(symbols)[]
+)
+
+scalar_expression(expression) = Symbolics.scalarize(expression)
+# Symbolics.scalarize preserves array inequalities as a single relationship.
+scalar_expression(inequality::Symbolics.Inequality) = Symbolics.Inequality.(
+    Symbolics.scalarize(inequality.lhs), Symbolics.scalarize(inequality.rhs), Ref(inequality.relational_op)
+)
+
+scalar_expressions(expressions) = reduce(
+    vcat, map(expressions) do expression
+        scalar = scalar_expression(expression)
+        scalar isa AbstractArray ? vec(collect(scalar)) : [scalar]
+    end; init = eltype(expressions)[]
+)
+
+function scalarize_system(sys::ModelingToolkit.System)
+    variables, parameters = variable_symbols(sys), parameter_symbols(sys)
+    costs = scalar_expressions(ModelingToolkit.get_costs(sys))
+    constraints = scalar_expressions(ModelingToolkit.get_constraints(sys))
+    arrays = any(sym -> symbolic_type(sym) isa ArraySymbolic, (variables..., parameters...))
+    !arrays && isequal(costs, ModelingToolkit.get_costs(sys)) &&
+        isequal(constraints, ModelingToolkit.get_constraints(sys)) && return sys
+    scalar = ModelingToolkit.System(
+        ModelingToolkit.equations(sys), ModelingToolkit.get_iv(sys),
+        scalar_symbols(variables), scalar_symbols(parameters);
+        name = nameof(sys),
+        initial_conditions = ModelingToolkit.initial_conditions(sys),
+        bindings = ModelingToolkit.bindings(sys), guesses = ModelingToolkit.guesses(sys),
+        observed = ModelingToolkit.observed(sys),
+        costs, constraints,
+        continuous_events = ModelingToolkit.continuous_events(sys),
+        discrete_events = ModelingToolkit.discrete_events(sys),
+        tstops = ModelingToolkit.symbolic_tstops(sys), checks = false
+    )
+    return ModelingToolkit.complete(scalar; split = false, add_initial_parameters = false)
 end
 
-function collect_timepoints!(tpoints, ex)
-    if iscall(ex)
-        op, args = operation(ex), arguments(ex)
-        if SymbolicUtils.issym(op) && isa(first(args).val, Number) && length(args) == 1
-            tp = first(args).val
-            vars = get!(tpoints, op, typeof(tp)[])
-            push!(vars, tp)
+function lower_integrals!(accumulations, ex, iv)
+    ex = Symbolics.unwrap(ex)
+    SymbolicUtils.iscall(ex) || return ex
+    op, args = SymbolicUtils.operation(ex), SymbolicUtils.arguments(ex)
+    if op isa Symbolics.Integral
+        isequal(Symbolics.unwrap(op.domain.variables), Symbolics.unwrap(iv)) || throw(ArgumentError("Only integrals over the system time variable are supported."))
+        q = get!(accumulations, ex) do
+            name = gensym(:quadrature)
+            Symbolics.unwrap(only(ModelingToolkit.@variables ($name)(iv) = 0.0 [tunable = false]))
         end
-        return op(
-            map(args) do x
-                collect_timepoints!(tpoints, x)
-            end...
-        )
+        lo, hi = op.domain.domain.left, op.domain.domain.right
+        return SymbolicUtils.operation(q)(hi) - SymbolicUtils.operation(q)(lo)
     end
-    return ex
+    return op(map(arg -> lower_integrals!(accumulations, arg, iv), args)...)
 end
 
-function collect_integrals!(subs, ex, t)
-    if iscall(ex)
-        op, args = operation(ex), arguments(ex)
-        ex = op(
-            map(args) do arg
-                collect_integrals!(subs, arg, t)
-            end...
-        )
-        if isa(op, Symbolics.Integral)
-            var = get!(subs, ex) do
-                sym = Symbol(:𝕃, Symbol(Char(0x2080 + length(subs) + 1)))
-                var = Symbolics.unwrap(only(ModelingToolkit.@variables ($sym)(t) = 0.0 [tunable = false, bounds = (0.0, Inf)])) # [costvariable = true]))
-                var
+function symbolic_expression(ex, signals, terminal_time, times)
+    ex = Symbolics.unwrap(ex)
+    if haskey(signals, ex)
+        name, kind = signals[ex]
+        kind === :parameter || throw(ArgumentError("Specify a numerical time for $ex in a cost or constraint."))
+        return Expr(:call, name, terminal_time)
+    end
+    if SymbolicUtils.iscall(ex)
+        op, args = SymbolicUtils.operation(ex), SymbolicUtils.arguments(ex)
+        for (signal, (name, _)) in signals
+            if SymbolicUtils.iscall(signal) && isequal(op, SymbolicUtils.operation(signal))
+                length(args) == 1 || throw(ArgumentError("Expected a scalar signal with one time argument: $ex."))
+                time = SymbolicUtils.unwrap_const(Symbolics.unwrap(only(args)))
+                time isa Real && isfinite(time) || throw(ArgumentError("Signal times must be finite real numbers: $ex."))
+                push!(times, time)
+                return Expr(:call, name, time)
             end
-            lo, hi = op.domain.domain.left, op.domain.domain.right
-            return operation(var)(hi) - operation(var)(lo)
         end
+        op isa SymbolicUtils.BasicSymbolic && throw(ArgumentError("Unknown or eliminated signal in $ex."))
+        return Expr(:call, op, map(arg -> symbolic_expression(arg, signals, terminal_time, times), args)...)
     end
-    return ex
+    value = SymbolicUtils.unwrap_const(ex)
+    value isa Real && return value
+    throw(ArgumentError("Unsupported symbolic expression: $ex."))
 end
 
-Base.getindex(T::Corleone.Trajectory, ind::Num) = getindex(T, Symbolics.unwrap(ind))
-function Base.getindex(T::Corleone.Trajectory, ind::SymbolicUtils.BasicSymbolic)
-    if ind in keys(T.sys.variables)
-        return vcat(getindex.(T.u, T.sys.variables[ind]))
-    elseif ind in keys(T.sys.parameters)
-        return getindex(T.p, T.sys.parameters[ind])
-    end
-    error(string("Invalid index: :", ind))
-end
+# Even a constant symbolic cost needs the core's expression preparation path.
+expression_wrapper(ex) = ex isa Expr ? ex : Expr(:call, identity, ex)

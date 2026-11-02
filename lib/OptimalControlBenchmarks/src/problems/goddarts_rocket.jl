@@ -1,10 +1,9 @@
 function goddarts_rocket(grids)
 
-    num_states = 3
     num_controls = 1
     tspan = (0.0, 10.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         r(..) = 1.0, [tunable = false]
@@ -14,7 +13,8 @@ function goddarts_rocket(grids)
     end
 
     @parameters begin
-        T = 0.5, [bounds = (1.0e-3, Inf), tunable = true]
+        # A short nominal duration keeps mass positive during preparation.
+        T = 0.01, [bounds = (1.0e-3, Inf), tunable = true]
     end
 
     @constants begin
@@ -58,7 +58,8 @@ function goddarts_rocket(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Goddart's rocket problem",
     )
 

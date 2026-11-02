@@ -1,11 +1,10 @@
 function denbigh(grids)
 
     # We start by defining our system
-    num_states = 3
     num_controls = 1
     tspan = (0.0, 1000.0)
 
-    scaled_grids = scale_grids!(tspan, grids)
+    scaled_grids = scale_grids(tspan, grids)
 
     @variables begin
         x₁(..) = 1.0, [tunable = false]
@@ -43,7 +42,8 @@ function denbigh(grids)
     return (
         system = oc_problem,
         grids = scaled_grids,
-        dims = (num_states, num_controls),
+        dims = (length(eqs), num_controls),
+        tspan = tspan,
         name = "Denbigh Reaction",
     )
 

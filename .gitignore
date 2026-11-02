@@ -11,3 +11,6 @@ docs/src/examples
 /newdocs/build/
 /newdocs/Manifest.toml
 .vscode/
+
+/docs/src/oed/
+/docs/src/benchmarks/
