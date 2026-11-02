@@ -33,13 +33,17 @@ sources rather than generated copies under `docs/src/`.
 
 ## Cached results
 
-GitHub Actions persists `docs/pluto_output/`, the output directory used by
-DemoCards and PlutoStaticHTML. Its cache key includes the resolved documentation
-manifest, notebook sources, and local package sources. Changed dependencies or
-package code therefore trigger fresh notebook evaluation in CI.
+The reusable SciML documentation workflow remains responsible for building and
+deploying the site. Following [PlutoStaticHTML's `previous_dir` pattern](https://juliapluto.github.io/PlutoStaticHTML.jl/stable/#Caching), each build
+copies `docs/pluto_output/` into the deployed site. CI restores these Markdown
+outputs from `dev/pluto_output/` on `gh-pages` before calling `makedemos`.
+Missing caches fall back to notebook evaluation. The workflow also enables its
+standard Julia package cache.
 
-Local builds use PlutoStaticHTML's normal cache. Remove `docs/pluto_output/` when
-you want fresh results after local package edits. No custom cache code is used.
+PlutoStaticHTML validates the notebook checksum and Julia version. These notebooks
+use a shared project, so edits to package code or dependencies also require fresh
+outputs: remove `docs/pluto_output/` locally or the corresponding deployed cache
+files in `dev/pluto_output/` on `gh-pages` before rebuilding.
 The resolved manifest, rendered notebook Markdown, and built site are ignored by
 Git. Set `DOCS_LINKCHECK=true` to enable external URL checks.
 

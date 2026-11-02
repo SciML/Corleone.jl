@@ -13,49 +13,9 @@ concurrency:
 
 jobs:
   build-and-deploy-docs:
-    name: Documentation / Build and Deploy Documentation
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-      statuses: write
-    env:
-      JULIA_NUM_THREADS: 4
-      OPENBLAS_NUM_THREADS: 1
-      CAN_DEPLOY_DOCS: >-
-        ${{ github.event_name != 'pull_request'
-            || (github.event.pull_request.head.repo.full_name == github.repository
-                && github.actor != 'dependabot[bot]') }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      # DemoCards 0.5's Pluto extension supports PlutoStaticHTML 6 / Pluto 0.19.
-      - uses: julia-actions/setup-julia@v3
-        with:
-          version: '1.10'
-      - uses: julia-actions/cache@v3
-      - name: Install documentation dependencies
-        run: >-
-          julia --color=yes --project=docs -e
-          'using Pkg; Pkg.develop([PackageSpec(path=pwd()),
-          PackageSpec(path="lib/CorleoneOED"),
-          PackageSpec(path="lib/OptimalControlBenchmarks")]); Pkg.instantiate()'
-      - name: Cache PlutoStaticHTML outputs
-        uses: actions/cache@v4
-        with:
-          path: docs/pluto_output
-          # An exact key also invalidates results after edits to local packages,
-          # which PlutoStaticHTML's notebook-file hash alone cannot detect.
-          key: >-
-            ${{ runner.os }}-pluto-${{ hashFiles('docs/Manifest.toml', 'docs/Project.toml',
-            'Project.toml', 'lib/*/Project.toml', 'src/**', 'ext/**',
-            'lib/CorleoneOED/src/**', 'lib/CorleoneOED/ext/**',
-            'lib/OptimalControlBenchmarks/src/**', 'lib/OptimalControlBenchmarks/ext/**',
-            'docs/examples/**', 'lib/CorleoneOED/docs/oed_examples/**',
-            'docs/make.jl', 'docs/prepare_pages.jl', '.github/workflows/Documentation.yml') }}
-      - name: Build and deploy documentation
-        env:
-          GITHUB_TOKEN: ${{ env.CAN_DEPLOY_DOCS == 'true' && secrets.GITHUB_TOKEN || '' }}
-        run: julia --color=yes --project=docs docs/make.jl
+    name: Documentation
+    uses: SciML/.github/.github/workflows/documentation.yml@v1
+    with:
+      julia-version: '1.10'
+      cache: true
+    secrets: inherit

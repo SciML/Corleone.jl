@@ -12,6 +12,21 @@ realpath(pkgdir(OptimalControlBenchmarks)) ==
 using DocumenterCitations
 using DemoCards, PlutoStaticHTML
 
+# DemoCards uses this directory as PlutoStaticHTML's previous_dir.
+pluto_output = joinpath(@__DIR__, "pluto_output")
+if get(ENV, "CI", "false") == "true" && !isdir(pluto_output)
+    mktempdir() do previous
+        try
+            run(`git clone --quiet --depth=1 --filter=blob:none --sparse --branch=gh-pages https://github.com/SciML/Corleone.jl.git $previous`)
+            run(`git -C $previous sparse-checkout set dev/pluto_output`)
+            cache = joinpath(previous, "dev", "pluto_output")
+            isdir(cache) && cp(cache, pluto_output)
+        catch err
+            @warn "Could not restore the Pluto cache; notebooks will be evaluated." exception = err
+        end
+    end
+end
+
 include("prepare_pages.jl")
 tutorials, tutorials_cleanup, tutorial_assets = makedemos(
     "examples"; root = @__DIR__, edit_branch = "main", throw_error = true
@@ -85,6 +100,9 @@ makedocs(
 
 tutorials_cleanup()
 oed_cleanup()
+
+# Preserve the raw Markdown for the next build, as documented by PlutoStaticHTML.
+cp(pluto_output, joinpath(@__DIR__, "build", "pluto_output"); force = true)
 
 # Local documentation builds never publish the site.
 if get(ENV, "CI", "false") == "true"
