@@ -1,0 +1,4 @@
+{
+    "title": "Numerical models",
+    "order": ["linear_quadratic.jl", "lotka_fishing.jl"]
+}

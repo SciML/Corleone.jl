@@ -1,4 +1,4 @@
-# Building the root package manual
+# Building the manual and tutorial galleries
 
 Run from the repository root:
 
@@ -7,39 +7,46 @@ julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageS
 julia --project=docs docs/make.jl
 ```
 
-Serve the generated site locally so directory-style links resolve correctly:
+The galleries use DemoCards' `PlutoDemoCard` support and PlutoStaticHTML's static
+Documenter output. The released DemoCards extension supports PlutoStaticHTML 6
+and Pluto 0.19; CI uses Julia 1.10 with these compatible versions.
+
+Edit the authoritative Pluto notebooks in `docs/examples/` and
+`lib/CorleoneOED/docs/oed_examples/`. To open the control tutorials interactively:
+
+```sh
+julia --project=docs -e 'using Pluto; Pluto.run()'
+```
+
+Open a notebook from `docs/examples/` in Pluto. Each notebook activates the nearest
+project above its source directory, following Pluto's shared-environment pattern.
+The notebooks also run as ordinary Julia scripts. For the OED notebooks, prepare
+[their documentation environment](../lib/CorleoneOED/docs/README.md) first.
+The existing `examples/*/main.jl` entrypoints include these notebook sources;
+`examples/install_deps.jl` prepares both documentation environments.
+
+DemoCards renders the notebooks, includes their static results, and provides
+source downloads. Documenter builds the guide/API pages, doctests, and references.
+The root manual includes the OED guide from `lib/CorleoneOED/docs/src/` and the
+benchmark guide from `lib/OptimalControlBenchmarks/docs/src/index.md`; edit those
+sources rather than generated copies under `docs/src/`.
+
+## Cached results
+
+GitHub Actions persists `docs/pluto_output/`, the output directory used by
+DemoCards and PlutoStaticHTML. Its cache key includes the resolved documentation
+manifest, notebook sources, and local package sources. Changed dependencies or
+package code therefore trigger fresh notebook evaluation in CI.
+
+Local builds use PlutoStaticHTML's normal cache. Remove `docs/pluto_output/` when
+you want fresh results after local package edits. No custom cache code is used.
+The resolved manifest, rendered notebook Markdown, and built site are ignored by
+Git. Set `DOCS_LINKCHECK=true` to enable external URL checks.
+
+Serve the built site to inspect directory-style links:
 
 ```sh
 python3 -m http.server 8000 --bind 127.0.0.1 --directory docs/build
 ```
 
-Open <http://127.0.0.1:8000/> to inspect the result. The build executes the LQR,
-numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
-optimization tutorials, plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment,
-and discrete compartmental tutorials. It checks exported API coverage and resolves
-internal cross-references. External URL checks can be enabled with
-`DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
-
-Dependency setup is separate from the build: `make.jl` uses the active environment
-without developing or resolving packages again. Set `CI=false` for a local build
-if your shell otherwise sets `CI=true`; deployment runs only in CI.
-
-Edit tutorials in their `examples/<name>/main.jl` sources, not the generated
-Markdown. Literate executes each tutorial once and Documenter includes its rendered
-output. Introductory guide examples and doctests execute through Documenter.
-
-The manual documents the checked-out Corleone, CorleoneOED, and
-OptimalControlBenchmarks modules. OED tutorials
-are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
-generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
-`docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
-duplicates. The root site retains main's established OED tutorial URLs.
-
-The Optimal Control Benchmarks section is generated from
-`lib/OptimalControlBenchmarks/docs/src/index.md` and documents the checked-out
-OptimalControlBenchmarks module. Edit that source rather than
-`docs/src/benchmarks/`. Its LQR example executes during the documentation build.
-
-The generated manifest, tutorial Markdown and figures, and HTML output are
-ignored by Git. If a manifest from an older checkout references a removed local
-package, remove `docs/Manifest.toml` and run the setup command again.
+Open <http://127.0.0.1:8000/>. Local builds do not deploy; `deploydocs` runs only in CI.

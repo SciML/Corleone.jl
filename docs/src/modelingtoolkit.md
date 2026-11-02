@@ -1,8 +1,8 @@
 # ModelingToolkit frontend
 
-See the [ModelingToolkit Lotka–Volterra tutorial](examples/modelingtoolkit_integration.md)
+See the [ModelingToolkit Lotka–Volterra tutorial](@ref mtk)
 for a complete single- and multiple-shooting example. The
-[LTI tutorial](examples/lti_control_with_unknown_coefficients.md) jointly optimizes
+[LTI tutorial](@ref mtk_lti) jointly optimizes
 a scalar input and three constant coefficients under terminal state equalities.
 
 ## Define the model

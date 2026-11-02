@@ -1,0 +1,4 @@
+{
+    "title": "Optimal experimental design",
+    "order": ["lotka_oed.jl", "compartmental_oed.jl", "lotka_multiexperiments.jl"]
+}

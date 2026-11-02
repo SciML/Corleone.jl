@@ -10,11 +10,16 @@ realpath(pkgdir(OptimalControlBenchmarks)) ==
     error("Develop OptimalControlBenchmarks from this checkout; see docs/README.md.")
 
 using DocumenterCitations
-using Literate
-using Dates
-using YAML
+using DemoCards, PlutoStaticHTML
 
-include("process_tutorials.jl")
+include("prepare_pages.jl")
+tutorials, tutorials_cleanup, tutorial_assets = makedemos(
+    "examples"; root = @__DIR__, edit_branch = "main", throw_error = true
+)
+oed_tutorials, oed_cleanup, oed_assets = makedemos(
+    "../lib/CorleoneOED/docs/oed_examples";
+    root = @__DIR__, edit_branch = "main", throw_error = true
+)
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
@@ -27,6 +32,7 @@ makedocs(
         repolink = "https://github.com/SciML/Corleone.jl",
         canonical = "https://docs.sciml.ai/Corleone/stable/",
         size_threshold = 1_500_000,
+        assets = unique(filter(!isnothing, [tutorial_assets, oed_assets])),
     ),
     doctest = true,
     checkdocs = :exports,
@@ -35,10 +41,11 @@ makedocs(
         "Home" => "index.md",
         "Tutorials" => [
             "Overview" => "tutorials.md",
-            "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
-            "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
-            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
-            "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
+            "Gallery" => tutorials,
+            hide("examples/optimal_control/linear_quadratic.md"),
+            hide("examples/optimal_control/lotka_fishing.md"),
+            hide("examples/modelingtoolkit/lotka.md"),
+            hide("examples/modelingtoolkit/lti.md"),
         ],
         "User Guide" => [
             "Shooting Formulation" => "shooting.md",
@@ -52,9 +59,10 @@ makedocs(
         "Optimal Experimental Design" => [
             "Overview" => "oed/index.md",
             "Tutorials" => [
-                "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
-                "Discrete Compartmental Design" => "examples/compartmental_oed_problem.md",
-                "Multiple Experiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
+                "Gallery" => oed_tutorials,
+                hide("oed_examples/experimental_design/lotka_oed.md"),
+                hide("oed_examples/experimental_design/compartmental_oed.md"),
+                hide("oed_examples/experimental_design/lotka_multiexperiments.md"),
             ],
             "Measurements and Information" => "oed/formulation.md",
             "Constructing and Optimizing Designs" => "oed/designs.md",
@@ -74,6 +82,9 @@ makedocs(
     remotes = nothing,
     plugins = [bib],
 )
+
+tutorials_cleanup()
+oed_cleanup()
 
 # Local documentation builds never publish the site.
 if get(ENV, "CI", "false") == "true"

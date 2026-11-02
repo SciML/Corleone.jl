@@ -1,17 +1,18 @@
 # Tutorials
 
 These examples use Corleone's shooting layers and the CorleoneOED experimental-design
-wrapper. All seven tutorials are executed during the documentation build.
+wrapper. All seven tutorials are Pluto notebooks, rendered statically with DemoCards and
+PlutoStaticHTML. Matching cached outputs are reused during documentation builds.
 
-- [Linear quadratic regulator](examples/the_linear_quadratic_regulator.md):
+- [Linear quadratic regulator](@ref linear_quad_reg):
   parameter schedules, bounded optimization, and state/control plots.
-- [Lotka–Volterra fishing](examples/the_lotka_volterra_fishing_problem.md):
+- [Lotka–Volterra fishing](@ref lotka_fishing):
   single shooting, lifted initial conditions, continuity constraints, and threaded
   multiple shooting.
-- [ModelingToolkit integration](examples/modelingtoolkit_integration.md):
+- [ModelingToolkit integration](@ref mtk):
   symbolic dynamics and integral costs, metadata bounds, and single and multiple
   shooting with fixed global initial values.
-- [LTI control with unknown coefficients](examples/lti_control_with_unknown_coefficients.md):
+- [LTI control with unknown coefficients](@ref mtk_lti):
   three terminal state equalities, a scalar input, three unknown constant
   coefficients, and shared-grid multiple shooting.
 

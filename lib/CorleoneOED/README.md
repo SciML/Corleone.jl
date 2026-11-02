@@ -33,11 +33,11 @@ The standalone [manual](docs/src/index.md) separates the
 [SVD, AD, and numerical scope](docs/src/numerics.md), and [API](docs/src/api.md).
 Build it with the [documentation environment and instructions](docs/README.md).
 The [root Corleone manual](../../docs/README.md) also includes these tutorials and
-the same guide/API sources. Both builds execute the authoritative Literate sources:
+the same guide/API sources. Both builds render the authoritative Pluto notebooks with DemoCards and PlutoStaticHTML:
 
-- [Lotka–Volterra](examples/lotka_oed/main.jl): fishing and continuous measurement densities.
-- [Multiple experiments](examples/lotka_multiexperiments/main.jl): independent schedules and global prior accounting.
-- [Compartmental model](examples/compartmental_oed/main.jl): discrete candidate events and relaxed sampling decisions.
+- [Lotka–Volterra](docs/oed_examples/experimental_design/lotka_oed.jl): fishing and continuous measurement densities.
+- [Multiple experiments](docs/oed_examples/experimental_design/lotka_multiexperiments.jl): independent schedules and global prior accounting.
+- [Compartmental model](docs/oed_examples/experimental_design/compartmental_oed.jl): discrete candidate events and relaxed sampling decisions.
 
 The quick start needs no Optimization or ComponentArrays import. Tutorials add
 ComponentArrays for the shared `pack` vectorizer, Optimization/OptimizationMOI and
