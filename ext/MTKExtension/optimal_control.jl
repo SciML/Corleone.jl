@@ -4,6 +4,7 @@ $(SIGNATURES)
 Build a dynamic optimization problem from an uncompiled ModelingToolkit `System`.
 System `costs` are summed. Definite time integrals introduce quadrature states;
 timed state/control reads use the shared trajectory expression evaluator.
+Lowered constraints retain parsed signal dependencies for structural sparse Jacobians.
 Equations become zero equalities and inequalities become residuals bounded above
 by zero. State and parameter bounds come from MTK metadata.
 States marked `tunable = true` receive a free initial value at `tspan[1]`.

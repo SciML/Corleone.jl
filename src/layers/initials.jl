@@ -255,3 +255,33 @@ end
     push!(exprs, :(return vals, new_st))
     return Expr(:block, exprs...)
 end
+
+# Setup-only dependency bookkeeping. A fixed reset erases the incoming state's
+# dependencies; a tunable reset additionally contributes a matching row.
+function reset_dependency!(dependencies, rows, layer::PassThrough, ids, st, indices, t, matching)
+    return nothing
+end
+function reset_dependency!(dependencies, rows, layer::FixedLayer, ids, st, indices, t, matching)
+    resets_variable(layer, st, t) || return nothing
+    for i in indices
+        dependencies[i] = BitSet()
+    end
+    return nothing
+end
+function reset_dependency!(dependencies, rows, layer::InitialCondition, ids, st, indices, t, matching)
+    resets_variable(layer, st, t) || return nothing
+    position = st.lookup.collection[t]
+    for (member, i) in enumerate(indices)
+        name = layer.parameter isa NamedTuple ? keys(layer.parameter)[member] : nothing
+        collection = isnothing(name) ? layer.parameter : layer.parameter[name]
+        if collection isa FixedLayer
+            dependencies[i] = BitSet()
+        else
+            parameter = isnothing(name) ? ids.parameter : getproperty(ids.parameter, name)
+            column = Int(parameter.ps[position])
+            matching && (rows[i] = union(dependencies[i], BitSet([column])))
+            dependencies[i] = BitSet([column])
+        end
+    end
+    return nothing
+end

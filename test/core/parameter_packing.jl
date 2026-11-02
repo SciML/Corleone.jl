@@ -83,3 +83,14 @@ end
     project = dirname(Base.active_project())
     @test success(`$(Base.julia_cmd()) --startup-file=no --project=$project $script`)
 end
+
+@testset "Structural sparsity with a custom reconstructor" begin
+    layer = ShootingLayer(
+        ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 1.0), [0.3]), Tsit5(),
+        Tunable(1; kind = Val(:variable), default = 0.5) => [0.5],
+        Tunable(1; default = 0.3) => [0.25, 0.75]
+    )
+    model = CorleoneDynamicOptProblem(layer, :(u₁(1.0)), :([u₁(0.5), p₁(0.25)]); lcons = zeros(2), ucons = fill(Inf, 2))
+    expected = constraint_jacobian_sparsity(model; vectorize = Val(:ComponentArrays))
+    @test constraint_jacobian_sparsity(model; vectorize = Val(:TestPacking)) == expected
+end

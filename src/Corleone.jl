@@ -4,6 +4,8 @@ using Reexport
 using DocStringExtensions
 import PrecompileTools: @compile_workload, @setup_workload
 
+import LinearAlgebra
+using SparseArrays
 using Random
 using ConcreteStructs
 
@@ -60,7 +62,7 @@ export default_evaluator, compile_evaluator
 include("dynprob.jl")
 export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
 include("optimization_bridge.jl")
-export pack, default_vectorizer
+export pack, default_vectorizer, constraint_jacobian_sparsity
 
 include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")

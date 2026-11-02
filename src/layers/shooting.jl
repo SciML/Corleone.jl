@@ -357,3 +357,75 @@ function trajectory_objective(layer::ShootingLayer, loss)
     end
     return loss
 end
+
+# Arbitrary dynamics may couple all states. Propagate their combined dependency
+# set through each integration segment, retaining precision at scheduled resets.
+function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing)
+    layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
+    dependencies = [BitSet() for _ in 1:sum(length, layer.initialcondition.indices; init = 0)]
+    rows = BitSet[]
+    reset_rows = Vector{Union{Nothing, BitSet}}(nothing, length(dependencies))
+    states_at = Dict{Real, Vector{BitSet}}()
+    # Every saved segment endpoint conservatively couples all states, so whole
+    # state histories have the same union. It is only read after this walk.
+    history = BitSet()
+    state_series = fill(history, length(dependencies))
+    callback = get(layer.problem.kwargs, :callback, nothing)
+    has_callbacks = callback isa SciMLBase.CallbackSet ?
+        !isempty(callback.continuous_callbacks) || !isempty(callback.discrete_callbacks) : !isnothing(callback)
+    f = layer.problem.f
+    initializes_state = has_callbacks || !hasproperty(f, :initialization_data) ||
+        !isnothing(f.initialization_data) || !hasproperty(f, :mass_matrix) || f.mass_matrix != LinearAlgebra.I
+    for (segment, t) in enumerate(st.timestops[1:(end - 1)])
+        fill!(reset_rows, nothing)
+        for (k, name) in enumerate(keys(layer.initialcondition.initialconditions))
+            reset_dependency!(
+                dependencies, reset_rows, layer.initialcondition.initialconditions[name],
+                getproperty(ids.initialcondition.initialconditions, name), st.initialcondition.initialconditions[name],
+                layer.initialcondition.indices[k], t, t != first(layer.problem.tspan)
+            )
+        end
+        for dependency in reset_rows
+            isnothing(dependency) || push!(rows, dependency)
+        end
+        combined = active_parameter_columns(layer.parameter, ids.parameter, st.parameter, t)
+        previous = nothing
+        for dependency in dependencies
+            if dependency !== previous
+                union!(combined, dependency)
+                previous = dependency
+            end
+        end
+        query = isnothing(sample_times) ? 0 : searchsortedfirst(sample_times, t)
+        if query > 0 && query <= length(sample_times) && sample_times[query] == t
+            # A callback initializer can mix states and parameters before the
+            # first saved value. Keep that boundary conservative when present.
+            outgoing = !initializes_state ?
+                copy(dependencies) : fill(combined, length(dependencies))
+            states_at[t] = outgoing
+        end
+        # Published dependency sets are read-only. Resets replace vector entries,
+        # so coupled states can share one set without copying its bit storage.
+        dependencies = fill(combined, length(dependencies))
+        stop = st.timestops[segment + 1]
+        if !isnothing(sample_times)
+            first_sample = searchsortedlast(sample_times, t) + 1
+            last_sample = searchsortedlast(sample_times, stop)
+            if first_sample <= last_sample
+                snapshot = copy(dependencies)
+                for i in first_sample:last_sample
+                    states_at[sample_times[i]] = snapshot
+                end
+            end
+            # This superset includes both sides of every saved reset.
+            union!(history, combined)
+        end
+    end
+    for entry in parameter_constraint_entries(layer.parameter, ids.parameter, st.parameter)
+        entry.fixed && continue
+        for i in entry.inserted
+            push!(rows, BitSet([Int(entry.values[i - 1]), Int(entry.values[i])]))
+        end
+    end
+    return (; matching = rows, states_at, state_series)
+end

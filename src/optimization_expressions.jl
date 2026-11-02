@@ -137,14 +137,73 @@ function replace_expression_samples(sym::Symbol, indices, times, input)
 end
 replace_expression_samples(x, indices, times, input) = x
 
-function compile_trajectory_expression(expr::Expr, indices, times, eval_module, evaluator)
-    input = gensym(:samples)
-    body = replace_expression_samples(expr, indices, times, input)
-    f = compile_evaluator(evaluator, Expr(:->, input, body), eval_module)
-    return traj -> f(
+"""
+$(TYPEDEF)
+
+A compiled trajectory expression retaining parsed signal dependencies for structural
+Jacobian preparation. Literal vector expressions additionally retain dependencies
+per component; other vector-valued expressions use their combined dependencies.
+
+# Fields
+$(FIELDS)
+"""
+struct ParsedTrajectoryExpression{F, D, C}
+    "The numerical evaluator accepting state and parameter sample views."
+    f::F
+    "Referenced (kind, index, time) signals; nothing denotes the entire series."
+    dependencies::D
+    "Per-component dependencies for a literal vector, or nothing."
+    components::C
+end
+function (expression::ParsedTrajectoryExpression)(traj)
+    return expression.f(
         (;
             states = ExpressionSamples{typeof(traj), :states}(traj),
             parameters = ExpressionSamples{typeof(traj), :parameters}(traj),
         )
     )
+end
+
+function collect_expression_dependencies!(dependencies, expr, indices, times)
+    if expr isa Symbol
+        haskey(indices, expr) && push!(dependencies, (indices[expr]..., nothing))
+    elseif expr isa Expr
+        if expr.head === :call && first(expr.args) isa Symbol && haskey(indices, first(expr.args))
+            push!(dependencies, (indices[first(expr.args)]..., convert(eltype(times), expression_time(expr.args[2]))))
+        else
+            args = expr.head === :call ? expr.args[2:end] : expr.args
+            foreach(arg -> collect_expression_dependencies!(dependencies, arg, indices, times), args)
+        end
+    end
+    return dependencies
+end
+function expression_dependencies(expr, indices, times)
+    dependencies = Tuple{Symbol, Int, Union{Nothing, Real}}[]
+    return unique!(collect_expression_dependencies!(dependencies, expr, indices, times))
+end
+
+function compile_trajectory_expression(expr::Expr, indices, times, eval_module, evaluator)
+    input = gensym(:samples)
+    body = replace_expression_samples(expr, indices, times, input)
+    f = compile_evaluator(evaluator, Expr(:->, input, body), eval_module)
+    components = if expr.head === :vect && !any(arg -> arg isa Expr && arg.head === :..., expr.args)
+        map(arg -> expression_dependencies(arg, indices, times), expr.args)
+    else
+        nothing
+    end
+    dependencies = isnothing(components) ? expression_dependencies(expr, indices, times) :
+        unique!(reduce(vcat, components; init = Tuple{Symbol, Int, Union{Nothing, Real}}[]))
+    return ParsedTrajectoryExpression(f, dependencies, components)
+end
+
+# Opaque callbacks may read any trajectory value. Parsed expressions expose the
+# signals they read; unknown vector output structure shares their union per row.
+trajectory_constraint_dependencies(f, n, resolve, ncolumns) =
+    fill(BitSet(1:ncolumns), n)
+function trajectory_constraint_dependencies(f::ParsedTrajectoryExpression, n, resolve, ncolumns)
+    if !isnothing(f.components) && length(f.components) == n
+        return map(resolve, f.components)
+    end
+    columns = resolve(f.dependencies)
+    return fill(columns, n)
 end

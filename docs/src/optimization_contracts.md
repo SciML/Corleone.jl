@@ -364,3 +364,50 @@ reuses its backing storage; packing a NamedTuple allocates flat storage once.
 Each packing implementation must use the same ordering for parameters and both
 bound trees. Reconstructors must use the supplied vector's values, rather than
 retaining initial numerical parameter values.
+
+### Sparse constraint Jacobians
+
+For ODE shooting problems, load DifferentiationInterface and SparseMatrixColorings
+and request sparse constraint differentiation explicitly:
+
+```julia
+import DifferentiationInterface, SparseMatrixColorings
+
+optprob = OptimizationProblem(model, AutoForwardDiff(); sparse_constraints = true)
+```
+
+This prepares a colored constraint Jacobian once, supplies `cons_j` and its sparse
+prototype, and retains the selected backend for the objective. It avoids tracing
+through the adaptive ODE solver. The same option is available on
+`OptimizationFunction`; it requires `inplace = true` and cannot be combined with
+user-supplied `cons_j`, `cons_jac_prototype`, or `cons_jac_colorvec`.
+
+Inspect the Boolean structural pattern with
+`constraint_jacobian_sparsity(model)`. Its columns use the chosen parameter
+vectorizer and its rows use the constraint output order. Parsed `Expr` constraints,
+including constraints lowered by ModelingToolkit, use their referenced signals
+and times. A control read depends on its active tunable interval; a state read
+uses the propagated dependencies at its saved time. Reset-time state reads select
+the post-reset side, while bare state series include both saved sides. Fixed
+signal reads and constant expressions contribute no parameter columns.
+
+For literal vector expressions such as `:([u₁(1.0), p₁(0.5)])`, dependencies are
+tracked per component. Other vector-valued expressions conservatively share the
+union of their referenced signals across all output rows. Bare signals refer to
+their complete saved series. Arbitrary callback rows remain dense. ODE callbacks, initialization metadata,
+and nonidentity mass matrices keep segment-start state reads conservative because
+initialization can mix state and parameter values.
+
+Shooting rows conservatively assume all states couple during integration,
+include parameters active in each segment, and propagate dependencies through
+partial resets. Fixed resets replace state dependencies without adding matching
+rows. Inserted parameter equalities each have two structural entries. Fixed
+values in Lux state are excluded from the optimization columns.
+
+Reconstruct the optimization problem after changing schedules, scalar/container
+types, or parameter/output layouts. Updated numerical parameters and fixed values
+in Lux state can reuse the preparation with the same types and layout. Use separate
+preparations and mutable Lux state buffers for concurrent evaluations. Sparse Jacobians are most useful
+when coloring reduces the number of derivative directions; dense user constraints
+can limit that reduction. DAE problems and other Lux layer types are not yet
+supported by this structural pattern generator.

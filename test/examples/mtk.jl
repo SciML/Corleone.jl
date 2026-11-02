@@ -7,6 +7,7 @@ using ComponentArrays, ForwardDiff
 using Optimization, OptimizationMOI, Ipopt
 using SymbolicIndexingInterface
 using LuxCore, Random
+import DifferentiationInterface, SparseMatrixColorings
 
 include("mtk_scalarization.jl")
 
@@ -292,5 +293,35 @@ end
         @test isempty(first(trajectory.residuals))
         @test length(shooting_constraints(trajectory)) == 2
         @test sort(shooting_constraints(trajectory)) ≈ [-0.3, 0.0] atol = 1.0e-12
+    end
+end
+
+@testset "MTK parsed constraint sparsity" begin
+    @variables sparse_x(..) = 1.0 [tunable = false]
+    @variables sparse_u(..) = 0.2 [input = true]
+    @parameters sparse_a = 0.3 [tunable = true] sparse_b = 0.4 [tunable = false]
+    @named sparse_system = System(
+        [D(sparse_x(t)) ~ sparse_a * sparse_x(t) + sparse_b + sparse_u(t)], t;
+        costs = [sparse_x(3.0)^2],
+        constraints = [sparse_u(0.5) ~ 0.2, sparse_x(1.0) ~ 1.0, sparse_a ~ 0.3, sparse_b ~ 0.4]
+    )
+    model = CorleoneDynamicOptProblem(
+        sparse_system, [], sparse_u(t) => [0.5, 1.5, 2.5]; algorithm = Tsit5(),
+        shooting = [1.0, 2.0], tspan = (0.0, 3.0), problem_kwargs = (; abstol = 1.0e-10, reltol = 1.0e-10)
+    )
+    q, rebuild = pack(default_vectorizer(), model.ps)
+    pattern = constraint_jacobian_sparsity(model)
+    @test count(pattern[1, :]) == 1 # One control interval.
+    @test count(pattern[2, :]) == 1 # Post-reset shooting state.
+    @test count(pattern[3, :]) == 1 # Tunable physical parameter.
+    @test count(pattern[4, :]) == 0 # Fixed physical parameter.
+    sparse_opt = OptimizationProblem(model, AutoForwardDiff(); sparse_constraints = true)
+    for shift in (0.0, 0.02)
+        input = q .+ shift
+        J = ForwardDiff.jacobian(x -> optimization_constraints(model, rebuild(x)), input)
+        @test maximum(abs, J[.!Matrix(pattern)]; init = 0.0) < 1.0e-8
+        compressed = copy(sparse_opt.f.cons_jac_prototype)
+        sparse_opt.f.cons_j(compressed, input, sparse_opt.p)
+        @test Matrix(compressed) ≈ J
     end
 end

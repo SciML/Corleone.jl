@@ -11,6 +11,10 @@ function pack(::Val{:ComponentArrays}, ps::Union{NamedTuple, ComponentVector})
     return data, Base.Fix2(ComponentArray, getaxes(parameters))
 end
 
+# Materialize the integer index tree once instead of rebuilding nested views at
+# every shooting boundary. Numeric parameters retain their existing view path.
+Corleone.sparsity_indices(ids::ComponentVector) = NamedTuple(ids)
+
 # Splitting intervals changes axes, so rebuild structured parameter storage.
 function Corleone.replace_parameter_fields(ps::ComponentVector, fields::NamedTuple)
     names = propertynames(ps)

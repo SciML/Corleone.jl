@@ -56,6 +56,9 @@ else
             @safetestset "Optimization facade differentiation" begin
                 include("core/optimization_facade_ad.jl")
             end
+            @safetestset "Constraint sparsity" begin
+                include("core/constraint_sparsity.jl")
+            end
             @safetestset "Parameter packing" begin
                 include("core/parameter_packing.jl")
             end
@@ -124,6 +127,9 @@ else
                     end
                     @safetestset "Lotka MS" begin
                         include("examples/lotka_ms.jl")
+                    end
+                    @safetestset "Sparse constraint optimization" begin
+                        include("examples/sparse_constraints.jl")
                     end
                     @safetestset "Optimization facade bridge" begin
                         include("examples/optimization_facade.jl")

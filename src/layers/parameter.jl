@@ -290,3 +290,58 @@ function write_parameter_constraints!(res, index, layer::Parameter, ps, st)
     end
     return index
 end
+
+active_parameter_columns(::FixedLayer, ids, st, t) = BitSet()
+function active_parameter_columns(layer::PiecewiseConstant, ids, st, t)
+    position = isnothing(st.lookup.collection) ? 1 : searchsortedlast(st.lookup.collection, t) + 1
+    if layer.parameter isa NamedTuple
+        columns = BitSet()
+        for name in keys(layer.parameter)
+            layer.parameter[name] isa FixedLayer && continue
+            push!(columns, Int(getproperty(ids.parameter, name).ps[position]))
+        end
+        return columns
+    end
+    return BitSet([Int(ids.parameter.ps[position])])
+end
+function active_parameter_columns(layer::Parameter, ids, st, t)
+    columns = BitSet()
+    for name in keys(layer.parameters)
+        union!(columns, active_parameter_columns(layer.parameters[name], getproperty(ids.parameters, name), st.parameters[name], t))
+    end
+    return columns
+end
+
+# Resolve only the selected signal. Build the canonical index-to-group mapping
+# once so repeated queries do not scan groups or materialize unused dependencies.
+function parameter_signal_locations(layer::Parameter, st)
+    locations = Tuple{Symbol, Union{Nothing, Symbol}}[]
+    sizehint!(locations, sum(length, layer.indices; init = 0))
+    for (group, name) in enumerate(keys(layer.parameters))
+        child = layer.parameters[name]
+        grouped = !(child isa FixedLayer) && child.parameter isa NamedTuple
+        for position in eachindex(layer.indices[group])
+            member = grouped ? keys(child.parameter)[position] : nothing
+            push!(locations, (name, member))
+        end
+    end
+    return locations[st.permutation]
+end
+function parameter_signal_dependency(layer::Parameter, ids, st, location, t)
+    name, member = location
+    child = layer.parameters[name]
+    child isa FixedLayer && return BitSet()
+    parameters = getproperty(ids.parameters, name).parameter
+    if !isnothing(member)
+        child.parameter[member] isa FixedLayer && return BitSet()
+        parameters = getproperty(parameters, member)
+    end
+    grid = st.parameters[name].lookup.collection
+    intervals = if t isa Tuple
+        lookup!(nothing, grid, first(t)):lookup!(nothing, grid, last(t))
+    else
+        interval = lookup!(nothing, grid, t)
+        interval:interval
+    end
+    return BitSet(Int(parameters.ps[i]) for i in intervals)
+end

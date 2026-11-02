@@ -20,6 +20,19 @@ Benchmarks do not install dependencies or change the package environment.
 - `shooting_parallel.jl`: warmed serial/threaded comparisons for cheap and expensive
   ODE right-hand sides. Requires BenchmarkTools, LuxCore, OrdinaryDiffEqTsit5, and
   Random alongside Corleone.
+- `sparsity_preparation.jl`: warmed structural-pattern preparation for shared grids,
+  selected/all parameter reads, and a trajectory with 10,001 saving times. Requires
+  Corleone, ComponentArrays, OrdinaryDiffEqTsit5, and Statistics.
+  Reports median time and allocated bytes over 20 calls after two warmups; model
+  construction and compilation are excluded. Use one Julia thread and one BLAS thread.
+- `shooting_sparse.jl`: dense versus structural sparse constraint Jacobians and
+  Ipopt solves for the multiple-shooting Lotka tutorial. Requires ComponentArrays,
+  LuxCore, OrdinaryDiffEqTsit5, Optimization, OptimizationMOI, Ipopt, ForwardDiff,
+  ADTypes, DifferentiationInterface, SparseMatrixColorings, SparseArrays, Statistics,
+  and Random. Checks derivatives at four inputs and the optimized solutions.
+  Jacobian timings use 30 warmed calls; solve timings report the first call and
+  the median of three subsequent solves. Preparation and package loading are excluded
+  from warmed timings.
 - `shooting_ad.jl`: forward loss and prepared gradient timings for a Lotka ODE,
   using controls alone or joint state/parameter shooting variables. Requires
   BenchmarkTools, LuxCore, OrdinaryDiffEqTsit5, ComponentArrays,

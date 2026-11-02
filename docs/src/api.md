@@ -140,6 +140,7 @@ CorleoneDynamicOptProblem
 optimization_objective
 optimization_constraints
 optimization_constraints!
+constraint_jacobian_sparsity
 pack
 default_vectorizer
 default_evaluator
