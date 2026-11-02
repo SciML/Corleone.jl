@@ -24,6 +24,10 @@ UnoSolver = "1baa60ac-02f7-4b39-a7a8-2f4f58486b05"
 [sources]
 Corleone = {path = "../.."}
 
+[weakdeps]
+# Match Corleone's optional Hessian interface when Optimization loads it.
+OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
+
 [compat]
 CairoMakie = "0.15"
 ComponentArrays = "0.15"
@@ -34,6 +38,7 @@ LinearAlgebra = "1"
 Logging = "1"
 LuxCore = "1.4"
 Optimization = "5"
+OptimizationBase = "5.5.3"
 OptimizationMOI = "1.4"
 OrdinaryDiffEqTsit5 = "2"
 Printf = "1"

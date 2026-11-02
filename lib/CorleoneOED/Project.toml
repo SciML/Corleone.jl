@@ -21,6 +21,10 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 [sources]
 Corleone = {path = "../.."}
 
+[weakdeps]
+# Match Corleone's optional Hessian interface when Optimization loads it.
+OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
+
 [compat]
 ADTypes = "1"
 ChainRulesCore = "1.25.1"
@@ -32,6 +36,7 @@ Ipopt = "1"
 LinearAlgebra = "1"
 LuxCore = "1.4"
 Optimization = "5"
+OptimizationBase = "5.5.3"
 OptimizationMOI = "1.4"
 OrdinaryDiffEqTsit5 = "2"
 OrdinaryDiffEqBDF = "2"
