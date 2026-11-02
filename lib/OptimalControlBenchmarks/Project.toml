@@ -1,7 +1,7 @@
 name = "OptimalControlBenchmarks"
 uuid = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 authors = ["Robert Lampel", "Julius Martensen", "Christoph Plate", "Reinhold Wittmann"]
-version = "1.0.0"
+version = "2.0.0"
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
@@ -31,7 +31,7 @@ OrdinaryDiffEqCore = "bbf590c4-e513-4bbe-9b18-05decba2e5d8"
 LinearAlgebra = "1"
 CairoMakie = "0.15"
 ComponentArrays = "0.15"
-Corleone = "1.0.1"
+Corleone = "2"
 DocStringExtensions = "0.9.3"
 ForwardDiff = "1.3"
 Ipopt = "1"

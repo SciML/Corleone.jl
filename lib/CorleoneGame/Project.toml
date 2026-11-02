@@ -33,7 +33,7 @@ OrdinaryDiffEqCore = "bbf590c4-e513-4bbe-9b18-05decba2e5d8"
 [compat]
 CairoMakie = "0.15"
 ComponentArrays = "0.15"
-Corleone = "1.0.1"
+Corleone = "2"
 ForwardDiff = "1"
 Ipopt = "1"
 LinearAlgebra = "1"
