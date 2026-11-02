@@ -26,5 +26,6 @@ CorleoneOED = {path = "../lib/CorleoneOED"}
 OptimalControlBenchmarks = {path = "../lib/OptimalControlBenchmarks"}
 
 [compat]
-CorleoneOED = "1"
-OptimalControlBenchmarks = "1"
+Corleone = "2"
+CorleoneOED = "2"
+OptimalControlBenchmarks = "2"
