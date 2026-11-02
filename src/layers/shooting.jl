@@ -360,11 +360,13 @@ end
 
 # Arbitrary dynamics may couple all states. Propagate their combined dependency
 # set through each integration segment, retaining precision at scheduled resets.
-function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing)
+function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing, hessian = false)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
     dependencies = [BitSet() for _ in 1:sum(length, layer.initialcondition.indices; init = 0)]
     rows = BitSet[]
     reset_rows = Vector{Union{Nothing, BitSet}}(nothing, length(dependencies))
+    reset_hessian_rows = hessian ? similar(reset_rows) : nothing
+    matching_hessian = BitSet[]
     states_at = Dict{Real, Vector{BitSet}}()
     # Every saved segment endpoint conservatively couples all states, so whole
     # state histories have the same union. It is only read after this walk.
@@ -378,15 +380,18 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
         !isnothing(f.initialization_data) || !hasproperty(f, :mass_matrix) || f.mass_matrix != LinearAlgebra.I
     for (segment, t) in enumerate(st.timestops[1:(end - 1)])
         fill!(reset_rows, nothing)
+        hessian && fill!(reset_hessian_rows, nothing)
         for (k, name) in enumerate(keys(layer.initialcondition.initialconditions))
             reset_dependency!(
                 dependencies, reset_rows, layer.initialcondition.initialconditions[name],
                 getproperty(ids.initialcondition.initialconditions, name), st.initialcondition.initialconditions[name],
-                layer.initialcondition.indices[k], t, t != first(layer.problem.tspan)
+                layer.initialcondition.indices[k], t, t != first(layer.problem.tspan); hessian_rows = reset_hessian_rows
             )
         end
-        for dependency in reset_rows
-            isnothing(dependency) || push!(rows, dependency)
+        for i in eachindex(reset_rows)
+            isnothing(reset_rows[i]) && continue
+            push!(rows, reset_rows[i])
+            hessian && push!(matching_hessian, reset_hessian_rows[i])
         end
         combined = active_parameter_columns(layer.parameter, ids.parameter, st.parameter, t)
         previous = nothing
@@ -425,7 +430,8 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
         entry.fixed && continue
         for i in entry.inserted
             push!(rows, BitSet([Int(entry.values[i - 1]), Int(entry.values[i])]))
+            hessian && push!(matching_hessian, BitSet()) # Affine parameter equality.
         end
     end
-    return (; matching = rows, states_at, state_series)
+    return (; matching = rows, states_at, state_series, matching_hessian)
 end

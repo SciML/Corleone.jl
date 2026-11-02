@@ -157,20 +157,40 @@ function constraint_sparsity(prob, initial, reconstruct, st)
     check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
     prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
     isempty(prob.lcons) && return spzeros(Bool, 0, length(initial))
+    dependencies = optimization_dependency_rows(prob, initial, reconstruct, st)
+    all_rows = vcat(dependencies.user, dependencies.matching)
+    rows, columns = Int[], Int[]
+    entries = sum(length, all_rows; init = 0)
+    sizehint!(rows, entries)
+    sizehint!(columns, entries)
+    for (i, columns_for_row) in enumerate(all_rows), column in columns_for_row
+        push!(rows, i)
+        push!(columns, column)
+    end
+    return sparse(rows, columns, trues(length(rows)), length(prob.lcons), length(initial))
+end
+
+# Shared setup-time signal resolution for Jacobian and Hessian patterns.
+function optimization_dependency_rows(prob, initial, reconstruct, st; hessian = false)
+    prob.layer isa ShootingLayer || throw(ArgumentError("Structural derivatives currently require a ShootingLayer."))
+    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
+    prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
     ids = sparsity_indices(reconstruct(collect(1:length(initial))))
     state = optimization_state(prob.layer, st, prob.evaluation_grid)
     state_reads = false
     state_times = eltype(prob.times)[]
-    for constraint in prob.constraints
-        constraint.f isa ParsedTrajectoryExpression || continue
-        for (kind, index, time) in constraint.f.dependencies
+    functions = (c.f for c in prob.constraints)
+    inspected = hessian ? Iterators.flatten((functions, (prob.objective,))) : functions
+    for f in inspected
+        f isa ParsedTrajectoryExpression || continue
+        for (kind, index, time) in f.dependencies
             kind === :states || continue
             state_reads = true
             isnothing(time) || push!(state_times, time)
         end
     end
     sort!(unique!(state_times))
-    dependencies = shooting_constraint_dependencies(prob.layer, ids, state; sample_times = state_reads ? state_times : nothing)
+    dependencies = shooting_constraint_dependencies(prob.layer, ids, state; sample_times = state_reads ? state_times : nothing, hessian)
     length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
     parameter_locations = parameter_signal_locations(prob.layer.parameter, state.parameter)
     parameter_samples = Dict{Tuple{Int, Real}, BitSet}()
@@ -202,16 +222,8 @@ function constraint_sparsity(prob, initial, reconstruct, st)
     for constraint in prob.constraints
         append!(user_rows, trajectory_constraint_dependencies(constraint.f, length(constraint), resolve, length(initial)))
     end
-    all_rows = vcat(user_rows, dependencies.matching)
-    rows, columns = Int[], Int[]
-    entries = sum(length, all_rows; init = 0)
-    sizehint!(rows, entries)
-    sizehint!(columns, entries)
-    for (i, columns_for_row) in enumerate(all_rows), column in columns_for_row
-        push!(rows, i)
-        push!(columns, column)
-    end
-    return sparse(rows, columns, trues(length(rows)), length(prob.lcons), length(initial))
+    objective = hessian ? only(trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial))) : BitSet()
+    return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
 end
 
 function check_sparse_constraint_keywords(enabled, kwargs)
@@ -225,3 +237,46 @@ sparse_constraint_options(args...) = throw(ArgumentError("Load DifferentiationIn
 # Vectorizers can normalize column IDs for repeated setup-time tree access.
 # This hook only receives newly allocated integer metadata, never numerical ps.
 sparsity_indices(ids) = ids
+
+"""
+$(SIGNATURES)
+
+Return a conservative symmetric Boolean sparsity pattern for the Lagrangian
+Hessian `σ * ∇²objective + sum(λ[i] * ∇²constraint[i])`, including the objective
+when there are no constraints. Columns and rows follow `pack(vectorize, ps)`.
+The pattern is independent of the current objective factor and multipliers.
+
+Parsed expressions (including lowered MTK expressions) conservatively couple all
+parameter columns on which each output depends. This covers general nonlinear
+operations and curvature introduced by the ODE solution without differentiating
+expression syntax. Unknown callbacks conservatively couple all columns.
+This is a structural superset, not symbolic second differentiation.
+State matching rows use their incoming solution dependencies; the assigned lifted
+value is affine. Parameter matching equalities are affine and add no entries.
+
+Supports prepared ODE ShootingLayer models. Rebuild after schedule or layout
+changes. Load OptimizationBase to obtain its canonical upper-triangle coordinates
+with `OptimizationBase.lag_hess_structure(prob; vectorize, ps, st)`.
+This supplies structure only; numerical Hessian callbacks are configured separately.
+"""
+function lagrangian_hessian_sparsity(
+        prob::CorleoneDynamicOptProblem; vectorize = default_vectorizer(),
+        ps = prob.ps, st = prob.st
+    )
+    initial, reconstruct = pack(vectorize, ps)
+    dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
+    cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
+    columns = [BitSet() for _ in eachindex(initial)]
+    for clique in cliques, column in clique
+        union!(columns[column], clique)
+    end
+    colptr = Vector{Int}(undef, length(initial) + 1)
+    rows = Int[]
+    sizehint!(rows, sum(length, columns; init = 0))
+    for (j, indices) in enumerate(columns)
+        colptr[j] = length(rows) + 1
+        append!(rows, indices)
+    end
+    colptr[end] = length(rows) + 1
+    return SparseMatrixCSC(length(initial), length(initial), colptr, rows, fill(true, length(rows)))
+end

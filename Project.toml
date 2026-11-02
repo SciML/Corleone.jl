@@ -21,6 +21,7 @@ SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [weakdeps]
+OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 SparseMatrixColorings = "0a514795-09f3-496d-8182-132a7b665d35"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
@@ -30,6 +31,7 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [extensions]
+CorleoneOptimizationBaseExtension = "OptimizationBase"
 CorleoneSparseDifferentiationExtension = ["DifferentiationInterface", "SparseMatrixColorings"]
 CorleoneRuntimeGeneratedFunctionsExtension = "RuntimeGeneratedFunctions"
 CorleoneComponentArraysExtension = "ComponentArrays"
@@ -38,6 +40,7 @@ CorleoneMakieExtension = "Makie"
 CorleoneModelingToolkitExtension = "ModelingToolkit"
 
 [compat]
+OptimizationBase = "5.5.3"
 SparseArrays = "1"
 DifferentiationInterface = "0.7"
 SparseMatrixColorings = "0.4"

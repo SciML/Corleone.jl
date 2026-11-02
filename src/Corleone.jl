@@ -62,7 +62,7 @@ export default_evaluator, compile_evaluator
 include("dynprob.jl")
 export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
 include("optimization_bridge.jl")
-export pack, default_vectorizer, constraint_jacobian_sparsity
+export pack, default_vectorizer, constraint_jacobian_sparsity, lagrangian_hessian_sparsity
 
 include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")

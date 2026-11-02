@@ -141,6 +141,7 @@ optimization_objective
 optimization_constraints
 optimization_constraints!
 constraint_jacobian_sparsity
+lagrangian_hessian_sparsity
 pack
 default_vectorizer
 default_evaluator

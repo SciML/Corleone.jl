@@ -411,3 +411,57 @@ preparations and mutable Lux state buffers for concurrent evaluations. Sparse Ja
 when coloring reduces the number of derivative directions; dense user constraints
 can limit that reduction. DAE problems and other Lux layer types are not yet
 supported by this structural pattern generator.
+
+### Lagrangian Hessian structure
+
+The Lagrangian Hessian includes the objective and every user and shooting
+constraint:
+
+```math
+\nabla_q^2 L(q, \sigma, \lambda)
+= \sigma \nabla_q^2 f(q)
++ \sum_i \lambda_i \nabla_q^2 c_i(q).
+```
+
+Here ``q`` is the packed parameter vector, ``\sigma`` is the objective factor,
+and ``\lambda_i`` are constraint multipliers. Inspect its symmetric Boolean
+structural pattern with:
+
+```julia
+pattern = lagrangian_hessian_sparsity(model)
+
+import OptimizationBase
+rows, cols = OptimizationBase.lag_hess_structure(model)
+```
+
+The coordinates follow OptimizationBase's convention: the upper triangle in
+CSC column order. Both calls accept the same `vectorize`, `ps`, and `st` keywords
+as `constraint_jacobian_sparsity`. The pattern includes objective curvature even
+for an unconstrained problem and retains possible entries independently of the
+current objective factor and multiplier values.
+
+Parsed expressions, including expressions lowered by ModelingToolkit, identify
+which optimization columns each output depends on. All pairs within that set
+are retained as possible Hessian entries. This covers general nonlinear
+operations without operation-specific derivative rules. Literal vector outputs
+retain separate dependency sets per component. Even an affine expression can
+therefore contribute extra structural entries; this deliberate overestimate
+avoids missing nonlinear interactions.
+
+State reads additionally include conservative curvature from the ODE solution.
+A linear expression in a predicted state can therefore have a nonlinear
+parameter dependence. Matching residuals include the incoming solution's
+curvature; the subtracted lifted value is affine. Inserted parameter equalities
+are affine and contribute no Hessian entries. Arbitrary callbacks use a dense
+fallback. These patterns are structural supersets; they do not symbolically
+differentiate the dynamics or detect algebraic cancellation.
+
+!!! note "Structure and numerical values"
+    These helpers provide structure only. They do not prepare numerical Hessian
+    callbacks or change `sparse_constraints=true`. A vector-form `lag_h` callback
+    must write values in the coordinate order returned for its supplied
+    `lag_hess_prototype`. Use a consistent prototype and callback when configuring
+    the optimization function.
+
+The same ODE, fixed-schedule, and parameter-layout restrictions as for the
+constraint Jacobian apply. Rebuild the pattern when the schedule or layout changes.

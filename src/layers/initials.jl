@@ -258,17 +258,17 @@ end
 
 # Setup-only dependency bookkeeping. A fixed reset erases the incoming state's
 # dependencies; a tunable reset additionally contributes a matching row.
-function reset_dependency!(dependencies, rows, layer::PassThrough, ids, st, indices, t, matching)
+function reset_dependency!(dependencies, rows, layer::PassThrough, ids, st, indices, t, matching; hessian_rows = nothing)
     return nothing
 end
-function reset_dependency!(dependencies, rows, layer::FixedLayer, ids, st, indices, t, matching)
+function reset_dependency!(dependencies, rows, layer::FixedLayer, ids, st, indices, t, matching; hessian_rows = nothing)
     resets_variable(layer, st, t) || return nothing
     for i in indices
         dependencies[i] = BitSet()
     end
     return nothing
 end
-function reset_dependency!(dependencies, rows, layer::InitialCondition, ids, st, indices, t, matching)
+function reset_dependency!(dependencies, rows, layer::InitialCondition, ids, st, indices, t, matching; hessian_rows = nothing)
     resets_variable(layer, st, t) || return nothing
     position = st.lookup.collection[t]
     for (member, i) in enumerate(indices)
@@ -279,7 +279,10 @@ function reset_dependency!(dependencies, rows, layer::InitialCondition, ids, st,
         else
             parameter = isnothing(name) ? ids.parameter : getproperty(ids.parameter, name)
             column = Int(parameter.ps[position])
-            matching && (rows[i] = union(dependencies[i], BitSet([column])))
+            if matching
+                rows[i] = union(dependencies[i], BitSet([column]))
+                isnothing(hessian_rows) || (hessian_rows[i] = dependencies[i])
+            end
             dependencies[i] = BitSet([column])
         end
     end
