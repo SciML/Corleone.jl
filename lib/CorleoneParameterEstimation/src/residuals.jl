@@ -33,8 +33,10 @@ function model_values(pe::ParameterEstimationLayer, traj, times::AbstractVector)
         # whole solve, mark the uncovered columns `NaN` so the least-squares objective is
         # non-finite and the optimizer backs off (line search) or rejects the step. If every
         # requested time is missing the calculation is meaningless, so that is still an error.
-        all(isnothing, idx) && throw(ArgumentError(
-            "The observation time points must be a subset of the trajectory's time points.")
+        all(isnothing, idx) && throw(
+            ArgumentError(
+                "The observation time points must be a subset of the trajectory's time points."
+            )
         )
         fill!(Y, NaN)
         for (j, k) in enumerate(idx)
@@ -161,8 +163,11 @@ function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVe
     if any(isnothing, idx)
         # A shooting sub-interval can diverge mid-solve, leaving a trajectory that does not
         # cover every observation time; mark the uncovered columns `NaN` (see `model_values`).
-        all(isnothing, idx) && throw(ArgumentError(
-            "The observation time points must be a subset of the trajectory's time points."))
+        all(isnothing, idx) && throw(
+            ArgumentError(
+                "The observation time points must be a subset of the trajectory's time points."
+            )
+        )
         cols = map(idx) do k
             isnothing(k) ? fill(nT(NaN), n_obs) : collect(obs(traj.u[k], traj.p, traj.t[k]))
         end

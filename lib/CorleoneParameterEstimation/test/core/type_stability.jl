@@ -67,7 +67,7 @@ shooting_points = collect(0.0:1.0:5.0)
 
     # `estimate_parameters` infers a concretely-typed Jacobian, hence a concrete
     # covariance matrix (the ForwardDiff.jacobian result is type-asserted).
-    sol = solve(problem(pe), GaussNewton(); abstol = 1e-6, reltol = 1e-6)
+    sol = solve(problem(pe), GaussNewton(); abstol = 1.0e-6, reltol = 1.0e-6)
     @test SciMLBase.successful_retcode(sol)
     res = estimate_parameters(pe, sol)
     @test covariance(res) isa Matrix{Float64}
@@ -75,8 +75,10 @@ shooting_points = collect(0.0:1.0:5.0)
 end
 
 @testset "multiple shooting" begin
-    pe = ParameterEstimationLayer(prob, Tsit5(), data, shooting_points;
-        observed = (u, p, t) -> u[1:1])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data, shooting_points;
+        observed = (u, p, t) -> u[1:1]
+    )
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(pe)
     P = typeof(pe_problem)
 
