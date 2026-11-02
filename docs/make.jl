@@ -48,6 +48,14 @@ oed_tutorials, oed_cleanup, oed_assets = makedemos(
     "../lib/CorleoneOED/docs/oed_examples";
     root = @__DIR__, edit_branch = "main", throw_error = true
 )
+# Collect both sets of cards without duplicating the authoritative notebooks.
+oed_page = DemoCards.DemoPage(joinpath(@__DIR__, "..", "lib", "CorleoneOED", "docs", "oed_examples"))
+templates, _ = DemoCards.cardtheme("grid"; root = @__DIR__)
+oed_cards = DemoCards.generate(oed_page.sections, templates)
+open(joinpath(@__DIR__, "src", tutorials), "a") do io
+    write(io, "\n", replace(oed_cards, "covers/" => "../oed_examples/covers/"))
+end
+rm(joinpath(@__DIR__, "src", oed_tutorials))
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
@@ -69,8 +77,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Tutorials" => [
-            "Overview" => "tutorials.md",
-            "Choose a tutorial" => tutorials,
+            "Gallery" => tutorials,
             "Control fundamentals" => [
                 "Track a target" => "examples/optimal_control/linear_quadratic.md",
                 "Control predator–prey dynamics" => "examples/optimal_control/lotka_fishing.md",
@@ -78,6 +85,11 @@ makedocs(
             "Symbolic models and constraints" => [
                 "Build a model from equations" => "examples/modelingtoolkit/lotka.md",
                 "Estimate coefficients and controls" => "examples/modelingtoolkit/lti.md",
+            ],
+            "Measurement design" => [
+                "Continuous measurement schedules" => "oed_examples/experimental_design/lotka_oed.md",
+                "Discrete sampling times" => "oed_examples/experimental_design/compartmental_oed.md",
+                "Combine experiments" => "oed_examples/experimental_design/lotka_multiexperiments.md",
             ],
         ],
         "User Guide" => [
@@ -91,12 +103,6 @@ makedocs(
         ],
         "Optimal Experimental Design" => [
             "Overview" => "oed/index.md",
-            "Tutorials" => [
-                "Choose a measurement design" => oed_tutorials,
-                "Continuous measurement schedules" => "oed_examples/experimental_design/lotka_oed.md",
-                "Discrete sampling times" => "oed_examples/experimental_design/compartmental_oed.md",
-                "Combine experiments" => "oed_examples/experimental_design/lotka_multiexperiments.md",
-            ],
             "Measurements and Information" => "oed/formulation.md",
             "Constructing and Optimizing Designs" => "oed/designs.md",
             "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
