@@ -456,12 +456,40 @@ are affine and contribute no Hessian entries. Arbitrary callbacks use a dense
 fallback. These patterns are structural supersets; they do not symbolically
 differentiate the dynamics or detect algebraic cancellation.
 
-!!! note "Structure and numerical values"
-    These helpers provide structure only. They do not prepare numerical Hessian
-    callbacks or change `sparse_constraints=true`. A vector-form `lag_h` callback
-    must write values in the coordinate order returned for its supplied
-    `lag_hess_prototype`. Use a consistent prototype and callback when configuring
-    the optimization function.
+### Sparse exact Hessians
+
+Load DifferentiationInterface and SparseMatrixColorings, then enable sparse
+Hessian evaluation explicitly:
+
+```julia
+optprob = OptimizationProblem(
+    model, AutoForwardDiff(); sparse_constraints = true, sparse_hessian = true
+)
+solution = solve(optprob, Ipopt.Optimizer())
+```
+
+`sparse_hessian=true` uses the Lagrangian pattern to prepare colored second
+differentiation once. Objective and constraints share one trajectory prediction
+per Lagrangian evaluation. The prepared callbacks use the current objective
+factor, constraint multipliers, and Lux state; none are frozen at preparation.
+The option supplies `hess`, `hess_prototype`, `lag_h`, and `lag_hess_prototype`.
+It also supports unconstrained models through the objective Hessian callback.
+The vector-form Lagrangian callback uses OptimizationBase's upper-triangle CSC
+coordinate order.
+
+The option requires `inplace=true` and a dense AD backend supporting second-order
+differentiation of the model. ForwardDiff is covered by the integration tests;
+first-order compatibility alone does not imply second-order compatibility.
+Do not also provide custom Hessian callbacks, prototypes, or color vectors.
+Each prepared optimization function owns mutable differentiation buffers; use
+separate preparations for concurrent evaluations.
+
+!!! note "Exact and limited-memory Hessians"
+    `sparse_hessian=true` prepares exact Hessians. Ipopt's
+    `hessian_approximation="limited-memory"` does not use those callbacks.
+    Exact Hessians can reduce iterations but cost more per iteration; measure
+    total solve time for the intended model. The structure helpers alone do not
+    enable numerical evaluation.
 
 The same ODE, fixed-schedule, and parameter-layout restrictions as for the
 constraint Jacobian apply. Rebuild the pattern when the schedule or layout changes.

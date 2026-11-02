@@ -307,3 +307,12 @@ optimization_matching!(res, layer, trajectory) = shooting_constraints!(res, traj
 evaluate_trajectory_objective(f, trajectory, st) = applicable(f, trajectory) ? f(trajectory) : f(trajectory, st)
 @non_differentiable optimization_schedule(::Any, ::Any)
 @non_differentiable optimization_times(::Any)
+
+# Objective and constraints share one prediction during second differentiation.
+function optimization_lagrangian(prob, ps, st, sigma, multipliers)
+    traj = optimization_trajectory(prob, ps, st)
+    objective = scalar_objective(evaluate_trajectory_objective(prob.objective, traj, st))
+    isempty(multipliers) && return sigma * objective
+    constraints = vcat(map(c -> c(traj), prob.constraints)..., optimization_matching(prob.layer, traj))
+    return sigma * objective + LinearAlgebra.dot(multipliers, constraints)
+end

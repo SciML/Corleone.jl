@@ -25,6 +25,12 @@ Benchmarks do not install dependencies or change the package environment.
   Corleone, ComponentArrays, OrdinaryDiffEqTsit5, and Statistics.
   Reports median time and allocated bytes over 20 calls after two warmups; model
   construction and compilation are excluded. Use one Julia thread and one BLAS thread.
+- `shooting_sparse_hessian.jl`: dense versus colored exact Lagrangian Hessians,
+  plus Ipopt solves using limited-memory, dense exact, and sparse exact Hessians.
+  Uses the same Lotka model and dependencies as `shooting_sparse.jl`. Checks
+  Hessians against ForwardDiff and verifies solver success and constraint residuals.
+  Reports preparation costs, five warmed Hessian calls, first solves, and the
+  median of three subsequent solves. Run with four Julia threads and one BLAS thread.
 - `shooting_sparse.jl`: dense versus structural sparse constraint Jacobians and
   Ipopt solves for the multiple-shooting Lotka tutorial. Requires ComponentArrays,
   LuxCore, OrdinaryDiffEqTsit5, Optimization, OptimizationMOI, Ipopt, ForwardDiff,

@@ -49,6 +49,7 @@ run_qa(
                 :retrieve_symbol_cache, :shooting_constraints!, :to_vec,
                 :wrap_functions, :replace_parameter_fields, :expression_symbol_name,
                 :sparse_constraint_options, :constraint_sparsity, :sparsity_indices,
+                :sparse_hessian_options, :lagrangian_sparsity, :optimization_lagrangian,
                 # Symbolics/SymbolicUtils term-rewriting internals used to normalize
                 # MTK constraints and read symbolic defaults; no public spelling.
                 :Code, :canonical_form, :getdefaultval,

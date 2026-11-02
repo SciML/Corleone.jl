@@ -39,8 +39,10 @@ Build typed optimizer callbacks using the reconstruction callable returned by [`
 allocating form and out-of-place derivative convention. Additional keywords
 configure function/derivative options. `sparse_constraints = true` prepares a
 colored sparse constraint Jacobian when DifferentiationInterface and
-SparseMatrixColorings are loaded; it requires `inplace = true`. Initialization and layout preparation are
-not repeated.
+SparseMatrixColorings are loaded. `sparse_hessian = true` prepares colored
+objective and Lagrangian Hessian callbacks. Both require `inplace = true`; the
+Hessian option additionally requires second-order support from `ad`.
+Initialization and layout preparation are not repeated.
 The `vectorize` keyword selects the packing implementation. Its default is
 [`default_vectorizer`](@ref), which requires a loaded supported extension. Other
 implementations may be supplied explicitly through `vectorize`.
@@ -48,12 +50,16 @@ implementations may be supplied explicitly through `vectorize`.
 function SciMLBase.OptimizationFunction(
         prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType;
         vectorize = default_vectorizer(),
-        ps = prob.ps, st = prob.st, inplace::Bool = true, sparse_constraints::Bool = false, kwargs...
+        ps = prob.ps, st = prob.st, inplace::Bool = true, sparse_constraints::Bool = false, sparse_hessian::Bool = false, kwargs...
     )
     initial, reconstruct = pack(vectorize, ps)
     sparse_constraints && !inplace && throw(ArgumentError("sparse_constraints requires inplace=true."))
     check_sparse_constraint_keywords(sparse_constraints, kwargs)
-    options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
+    sparse_hessian && !inplace && throw(ArgumentError("sparse_hessian requires inplace=true."))
+    check_sparse_hessian_keywords(sparse_hessian, kwargs)
+    jacobian_options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
+    hessian_options = sparse_hessian ? sparse_hessian_options(prob, ad, initial, reconstruct, st) : (;)
+    options = merge(jacobian_options, hessian_options)
     return optimization_function(prob, ad, reconstruct; inplace, options..., kwargs...)
 end
 
@@ -81,13 +87,15 @@ the default ComponentArrays implementation uses flat numerical storage and resto
 ComponentArray axes around the current optimizer input without copying values. `function_kwargs`
 configures OptimizationFunction. `sparse_constraints = true` prepares only the
 constraint Jacobian sparsely; objective differentiation retains `ad`. Load
-DifferentiationInterface and SparseMatrixColorings to enable it. Remaining keywords are forwarded to
-OptimizationProblem.
+DifferentiationInterface and SparseMatrixColorings to enable it.
+`sparse_hessian = true` additionally prepares exact objective and Lagrangian
+Hessians with structural coloring; `ad` must support second differentiation.
+Remaining keywords are forwarded to OptimizationProblem.
 """
 function SciMLBase.OptimizationProblem(
         prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType;
         vectorize = default_vectorizer(),
-        ps = prob.ps, st = prob.st, inplace::Bool = true, sparse_constraints::Bool = false,
+        ps = prob.ps, st = prob.st, inplace::Bool = true, sparse_constraints::Bool = false, sparse_hessian::Bool = false,
         function_kwargs::NamedTuple = (;), kwargs...
     )
     initial, reconstruct = pack(vectorize, ps)
@@ -98,7 +106,11 @@ function SciMLBase.OptimizationProblem(
         throw(ArgumentError("Packed parameter and bound axes must match."))
     check_sparse_constraint_keywords(sparse_constraints, function_kwargs)
     sparse_constraints && !inplace && throw(ArgumentError("sparse_constraints requires inplace=true."))
-    options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
+    sparse_hessian && !inplace && throw(ArgumentError("sparse_hessian requires inplace=true."))
+    check_sparse_hessian_keywords(sparse_hessian, function_kwargs)
+    jacobian_options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
+    hessian_options = sparse_hessian ? sparse_hessian_options(prob, ad, initial, reconstruct, st) : (;)
+    options = merge(jacobian_options, hessian_options)
     f = optimization_function(prob, ad, reconstruct; inplace, options..., function_kwargs...)
     lcons, ucons = isempty(prob.lcons) ? (nothing, nothing) : (prob.lcons, prob.ucons)
     return SciMLBase.OptimizationProblem(f, initial, st; lb, ub, lcons, ucons, kwargs...)
@@ -257,13 +269,18 @@ value is affine. Parameter matching equalities are affine and add no entries.
 Supports prepared ODE ShootingLayer models. Rebuild after schedule or layout
 changes. Load OptimizationBase to obtain its canonical upper-triangle coordinates
 with `OptimizationBase.lag_hess_structure(prob; vectorize, ps, st)`.
-This supplies structure only; numerical Hessian callbacks are configured separately.
+This helper supplies structure only. Use `sparse_hessian=true` when constructing
+OptimizationFunction/OptimizationProblem to prepare numerical Hessian callbacks.
 """
 function lagrangian_hessian_sparsity(
         prob::CorleoneDynamicOptProblem; vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st
     )
     initial, reconstruct = pack(vectorize, ps)
+    return lagrangian_sparsity(prob, initial, reconstruct, st)
+end
+
+function lagrangian_sparsity(prob, initial, reconstruct, st)
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
     cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
     columns = [BitSet() for _ in eachindex(initial)]
@@ -280,3 +297,11 @@ function lagrangian_hessian_sparsity(
     colptr[end] = length(rows) + 1
     return SparseMatrixCSC(length(initial), length(initial), colptr, rows, fill(true, length(rows)))
 end
+
+function check_sparse_hessian_keywords(enabled, kwargs)
+    if enabled && any(key -> haskey(kwargs, key), (:hess, :hess_prototype, :hess_colorvec, :lag_h, :lag_hess_prototype, :lag_hess_colorvec))
+        throw(ArgumentError("sparse_hessian prepares objective and Lagrangian Hessians and their metadata; do not also supply them."))
+    end
+    return nothing
+end
+sparse_hessian_options(args...) = throw(ArgumentError("Load DifferentiationInterface and SparseMatrixColorings to use sparse_hessian=true."))
