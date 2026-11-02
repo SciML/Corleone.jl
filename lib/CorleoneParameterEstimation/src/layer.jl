@@ -37,7 +37,7 @@ underlying `SingleShootingLayer`/`MultipleShootingLayer`. Tunable initial condit
 are fitted jointly while the remaining entries stay at each experiment's prescribed initial
 conditions.
 """
-struct ParameterEstimationLayer{L<:Tuple, O, D} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct ParameterEstimationLayer{L <: Tuple, O, D} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     "One Corleone shooting layer per experiment (all built from the same problem)"
     layer::L
     "Observation map `(u, p, t) -> y`, returning the measured quantities of a state `u` at time `t`"
@@ -76,10 +76,12 @@ pe = ParameterEstimationLayer(shooting, data; observed = (u, p, t) -> u[1:2])
 ```
 """
 function ParameterEstimationLayer(layers::Tuple, data::ExperimentData; observed = (u, p, t) -> u)
-    length(layers) == n_experiments(data) || throw(ArgumentError(
-        "Got $(length(layers)) shooting layer(s) for $(n_experiments(data)) experiment(s)." *
-        " Provide one shooting layer per experiment."
-    ))
+    length(layers) == n_experiments(data) || throw(
+        ArgumentError(
+            "Got $(length(layers)) shooting layer(s) for $(n_experiments(data)) experiment(s)." *
+                " Provide one shooting layer per experiment."
+        )
+    )
     return ParameterEstimationLayer{typeof(layers), typeof(observed), typeof(data)}(
         layers, observed, data
     )
@@ -163,18 +165,22 @@ function _validate_experiments(prob::SciMLBase.AbstractDEProblem, data::Experime
     for i in 1:n_experiments(data)
         u0_i = initial_conditions(data, i)
         if !isnothing(u0_i)
-            length(u0_i) == n_states || throw(ArgumentError(
-                "The initial conditions of experiment $i have length $(length(u0_i))," *
-                " but the state of the problem has length $n_states."
-            ))
+            length(u0_i) == n_states || throw(
+                ArgumentError(
+                    "The initial conditions of experiment $i have length $(length(u0_i))," *
+                        " but the state of the problem has length $n_states."
+                )
+            )
         end
         σ_given[i] = !isnothing(experiments(data)[i].σ)
     end
     if any(σ_given) && !all(σ_given)
-        throw(ArgumentError(
-            "Either all experiments must specify a noise scale `σ` or none" *
-            " (weighted vs. unweighted residuals cannot be mixed)."
-        ))
+        throw(
+            ArgumentError(
+                "Either all experiments must specify a noise scale `σ` or none" *
+                    " (weighted vs. unweighted residuals cannot be mixed)."
+            )
+        )
     end
     _validate_controls(data)
     return
@@ -192,14 +198,18 @@ function _validate_controls(data::ExperimentData)
         c_i = controls(data, i)
         isnothing(c_i) && continue
         for pair in c_i
-            pair isa Pair || throw(ArgumentError(
-                "Fixed controls must be `control_index => ControlParameter` pairs;" *
-                " got an entry of type $(typeof(pair)) in experiment $i."
-            ))
-            last(pair) isa Corleone.ControlParameter || throw(ArgumentError(
-                "Fixed controls must be `control_index => ControlParameter` pairs;" *
-                " got a value of type $(typeof(last(pair))) in experiment $i."
-            ))
+            pair isa Pair || throw(
+                ArgumentError(
+                    "Fixed controls must be `control_index => ControlParameter` pairs;" *
+                        " got an entry of type $(typeof(pair)) in experiment $i."
+                )
+            )
+            last(pair) isa Corleone.ControlParameter || throw(
+                ArgumentError(
+                    "Fixed controls must be `control_index => ControlParameter` pairs;" *
+                        " got a value of type $(typeof(last(pair))) in experiment $i."
+                )
+            )
         end
     end
     # All experiments with controls must control the same parameter indices.
@@ -225,15 +235,19 @@ function _shared_control_structure(data::ExperimentData)
 end
 
 function _assert_matching_control_indices(i, c_i, structure)
-    length(c_i) == length(structure) || throw(ArgumentError(
-        "Experiment $i specifies $(length(c_i)) fixed control(s) but the model has" *
-        " $(length(structure)) control slot(s); all experiments must control the same" *
-        " parameter indices."
-    ))
+    length(c_i) == length(structure) || throw(
+        ArgumentError(
+            "Experiment $i specifies $(length(c_i)) fixed control(s) but the model has" *
+                " $(length(structure)) control slot(s); all experiments must control the same" *
+                " parameter indices."
+        )
+    )
     for (idx, _) in structure
-        any(q -> first(q) == idx, c_i) || throw(ArgumentError(
-            "Experiment $i must specify fixed controls for shared control index $idx."
-        ))
+        any(q -> first(q) == idx, c_i) || throw(
+            ArgumentError(
+                "Experiment $i must specify fixed controls for shared control index $idx."
+            )
+        )
     end
     return
 end
@@ -257,16 +271,20 @@ function _experiment_layer_controls(data::ExperimentData, i::Int, prob)
     return ntuple(length(structure)) do k
         idx, ref_cp = structure[k]
         me = findfirst(q -> first(q) == idx, c_i)
-        isnothing(me) && throw(ArgumentError(
-            "Experiment $i must specify fixed controls for shared control index $idx."
-        ))
+        isnothing(me) && throw(
+            ArgumentError(
+                "Experiment $i must specify fixed controls for shared control index $idx."
+            )
+        )
         cp = last(c_i[me])
         Corleone.control_length(cp; tspan = tspan) == Corleone.control_length(ref_cp; tspan = tspan) ||
-            throw(ArgumentError(
+            throw(
+            ArgumentError(
                 "The control discretization of experiment $i on index $idx does not match" *
-                " the reference control grid (control slots must have a common" *
-                " discretization across experiments)."
-            ))
+                    " the reference control grid (control slots must have a common" *
+                    " discretization across experiments)."
+            )
+        )
         idx => cp
     end
 end
@@ -368,9 +386,11 @@ end
 
 function _experiment_ps_ms(pe::ParameterEstimationLayer, ps::NamedTuple, i::Int)
     ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i])
-    blocks = ntuple(k -> begin
-        cb = ctrl[k]
-        merge(ps[k], (controls = cb.controls,))
-    end, length(ps))
+    blocks = ntuple(
+        k -> begin
+            cb = ctrl[k]
+            merge(ps[k], (controls = cb.controls,))
+        end, length(ps)
+    )
     return NamedTuple{keys(ps)}(blocks)
 end

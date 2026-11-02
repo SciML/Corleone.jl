@@ -41,7 +41,7 @@ reading off the profile-likelihood confidence interval.
 # Fields
 $(FIELDS)
 """
-struct ProfileCurve{V<:AbstractVector, T}
+struct ProfileCurve{V <: AbstractVector, T}
     "Index of the parameter in the shared model block `[u0; p]` this curve refers to"
     index::Int
     "Parameter name (or `nothing`)"
@@ -72,7 +72,7 @@ interval read off that curve, plus the asymptotic interval (from
 # Fields
 $(FIELDS)
 """
-struct ProfileLikelihoodEstimate{V, S, C, P<:AbstractVector, A}
+struct ProfileLikelihoodEstimate{V, S, C, P <: AbstractVector, A}
     "Point estimates of the fitted (shared model) parameters `[u0; p]`"
     x::V
     "Parameter names (or `nothing`)"
@@ -146,9 +146,12 @@ function _profile_threshold(problem::CorleoneParameterEstimationProblem, x_full:
     n_shoot = problem.n_shooting_constraints
     p_total = length(x_full)
     dof = n_obs - p_total
-    dof > 0 || throw(ArgumentError(
-        "Need more observations than estimated parameters to estimate the noise level " *
-        "(got $n_obs observation(s) for $p_total estimated parameters)."))
+    dof > 0 || throw(
+        ArgumentError(
+            "Need more observations than estimated parameters to estimate the noise level " *
+                "(got $n_obs observation(s) for $p_total estimated parameters)."
+        )
+    )
     rss = _observation_rss(problem, x_full)
     σ² = rss / dof
     weighted = all(e -> !isnothing(e.σ), experiments(get_data(layer)))
@@ -320,8 +323,10 @@ function profile_likelihood(
         # Free variables of the global optimum (all flat indices except `i`): warm start for
         # the bracket check and for the first grid point.
         xfree0 = vec(collect(x_full[[k for k in eachindex(x_full) if k != i]]))
-        lo, hi = _ensure_bracket(problem, i, lo, hi, span[i] * base, threshold,
-            solver, expand, xfree0; kwargs...)
+        lo, hi = _ensure_bracket(
+            problem, i, lo, hi, span[i] * base, threshold,
+            solver, expand, xfree0; kwargs...
+        )
         grid = range(lo, hi, length = n_points)
         vals = Vector{Float64}(undef, n_points)
         rss_vals = Vector{Float64}(undef, n_points)

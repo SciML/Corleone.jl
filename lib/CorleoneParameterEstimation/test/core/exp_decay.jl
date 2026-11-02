@@ -43,7 +43,7 @@ end
     nlls = problem(pe)
     @test nlls isa NonlinearLeastSquaresProblem
 
-    sol = solve(nlls, GaussNewton(); abstol = 1e-6, reltol = 1e-6)
+    sol = solve(nlls, GaussNewton(); abstol = 1.0e-6, reltol = 1.0e-6)
     @test SciMLBase.successful_retcode(sol)
 
     res = estimate_parameters(pe, sol)
