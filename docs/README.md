@@ -11,6 +11,14 @@ The galleries use DemoCards' `PlutoDemoCard` support and PlutoStaticHTML's stati
 Documenter output. The released DemoCards extension supports PlutoStaticHTML 6
 and Pluto 0.19; CI uses Julia 1.10 with these compatible versions.
 
+`docs/make.jl` develops Corleone, CorleoneOED, and OptimalControlBenchmarks
+from this checkout before importing them. This is required for Julia 1.10,
+which does not read the `[sources]` entries in `Project.toml`. The resolved
+manifest is local and ignored by Git.
+The sibling packages are initially listed under `[extras]` so the reusable SciML
+workflow can install the base environment before `make.jl` develops them. This
+setup adds them to the local project's `[deps]` during a build.
+
 Edit the authoritative Pluto notebooks in `docs/examples/` and
 `lib/CorleoneOED/docs/oed_examples/`. To open the control tutorials interactively:
 
@@ -44,8 +52,8 @@ PlutoStaticHTML validates the notebook checksum and Julia version. These noteboo
 use a shared project, so edits to package code or dependencies also require fresh
 outputs: remove `docs/pluto_output/` locally or the corresponding deployed cache
 files in `dev/pluto_output/` on `gh-pages` before rebuilding.
-The resolved manifest, rendered notebook Markdown, and built site are ignored by
-Git. Set `DOCS_LINKCHECK=true` to enable external URL checks.
+Rendered notebook Markdown and the built site are ignored by Git.
+Set `DOCS_LINKCHECK=true` to enable external URL checks.
 
 Serve the built site to inspect directory-style links:
 

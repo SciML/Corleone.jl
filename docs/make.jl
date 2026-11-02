@@ -1,3 +1,13 @@
+using Pkg
+
+# Julia 1.10 ignores [sources]; load all documentation packages from this checkout.
+Pkg.develop([
+    PackageSpec(path = joinpath(@__DIR__, "..")),
+    PackageSpec(path = joinpath(@__DIR__, "..", "lib", "CorleoneOED")),
+    PackageSpec(path = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")),
+])
+Pkg.instantiate()
+
 using Documenter, Corleone
 import CorleoneOED
 import OptimalControlBenchmarks

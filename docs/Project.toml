@@ -2,7 +2,6 @@
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-CorleoneOED = "6590a4b1-d036-41fe-a5b4-03a980244101"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -12,7 +11,6 @@ ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
 OptimizationLBFGSB = "22f7324a-a79d-40f2-bebe-3af60c77bd15"
 OptimizationMOI = "fd9f6733-72f4-499f-8506-86b2bdd0dea1"
-OptimalControlBenchmarks = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
@@ -21,6 +19,11 @@ DemoCards = "311a05b2-6137-4a5a-b473-18580a3d38b5"
 PlutoStaticHTML = "359b1769-a58e-495b-9770-312e911026ad"
 Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+
+# Developed by make.jl after the reusable SciML workflow installs the base environment.
+[extras]
+CorleoneOED = "6590a4b1-d036-41fe-a5b4-03a980244101"
+OptimalControlBenchmarks = "d147904a-1eb9-11f1-01e7-bdf88e0f9445"
 
 [sources]
 Corleone = {path = ".."}
