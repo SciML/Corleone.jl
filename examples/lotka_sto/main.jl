@@ -84,7 +84,7 @@ const N = length(PATTERN)
 
 function make_stage(c, T0)
     prob = ODEProblem(
-        LotkaFishing{c}(), U0, (0.0, 1.0), [T0]; abstol = 1.0e-11, reltol = 1.0e-11
+        LotkaFishing{c}(), U0, (0.0, 1.0), [T0]; abstol = 1.0e-12, reltol = 1.0e-10
     )
     return SingleShootingLayer(prob, Tsit5(); bounds_p = ([0.0], [TF]))
 end
@@ -134,7 +134,7 @@ optprob = OptimizationProblem(
 uopt = solve(
     optprob, Ipopt.Optimizer();
     hessian_approximation = "limited-memory",
-    max_iter = 2000, tol = 1.0e-6, print_level = 0
+    max_iter = 500, tol = 1.0e-6, print_level = 5
 )
 
 # ## Results

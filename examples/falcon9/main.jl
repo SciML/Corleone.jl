@@ -130,7 +130,7 @@ end
 grid3 = collect(0.0:0.01:0.99)   # 100 uniform control intervals on the landing stage
 u0 = [x₀, y₀, vx₀, vy₀, m₀]
 
-function make_chain(t₂, t₃, theta₀)
+function make_chain(t₂, t₃, theta₀, ms=false)
     prob1 = ODEProblem(phase1!, u0, (0.0, 1.0), [t1])
     prob2 = ODEProblem(phase2!, u0, (0.0, 1.0), [t₂])
     prob3 = ODEProblem(phase3!, u0, (0.0, 1.0), [t₃, theta₀[1]])
@@ -145,7 +145,9 @@ function make_chain(t₂, t₃, theta₀)
     s3start = last(stage2(s2start, LuxCore.setup(rng, stage2)...)[1].u)
     link12 = StageLinkage(s2start)
     link23 = StageLinkage(s3start)
-    return Chain(stage1, link12, stage2, link23, stage3)
+    trans12 = StageTransition((traj, p) -> last(traj.u))
+    trans23 = StageTransition((traj, p) -> last(traj.u))
+    return Chain(stage1, ms ? link12 : trans12, stage2, ms ? link23 : trans23, stage3)
 end
 
 # ## The Optimization Problem
@@ -193,7 +195,7 @@ sol = solve(
     optprob, Ipopt.Optimizer(), max_iter = 2000, tol = 1.0e-9,
     constr_viol_tol = 1.0e-8,
     hessian_approximation = "limited-memory",
-    print_level = 0
+    print_level = 5
 )
 
 init_ca = ComponentArray(LuxCore.initialparameters(Random.default_rng(), chain))
