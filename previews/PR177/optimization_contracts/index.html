@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adding objectives and constraints — Corleone.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=d839cef6">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Adding objectives and constraints — Corleone.jl">
+  <meta property="og:title" content="Adding objectives and constraints — Corleone.jl">
+  <meta property="twitter:title" content="Adding objectives and constraints — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../tutorials/">Overview</a>
+        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../shooting/">Constructing Shooting Problems</a>
+        <a href="../scheduling/">Scheduling Parameters</a>
+        <a href="../initialization/">Initializing Models</a>
+        <a href="../trajectories/">Inspecting Trajectories</a>
+        <a href="../optimization_contracts/" class="md-nav-active">Adding Objectives and Constraints</a>
+        <a href="../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../oed/formulation/">Measurements and Information</a>
+          <a href="../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../oed/api/">API Reference</a>
+          <a href="../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../references/">References</a>
+      <a href="../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="Optimization-facing-contracts" class="md-heading">Adding objectives and constraints<a href="#Optimization-facing-contracts" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>Wrap an initialized shooting layer in <a href="../api/#Corleone.CorleoneDynamicOptProblem"><code class="md-code-inline">CorleoneDynamicOptProblem</code></a>, then construct an Optimization.jl problem. The model evaluates trajectory objectives and constraints; the solver chooses the parameters.</p>
+<h2 id="Prepared-optimization-models" class="md-heading">Prepared optimization models<a href="#Prepared-optimization-models" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>This example minimizes a terminal error subject to four sampled state limits. The interior tunable state introduces a continuity equality automatically.</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+using ComponentArrays, ForwardDiff, Optimization, OptimizationMOI, Ipopt
+
+problem = ODEProblem((x, p, t) -&gt; [p[1]], [0.0], (0.0, 2.0), [0.2])
+layer = ShootingLayer(problem, Tsit5(),
+    Tunable(1; kind = Val(:variable), default = 0.2,
+        lowerbound = 0.0, upperbound = 2.0) =&gt; [1.0],
+    Tunable(1; default = 0.2, lowerbound = 0.0, upperbound = 1.0) =&gt; [1.0])
+ps, st = LuxCore.setup(MersenneTwister(42), layer)
+model = CorleoneDynamicOptProblem(layer, :((u₁(2.0) - 1)^2),
+    :([u₁(0.5), u₁(1.0), u₁(1.5), u₁(2.0)]);
+    ps, st, lcons = zeros(4), ucons = fill(1.5, 4))
+optprob = OptimizationProblem(model, AutoForwardDiff())
+result = solve(optprob, Ipopt.Optimizer();
+    hessian_approximation = &quot;limited-memory&quot;, tol = 1e-8, print_level = 0)
+_, reconstruct = pack(default_vectorizer(), ps)
+optimized = reconstruct(result.u)
+(; objective = result.objective,
+    constraints = optimization_constraints(model, optimized, optprob.p))</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(objective = 8.333625259671728e-22, constraints = [0.20157990210407772, 0.40315980420815517, 0.7015799020896436, 0.999999999971132, -2.7755575615628914e-16])</code></pre>
+</div>
+<p>Supplying <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> together retains them by reference; omitting both runs setup once. Preparation performs one prediction to validate dimensions and saved indices. Each later objective or constraint evaluation makes one prediction; there is no shared numerical-solution cache. Reprepare after changing schedules, saved layout, expression times, or callback output sizes.</p>
+<h2 id="Callbacks-and-structured-bounds" class="md-heading">Callbacks and structured bounds<a href="#Callbacks-and-structured-bounds" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>An objective returns a real scalar: <code class="md-code-inline">traj -&gt; scalar</code>, or <code class="md-code-inline">(prediction, st) -&gt; scalar</code> when it needs the current optimizer state. The one-argument form takes precedence. A constraint returns a real scalar or flat vector, or writes into <code class="md-code-inline">f!(res, traj)</code>. In-place return values are ignored. Bounds specify the output sizes:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">terminal(traj) = last(traj.u)[1]
+function endpoints!(res, traj)
+    res[1] = first(traj.u)[1]
+    res[2] = last(traj.u)[1]
+    return nothing
+end
+callback_model = CorleoneDynamicOptProblem(layer, traj -&gt; terminal(traj)^2,
+    terminal, endpoints!;
+    ps, st, lcons = [0.0, [0.0, 0.0]], ucons = [2.0, [2.0, 2.0]])
+length(optimization_constraints(callback_model))</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">4</code></pre>
+</div>
+<p>Supply both <code class="md-code-inline">lcons</code> and <code class="md-code-inline">ucons</code>, with one matching top-level subtree per constraint. A single vector constraint accepts flat bound vectors directly. Constraint outputs are flattened in declaration order, followed by automatic shooting equalities with zero bounds. Comparisons are not numerical constraints: return a value and supply its limits separately.</p>
+<p><code class="md-code-inline">optimization_constraints(model, ps, st)</code> allocates the output; <code class="md-code-inline">optimization_constraints!(res, model, ps, st)</code> writes into a buffer of the exact length. In-place callbacks receive their own slices. Use allocating callbacks for reverse AD backends that cannot differentiate mutation. Callback-based Lux containers may also return collections of trajectories; timed expressions and terminal selectors require a <code class="md-code-inline">ShootingLayer</code>.</p>
+<h2 id="Timed-Julia-expressions" class="md-heading">Timed Julia expressions<a href="#Timed-Julia-expressions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>An expression such as <code class="md-code-inline">:(p₁(0.5) * u₁(1.5))</code> reads signals at specified times. Times must be finite real literals within the problem span; interpolate computed times, for example <code class="md-code-inline">:(u₁($(3 / 2)))</code>. Preparation adds requested times to the integration grid and resolves indices against actual saved samples, including <code class="md-code-inline">saveat</code> samples. It performs no interpolation. At resets, state reads select the post-reset sample; parameter reads are right-continuous.</p>
+<p>Within an expression, a bare signal denotes its full saved series: <code class="md-code-inline">:(sum(u₁))</code> includes both sides of resets. A plain Symbol or integer objective selector instead denotes a terminal value. Omitting the objective sums terminal quadratures and requires quadrature metadata. The <a href="../modelingtoolkit/">ModelingToolkit frontend</a> translates symbolic costs and constraints into this interface.</p>
+<p>Expressions resolve functions and constants in <code class="md-code-inline">eval_module</code> (Corleone by default, including Base functions). Use <code class="md-code-inline">eval_module = @__MODULE__</code> for global helpers or interpolate literal constants; expressions do not capture local bindings. <code class="md-code-inline">default_evaluator()</code> selects RuntimeGeneratedFunctions when loaded, otherwise Julia eval. See <a href="../api/#Corleone.compile_evaluator"><code class="md-code-inline">compile_evaluator</code></a> for custom evaluator implementations.</p>
+<h2 id="Variable-bounds" class="md-heading">Variable bounds<a href="#Variable-bounds" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p><code class="md-code-inline">lower, upper = get_bounds(layer, ps, st)</code> returns trees with the parameter layout and array shapes of <code class="md-code-inline">ps</code>. Fixed values in Lux state have no optimizer entries. Missing bounds are infinite. The helper reads metadata without setup or solving. A larger Lux container can include shooting layers and ordinary layers, whose leaves are unbounded unless they specialize the bound methods.</p>
+<p>Flatten parameters and both bound trees with the same vectorizer. The optimization bridge does this automatically. State bounds apply to stored initial/shooting values; use sampled constraints for limits elsewhere. See <a href="../shooting/#Bounds-and-numerical-accuracy">numerical accuracy</a> for the limits of sampled feasibility checks.</p>
+<h2 id="Shooting-equality-constraints" class="md-heading">Shooting equality constraints<a href="#Shooting-equality-constraints" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The model appends the equalities defined by the <a href="../shooting/#shooting_formulation">shooting formulation</a>. For a custom optimizer integration, use:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">n = get_number_of_shooting_constraints(layer, ps, st) # No solve.
+trajectory, next_st = layer(nothing, ps, st)
+residuals = shooting_constraints(trajectory)
+residuals</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">1-element Vector{Float64}:
+ 5.551115123125783e-17</code></pre>
+</div>
+<p>Set both equality bounds to <code class="md-code-inline">zeros(n)</code>. Use <a href="../api/#Corleone.shooting_constraints!"><code class="md-code-inline">shooting_constraints!</code></a> to write into a preallocated buffer; its element type must accommodate AD values. State residuals precede inserted-parameter residuals; their signs and ordering are defined in <a href="../shooting/">shooting</a>. The helpers add neither an objective nor sampled constraints. Run <a href="../api/#Corleone.add_parameter_segments!"><code class="md-code-inline">add_parameter_segments!</code></a>, if needed, <strong>before</strong> packing parameters, querying bounds, or preparing a model.</p>
+<h2 id="SciMLBase-optimization-bridge" class="md-heading">SciMLBase optimization bridge<a href="#SciMLBase-optimization-bridge" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Load Optimization.jl, a solver, and ComponentArrays for the default bridge. <code class="md-code-inline">OptimizationProblem(model, adtype)</code> packs variables and bounds, stores Lux state in <code class="md-code-inline">optprob.p</code>, and creates objective and constraint callbacks. With no constraints, <code class="md-code-inline">cons</code>, <code class="md-code-inline">lcons</code>, and <code class="md-code-inline">ucons</code> are <code class="md-code-inline">nothing</code>. Choose a supported <a href="../automatic_differentiation/">differentiation configuration</a>.</p>
+<p>Pass derivative options through <code class="md-code-inline">function_kwargs</code>, for example <code class="md-code-inline">function_kwargs = (; cons_j = custom_jacobian!)</code>; other keywords configure the optimization problem. Declare constraints on the model: the bridge&#39;s generated <code class="md-code-inline">cons</code> callback cannot be replaced. <code class="md-code-inline">inplace = false</code> selects allocating constraints and the out-of-place derivative convention. See <a href="../sparse_derivatives/">sparse derivatives</a> for optional Jacobian and Hessian preparation.</p>
+<p>After solving, reconstruct parameters from <code class="md-code-inline">result.u</code>. For timed expressions, evaluate with <code class="md-code-inline">(model.layer.problem, model.evaluation_grid)</code> as the layer input to include all requested times, or use <code class="md-code-inline">optimization_objective</code> and <code class="md-code-inline">optimization_constraints</code> with the reconstructed parameters and current state.</p>
+<h2 id="Sparse-constraint-Jacobians" class="md-heading">Sparse derivatives<a href="#Sparse-constraint-Jacobians" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<span id="Lagrangian-Hessian-structure"></span>
+<span id="Sparse-exact-Hessians"></span>
+<p>See <a href="../sparse_derivatives/">Preparing sparse derivatives</a> for colored constraint Jacobians, Lagrangian structure, and exact Hessians.</p>
+<h2 id="Parameter-packing-interface" class="md-heading">Parameter packing interface<a href="#Parameter-packing-interface" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">q0, reconstruct = pack(default_vectorizer(), ps)
+parameters = reconstruct(q0)
+length(q0)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">3</code></pre>
+</div>
+<p>ComponentArrays reconstruction wraps the <strong>current</strong> vector with the retained axes and scalar type, including AD values. Packing a native NamedTuple allocates flat storage; packing an existing ComponentVector reuses its backing storage. Retain or copy optimizer vectors deliberately when preserving earlier results.</p>
+<p>Custom vectorizers implement <a href="../api/#Corleone.pack"><code class="md-code-inline">pack</code></a>, returning a flat vector and a callable that restores named parameter access from its argument. They must order parameters and bounds identically. Select one with <code class="md-code-inline">vectorize = Val(:YourExtension)</code>; <code class="md-code-inline">default_vectorizer()</code> requires a supported loaded extension, currently ComponentArrays.</p>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Prepared-optimization-models">Prepared optimization models</a>
+          <a class="md-toc-link md-toc-h2" href="#Callbacks-and-structured-bounds">Callbacks and structured bounds</a>
+          <a class="md-toc-link md-toc-h2" href="#Timed-Julia-expressions">Timed Julia expressions</a>
+          <a class="md-toc-link md-toc-h2" href="#Variable-bounds">Variable bounds</a>
+          <a class="md-toc-link md-toc-h2" href="#Shooting-equality-constraints">Shooting equality constraints</a>
+          <a class="md-toc-link md-toc-h2" href="#SciMLBase-optimization-bridge">SciMLBase optimization bridge</a>
+          <a class="md-toc-link md-toc-h2" href="#Sparse-constraint-Jacobians">Sparse derivatives</a>
+          <a class="md-toc-link md-toc-h2" href="#Parameter-packing-interface">Parameter packing interface</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=d839cef6"></script>
+</body>
+</html>

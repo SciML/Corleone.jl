@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Constructing and optimizing designs — Corleone.jl</title>
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=7209d1f8">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Constructing and optimizing designs — Corleone.jl">
+  <meta property="og:title" content="Constructing and optimizing designs — Corleone.jl">
+  <meta property="twitter:title" content="Constructing and optimizing designs — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/oed/designs/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/oed/designs/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/oed/designs/">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../../">Home</a>
+      <a href="../../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../../tutorials/">Overview</a>
+        <a href="../../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../../shooting/">Constructing Shooting Problems</a>
+        <a href="../../scheduling/">Scheduling Parameters</a>
+        <a href="../../initialization/">Initializing Models</a>
+        <a href="../../trajectories/">Inspecting Trajectories</a>
+        <a href="../../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../../oed/formulation/">Measurements and Information</a>
+          <a href="../../oed/designs/" class="md-nav-active">Constructing and Optimizing Designs</a>
+          <a href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../../oed/api/">API Reference</a>
+          <a href="../../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../../references/">References</a>
+      <a href="../../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="oed_designs" class="md-heading">Constructing and optimizing designs<a href="#oed_designs" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<h2 id="Controls,-fixed-values,-and-initialization" class="md-heading">Controls, fixed values, and initialization<a href="#Controls,-fixed-values,-and-initialization" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Construct <code class="md-code-inline">OEDLayer(problem, algorithm, definitions...; params, measurements)</code> or wrap an existing <code class="md-code-inline">ShootingLayer</code>. Pass control annotations as in Corleone&#39;s <a href="../../shooting/">shooting guide</a>; <code class="md-code-inline">params</code> selects estimated physical parameters, and <code class="md-code-inline">measurements</code> supplies observation maps and grids. The <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">Lotka tutorial</a> is a complete example. Measurement weights are marked as controls automatically.</p>
+<p>Use <code class="md-code-inline">Constant</code> for prescribed values and <code class="md-code-inline">Tunable</code> for design variables. With the default OED constructor policy, unannotated original physical parameters remain fixed at <code class="md-code-inline">problem.p</code>. Fixed values live in Lux state, not in the optimizer vector; “fixed” does not mean detached if that state is supplied as a differentiated input. Setup returns parameters and state; evaluation returns the updated state separately.</p>
+<h3 id="Shooting-states-and-continuity" class="md-heading">Shooting states and continuity<a href="#Shooting-states-and-continuity" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>Definitions such as <code class="md-code-inline">Tunable([1, 2]; kind=Val(:variable), default=[0.5, 0.7]) =&gt; [6.0]</code> introduce physical shooting states. At each <strong>interior full physical-state reset</strong>, OED also introduces tunable sensitivity and continuous-information shooting states. The ordinary shooting equalities enforce continuity of physical states, sensitivities, and accumulated continuous information at a feasible design. Discrete information is assembled afterward from the saved states; it is not a separate reset state.</p>
+<p>Initial sensitivity and integrated-information states start at zero. The prior is stored separately in <code class="md-code-inline">st.F_init</code>. A tunable initial physical value at the global start is a free design variable, not an estimated initial-condition parameter. Partial physical-state resets do not automatically lift all augmented states; the full-state construction is the supported way to split the entire augmented system.</p>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Initialize the augmented shooting states</p>
+<div class="md-admonition-body">
+<p>Arbitrary shooting guesses need not satisfy continuity or yield meaningful positive-definite information for an inverse criterion. After setup, call <code class="md-code-inline">forward_initialization(Xoshiro(1), design.shooting, ps, st)</code> to fill existing tunable shooting buffers from the reference solve before optimizer preparation. This mutates <code class="md-code-inline">ps</code> and returns it; it does not replace the supplied state.</p>
+</div>
+</div>
+<p>Prescribed physical resets after the initial time, including at the final time, are rejected: the augmentation does not supply their sensitivity jump maps. See the shared <a href="../../shooting/">shooting formulation</a> and <a href="../../initialization/">initialization guide</a> for reset schedules, residual signs, and initialization options.</p>
+<h2 id="oed_ownership" class="md-heading">Ownership, storage, and histories<a href="#oed_ownership" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p><code class="md-code-inline">OEDLayer</code> wraps an augmented <code class="md-code-inline">ShootingLayer</code> and delegates its parameter layout. The mathematical sensitivity/information matrices are not optimizer buffers: each scheduled scalar still has a vector of values. Named property access is required; avoid private grouping paths. In a multi-experiment ComponentArray, use <code class="md-code-inline">ps.experiments.experiment_1</code> (or the chosen name): iteration yields numerical entries, not experiment subtrees.</p>
+<p>The shared <a href="../../trajectories/">trajectory ownership rules</a> apply. Information queries combine saved augmented states with <strong>current</strong> weights, direct observation parameters, and priors. Mutating retained containers can mix old states and new values. Re-evaluate the layer after changes, and avoid mutation between an AD forward evaluation and its pullback.</p>
+<h2 id="oed_optimization" class="md-heading">Optimization and vectorization<a href="#oed_optimization" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Both single and multiple experiments prepare a shared <code class="md-code-inline">CorleoneDynamicOptProblem</code> and use the shared SciMLBase optimization bridge. There is no OED-specific Optimization or ComponentArrays extension. CorleoneOED itself can execute a design, compute information, and prepare callbacks without importing either optional package.</p>
+<p>The <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">continuous-design tutorial</a> shows preparation with <code class="md-code-inline">CorleoneDynamicOptProblem(design, ACriterion(); ps, st, M)</code>, optimization, and trajectory reconstruction. Supply one <code class="md-code-inline">M</code> budget per measurement in the <a href="../../oed/formulation/#oed_measurements">documented order</a>.</p>
+<p>The shared <a href="../../optimization_contracts/">optimization guide</a> defines packing, current-vector reconstruction, bounds, and preparation ownership. Supply <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> together to retain existing guesses. Each objective/constraint evaluation predicts once; information and budget extraction add no extra solve.</p>
+<h3 id="Constraints-and-current-state" class="md-heading">Constraints and current state<a href="#Constraints-and-current-state" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>Pass additional trajectory constraints after the criterion, with <code class="md-code-inline">lcons</code> and <code class="md-code-inline">ucons</code> defining their limits. For example, a terminal population callback <code class="md-code-inline">trajectory -&gt; last(trajectory.u)[1]</code> can be bounded by <code class="md-code-inline">lcons=0.2, ucons=2.0</code>.</p>
+<p>Constraint order is user callbacks, sampling budgets, then automatic shooting equalities. Single-experiment expressions use the underlying augmented layer; multi-experiment models use callbacks over named trajectories. Callback signatures, structured bounds, and expression syntax follow the shared <a href="../../optimization_contracts/">constraint guide</a>.</p>
+<p>For a custom objective passed through the root facade, both <code class="md-code-inline">f(prediction)</code> and <code class="md-code-inline">f(prediction, st)</code> are supported; the one-argument form wins if both are applicable. OED&#39;s criterion preparation reads the current prior from the supplied state: from <code class="md-code-inline">trajectory.st.F_init</code> for a single experiment, and from the optimizer&#39;s current state for a multi-experiment aggregate. To change a prior, pass the updated state to the optimizer/evaluation, rather than relying on a prior captured when preparing an objective.</p>
+<p>Schedules, sample selection, and layout validation are discrete metadata. Reprepare an optimization model after changing its schedules, saved layout, or constraint output sizes; derivatives are defined on the fixed prepared layout.</p>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Relaxed weights and integer decisions</p>
+<div class="md-admonition-body">
+<p>The tutorials solve continuous relaxations with weights in <span class="md-math md-math-inline">\([0,1]\)</span>. <code class="md-code-inline">OptimizationProblem(design, criterion; integer_weights=true, ...)</code> marks only measurement weights as integer, using a native tree flattened with the same vectorizer. Physical controls and shooting variables are not marked integer. Bounds plus integrality make those weights binary, but enforcing this requires an integer-capable solver. Ipopt does not enforce an integer mask. For continuous densities, even binary weights budget time spent measuring, not a number of events.</p>
+</div>
+</div>
+<h2 id="oed_experiments" class="md-heading">Multiple experiments and priors<a href="#oed_experiments" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p><code class="md-code-inline">MultiExperimentLayer((first_design, second_design))</code> gives independent parameter and state trees; a NamedTuple preserves custom experiment names. Repeating one layer with <code class="md-code-inline">MultiExperimentLayer(design, n)</code> reuses the layer object, while Lux setup initializes independent numerical parameter/state trees.</p>
+<p>Let <span class="md-math md-math-inline">\(P\)</span> be the sorted union of estimated original parameter indices. The same index must have the same physical meaning in every model. For experiment <span class="md-math md-math-inline">\(e\)</span>, let <span class="md-math md-math-inline">\(S_e\in\mathbb R^{|P|\times n_{\theta,e}}\)</span> embed its selected physical coordinates and <span class="md-math md-math-inline">\(B_e\in\mathbb R^{n_{\theta,e}\times n_{s,e}}\)</span> be its basis. The stored embedding is <span class="md-math md-math-inline">\(E_e=S_eB_e\)</span>. The aggregate is</p>
+<div class="md-math md-math-display">
+\[F_{\mathrm{multi}}=F_{\mathrm{prior}}+\sum_e E_eF_eE_e^\top,\]
+</div>
+<p>where each local <span class="md-math md-math-inline">\(F_e\)</span> excludes its child prior. With full bases this embeds ordinary information into common coordinates; with reduced bases it is the <a href="../../oed/numerics/#oed_svd">documented approximation</a>. A global <code class="md-code-inline">st.F_init</code> has size <code class="md-code-inline">(length(multi.params), length(multi.params))</code> and is included exactly once.</p>
+<p><code class="md-code-inline">multi(nothing, ps, st)</code> returns <code class="md-code-inline">(named_trajectories, next_st)</code>. <code class="md-code-inline">fisher_information(multi, nothing, ps, st)</code> solves and returns <code class="md-code-inline">(F, next_st)</code>; there is no public overload taking only the named trajectories and inferring a global prior from the child trajectories.</p>
+<p><code class="md-code-inline">update_fim(design, completed, state)</code> returns a merged state with the completed experiments&#39; information added to <code class="md-code-inline">F_init</code>. Each record has <code class="md-code-inline">ps</code> and may have its own <code class="md-code-inline">st</code>; otherwise it uses the supplied state. Each record is re-evaluated, with its existing priors excluded. This avoids counting the same prior repeatedly. It does not mutate the destination prior. An empty collection returns the original state; omitting the destination state starts from fresh Lux state. Keep the actual parameter/state records used in completed experiments for reproducible accumulation.</p>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Controls,-fixed-values,-and-initialization">Controls, fixed values, and initialization</a>
+            <a class="md-toc-link md-toc-h3" href="#Shooting-states-and-continuity">Shooting states and continuity</a>
+          <a class="md-toc-link md-toc-h2" href="#oed_ownership">Ownership, storage, and histories</a>
+          <a class="md-toc-link md-toc-h2" href="#oed_optimization">Optimization and vectorization</a>
+            <a class="md-toc-link md-toc-h3" href="#Constraints-and-current-state">Constraints and current state</a>
+          <a class="md-toc-link md-toc-h2" href="#oed_experiments">Multiple experiments and priors</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.js"></script>
+  <script>var MD_KATEX_OPTIONS = {};
+document.querySelectorAll('.md-math').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\[\[(]/, '').replace(/\\[\])]$/, '');
+  katex.render(tex, el, Object.assign({ throwOnError: false }, MD_KATEX_OPTIONS,
+    { displayMode: el.classList.contains('md-math-display') }));
+});</script>
+  <script src="../../siteinfo.js"></script>
+  <script src="../../../versions.js"></script>
+  <script src="../../assets/materialdocs.js?v=7209d1f8"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+/* MaterialDocs (Material3 writer) support for the landing page.
+ *
+ * Loaded only when the build's format is MaterialDocs' `Material3`, by the
+ * package extension, immediately after landing.css. It does three things
+ * landing.css cannot do on its own, because landing.css is written against
+ * Documenter's own HTML writer:
+ *
+ *   1. maps the `--landing-*` custom properties onto MaterialDocs' MD3
+ *      tokens. landing.css carries a palette per *shipped Documenter theme*,
+ *      keyed on `html.theme--<name>`; MaterialDocs emits no such class, so
+ *      without this block the landing page is frozen in the Documenter light
+ *      palette whatever the Material theme and dark mode say.
+ *   2. defines `.docs-light-only` / `.docs-dark-only`. Those classes come
+ *      from Documenter's compiled theme CSS and carry the hero's `image.dark`
+ *      and the per-theme feature icons; MaterialDocs has no rule for them, so
+ *      both variants would render, stacked.
+ *   3. gives the landing page the width a home layout wants inside
+ *      MaterialDocs' grid.
+ *
+ * The generator emits identical HTML for both writers, by design: expansion
+ * runs in ExpandTemplates, before Documenter has picked a writer, and a
+ * two-format build has more than one. So every writer difference is settled
+ * here, in CSS.
+ */
+
+/* ---- 1. Palette: --landing-* from the MD3 color roles ----
+ *
+ * MaterialDocs generates both schemes from the theme seed and flips them with
+ * `@media (prefers-color-scheme: dark)` / `[data-theme="dark"]` on :root, so
+ * mapping the roles once is automatically dark-aware — there is deliberately
+ * no second block below for dark mode. This sheet is pushed after the user's
+ * `assets=` stylesheets, so the palette variables defined here are not a user
+ * override point; the accent follows the Material theme seed. User overrides
+ * still work: landing.css reads --landing-name-background and --landing-glow
+ * first, and this sheet only defines the -default pair. */
+:root {
+    --landing-surface: var(--md-sys-color-surface-container);
+    --landing-surface-2: var(--md-sys-color-surface-container-high);
+    --landing-border: var(--md-sys-color-outline-variant);
+    --landing-accent: var(--md-sys-color-primary);
+    --landing-accent-contrast: var(--md-sys-color-on-primary);
+    /* MD3's own accent pair, so the gradient stays inside the generated
+     * scheme instead of introducing a hue the theme never asked for. */
+    --landing-name-background-default: linear-gradient(
+        120deg,
+        var(--md-sys-color-primary),
+        var(--md-sys-color-tertiary)
+    );
+    /* The glow is the same pair at half alpha. The tokens are opaque hex, so
+     * the alpha is mixed in here; color-mix is supported by every browser
+     * that already renders landing.css (which needs :has() and container
+     * queries). */
+    --landing-glow-default: linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent) 50%,
+        color-mix(in srgb, var(--md-sys-color-tertiary) 50%, transparent) 50%
+    );
+}
+
+/* ---- 2. Light/dark image variants ----
+ *
+ * Documenter ships one rule per theme file, and its theme files are mutually
+ * exclusive, so each only ever hides one variant. MaterialDocs has a single
+ * stylesheet and four `dark_mode` settings, so the same exclusivity has to be
+ * spelled out: a context is dark when [data-theme="dark"] is set, or when the
+ * OS prefers dark and [data-theme="light"] is not set. Each pair below hides
+ * exactly one variant, so the two can never both apply.
+ *
+ * `not all and (prefers-color-scheme: dark)` rather than
+ * `(prefers-color-scheme: light)` so a browser reporting no preference still
+ * gets the light variant instead of both. */
+@media not all and (prefers-color-scheme: dark) {
+    :root:not([data-theme="dark"]) .docs-dark-only {
+        display: none !important;
+    }
+}
+:root[data-theme="light"] .docs-dark-only {
+    display: none !important;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .docs-light-only {
+        display: none !important;
+    }
+}
+:root[data-theme="dark"] .docs-light-only {
+    display: none !important;
+}
+
+/* ---- 3. Layout ----
+ *
+ * MaterialDocs caps .md-article at 52rem inside a three-column grid; a home
+ * layout wants the VitePress 72rem. Everything inside #landing is sized in
+ * cqi against #landing itself, so widening the column is the whole change:
+ * the hero rescales with it rather than reflowing.
+ */
+body:has(#landing) .md-article {
+    max-width: 72rem;
+}
+
+/* The TOC rail is built from the page's Markdown headings, and the landing
+ * page is one raw HTML node, so a page that is *only* a landing renders an
+ * empty "On this page". Hide it in that case, and only that case: a landing
+ * page with prose under it (the usual "What it is" section) still has real
+ * headings, and a VitePress home layout is not a reason to take a working
+ * rail away from them. */
+body:has(#landing) .md-toc:not(:has(.md-toc-link)) {
+    display: none;
+}
+
+/* A hidden rail still holds its grid track open, because MaterialDocs gives
+ * the track an 11rem floor. Dropping the floor to 0 lets the track collapse
+ * when the rail is hidden and changes nothing when it is not: a populated
+ * rail still sizes to its content up to the same 14rem. Above MaterialDocs'
+ * 1200px breakpoint only, since below it the grid is already two columns and
+ * then one, with the sidebar slid off-screen by nav.css rather than
+ * removed. */
+@media (min-width: 1201px) {
+    body:has(#landing) .md-layout {
+        grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(0, 14rem);
+    }
+    /* Single-page sites have no sidebar and put the TOC in the left column,
+     * so it is that column that has to be able to collapse. */
+    body:has(#landing) .md-layout-no-sidebar {
+        grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+    }
+}

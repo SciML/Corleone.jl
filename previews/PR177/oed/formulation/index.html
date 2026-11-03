@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Measurements and Fisher information — Corleone.jl</title>
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=4ba47459">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Measurements and Fisher information — Corleone.jl">
+  <meta property="og:title" content="Measurements and Fisher information — Corleone.jl">
+  <meta property="twitter:title" content="Measurements and Fisher information — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/oed/formulation/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/oed/formulation/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/oed/formulation/">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../../">Home</a>
+      <a href="../../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../../tutorials/">Overview</a>
+        <a href="../../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../../shooting/">Constructing Shooting Problems</a>
+        <a href="../../scheduling/">Scheduling Parameters</a>
+        <a href="../../initialization/">Initializing Models</a>
+        <a href="../../trajectories/">Inspecting Trajectories</a>
+        <a href="../../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../../oed/formulation/" class="md-nav-active">Measurements and Information</a>
+          <a href="../../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../../oed/api/">API Reference</a>
+          <a href="../../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../../references/">References</a>
+      <a href="../../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="oed_formulation" class="md-heading">Measurements and Fisher information<a href="#oed_formulation" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<h2 id="Parameters,-directions,-and-design-variables" class="md-heading">Parameters, directions, and design variables<a href="#Parameters,-directions,-and-design-variables" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Write the physical model as</p>
+<div class="md-math md-math-display">
+\[\dot x=f(x,\theta,v,t),\qquad x(t_0)=x_0,\]
+</div>
+<p>where <span class="md-math md-math-inline">\(x\in\mathbb R^{n_x}\)</span>, <span class="md-math md-math-inline">\(\theta\in\mathbb R^{n_\theta}\)</span> are the selected physical parameters, and <span class="md-math md-math-inline">\(v\)</span> denotes physical controls or other design choices. In Julia, both physical parameters and controls occupy entries of the original vector <code class="md-code-inline">problem.p</code> of length <span class="md-math md-math-inline">\(n_p\)</span>; <code class="md-code-inline">params</code> selects the indices of <span class="md-math md-math-inline">\(\theta\)</span> in the requested order. <code class="md-code-inline">Tunable</code>/<code class="md-code-inline">Constant</code> annotations independently determine which values can vary during design optimization. Unannotated physical parameters are fixed at nominal values under the OED constructor&#39;s default <code class="md-code-inline">fixed_parameters</code> policy.</p>
+<p>The matrix <span class="md-math md-math-inline">\(B\in\mathbb R^{n_\theta\times n_s}\)</span> defines parameter directions. With no reduction, <span class="md-math md-math-inline">\(n_s=n_\theta\)</span> and <span class="md-math md-math-inline">\(B=I\)</span> on the selected coordinates. The package integrates <span class="md-math md-math-inline">\(G\in\mathbb R^{n_x\times n_s}\)</span>:</p>
+<div class="md-math md-math-display">
+\[\dot G=f_xG+f_\theta B,\qquad G(t_0)=0.\]
+</div>
+<p>For <span class="md-math md-math-inline">\(B=I\)</span>, <span class="md-math md-math-inline">\(G\)</span> contains state sensitivities with respect to the selected physical parameters, holding the design schedule fixed. The column count is set by these selected coordinates and the basis, not by the number of scheduled trainable values. The reduced case is explained in <a href="../../oed/numerics/#oed_svd">SVD reduction</a>. Initial conditions are assumed independent of these estimated parameters. Free initial values can be design variables, but <code class="md-code-inline">params</code> does not select estimated initial conditions or initialize their sensitivities.</p>
+<p>These sensitivity columns are distinct from the AD gradient of a design objective with respect to optimizer variables. AD differentiates <em>through</em> the augmented numerical solve, including its sensitivities and information, as the design changes.</p>
+<h2 id="oed_measurements" class="md-heading">Measurement grids and outputs<a href="#oed_measurements" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>A measurement is <code class="md-code-inline">ContinuousMeasurement(id, tpoints, observed)</code> or <code class="md-code-inline">DiscreteMeasurement(id, tpoints, observed)</code>, with <code class="md-code-inline">observed(x, p, t)</code> returning a scalar or vector. The observation map must accept symbolic inputs and keep its output dimension fixed. A vector observation has one shared weight for all its output rows; use separate measurements for independently weighted outputs.</p>
+<p>Identifiers must be unique and distinct from model symbols. Grids are validated when constructing the OED layer: times must be finite, sorted, unique, and inside <code class="md-code-inline">problem.tspan</code>. A discrete grid must be nonempty; an empty continuous grid is valid.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Grid on <code class="md-code-inline">(0.0, 1.0)</code></th>
+<th style="text-align:right">Stored weights</th>
+<th style="text-align:right">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">Continuous <code class="md-code-inline">[]</code></td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">Constant density over the full span</td>
+</tr>
+<tr>
+<td style="text-align:right">Continuous <code class="md-code-inline">[0.5]</code></td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">Densities on the two intervals separated at <code class="md-code-inline">0.5</code></td>
+</tr>
+<tr>
+<td style="text-align:right">Continuous <code class="md-code-inline">[0.0, 0.5, 1.0]</code></td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">The same two intervals; endpoints add no density values</td>
+</tr>
+<tr>
+<td style="text-align:right">Discrete <code class="md-code-inline">[0.0, 0.5, 1.0]</code></td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">Three observation events, each with its own weight</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Weights are tunable in <span class="md-math md-math-inline">\([0,1]\)</span> and initially one. Continuous densities are piecewise constant, taking the outgoing interval&#39;s value at a switch. Discrete weights are also represented by a right-continuous parameter schedule, but only the values at the declared events contribute information or discrete budgets. The first event&#39;s weight is stored on the initial interval even if the first event is later than <span class="md-math md-math-inline">\(t_0\)</span>. There is no extra discrete sample before that event.</p>
+<p>Discrete event times are added to the saved grid. At a shooting reset, both incoming and outgoing states are retained, and discrete information selects the <strong>last saved sample at that time</strong>, the outgoing/post-reset state. General <code class="md-code-inline">observed_equations</code> and <code class="md-code-inline">sensitivities</code> outputs include both saved sides. Parameter histories are right-continuous on either saved side; see the <a href="../../trajectories/">Corleone trajectory guide</a>.</p>
+<h2 id="Observation-sensitivities-and-information" class="md-heading">Observation sensitivities and information<a href="#Observation-sensitivities-and-information" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>For measurement <span class="md-math md-math-inline">\(m\)</span> with <span class="md-math md-math-inline">\(r_m\)</span> output rows, define <span class="md-math md-math-inline">\(h_m:\mathbb R^{n_x}\times\mathbb R^{n_p}\times\mathbb R\to\mathbb R^{r_m}\)</span>. The implemented observation-sensitivity matrix has size <span class="md-math md-math-inline">\(r_m\times n_s\)</span>:</p>
+<div class="md-math md-math-display">
+\[J_m=h_{m,x}G+h_{m,\theta}B.\]
+</div>
+<p>Direct dependence on estimated parameters matters. An observation such as <code class="md-code-inline">(x, p, t) -&gt; p[1]</code> can provide information even if its state derivative is zero. The supplied map&#39;s rows are all included; no normalization by output count is applied.</p>
+<p>Let <span class="md-math md-math-inline">\(\mathcal C\)</span> and <span class="md-math md-math-inline">\(\mathcal D\)</span> be continuous and discrete measurements, and <span class="md-math md-math-inline">\(T_m\)</span> the event grid of a discrete measurement. Terminal information is</p>
+<div class="md-math md-math-display">
+\[F=F_{\mathrm{prior}}
++\sum_{m\in\mathcal C}\int_{t_0}^{t_f}w_m(t)J_m(t)^\top J_m(t)\,dt
++\sum_{m\in\mathcal D}\sum_{t\in T_m}w_m(t)J_m(t)^\top J_m(t).\]
+</div>
+<p>Here <span class="md-math md-math-inline">\(F\in\mathbb R^{n_s\times n_s}\)</span> and <code class="md-code-inline">st.F_init</code> supplies the prior in these coordinates. The ODE integrates the upper triangle of the continuous contribution, initially zero. Discrete contributions are accumulated from saved states on demand. <code class="md-code-inline">fisher_information(design, trajectory)</code> combines them with the current prior without another differential-equation solve.</p>
+<p>Information is <strong>linear</strong> in the measurement weight, <span class="md-math md-math-inline">\(wJ^\top J\)</span>, rather than quadratic in that weight. This is a sampling-design weighting convention, not multiplication of the observation by <span class="md-math md-math-inline">\(w\)</span> before forming its Jacobian.</p>
+<p>The formula assumes independent, whitened observation errors with unit covariance. To represent a known, fixed positive-definite covariance <span class="md-math md-math-inline">\(R_m=L_mL_m^\top\)</span>, supply the whitened map <span class="md-math md-math-inline">\(L_m^{-1}h_m\)</span>. Scalar standard deviations are handled by dividing the observation by the standard deviation. Correlations across distinct measurements/events and parameter-dependent noise information are not assembled by this formula.</p>
+<h2 id="Budgets-and-information-gains" class="md-heading">Budgets and information gains<a href="#Budgets-and-information-gains" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The corresponding budgets are</p>
+<div class="md-math md-math-display">
+\[b_m=\int_{t_0}^{t_f}w_m(t)\,dt\quad(m\in\mathcal C),\qquad
+b_m=\sum_{t\in T_m}w_m(t)\quad(m\in\mathcal D).\]
+</div>
+<p>Continuous budgets integrate the <em>current</em> piecewise-constant schedule exactly by interval length; discrete budgets sum event weights. They need no additional ODE solve. <code class="md-code-inline">sampling_sums</code> and optimizer bounds <code class="md-code-inline">M</code> order continuous measurements first, then discrete measurements, retaining declaration order within each kind. Multiple experiments concatenate that order experiment by experiment.</p>
+<p><code class="md-code-inline">local_information_gain</code> returns unweighted outer products of individual rows of <span class="md-math md-math-inline">\(J\)</span> at every saved time. <code class="md-code-inline">global_information_gain</code> returns <span class="md-math md-math-inline">\((J_iF^{-1})^\top(J_iF^{-1})\)</span> for each row <span class="md-math md-math-inline">\(i\)</span>. For symmetric nonsingular information, its trace gives the magnitude of the row&#39;s marginal improvement in A-optimality before interval length/event weighting. For a vector measurement, sum its rows to obtain its shared weight&#39;s contribution. These routines do not select only the discrete events.</p>
+<h2 id="oed_criteria" class="md-heading">Criteria<a href="#oed_criteria" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>All criteria are minimized. Their exact definitions are:</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Criterion</th>
+<th style="text-align:right">Scalar returned</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">ACriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(\operatorname{tr}(F^{-1})\)</span></td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">DCriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(1/\det(F)\)</span></td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">ECriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(\lambda_{\max}(F^{-1})\)</span></td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">FisherACriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(-\operatorname{tr}(F)\)</span></td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">FisherDCriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(-\det(F)\)</span></td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">FisherECriterion()</code></td>
+<td style="text-align:right"><span class="md-math md-math-inline">\(-\lambda_{\min}(F)\)</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia-repl">julia&gt; using CorleoneOED, LinearAlgebra
+
+julia&gt; F = diagm([2.0, 4.0]);
+
+julia&gt; (ACriterion()(F), DCriterion()(F), ECriterion()(F))
+(0.75, 0.125, 0.5)
+
+julia&gt; (FisherACriterion()(F), FisherDCriterion()(F), FisherECriterion()(F))
+(-6.0, -8.0, -2.0)</code></pre>
+</div>
+<p>These are not log-determinant or dimension-normalized criteria. Matrix inputs are wrapped in <code class="md-code-inline">Symmetric</code>; supply symmetric information. No diagonal regularization or positive-definiteness check is added by the criteria themselves.</p>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Information conditioning</p>
+<div class="md-admonition-body">
+<p>Inverse-based criteria require invertible information. Positive-definite information is the relevant case for an identifiable local covariance interpretation. A singular or poorly conditioned design may need different measurements, a scientifically justified prior, or reduced coordinates. Eigenvalue-based criteria can be nondifferentiable at repeated extreme eigenvalues.</p>
+</div>
+</div>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Parameters,-directions,-and-design-variables">Parameters, directions, and design variables</a>
+          <a class="md-toc-link md-toc-h2" href="#oed_measurements">Measurement grids and outputs</a>
+          <a class="md-toc-link md-toc-h2" href="#Observation-sensitivities-and-information">Observation sensitivities and information</a>
+          <a class="md-toc-link md-toc-h2" href="#Budgets-and-information-gains">Budgets and information gains</a>
+          <a class="md-toc-link md-toc-h2" href="#oed_criteria">Criteria</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.js"></script>
+  <script>var MD_KATEX_OPTIONS = {};
+document.querySelectorAll('.md-math').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\[\[(]/, '').replace(/\\[\])]$/, '');
+  katex.render(tex, el, Object.assign({ throwOnError: false }, MD_KATEX_OPTIONS,
+    { displayMode: el.classList.contains('md-math-display') }));
+});</script>
+  <script src="../../siteinfo.js"></script>
+  <script src="../../../versions.js"></script>
+  <script src="../../assets/materialdocs.js?v=4ba47459"></script>
+</body>
+</html>

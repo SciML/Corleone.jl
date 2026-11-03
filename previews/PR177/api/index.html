@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Reference — Corleone.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=1f8db963">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="API Reference — Corleone.jl">
+  <meta property="og:title" content="API Reference — Corleone.jl">
+  <meta property="twitter:title" content="API Reference — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/api/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/api/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/api/">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../tutorials/">Overview</a>
+        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../shooting/">Constructing Shooting Problems</a>
+        <a href="../scheduling/">Scheduling Parameters</a>
+        <a href="../initialization/">Initializing Models</a>
+        <a href="../trajectories/">Inspecting Trajectories</a>
+        <a href="../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../oed/formulation/">Measurements and Information</a>
+          <a href="../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../oed/api/">API Reference</a>
+          <a href="../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../references/">References</a>
+      <a href="../api/" class="md-nav-active">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="API-Reference" class="md-heading">API Reference<a href="#API-Reference" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>For workflows, use the <a href="../shooting/">Manual</a>. This page includes docstrings for exported APIs and supporting layer types.</p>
+<h2 id="Shooting-layers" class="md-heading">Shooting layers<a href="#Shooting-layers" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.ShootingLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ShootingLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ShootingLayer{__T_name, __T_problem, __T_alg, __T_ensemblealg, __T_initialcondition, __T_parameter, __T_sys} &lt;: LuxCore.AbstractLuxContainerLayer{(:initialcondition, :parameter)}</code></pre>
+</div>
+<p>A Lux layer that solves a differential equation in segments separated by parameter switches and initial-condition resets. Calling with <code class="md-code-inline">(input, ps, st)</code> returns <code class="md-code-inline">(trajectory, next_st)</code>, with reset residuals stored in <code class="md-code-inline">trajectory.residuals</code>. A tunable assignment at the global problem start is a free initial value and produces no matching residual. Active tunable interior assignments produce matching residuals; fixed resets do not. Assignments at the final time create no outgoing segment. A differential equation problem can be supplied as <code class="md-code-inline">input</code>; other inputs use the stored problem. A <code class="md-code-inline">(problem, tstops)</code> tuple supplies an explicit segment grid.</p>
+<p>Segment boundaries are computed once during setup and stored in <code class="md-code-inline">st.timestops</code>. Forward calls reuse that vector and preserve it in the returned state. After changing a schedule, explicitly refresh the cached grid before solving; see <a href="../api/#Corleone.get_timestops"><code class="md-code-inline">get_timestops</code></a>. For a replacement problem with a different time span, supply its matching grid through the <code class="md-code-inline">(problem, tstops)</code> call.</p>
+<p><code class="md-code-inline">EnsembleSerial()</code> solves sequentially. For ODE problems, <code class="md-code-inline">EnsembleThreads()</code> and <code class="md-code-inline">EnsembleDistributed()</code> solve independent blocks starting at interior full-state resets. Partial resets remain sequential within a block. Reverse-mode rules record block solves serially; ordinary forward execution uses the ensemble map.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">name</code>: The optional name of the shooting layer.</p>
+</li>
+<li><p><code class="md-code-inline">problem</code>: The differential equation problem used when no replacement problem is supplied.</p>
+</li>
+<li><p><code class="md-code-inline">alg</code>: The differential equation solver algorithm for each segment.</p>
+</li>
+<li><p><code class="md-code-inline">ensemblealg</code>: The ensemble algorithm selecting serial, threaded, or distributed block execution.</p>
+</li>
+<li><p><code class="md-code-inline">initialcondition</code>: Per-variable initial-condition layers and their reset schedules.</p>
+</li>
+<li><p><code class="md-code-inline">parameter</code>: Per-parameter layers supplying parameter values for each segment.</p>
+</li>
+<li><p><code class="md-code-inline">sys</code>: The ControlSymbolCache shared with trajectories for symbolic bookkeeping.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.ShootingLayer-Tuple{SciMLBase.AbstractSciMLProblem, SciMLBase.AbstractSciMLAlgorithm, Vararg{Any}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ShootingLayer</code> — <span class="md-docstring-sig">Tuple{SciMLBase.AbstractSciMLProblem, SciMLBase.AbstractSciMLAlgorithm, Vararg{Any}}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">ShootingLayer(
+    problem,
+    alg,
+    definitions;
+    name,
+    fixed_parameters,
+    ensemblealg,
+    controls,
+    quadratures,
+    bounds
+)
+</code></pre>
+</div>
+<p>Construct a shooting layer from a problem, solver, and <code class="md-code-inline">annotation =&gt; timegrid</code> definitions. Variable annotations define initial-condition resets; remaining definitions configure parameters. <code class="md-code-inline">fixed_parameters</code> selects parameters held in Lux state.</p>
+<p><code class="md-code-inline">controls</code> and <code class="md-code-inline">quadratures</code> select parameter and state subsets by symbol or original index. <code class="md-code-inline">bounds</code> maps symbols to bound pairs used as annotation defaults. Omitted metadata inherits from the problem cache; explicit annotation bounds take precedence. Metadata does not alter numerical state or parameter layouts.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.InitialConditions">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.InitialConditions</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct InitialConditions{__T_name, __T_repack, __T_initialconditions, __T_indices} &lt;: LuxCore.AbstractLuxContainerLayer{(:initialconditions,)}</code></pre>
+</div>
+<p>A collection of shared-grid <code class="md-code-inline">InitialCondition</code> layers, analogous to <code class="md-code-inline">Parameter</code>. Definitions are <code class="md-code-inline">annotation =&gt; timegrid</code> pairs; plain indices and symbols are also accepted as tunable annotations. Variables with no grid pass through their incoming values. <code class="md-code-inline">Constant</code> annotations store scheduled values in Lux state via <code class="md-code-inline">FixedLayer</code>.</p>
+<p>Calling with <code class="md-code-inline">(incoming_state, t)</code> returns <code class="md-code-inline">((state, residuals), next_st)</code>. Residuals are assigned values minus the corresponding incoming values, in state index order. Only active, non-fixed layers contribute residuals. Set <code class="md-code-inline">matching = false</code> to apply assignments without producing matching residuals, as used for free initial values at the global problem start. The Boolean vector <code class="md-code-inline">st.active</code> is allocated during setup and reused on each call. Updating this scheduling metadata is non-differentiable; residual arithmetic is not.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">name</code>: The optional name of the initial-condition collection.</p>
+</li>
+<li><p><code class="md-code-inline">repack</code>: Reconstructs the problem state from its canonical tunable values.</p>
+</li>
+<li><p><code class="md-code-inline">initialconditions</code>: Shared-grid reset layers and pass-through layers, keyed by their first variable symbol.</p>
+</li>
+<li><p><code class="md-code-inline">indices</code>: Original state indices represented by each reset or pass-through layer.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.InitialConditions-Tuple{SciMLBase.AbstractSciMLProblem, Vararg{Any}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.InitialConditions</code> — <span class="md-docstring-sig">Tuple{SciMLBase.AbstractSciMLProblem, Vararg{Any}}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">InitialConditions(problem, definitions; name, sys)
+</code></pre>
+</div>
+<p>Construct per-variable initial conditions from <code class="md-code-inline">annotation =&gt; timegrid</code> definitions. Annotations of kind <code class="md-code-inline">Val(:variable)</code> select state entries. Unspecified variables pass through their incoming values; <code class="md-code-inline">Constant</code> definitions store reset values in Lux state. <code class="md-code-inline">sys</code> supplies symbols, defaults, and annotation bounds.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Parameter">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Parameter</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct Parameter{__T_name, __T_repack, __T_parameters, __T_indices} &lt;: LuxCore.AbstractLuxContainerLayer{(:parameters,)}</code></pre>
+</div>
+<p>A collection of per-parameter piecewise-constant layers. Calling with <code class="md-code-inline">(t, ps, st)</code> returns the reconstructed problem parameters and updated Lux state. Fixed values are held in Lux state through <a href="../api/#Corleone.FixedLayer"><code class="md-code-inline">FixedLayer</code></a>.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">name</code>: The optional name of the parameter collection.</p>
+</li>
+<li><p><code class="md-code-inline">repack</code>: Reconstructs the problem parameters from their canonical tunable values.</p>
+</li>
+<li><p><code class="md-code-inline">parameters</code>: Shared-grid parameter layers, keyed by the first member&#39;s symbol.</p>
+</li>
+<li><p><code class="md-code-inline">indices</code>: Original parameter indices represented by each shared-grid layer.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Parameter-Tuple{SciMLBase.AbstractSciMLProblem, Vararg{Any}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Parameter</code> — <span class="md-docstring-sig">Tuple{SciMLBase.AbstractSciMLProblem, Vararg{Any}}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">Parameter(prob, raw_definitions; name, fixed, sys)
+</code></pre>
+</div>
+<p>Construct parameter layers from <code class="md-code-inline">annotation =&gt; timegrid</code> definitions. Unspecified parameters receive one tunable value initialized from the problem. <code class="md-code-inline">Constant</code> annotations and entries selected by <code class="md-code-inline">fixed</code> store values in Lux state. <code class="md-code-inline">sys</code> supplies symbols, defaults, and annotation bounds.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Tunable">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Tunable</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">Tunable(
+;
+    index,
+    sym,
+    kind,
+    default,
+    lowerbound,
+    upperbound,
+    integer
+)
+</code></pre>
+</div>
+<p>Construct an annotation whose values are stored in Lux parameters. Supply an index or symbol, a vector of indices or symbols, a positional <code class="md-code-inline">selector =&gt; default</code> pair, or the <code class="md-code-inline">index</code>/<code class="md-code-inline">sym</code> keywords. Optional keywords are <code class="md-code-inline">kind</code>, <code class="md-code-inline">default</code>, <code class="md-code-inline">lowerbound</code>, <code class="md-code-inline">upperbound</code>, and <code class="md-code-inline">integer</code>. Missing metadata is resolved from the symbolic container.</p>
+<p>Use <code class="md-code-inline">kind = Val(:variable)</code> for initial-condition resets and <code class="md-code-inline">Val(:parameter)</code> for parameter definitions. Pair the annotation with its time grid to define a layer.</p>
+<p><code class="md-code-inline">default</code> accepts a scalar, a vector, or a callback <code class="md-code-inline">(rng, n::Int) -&gt; values</code> or <code class="md-code-inline">(rng, times::AbstractVector) -&gt; values</code>. Untyped callbacks retain the count-based interpretation; the count signature wins if both are applicable. State defaults have one value per reset time, in supplied grid order. Parameter defaults have one value per interval; time-based callbacks receive <code class="md-code-inline">[tspan[1]; switching_times]</code>. A parameter without switching times has one value at <code class="md-code-inline">tspan[1]</code>.</p>
+<p>For vector selectors, supply one default per selector: a vector of scalars gives constant guesses, and a vector of vectors gives per-variable time series. Omitted defaults inherit metadata separately. Bounds may be shared scalars or per-selector vectors. Grouped annotations expand into scalar definitions before layer construction.</p>
+<p>Scalar and vector bounds are checked when resolving annotations. Callback output length and bounds are checked during Lux setup. Vectors and callback results are retained by reference; use a callback that allocates when independent setup arrays are needed.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Constant">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Constant</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">Constant(
+;
+    index,
+    sym,
+    kind,
+    default,
+    lowerbound,
+    upperbound,
+    integer
+)
+</code></pre>
+</div>
+<p>Construct a fixed-value annotation with the same selectors and metadata keywords as <a href="../api/#Corleone.Tunable"><code class="md-code-inline">Tunable</code></a>. Values are stored in Lux state through <a href="../api/#Corleone.FixedLayer"><code class="md-code-inline">FixedLayer</code></a>, and active fixed initial conditions do not contribute shooting residuals.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Annotations">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Annotations</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">Annotations(sys; kwargs...)</code></pre>
+</div>
+<p>Read state and parameter metadata from a symbolic system. The ModelingToolkit extension returns <code class="md-code-inline">(; variables, parameters)</code>, containing <a href="../api/#Corleone.Tunable"><code class="md-code-inline">Tunable</code></a> or <a href="../api/#Corleone.Constant"><code class="md-code-inline">Constant</code></a> annotations with explicit indices, defaults, bounds and kinds. Load ModelingToolkit to use this constructor.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.forward_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.forward_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">forward_initialization(rng, layer, ps, st; variables)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Initialize selected interior shooting values by a sequential solve using the current parameter schedule. Preserve assignments at the global start, fixed resets, and unselected tunable resets. At each selected reset, use the incoming solution value, including resets at the final time. Selected matching residuals then vanish up to solver accuracy.</p>
+<p>Pass existing <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code>. <code class="md-code-inline">variables</code> selects original state indices. Work on private copies while solving, then validate bounds and update the existing <code class="md-code-inline">ps</code> buffers. Return <code class="md-code-inline">ps</code>; the supplied state and fixed values remain unchanged. This helper currently supports ODE problems and uses the layer&#39;s solver serially, regardless of its ensemble algorithm.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.linear_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.linear_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">linear_initialization(
+    rng,
+    layer,
+    ps,
+    st;
+    u_infinity,
+    u0,
+    variables
+)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Interpolate from <code class="md-code-inline">u0</code> (default: the problem initial state) to the required <code class="md-code-inline">u_infinity</code> over the problem time span. Sample each variable&#39;s current reset grid from <code class="md-code-inline">st</code>. Endpoints are vectors, dictionaries, or collections of <code class="md-code-inline">index =&gt; value</code> pairs indexed by original variable. Update tunable <code class="md-code-inline">ps</code> buffers and return <code class="md-code-inline">ps</code>. <code class="md-code-inline">variables</code> selects state indices; fixed values are unchanged. Bounds are validated before writing.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.random_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.random_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">random_initialization(rng, layer, ps, st; variables)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Sample each selected tunable shooting value uniformly within its variable bounds using <code class="md-code-inline">rng</code>. All selected bounds must be finite. <code class="md-code-inline">variables</code> selects original state indices. Update existing buffers and return <code class="md-code-inline">ps</code>; fixed values and <code class="md-code-inline">st</code> are unchanged. Use a seeded RNG for reproducible guesses.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.constant_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.constant_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">constant_initialization(rng, layer, ps, st; u0, variables)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Fill tunable shooting values in <code class="md-code-inline">ps</code> from <code class="md-code-inline">u0</code>, indexed by problem variable. <code class="md-code-inline">u0</code> is a vector, dictionary, or collection of <code class="md-code-inline">index =&gt; value</code> pairs. Pass existing Lux parameters and state explicitly. <code class="md-code-inline">variables</code> selects original state indices; fixed and pass-through initial conditions are skipped. Return the same <code class="md-code-inline">ps</code>, with its existing buffers updated in place. Bounds are validated before writing.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.custom_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.custom_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">custom_initialization(rng, layer, ps, st; u0s, variables)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Set tunable shooting values from <code class="md-code-inline">u0s</code>, a dictionary, collection of <code class="md-code-inline">index =&gt; values</code> pairs, or another indexable collection. Values are vectors in each variable&#39;s reset-grid index order. <code class="md-code-inline">variables</code> defaults to dictionary keys, or all variables for other collections. Update existing <code class="md-code-inline">ps</code> buffers and return <code class="md-code-inline">ps</code>; fixed values and <code class="md-code-inline">st</code> are unchanged. All selected vectors must match their current schedules.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.hybrid_initialization">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.hybrid_initialization</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">hybrid_initialization(
+    rng,
+    layer,
+    ps,
+    st,
+    methods;
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Omit <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> to run <code class="md-code-inline">LuxCore.setup(rng, layer)</code> and return initialized <code class="md-code-inline">(ps, st)</code>.</p>
+<p>Apply <code class="md-code-inline">variables =&gt; helper</code> pairs sequentially to existing shooting parameters. Selectors are original state indices or collections of indices. Each helper is called as <code class="md-code-inline">helper(rng, layer, ps, st; variables, kwargs...)</code>. Use closures to supply strategy-specific keywords when mixing methods. Later pairs override earlier assignments. Return the same <code class="md-code-inline">ps</code>. Fixed values are never selected by the built-in helpers. Failure of a later helper does not undo earlier successful updates.</p>
+</div>
+</div>
+<h2 id="Trajectories" class="md-heading">Trajectories<a href="#Trajectories" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.Trajectory">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Trajectory</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct Trajectory{__T_sys, __T_u, __T_t, __T_residuals, __T_reset_indices, __T_layer, __T_ps, __T_st}</code></pre>
+</div>
+<p>Assemble saved segment solutions into a trajectory. Continuous handoffs occur once; initial-condition boundaries retain both the incoming endpoint and outgoing start, even when their states are equal. <code class="md-code-inline">reset_indices</code> indexes the outgoing samples.</p>
+<p>Fields <code class="md-code-inline">u</code> and <code class="md-code-inline">t</code> contain the state samples and their times. <code class="md-code-inline">residuals</code> retains one initial-condition residual vector per segment start. The trajectory stores <code class="md-code-inline">layer</code> and its supplied Lux parameters <code class="md-code-inline">ps</code> and state <code class="md-code-inline">st</code>; parameter histories are evaluated on demand through <code class="md-code-inline">layer.parameter</code>, rather than stored separately. State samples are shared with the input solutions. Mutating <code class="md-code-inline">ps</code> or <code class="md-code-inline">st</code> changes subsequent parameter queries without recomputing the saved states. Run the layer again after changing parameters when both histories must describe the same prediction. Gradients through state values, residuals, and parameter values are supported on a fixed time grid; layout and symbolic metadata are not differentiated. The symbolic cache is shared with <code class="md-code-inline">layer.sys</code> and exposed through <code class="md-code-inline">SymbolicIndexingInterface.symbolic_container</code>. Query controls, quadrature states, and bounds on that <code class="md-code-inline">ControlSymbolCache</code> wrapper. No interpolation or integration is performed.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">sys</code>: The symbolic bookkeeping cache shared with the shooting layer.</p>
+</li>
+<li><p><code class="md-code-inline">u</code>: Saved state samples, sharing their numerical arrays with the segment solutions.</p>
+</li>
+<li><p><code class="md-code-inline">t</code>: The actual saved solution times, including both sides of reset boundaries.</p>
+</li>
+<li><p><code class="md-code-inline">residuals</code>: State matching residual vectors per segment start; excludes on-demand parameter equalities.</p>
+</li>
+<li><p><code class="md-code-inline">reset_indices</code>: Indices in <code class="md-code-inline">u</code> and <code class="md-code-inline">t</code> of outgoing samples at initial-condition reset boundaries.</p>
+</li>
+<li><p><code class="md-code-inline">layer</code>: The shooting layer used to evaluate parameter values on demand.</p>
+</li>
+<li><p><code class="md-code-inline">ps</code>: The supplied Lux parameters, retained by reference for parameter queries and AD.</p>
+</li>
+<li><p><code class="md-code-inline">st</code>: The Lux state used for parameter queries, retained by reference for AD.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.Trajectory-Tuple{Any, Any, Any, AbstractVector, Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.Trajectory</code> — <span class="md-docstring-sig">Tuple{Any, Any, Any, AbstractVector, Any}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">Trajectory(layer, ps, st, solutions, residuals)
+</code></pre>
+</div>
+<p>Assemble saved segment solutions and residuals into a <a href="../api/#Corleone.Trajectory"><code class="md-code-inline">Trajectory</code></a>. Remove duplicate samples at continuous handoffs while retaining both sides of initial-condition resets. Saved state arrays, parameters, and Lux state are shared.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.trajectoryplot">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.trajectoryplot</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">trajectoryplot(trajectory; figure = (;), kwargs...)</code></pre>
+</div>
+<p>Create a Makie figure displaying trajectory states, controls, and quadratures. Load Makie to activate this method. <code class="md-code-inline">figure</code> configures the figure; remaining keywords are passed to <a href="../api/#Corleone.trajectoryplot!"><code class="md-code-inline">trajectoryplot!</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.trajectoryplot!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.trajectoryplot!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">trajectoryplot!(container, trajectory; skips = [], show_legend = true, kwargs...)</code></pre>
+</div>
+<p>Add trajectory axes and optional legends to a Makie figure or layout position. <code class="md-code-inline">skips</code> excludes selected symbols. State, control, and quadrature axes share the time axis. Load Makie to activate this method; remaining keywords configure lines.</p>
+</div>
+</div>
+<h2 id="Symbolic-bookkeeping" class="md-heading">Symbolic bookkeeping<a href="#Symbolic-bookkeeping" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.ControlSymbolCache">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ControlSymbolCache</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ControlSymbolCache{__T_sys, __T_controls, __T_quadratures, __T_bounds}</code></pre>
+</div>
+<p>Wrap a SymbolicIndexingInterface symbolic container with bookkeeping metadata. <code class="md-code-inline">controls</code> selects parameters; <code class="md-code-inline">quadratures</code> selects states that integrate running costs. Selections accept symbols or original indices. All symbols retain their original kind, index and ordering. Controls remain parameters.</p>
+<p><code class="md-code-inline">bounds</code> maps state or parameter symbols to <code class="md-code-inline">(lower, upper)</code> pairs. The parent container and supplied bounds dictionary are retained by reference, just as the parent&#39;s defaults are. Index-provider queries delegate through <code class="md-code-inline">symbolic_container</code>. A differential equation problem can also be supplied in place of <code class="md-code-inline">sys</code>.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">sys</code>: The original symbolic index provider, retained by reference.</p>
+</li>
+<li><p><code class="md-code-inline">controls</code>: The subset of parameter symbols designated as controls.</p>
+</li>
+<li><p><code class="md-code-inline">quadratures</code>: The subset of state symbols designated as running-cost integrals.</p>
+</li>
+<li><p><code class="md-code-inline">bounds</code>: State and parameter symbols mapped to <code class="md-code-inline">(lower, upper)</code> bounds, retained by reference.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.ControlSymbolCache-Tuple{Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ControlSymbolCache</code> — <span class="md-docstring-sig">Tuple{Any}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">ControlSymbolCache(sys; controls, quadratures, bounds)
+</code></pre>
+</div>
+<p>Construct a bookkeeping wrapper from a symbolic index provider. <code class="md-code-inline">controls</code> and <code class="md-code-inline">quadratures</code> accept symbols or original indices; <code class="md-code-inline">bounds</code> must be keyed by symbols. The parent and bounds dictionary are retained by reference. Passing an existing cache without overrides returns that same cache.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.control_symbols">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.control_symbols</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">control_symbols(cache)
+</code></pre>
+</div>
+<p>Return the parameter symbols designated as controls in <code class="md-code-inline">cache</code>. This bookkeeping query is defined only for <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.control_indices">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.control_indices</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">control_indices(cache)
+</code></pre>
+</div>
+<p>Return the original parameter indices of the controls in <code class="md-code-inline">cache</code>. This bookkeeping query is defined only for <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.quadrature_symbols">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.quadrature_symbols</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">quadrature_symbols(cache)
+</code></pre>
+</div>
+<p>Return the state symbols designated as quadratures in <code class="md-code-inline">cache</code>. This bookkeeping query is defined only for <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.quadrature_indices">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.quadrature_indices</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">quadrature_indices(cache)
+</code></pre>
+</div>
+<p>Return the original state indices of the quadratures in <code class="md-code-inline">cache</code>. This bookkeeping query is defined only for <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.default_bounds">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.default_bounds</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">default_bounds(_)
+</code></pre>
+</div>
+<p>Return the dictionary of default <code class="md-code-inline">(lower, upper)</code> bounds keyed by symbols. The fallback returns an empty dictionary; <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a> returns its stored bounds dictionary by reference.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.get_bounds">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.get_bounds</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">get_bounds(layer, ps)
+get_bounds(layer, ps, st)
+</code></pre>
+</div>
+<p>Return <code class="md-code-inline">(get_lower_bound(layer, ps, st), get_upper_bound(layer, ps, st))</code>. The returned trees follow the supplied parameter ordering and shapes; fixed data in Lux state is excluded. The two directional functions recursively traverse Lux containers, wrappers, and layer collections. Only <code class="md-code-inline">ShootingLayer</code> has a concrete layer specialization in Corleone, using its symbolic bounds metadata.</p>
+<p>Pass initialized parameters explicitly. Native NamedTuple parameters and structured arrays such as ComponentArrays are supported; flatten all three trees with the same vectorization outside this API. <code class="md-code-inline">st</code> is optional. Flat optimizer vectors must be reconstructed before requesting bounds for a container layer.</p>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">get_bounds(cache, sym)
+</code></pre>
+</div>
+<p>Return the stored <code class="md-code-inline">(lower, upper)</code> bound pair for <code class="md-code-inline">sym</code>, or <code class="md-code-inline">(-Inf, Inf)</code> when no bounds are stored for that symbol.</p>
+</div>
+</div>
+<h2 id="Internal-layers-and-scheduling" class="md-heading">Internal layers and scheduling<a href="#Internal-layers-and-scheduling" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.PassThrough">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.PassThrough</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct PassThrough{__T_name} &lt;: LuxCore.AbstractLuxLayer</code></pre>
+</div>
+<p>A single-variable layer that returns the incoming value and Lux state unchanged. It has no trainable values or scheduled reset times.</p>
+<p><strong>Fields</strong></p>
+<ul class="md-list-tight">
+<li><p><code class="md-code-inline">name</code>: The optional name of the state variable.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.InitialCondition">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.InitialCondition</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct InitialCondition{__T_name, __T_lookup, __T_parameter} &lt;: LuxCore.AbstractLuxContainerLayer{(:lookup, :parameter)}</code></pre>
+</div>
+<p>Reset values for one state variable or a group sharing the same exact-time lookup. Each scalar collection stores one value per entry in <code class="md-code-inline">timegrid</code>, initialized from a scalar, vector, or callback accepting <code class="md-code-inline">(rng, n::Int)</code> or <code class="md-code-inline">(rng, times::AbstractVector)</code>. Count callbacks take precedence; time-based callbacks receive the grid in its supplied order. Calling with <code class="md-code-inline">(incoming, t)</code> returns <code class="md-code-inline">(value, next_st)</code>: a stored value at an exact grid match, otherwise the incoming value promoted to the parameter scalar type. Single-variable layers accept a scalar; shared-grid groups accept a vector in group order. A <code class="md-code-inline">nothing</code> grid has no reset entries and allocates no trainable values.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">name</code>: The optional name of the state variable.</p>
+</li>
+<li><p><code class="md-code-inline">lookup</code>: Exact-time lookup mapping each scheduled reset time to its value index.</p>
+</li>
+<li><p><code class="md-code-inline">parameter</code>: A scalar parameter collection or NamedTuple of scalar collections sharing this reset grid.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.InitialCondition-Tuple{AbstractVector{&lt;:Real}, Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.InitialCondition</code> — <span class="md-docstring-sig">Tuple{AbstractVector{&lt;:Real}, Any}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">InitialCondition(timegrid, default; name, cache, bounds)
+</code></pre>
+</div>
+<p>Construct reset values for one state variable on <code class="md-code-inline">timegrid</code>. <code class="md-code-inline">default</code> is a scalar, vector, or count/timepoint initializer as described by <a href="../api/#Corleone.Tunable"><code class="md-code-inline">Tunable</code></a>. Times must be unique; <code class="md-code-inline">nothing</code> selects an empty reset grid. <code class="md-code-inline">cache</code> is an optional lookup cache. Output length and <code class="md-code-inline">bounds</code> are checked during Lux setup.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.PiecewiseConstant">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.PiecewiseConstant</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct PiecewiseConstant{__T_name, __T_lookup, __T_parameter} &lt;: LuxCore.AbstractLuxContainerLayer{(:lookup, :parameter)}</code></pre>
+</div>
+<p>One or more piecewise-constant parameters sharing a lookup. Lookup times separate intervals, so a grid of <code class="md-code-inline">n</code> switching times stores <code class="md-code-inline">n + 1</code> values. A <code class="md-code-inline">nothing</code> grid stores one constant value. Calling with <code class="md-code-inline">(t, ps, st)</code> returns <code class="md-code-inline">(value, next_st)</code>.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">name</code>: The optional name of the parameter.</p>
+</li>
+<li><p><code class="md-code-inline">lookup</code>: The time lookup selecting a piecewise-constant interval.</p>
+</li>
+<li><p><code class="md-code-inline">parameter</code>: A scalar parameter collection or NamedTuple of scalar collections sharing this grid.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.PiecewiseConstant-Tuple{AbstractVector{&lt;:Number}, Any}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.PiecewiseConstant</code> — <span class="md-docstring-sig">Tuple{AbstractVector{&lt;:Number}, Any}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">PiecewiseConstant(
+    timegrid,
+    default;
+    name,
+    cache,
+    initialization_times,
+    bounds,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Construct interval values on <code class="md-code-inline">timegrid</code> from a scalar, vector, or count/timepoint initializer as described by <a href="../api/#Corleone.Tunable"><code class="md-code-inline">Tunable</code></a>. Each switching time belongs to the following interval. Supply switching times in sorted order. A <code class="md-code-inline">nothing</code> grid creates one value. Time-based callbacks require <code class="md-code-inline">initialization_times</code>, one per interval; <code class="md-code-inline">Parameter</code> supplies the problem start followed by the switching times. <code class="md-code-inline">cache</code> optionally caches time lookups. Output length and <code class="md-code-inline">bounds</code> are checked during Lux setup.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.ParameterCollection">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ParameterCollection</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ParameterCollection{__T_init_parameters, __T_out_dims} &lt;: LuxCore.AbstractLuxLayer</code></pre>
+</div>
+<p>A layer storing tunable values initialized during Lux setup.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">init_parameters</code>: The initializer called as <code class="md-code-inline">init_parameters(rng, out_dims)</code> during Lux setup.</p>
+</li>
+<li><p><code class="md-code-inline">out_dims</code>: The number of stored parameter values.</p>
+</li>
+</ul>
+<p>Calling with <code class="md-code-inline">(index, ps, st)</code> returns <code class="md-code-inline">(ps.ps[index], st)</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.FixedLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.FixedLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct FixedLayer{__T_layer} &lt;: LuxCore.AbstractLuxWrapperLayer{:layer}</code></pre>
+</div>
+<p>A wrapper that stores the inner layer&#39;s parameters and state in Lux state. The wrapper has no trainable parameters. Calling it forwards its stored values to the inner layer and retains that layer&#39;s updated state.</p>
+<p><strong>Fields</strong></p>
+<ul class="md-list-tight">
+<li><p><code class="md-code-inline">layer</code>: The inner layer whose parameters are held fixed in Lux state.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.LookUp">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.LookUp</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct LookUp{__T_collection, __T_cache} &lt;: LuxCore.AbstractLuxLayer</code></pre>
+</div>
+<p>A time-based lookup layer using <a href="../api/#Corleone.lookup!"><code class="md-code-inline">lookup!</code></a>. Its collection, optional cache, and inserted-index buffer are stored in Lux state during setup.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">collection</code>: The initial switching-time vector, exact-time dictionary, or <code class="md-code-inline">nothing</code>.</p>
+</li>
+<li><p><code class="md-code-inline">cache</code>: The optional dictionary used to cache time lookups, or <code class="md-code-inline">nothing</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.lookup!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.lookup!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">lookup!(cache, collection, key)
+</code></pre>
+</div>
+<p>Look up the interval or entry for <code class="md-code-inline">key</code>, optionally caching the result.</p>
+<ul class="md-list-tight">
+<li><p><code class="md-code-inline">cache</code> is a cache for storing already looked up keys. In case of <code class="md-code-inline">nothing</code> the caching is skipped.</p>
+</li>
+<li><p><code class="md-code-inline">collection</code> either an <code class="md-code-inline">AbstractVector</code> or <code class="md-code-inline">AbstractDict</code> used for the lookup</p>
+</li>
+<li><p><code class="md-code-inline">key</code> the key.</p>
+</li>
+</ul>
+<p>If used with an <code class="md-code-inline">AbstractVector</code> and <code class="md-code-inline">Number</code>, lookup defaults to piecewise constant interpolation using <code class="md-code-inline">searchsortedfirst(collection, key; lt = &lt;=)</code>: a switching time belongs to the following interval. Dictionary lookup requires an exact key and returns <code class="md-code-inline">typemax</code> of its value type when absent. A <code class="md-code-inline">nothing</code> collection returns index 1.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.get_timestops">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.get_timestops</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">get_timestops(layer, ps, st)
+get_timestops(layer, ps, st, T)
+</code></pre>
+</div>
+<p>Return sorted, unique segment boundaries from the problem time span and the initial-condition and parameter schedules in Lux state. Layer boundaries outside the problem time span are excluded. The result has element type <code class="md-code-inline">T</code>. Schedules are read exclusively from Lux state, so <code class="md-code-inline">ps</code> may be <code class="md-code-inline">nothing</code>. To refresh a layer&#39;s cached grid after changing schedules, use <code class="md-code-inline">merge(st, (; timestops = get_timestops(layer, nothing, st)))</code>. Forward evaluation uses <code class="md-code-inline">st.timestops</code> directly rather than invoking this function.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.update_active_ics!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.update_active_ics!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">update_active_ics!(active, initial_conditions, new_st)
+update_active_ics!(
+    active,
+    initial_conditions,
+    new_st,
+    permutation
+)
+</code></pre>
+</div>
+<p>Update the preallocated residual activity mask from per-variable layers and their new Lux states. Only active, non-fixed initial conditions contribute residuals. This scheduling update is non-differentiable; an all-<code class="md-code-inline">PassThrough</code> tuple clears the mask without checking individual layers.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.terminal_state">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.terminal_state</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">terminal_state(sol)
+</code></pre>
+</div>
+<p>Return the final state from a time-series solution, a sequence of saved states, or a matrix whose columns are saved states. Supports solver and AD return formats.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.AbstractAnnotation">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.AbstractAnnotation</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">abstract type AbstractAnnotation</code></pre>
+</div>
+<p>Metadata for a state or parameter definition, including its selector, default, bounds, kind, and integrality. Concrete annotations are resolved against a symbolic index provider before numerical layers are constructed.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.DynamicVariable">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.DynamicVariable</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct DynamicVariable{T, __T_index, __T_sym, __T_kind, __T_default, __T_lowerbound, __T_upperbound, __T_integer} &lt;: Corleone.AbstractAnnotation</code></pre>
+</div>
+<p>A state or parameter annotation. The type parameter <code class="md-code-inline">T</code> selects tunable (<code class="md-code-inline">true</code>) or fixed (<code class="md-code-inline">false</code>) values. Missing metadata is represented by <code class="md-code-inline">nothing</code>, except for the unknown kind <code class="md-code-inline">Val(:unknown)</code>. Use <a href="../api/#Corleone.Tunable"><code class="md-code-inline">Tunable</code></a> or <a href="../api/#Corleone.Constant"><code class="md-code-inline">Constant</code></a> to construct annotations.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">index</code>: The original state or parameter index, or <code class="md-code-inline">nothing</code> before resolution.</p>
+</li>
+<li><p><code class="md-code-inline">sym</code>: The state or parameter symbol, or <code class="md-code-inline">nothing</code> before resolution.</p>
+</li>
+<li><p><code class="md-code-inline">kind</code>: The annotation kind: <code class="md-code-inline">Val(:variable)</code>, <code class="md-code-inline">Val(:parameter)</code>, or <code class="md-code-inline">Val(:unknown)</code>.</p>
+</li>
+<li><p><code class="md-code-inline">default</code>: A scalar, vector, count/timepoint initializer, or <code class="md-code-inline">nothing</code> to inherit the symbolic default.</p>
+</li>
+<li><p><code class="md-code-inline">lowerbound</code>: The lower bound, or <code class="md-code-inline">nothing</code> to inherit the symbolic bound.</p>
+</li>
+<li><p><code class="md-code-inline">upperbound</code>: The upper bound, or <code class="md-code-inline">nothing</code> to inherit the symbolic bound.</p>
+</li>
+<li><p><code class="md-code-inline">integer</code>: Whether the value is integer-valued, or <code class="md-code-inline">nothing</code> to inherit symbol metadata.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.update_annotation">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.update_annotation</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">update_annotation(x, indep)
+</code></pre>
+</div>
+<p>Resolve an annotation against symbolic index provider <code class="md-code-inline">indep</code>. Fill missing index, symbol, default, bounds, and integrality metadata. Reject unknown selectors, inconsistent symbol/index pairs, reversed bounds, and defaults outside bounds.</p>
+</div>
+</div>
+<h2 id="Deprecated-constructor-functions" class="md-heading">Deprecated constructor functions<a href="#Deprecated-constructor-functions" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>See <a href="../legacy_constructors/">migration guidance</a> for legacy constructor translations.</p>
+<div class="md-docstring" id="Corleone.ControlParameter">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.ControlParameter</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">ControlParameter(t; name, controls, bounds)
+</code></pre>
+</div>
+<p>Deprecated constructor for a piecewise-constant control. Return a <code class="md-code-inline">Tunable(name; kind = Val(:parameter), ...) =&gt; switching_times</code> definition. Legacy <code class="md-code-inline">t</code> contains the start of each control interval, so the first entry is removed from the returned switching grid. <code class="md-code-inline">controls</code> may be a vector, scalar, or legacy callback <code class="md-code-inline">(rng, times, bounds) -&gt; values</code>. Callbacks run during Lux setup.</p>
+<p>Scalar bounds and uniform bound vectors are supported. Nonuniform per-time bounds cannot be represented by the current annotation bounds and are rejected. Pass the returned definition directly to <code class="md-code-inline">ShootingLayer</code>, or use <code class="md-code-inline">index =&gt; definition</code> in a deprecated shooting constructor to select a parameter independently of <code class="md-code-inline">name</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.SingleShootingLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.SingleShootingLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">SingleShootingLayer(prob, alg; kwargs...)
+</code></pre>
+</div>
+<p>Deprecated single-shooting constructor returning a <a href="../api/#Corleone.ShootingLayer"><code class="md-code-inline">ShootingLayer</code></a>. Translate <code class="md-code-inline">controls = [index =&gt; ControlParameter(...), ...]</code>, <code class="md-code-inline">tunable_ic</code>, <code class="md-code-inline">bounds_ic</code>, <code class="md-code-inline">bounds_p</code>, and <code class="md-code-inline">quadrature_indices</code> into native annotations and symbolic bookkeeping. Initial conditions in <code class="md-code-inline">tunable_ic</code> are tunable at the problem start; other initial conditions pass through <code class="md-code-inline">problem.u0</code>. Non-control parameters remain tunable. Extra keywords remake the differential equation problem.</p>
+<p>The return value uses the new Lux parameter/state layout, with residuals in <code class="md-code-inline">trajectory.residuals</code>. Legacy whole-vector initialization callbacks are not supported; set annotation defaults using count or timepoint callbacks instead.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.MultipleShootingLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.MultipleShootingLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">MultipleShootingLayer(
+    prob,
+    alg,
+    times;
+    ensemble_alg,
+    initialization,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Deprecated multiple-shooting constructor returning a <a href="../api/#Corleone.ShootingLayer"><code class="md-code-inline">ShootingLayer</code></a>. Accept a problem and algorithm, or an existing <code class="md-code-inline">ShootingLayer</code>, followed by shooting points as a vector or positional arguments. Every state, including quadratures, is lifted at interior shooting points. <code class="md-code-inline">ensemble_alg</code> selects block execution.</p>
+<p>The returned layer uses the native per-variable parameter layout, free tunable initial values, and interior matching residuals. Parameters and controls remain shared across shooting blocks. Legacy stage-parameter/control lifting and whole-layer <code class="md-code-inline">initialization</code> callbacks are not restored; express initial guesses through annotation defaults instead.</p>
+</div>
+</div>
+<h2 id="Optimization-facing-contracts" class="md-heading">Optimization-facing contracts<a href="#Optimization-facing-contracts" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.get_lower_bound">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.get_lower_bound</code></h4>
+</div>
+<div class="md-docstring-content">
+<p>Return lower optimization bounds with the parameter layout and array shapes of <code class="md-code-inline">ps</code>. Containers and wrappers recurse using Lux&#39;s declared child fields; NamedTuple, Tuple and array collections recurse over their layers. Generic leaves have unbounded parameters (<code class="md-code-inline">-Inf</code>). Empty parameter subtrees remain empty.</p>
+<p><code class="md-code-inline">ShootingLayer</code> specializes this operation using its <code class="md-code-inline">ControlSymbolCache</code>, repeating each symbol&#39;s lower bound across its scheduled values. Other layers may specialize this function to supply their own bounds. Initialized parameters are supplied explicitly; no setup, RNG draws, initializers, or solves are performed. <code class="md-code-inline">st</code> is optional and is forwarded to child layers when supplied.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.get_upper_bound">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.get_upper_bound</code></h4>
+</div>
+<div class="md-docstring-content">
+<p>Return upper optimization bounds, following the same recursive layer and parameter structure as <a href="../api/#Corleone.get_lower_bound"><code class="md-code-inline">get_lower_bound</code></a>. Generic leaves use <code class="md-code-inline">Inf</code>; <code class="md-code-inline">ShootingLayer</code> uses the upper bounds in its symbolic cache. No parameter initialization or solve is performed.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.get_number_of_shooting_constraints">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.get_number_of_shooting_constraints</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">get_number_of_shooting_constraints(layer, ps, st)
+</code></pre>
+</div>
+<p>Count scalar state and parameter matching residuals for the cached segment grid in <code class="md-code-inline">st.timestops</code>, without running the model. Each tunable initial condition contributes one residual at each matching segment start strictly after the global problem start. Assignments at the global start are free initial values. Each inserted interval of a tunable parameter adds one matching residual, counted once regardless of other segment boundaries within that interval. Original parameter switches, fixed assignments, and resets at the final endpoint contribute none.</p>
+<p>The count uses scheduling metadata in Lux state; <code class="md-code-inline">ps</code> may be <code class="md-code-inline">nothing</code>. Refresh <code class="md-code-inline">st.timestops</code> after changing schedules, then recompute this count before allocating optimizer constraint buffers. This discrete metadata calculation is not differentiated.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.add_parameter_segments!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.add_parameter_segments!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">add_parameter_segments!(layer, ps, st)
+</code></pre>
+</div>
+<p>Split tunable parameter intervals at interior full-state resets and return updated <code class="md-code-inline">(ps, st)</code> for the same layer. New interval values duplicate the previously active value. Their right-hand interval indices are recorded in <code class="md-code-inline">st</code>&#39;s per-parameter <code class="md-code-inline">lookup.inserted</code> vectors, for subsequent parameter matching constraints.</p>
+<p>Existing parameter switches remain unconstrained, and fixed parameters are unchanged. Repeated calls do not insert additional entries. The input arrays and layer are retained unchanged; changed parameter arrays and lookup grids are newly allocated, and affected lookup caches are cleared. Segment boundaries are read from the current initial-condition schedules and the stored problem span; the returned state&#39;s cached timestops are refreshed. No solve, initialization, or constraint construction occurs.</p>
+<p>The layer&#39;s setup dimensions remain unchanged. Use the returned parameters to size optimizer storage and query bounds; calling setup again restores the original layout.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.shooting_constraints">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.shooting_constraints</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">shooting_constraints(trajectory)
+</code></pre>
+</div>
+<p>Return scalar state matching residuals followed by parameter matching residuals. State residuals use chronological segment order, with variables in canonical state index order within each segment. The values are assigned states minus incoming states, as stored in <code class="md-code-inline">trajectory.residuals</code>. Parameter residuals are computed on demand from the stored layer, parameters, and state. Each inserted right-hand interval index <code class="md-code-inline">i</code> contributes <code class="md-code-inline">values[i] - values[i - 1]</code>, in canonical parameter order and then increasing index. Original parameter switches and fixed assignments do not contribute residuals.</p>
+<p>These are equality-constraint values; matching constraint bounds are zero. Numerical derivatives flow through the residual values. Use <a href="../api/#Corleone.shooting_constraints!"><code class="md-code-inline">shooting_constraints!</code></a> to write directly into an existing optimizer buffer.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.shooting_constraints!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.shooting_constraints!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">shooting_constraints!(res, trajectory)
+</code></pre>
+</div>
+<p>Write <a href="../api/#Corleone.shooting_constraints"><code class="md-code-inline">shooting_constraints</code></a> into <code class="md-code-inline">res</code> in the same order and return <code class="md-code-inline">res</code>. The buffer length must equal the total number of scalar residuals; otherwise throw <code class="md-code-inline">DimensionMismatch</code> before writing. This avoids allocating an intermediate flattened vector. The buffer&#39;s element type must support the residual values, including AD number types. Backends that do not support array mutation should use the allocating <code class="md-code-inline">shooting_constraints</code> form instead.</p>
+</div>
+</div>
+<h2 id="Prepared-optimization-facade" class="md-heading">Prepared optimization facade<a href="#Prepared-optimization-facade" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.CorleoneDynamicOptProblem">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.CorleoneDynamicOptProblem</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}</code></pre>
+</div>
+<p>Prepare <code class="md-code-inline">CorleoneDynamicOptProblem(layer, objective, constraints...; lcons, ucons, ps, st, rng, eval_module)</code>. The objective is a scalar trajectory callback <code class="md-code-inline">f(prediction)</code> or <code class="md-code-inline">f(prediction, st)</code>, a Julia <code class="md-code-inline">Expr</code>, or a terminal state/parameter selector. Omitting it sums terminal quadratures.</p>
+<p>Callback-based Lux layers may return a collection of trajectories. Timed expressions and terminal selectors require a <code class="md-code-inline">ShootingLayer</code>.</p>
+<p>Each constraint is a scalar/vector callback <code class="md-code-inline">f(traj)</code>, an in-place callback <code class="md-code-inline">f!(res, traj)</code> whose return is ignored, or a numerical Julia expression. Supply <code class="md-code-inline">lcons</code> and <code class="md-code-inline">ucons</code> with matching structure and one top-level entry per constraint: <code class="md-code-inline">[0.0, [0.0, 0.0], 0.0]</code> declares output sizes <code class="md-code-inline">(1, 2, 1)</code>. With a single constraint, a flat bound vector is also accepted. Bounds are flattened in declaration order; state and parameter shooting equalities are appended automatically with zero bounds.</p>
+<p>Timed signal calls such as <code class="md-code-inline">:(u₁(10.0) + p₁(5.0))</code> collect their timepoints during setup. Prediction uses the union of these points and <code class="md-code-inline">st.timestops</code>. Expressions are compiled against the actual saved grid, including internal <code class="md-code-inline">saveat</code> samples. A timed reset query selects the post-reset state; parameters are right-continuous. Bare signal names within expressions denote their full series on that saved grid. Constraint comparisons are not parsed: use numerical expressions and lcons/ucons.</p>
+<p><code class="md-code-inline">eval_module</code> resolves ordinary expression functions and constants (default: Corleone, including Base functions). Pass your own module for custom helpers. Signal times must be real literals within the time span; interpolate computed times. SymbolicUtils parsing is deferred. <code class="md-code-inline">evaluator = default_evaluator()</code> selects the loaded RuntimeGeneratedFunctions extension, with eval as the built-in fallback.</p>
+<p>Supply <code class="md-code-inline">ps</code>/<code class="md-code-inline">st</code> together to retain them by reference, including expanded parameter intervals. Otherwise setup runs once. One initial prediction validates outputs and prepares indices; its numerical solution is not retained. Reprepare after changing schedules, saved layout, or output dimensions. Load ComponentArrays for the default SciMLBase optimization bridge, or supply another packing implementation.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">layer</code>: The Lux layer shared with forward predictions.</p>
+</li>
+<li><p><code class="md-code-inline">objective</code>: The scalar objective callback or prepared expression/terminal selector.</p>
+</li>
+<li><p><code class="md-code-inline">constraints</code>: Prepared constraint evaluators in declaration order.</p>
+</li>
+<li><p><code class="md-code-inline">ps</code>: Initialized numerical parameters, retained by reference.</p>
+</li>
+<li><p><code class="md-code-inline">st</code>: Initialized Lux state, retained by reference.</p>
+</li>
+<li><p><code class="md-code-inline">timepoints</code>: Signal names mapped to requested expression times; discrete setup metadata.</p>
+</li>
+<li><p><code class="md-code-inline">evaluation_grid</code>: The evaluation grid, or nothing when prediction uses the layer&#39;s own grids.</p>
+</li>
+<li><p><code class="md-code-inline">source_timestops</code>: The original cached shooting-stop tree used to detect schedule changes.</p>
+</li>
+<li><p><code class="md-code-inline">times</code>: The actual saved prediction grid or grid tree, retained for layout checks.</p>
+</li>
+<li><p><code class="md-code-inline">lcons</code>: Flattened user lower bounds followed by shooting equality bounds.</p>
+</li>
+<li><p><code class="md-code-inline">ucons</code>: Flattened user upper bounds followed by shooting equality bounds.</p>
+</li>
+<li><p><code class="md-code-inline">nshooting</code>: The prepared number of state and parameter shooting equalities.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.optimization_objective">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.optimization_objective</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">optimization_objective(prob)
+optimization_objective(prob, ps)
+optimization_objective(prob, ps, st)
+</code></pre>
+</div>
+<p>Solve once on the prepared evaluation grid and evaluate the scalar objective. Parameters/state default to those retained by the model. No numerical solution cache is shared between calls or AD contexts.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.optimization_constraints">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.optimization_constraints</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">optimization_constraints(prob)
+optimization_constraints(prob, ps)
+optimization_constraints(prob, ps, st)
+</code></pre>
+</div>
+<p>Solve once and concatenate constraint outputs, followed by shooting equalities. Out-of-place callbacks and compiled expressions support mutation-free reverse AD. An in-place callback is evaluated into a fresh, appropriately typed buffer; its AD support depends on the callback and backend&#39;s support for mutation.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.optimization_constraints!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.optimization_constraints!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">optimization_constraints!(res, prob)
+optimization_constraints!(res, prob, ps)
+optimization_constraints!(res, prob, ps, st)
+</code></pre>
+</div>
+<p>Write constraints into res in declaration order, followed by shooting equalities. Check total length before solving/writing. In-place user callbacks receive their own output slice directly; their return values are ignored. The buffer must support the current numerical scalar type, including AD values.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.constraint_jacobian_sparsity">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.constraint_jacobian_sparsity</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">constraint_jacobian_sparsity(prob; vectorize, ps, st)
+</code></pre>
+</div>
+<p>Return a conservative sparse Boolean constraint Jacobian pattern for a prepared ODE shooting problem. Columns follow <code class="md-code-inline">pack(vectorize, ps)</code>; rows follow <a href="../api/#Corleone.optimization_constraints"><code class="md-code-inline">optimization_constraints</code></a>. Parsed Expr constraints (including lowered MTK constraints) use their referenced state/time and parameter/time dependencies. Literal vectors retain separate dependencies per component; other vector-valued expressions use their combined dependencies. Arbitrary callback rows are dense. Shooting rows propagate all state dependencies within each integration segment, replace them at scheduled resets, and include active tunable parameters. Fixed resets erase state dependencies; partial resets retain dependencies of the other states. Inserted parameter equalities have two entries each.</p>
+<p>The pattern describes a fixed schedule and parameter layout. Rebuild it after changing either. This computes structural metadata without solving or tracing through the ODE solver. Dependencies of fixed numerical values in <code class="md-code-inline">st</code> are excluded because the Jacobian differentiates only <code class="md-code-inline">ps</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.lagrangian_hessian_sparsity">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.lagrangian_hessian_sparsity</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">lagrangian_hessian_sparsity(prob; vectorize, ps, st)
+</code></pre>
+</div>
+<p>Return a conservative symmetric Boolean sparsity pattern for the Lagrangian Hessian <code class="md-code-inline">σ * ∇²objective + sum(λ[i] * ∇²constraint[i])</code>, including the objective when there are no constraints. Columns and rows follow <code class="md-code-inline">pack(vectorize, ps)</code>. The pattern is independent of the current objective factor and multipliers.</p>
+<p>Parsed expressions (including lowered MTK expressions) conservatively couple all parameter columns on which each output depends. This covers general nonlinear operations and curvature introduced by the ODE solution without differentiating expression syntax. Unknown callbacks conservatively couple all columns. This is a structural superset, not symbolic second differentiation. State matching rows use their incoming solution dependencies; the assigned lifted value is affine. Parameter matching equalities are affine and add no entries.</p>
+<p>Supports prepared ODE ShootingLayer models. Rebuild after schedule or layout changes. Load OptimizationBase to obtain its canonical upper-triangle coordinates with <code class="md-code-inline">OptimizationBase.lag_hess_structure(prob; vectorize, ps, st)</code>. This helper supplies structure only. Use <code class="md-code-inline">sparse_hessian=true</code> when constructing OptimizationFunction/OptimizationProblem to prepare numerical Hessian callbacks.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.pack">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.pack</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">pack(extension::Val, ps) -&gt; q0, reconstruct</code></pre>
+</div>
+<p>Prepare flat real optimizer storage and a callable restoring named parameter access. <code class="md-code-inline">reconstruct(q)</code> must use the current vector&#39;s numerical values and scalar type; its result may be a ComponentArray, NamedTuple, or another parameter container. Each implementation must pack parameters and their bounds in the same order.</p>
+<p>Load ComponentArrays for <code class="md-code-inline">Val(:ComponentArrays)</code>. It returns the ComponentVector&#39;s backing array and a callable retaining only its axes. Calling that object wraps any compatible vector in a ComponentArray without copying numeric values. Packing a NamedTuple allocates flat storage once; packing an existing ComponentVector reuses its backing storage.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.default_vectorizer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.default_vectorizer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">default_vectorizer()
+</code></pre>
+</div>
+<p>Select a loaded parameter vectorization extension. Currently returns <code class="md-code-inline">Val(:ComponentArrays)</code> when the ComponentArrays extension is loaded. If no supported extension is loaded, throw <code class="md-code-inline">UndefKeywordError(:vectorize)</code>.</p>
+<p>Load ComponentArrays to enable the default, or supply <code class="md-code-inline">vectorize</code> explicitly to OptimizationFunction/OptimizationProblem using an implementation of <a href="../api/#Corleone.pack"><code class="md-code-inline">pack</code></a>.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.default_evaluator">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.default_evaluator</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">default_evaluator()
+</code></pre>
+</div>
+<p>Select <code class="md-code-inline">Val(:RuntimeGeneratedFunctions)</code> when its extension is loaded, otherwise return <code class="md-code-inline">Val(:Eval)</code>. An explicit <code class="md-code-inline">evaluator</code> keyword overrides this selection.</p>
+</div>
+</div>
+<div class="md-docstring" id="Corleone.compile_evaluator">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.compile_evaluator</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">compile_evaluator(strategy::Val, expression::Expr, eval_module::Module)</code></pre>
+</div>
+<p>Compile a one-argument lambda expression into a numerical callable. <code class="md-code-inline">Val(:Eval)</code> uses Core.eval in eval_module and calls the resulting function in its latest world. The RuntimeGeneratedFunctions extension implements <code class="md-code-inline">Val(:RuntimeGeneratedFunctions)</code>. Parsing and index substitution are shared by both implementations.</p>
+</div>
+</div>
+<div class="md-docstring" id="SciMLBase.OptimizationFunction-Tuple{CorleoneDynamicOptProblem, ADTypes.AbstractADType}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SciMLBase.OptimizationFunction</code> — <span class="md-docstring-sig">Tuple{CorleoneDynamicOptProblem, ADTypes.AbstractADType}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">OptimizationFunction(
+    prob,
+    ad;
+    vectorize,
+    ps,
+    st,
+    inplace,
+    sparse_constraints,
+    sparse_hessian,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Build typed optimizer callbacks using the reconstruction callable returned by <a href="../api/#Corleone.pack"><code class="md-code-inline">pack</code></a>. <code class="md-code-inline">inplace = true</code> uses the buffer-writing constraint callback; <code class="md-code-inline">false</code> uses the allocating form and out-of-place derivative convention. Additional keywords configure function/derivative options. <code class="md-code-inline">sparse_constraints = true</code> prepares a colored sparse constraint Jacobian when DifferentiationInterface and SparseMatrixColorings are loaded. <code class="md-code-inline">sparse_hessian = true</code> prepares colored objective and Lagrangian Hessian callbacks. Both require <code class="md-code-inline">inplace = true</code>; the Hessian option additionally requires second-order support from <code class="md-code-inline">ad</code>. Initialization and layout preparation are not repeated. The <code class="md-code-inline">vectorize</code> keyword selects the packing implementation. Its default is <a href="../api/#Corleone.default_vectorizer"><code class="md-code-inline">default_vectorizer</code></a>, which requires a loaded supported extension. Other implementations may be supplied explicitly through <code class="md-code-inline">vectorize</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="SciMLBase.OptimizationProblem-Tuple{CorleoneDynamicOptProblem, ADTypes.AbstractADType}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SciMLBase.OptimizationProblem</code> — <span class="md-docstring-sig">Tuple{CorleoneDynamicOptProblem, ADTypes.AbstractADType}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">OptimizationProblem(
+    prob,
+    ad;
+    vectorize,
+    ps,
+    st,
+    inplace,
+    sparse_constraints,
+    sparse_hessian,
+    function_kwargs,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Build a SciMLBase OptimizationProblem with <code class="md-code-inline">vectorize = default_vectorizer()</code>, flattened Lux parameters, matching symbolic bounds, and prepared user/shooting constraints. Use supplied <code class="md-code-inline">ps</code>/<code class="md-code-inline">st</code> or the model&#39;s retained values. The packing implementation controls storage and reconstruction; the default ComponentArrays implementation uses flat numerical storage and restores ComponentArray axes around the current optimizer input without copying values. <code class="md-code-inline">function_kwargs</code> configures OptimizationFunction. <code class="md-code-inline">sparse_constraints = true</code> prepares only the constraint Jacobian sparsely; objective differentiation retains <code class="md-code-inline">ad</code>. Load DifferentiationInterface and SparseMatrixColorings to enable it. <code class="md-code-inline">sparse_hessian = true</code> additionally prepares exact objective and Lagrangian Hessians with structural coloring; <code class="md-code-inline">ad</code> must support second differentiation. Remaining keywords are forwarded to OptimizationProblem.</p>
+</div>
+</div>
+<div class="md-docstring" id="SciMLBase.OptimizationProblem-Tuple{ShootingLayer, ADTypes.AbstractADType}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SciMLBase.OptimizationProblem</code> — <span class="md-docstring-sig">Tuple{ShootingLayer, ADTypes.AbstractADType}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">OptimizationProblem(
+    layer,
+    ad;
+    vectorize,
+    loss,
+    constraints,
+    ps,
+    st,
+    lcons,
+    ucons,
+    eval_module,
+    evaluator,
+    rng,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Prepare a CorleoneDynamicOptProblem and construct its SciMLBase OptimizationProblem in one call. Setup runs only when neither <code class="md-code-inline">ps</code> nor <code class="md-code-inline">st</code> is supplied. <code class="md-code-inline">loss</code>, <code class="md-code-inline">constraints</code>, and initialization options follow the core model constructor.</p>
+</div>
+</div>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Shooting-layers">Shooting layers</a>
+          <a class="md-toc-link md-toc-h2" href="#Trajectories">Trajectories</a>
+          <a class="md-toc-link md-toc-h2" href="#Symbolic-bookkeeping">Symbolic bookkeeping</a>
+          <a class="md-toc-link md-toc-h2" href="#Internal-layers-and-scheduling">Internal layers and scheduling</a>
+          <a class="md-toc-link md-toc-h2" href="#Deprecated-constructor-functions">Deprecated constructor functions</a>
+          <a class="md-toc-link md-toc-h2" href="#Optimization-facing-contracts">Optimization-facing contracts</a>
+          <a class="md-toc-link md-toc-h2" href="#Prepared-optimization-facade">Prepared optimization facade</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=1f8db963"></script>
+</body>
+</html>

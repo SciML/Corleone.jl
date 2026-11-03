@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scheduling parameters — Corleone.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=4c2adcfa">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Scheduling parameters — Corleone.jl">
+  <meta property="og:title" content="Scheduling parameters — Corleone.jl">
+  <meta property="twitter:title" content="Scheduling parameters — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/scheduling/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/scheduling/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/scheduling/">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../tutorials/">Overview</a>
+        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../shooting/">Constructing Shooting Problems</a>
+        <a href="../scheduling/" class="md-nav-active">Scheduling Parameters</a>
+        <a href="../initialization/">Initializing Models</a>
+        <a href="../trajectories/">Inspecting Trajectories</a>
+        <a href="../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../oed/formulation/">Measurements and Information</a>
+          <a href="../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../oed/api/">API Reference</a>
+          <a href="../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../references/">References</a>
+      <a href="../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="Scheduling-parameters" class="md-heading">Scheduling parameters<a href="#Scheduling-parameters" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>Pair a <code class="md-code-inline">Tunable</code> or <code class="md-code-inline">Constant</code> annotation with a grid to select which values vary and when. Controls are entries of the differential equation&#39;s parameter vector; <code class="md-code-inline">controls</code> marks them for symbolic queries and plots without changing their storage.</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+
+problem = ODEProblem((x, p, t) -&gt; [p[1] * x[1] + p[2]],
+    [1.0], (0.0, 2.0), [-1.0, 0.0])
+layer = ShootingLayer(problem, Tsit5(),
+    Constant(1) =&gt; nothing,
+    Tunable(2; default = [0.25, 0.75], lowerbound = 0.0, upperbound = 1.0) =&gt; [1.0];
+    controls = [2])
+ps, st = LuxCore.setup(MersenneTwister(42), layer)
+trajectory, next_st = layer(nothing, ps, st)
+trajectory[:p₂]</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">2-element Vector{Float64}:
+ 0.25
+ 0.75</code></pre>
+</div>
+<h2 id="Interval-values-and-storage" class="md-heading">Interval values and storage<a href="#Interval-values-and-storage" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>A parameter grid contains <strong>switching times</strong>: <code class="md-code-inline">n</code> switches require <code class="md-code-inline">n + 1</code> values. Supply switching times in sorted order. At a switch, the right-hand interval is active. Use <code class="md-code-inline">nothing</code> for one value over the whole horizon. Different parameters may have different grids.</p>
+<p><code class="md-code-inline">Tunable</code> values live in <code class="md-code-inline">ps</code>; <code class="md-code-inline">Constant</code> values live in Lux state <code class="md-code-inline">st</code>, alongside schedules and caches. Unspecified numerical parameters receive one tunable value initialized from <code class="md-code-inline">problem.p</code>. Mark physical parameters <code class="md-code-inline">Constant</code> when they must remain outside the optimizer vector. Unspecified states pass through their incoming values; state annotations instead schedule <a href="../shooting/">resets</a>.</p>
+<p>Select by original index or symbol. A vector selector takes one default per variable; a vector of vectors supplies each variable&#39;s time series:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Corleone
+
+# Two parameters, each with two interval values.
+controls = Tunable([1, 2]; default = [[0.2, 0.3], [0.5, 0.6]]) =&gt; [1.0]</code></pre>
+</div>
+<p>Equal grids share a lookup, including across separate annotations. Each member still stores a vector of scalar values; fixed and tunable members may share a grid. Changing that grid affects all its members. Reconstruct the layer to move only some members to another grid. Avoid depending on private nesting paths; use <a href="../optimization_contracts/#Parameter-packing-interface">parameter packing</a> to reconstruct an optimizer result.</p>
+<h2 id="Defaults-and-schedule-changes" class="md-heading">Defaults and schedule changes<a href="#Defaults-and-schedule-changes" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Set initial guesses with annotation defaults or callbacks; see <a href="../initialization/">initialization</a>. Bounds constrain stored tunable values, not the state between samples; see <a href="../shooting/">constructing shooting problems</a>.</p>
+<p>Setup caches the union of endpoints, switches, and resets in <code class="md-code-inline">st.timestops</code>. After changing schedules in state, refresh it before evaluating:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">st = merge(st, (; timestops = Corleone.get_timestops(layer, nothing, st)))</code></pre>
+</div>
+<p>Changing a grid&#39;s size also requires matching value buffers. Reprepare optimization models after schedule or layout changes. <a href="../api/#Corleone.add_parameter_segments!"><code class="md-code-inline">add_parameter_segments!</code></a> is the supported helper for splitting intervals at full-state shooting boundaries while preserving their current values; see <a href="../shooting/#Shared-parameters-and-inserted-intervals">shared parameters</a>.</p>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Interval-values-and-storage">Interval values and storage</a>
+          <a class="md-toc-link md-toc-h2" href="#Defaults-and-schedule-changes">Defaults and schedule changes</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=4c2adcfa"></script>
+</body>
+</html>

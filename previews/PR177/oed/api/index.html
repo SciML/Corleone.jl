@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API reference — Corleone.jl</title>
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=a8d4de6a">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="API reference — Corleone.jl">
+  <meta property="og:title" content="API reference — Corleone.jl">
+  <meta property="twitter:title" content="API reference — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/oed/api/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/oed/api/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/oed/api/">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../../">Home</a>
+      <a href="../../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../../tutorials/">Overview</a>
+        <a href="../../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../../shooting/">Constructing Shooting Problems</a>
+        <a href="../../scheduling/">Scheduling Parameters</a>
+        <a href="../../initialization/">Initializing Models</a>
+        <a href="../../trajectories/">Inspecting Trajectories</a>
+        <a href="../../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../../oed/formulation/">Measurements and Information</a>
+          <a href="../../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../../oed/api/" class="md-nav-active">API Reference</a>
+          <a href="../../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../../references/">References</a>
+      <a href="../../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="oed_api" class="md-heading">API reference<a href="#oed_api" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>The entries below document OED-owned APIs and OED-specific methods of shared functions. Re-exported Corleone and Symbolics APIs retain their own documentation. See the <a href="../../oed/designs/#oed_designs">design guide</a> for links to the shared Corleone manual. The shared optimization helpers include <code class="md-code-inline">constraint_jacobian_sparsity</code> and <code class="md-code-inline">lagrangian_hessian_sparsity</code> for supported shooting problems.</p>
+<h2 id="Measurements-and-layers" class="md-heading">Measurements and layers<a href="#Measurements-and-layers" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="CorleoneOED.AbstractMeasurement">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.AbstractMeasurement</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">abstract type AbstractMeasurement</code></pre>
+</div>
+<p>A measurement specification with an identifier, schedule, and observation map <code class="md-code-inline">observed(u, p, t)</code>. A map may return a scalar or a vector. All outputs of one measurement share its weight. Measurement weights are tunable parameters in <code class="md-code-inline">[0, 1]</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.ContinuousMeasurement">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.ContinuousMeasurement</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ContinuousMeasurement{T, F} &lt;: CorleoneOED.AbstractMeasurement</code></pre>
+</div>
+<p>Integrate information with a piecewise-constant measurement density. <code class="md-code-inline">tpoints</code> contains switching times; optional problem endpoints are removed when constructing intervals. There is one value per resulting interval, not per supplied point. An empty grid gives one density over the whole time span. Times must be finite, sorted, unique, and inside the problem span; validation occurs in <a href="../../oed/api/#CorleoneOED.OEDLayer"><code class="md-code-inline">OEDLayer</code></a>.</p>
+<p>At a switch, the density is right-continuous. All output rows of <code class="md-code-inline">observed(u, p, t)</code> share this density, and information is weighted linearly. Budgets integrate density by interval duration. Identifiers must be unique and distinct from model symbols; observation maps must accept symbolic inputs with a fixed scalar/vector output size.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">id</code>: The unique parameter symbol for this measurement&#39;s densities.</p>
+</li>
+<li><p><code class="md-code-inline">tpoints</code>: Sorted density-switch times; optional problem endpoints are only interval boundaries.</p>
+</li>
+<li><p><code class="md-code-inline">observed</code>: The symbolic-compatible map <code class="md-code-inline">(u, p, t) -&gt; y</code>, with fixed scalar/vector output size.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.DiscreteMeasurement">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.DiscreteMeasurement</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct DiscreteMeasurement{T, F} &lt;: CorleoneOED.AbstractMeasurement</code></pre>
+</div>
+<p>Observe at the exact, sorted <code class="md-code-inline">tpoints</code>. There is one weight per point, including any points at the initial and final time. <code class="md-code-inline">tpoints</code> must be nonempty, finite, unique, and within the problem span; validation occurs in <a href="../../oed/api/#CorleoneOED.OEDLayer"><code class="md-code-inline">OEDLayer</code></a>. Information is linear in the weights: <code class="md-code-inline">w * J&#39;J</code>, with one shared weight for every output row of <code class="md-code-inline">observed(u, p, t)</code>. Identifiers must be unique and distinct from model symbols. Observation maps must accept symbolic inputs with a fixed output size.</p>
+<p>Events are added to the saved grid. At a shooting reset, discrete information uses the last saved sample at that time, the outgoing/post-reset state. Discrete budgets sum event weights; weights between events do not create extra observations.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">id</code>: The unique parameter symbol for this measurement&#39;s weights.</p>
+</li>
+<li><p><code class="md-code-inline">tpoints</code>: Sorted actual observation events; includes initial/final times only when supplied.</p>
+</li>
+<li><p><code class="md-code-inline">observed</code>: The symbolic-compatible map <code class="md-code-inline">(u, p, t) -&gt; y</code>, with fixed scalar/vector output size.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.OEDLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.OEDLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct OEDLayer{L, P, M, I, B} &lt;: LuxCore.AbstractLuxWrapperLayer{:shooting}</code></pre>
+</div>
+<p>A shooting layer for local optimal experimental design. The augmented state holds physical states, parameter sensitivities, and the upper triangle of the continuous Fisher information matrix. Discrete observations are accumulated on demand.</p>
+<p>Call <code class="md-code-inline">OEDLayer(problem, algorithm, definitions...; params, measurements, kwargs...)</code> or wrap an existing <code class="md-code-inline">ShootingLayer</code>. <code class="md-code-inline">params</code> defaults to every original physical parameter index and accepts a nonempty, unique sequence of indices or symbols. <code class="md-code-inline">measurements</code> is a tuple/collection of <a href="../../oed/api/#CorleoneOED.ContinuousMeasurement"><code class="md-code-inline">ContinuousMeasurement</code></a> and/or <a href="../../oed/api/#CorleoneOED.DiscreteMeasurement"><code class="md-code-inline">DiscreteMeasurement</code></a> specifications. Physical states and parameters must be vectors; the RHS and observations must accept symbolic inputs.</p>
+<p>With the default <code class="md-code-inline">fixed_parameters=nothing</code> policy, unannotated physical parameters are fixed at their nominal values; explicit annotations select design variables. All measurement weights are tunable in <code class="md-code-inline">[0, 1]</code>. <code class="md-code-inline">params</code> selects the physical parameters whose sensitivities define the information matrix, independently of their tunability.</p>
+<p>Lux parameters retain the shooting layer&#39;s layout. State additionally stores <code class="md-code-inline">F_init</code>, a prior information matrix, included once by <code class="md-code-inline">fisher_information</code>. Evaluation returns <code class="md-code-inline">(trajectory, next_st)</code> and preserves derivatives through current parameters and numerical state. Full physical-state shooting resets also lift the sensitivity and continuous-information states at interior full-state resets, with ordinary continuity constraints. Prescribed physical resets after the initial time are rejected because sensitivity jump maps are not provided.</p>
+<p><code class="md-code-inline">svd=false</code> uses the identity on <code class="md-code-inline">params</code>. With <code class="md-code-inline">svd=true</code>, <code class="md-code-inline">ns</code> selects the number of nominal singular-vector directions; otherwise <code class="md-code-inline">threshold_singular_values=0.95</code> selects by cumulative squared singular values. <code class="md-code-inline">threshold_singular_vectors=0.1</code> zeros rows whose retained entries are all at or below that magnitude. Both thresholds lie in <code class="md-code-inline">[0,1)</code>; the resulting basis need not be orthonormal. See <a href="../../oed/numerics/#oed_svd">SVD reduction</a> for the reference surrogate and approximation limits.</p>
+<p><code class="md-code-inline">controls</code>, <code class="md-code-inline">quadratures</code>, and <code class="md-code-inline">bounds</code> retain the root symbolic-metadata contracts; measurement weights are marked as controls automatically. <code class="md-code-inline">ensemblealg</code> selects the underlying shooting execution algorithm. <code class="md-code-inline">fixed_parameters</code> explicitly overrides the default fixed-index selection. Wrapping a <code class="md-code-inline">ShootingLayer</code> preserves its annotation schedules, initializers, bounds, and execution algorithm.</p>
+<p>Trajectories reference the underlying shooting layer and the supplied parameter and state containers. Parameter histories are queried on demand: mutating those containers changes later parameter queries without recomputing saved states. Re-evaluate after a numerical change when both must describe the same experiment.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">shooting</code>: The augmented shooting layer used for execution and retained by trajectories.</p>
+</li>
+<li><p><code class="md-code-inline">augmented_prob</code>: The augmented differential equation problem, shared with <code class="md-code-inline">shooting.problem</code>.</p>
+</li>
+<li><p><code class="md-code-inline">measurements</code>: Discrete/continuous measurement specifications and numerical observation getters.</p>
+</li>
+<li><p><code class="md-code-inline">params</code>: Original estimated physical parameter indices, in the requested coordinate order.</p>
+</li>
+<li><p><code class="md-code-inline">basis</code>: The fixed <code class="md-code-inline">length(params) × n_s</code> direction basis; identity without SVD reduction.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.MultiExperimentLayer">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.MultiExperimentLayer</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct MultiExperimentLayer{E, P, B} &lt;: LuxCore.AbstractLuxContainerLayer{(:experiments,)}</code></pre>
+</div>
+<p>Joint experimental design with independent Lux parameter/state trees per experiment. Local information matrices are embedded in common physical-parameter index order before summation. A global <code class="md-code-inline">st.F_init</code> is included once. SVD-reduced experiments contribute their information projected back through their fixed direction bases.</p>
+<p>Construct from a tuple/NamedTuple of OED layers, or <code class="md-code-inline">MultiExperimentLayer(oed, n)</code>. Different experiments must use the same meaning for each physical parameter index. Tuple inputs get names <code class="md-code-inline">experiment_1</code>, <code class="md-code-inline">experiment_2</code>, …; NamedTuples retain their names. <code class="md-code-inline">n</code> must be positive and the experiment collection must be nonempty.</p>
+<p>Evaluation returns <code class="md-code-inline">(named_trajectories, next_st)</code>. Parameters and state have named <code class="md-code-inline">experiments</code> subtrees; access them by <code class="md-code-inline">getproperty</code>. Iterating ComponentArrays instead yields numerical entries. Setup initializes independent numerical trees for repeated experiments, while the layer descriptions may be shared. Parameter buffers remain vector-based even though information is matrix-valued.</p>
+<p>The global prior has size <code class="md-code-inline">length(params) × length(params)</code>, in sorted union index order. Child priors are excluded from joint information. SVD embeddings project local reduced information into physical coordinates as an approximation; they do not recover discarded directions. See <a href="../../oed/designs/#oed_experiments">multiple experiments</a>.</p>
+<p><strong>Fields</strong></p>
+<ul>
+<li><p><code class="md-code-inline">experiments</code>: The OED layers, keyed by experiment name.</p>
+</li>
+<li><p><code class="md-code-inline">params</code>: The union of physical parameter indices in information-matrix order.</p>
+</li>
+<li><p><code class="md-code-inline">embeddings</code>: Fixed embeddings of local sensitivity directions into the common parameter axes.</p>
+</li>
+</ul>
+</div>
+</div>
+<h2 id="Information-and-sampling" class="md-heading">Information and sampling<a href="#Information-and-sampling" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="CorleoneOED.fisher_information">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.fisher_information</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">fisher_information(oed, traj; add_initial)
+</code></pre>
+</div>
+<p>Return an <code class="md-code-inline">n_s × n_s</code> information matrix from <code class="md-code-inline">fisher_information(oed, trajectory)</code> without another solve. Combine the terminal continuous contribution and discrete <code class="md-code-inline">w * J&#39;J</code> event contributions. For a vector measurement, all rows share its weight. Discrete events use the last saved sample at their exact time (post-reset when both sides are saved). Missing saved event times raise <code class="md-code-inline">ArgumentError</code>.</p>
+<p>Include the trajectory&#39;s current <code class="md-code-inline">st.F_init</code> once unless <code class="md-code-inline">add_initial=false</code>. Saved states and queried parameters must describe the same prediction: numerical parameter/state mutations after solving are visible to on-demand parameter queries. This function does not mutate the prior or trajectory.</p>
+<p><code class="md-code-inline">fisher_information(layer, x, ps, st; add_initial=true)</code> solves once and returns <code class="md-code-inline">(F, next_st)</code>. For a <a href="../../oed/api/#CorleoneOED.MultiExperimentLayer"><code class="md-code-inline">MultiExperimentLayer</code></a>, <code class="md-code-inline">F</code> uses the sorted union of estimated physical coordinates; local priors are excluded and the supplied global <code class="md-code-inline">st.F_init</code> is added once. Its size is <code class="md-code-inline">length(layer.params)</code> in each dimension. A single SVD-reduced experiment instead returns information in its <code class="md-code-inline">n_s</code> directions.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.sensitivities">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.sensitivities</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">sensitivities(oed, traj)
+</code></pre>
+</div>
+<p>Return one <code class="md-code-inline">n_x × n_s</code> physical-state sensitivity matrix per saved augmented state, including both saved sides of shooting resets. Columns use <code class="md-code-inline">oed.basis</code>; without reduction they follow <code class="md-code-inline">oed.params</code>. These are sensitivities to estimated physical parameter directions, not AD derivatives with respect to design variables.</p>
+<p>The trajectory form uses saved augmented states without solving. The four-argument form solves once and returns <code class="md-code-inline">(matrices, next_st)</code>. Initial parameter sensitivities are zero; estimated initial-condition sensitivities are not included.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.observed_equations">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.observed_equations</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">observed_equations(oed, traj)
+</code></pre>
+</div>
+<p>Return one flat observation vector per saved state, continuous measurements first and discrete measurements second, retaining declaration order within each kind. A vector-valued measurement contributes consecutive rows in its output order. Both saved sides of a reset are returned; this function does not select only the discrete events. Discrete information extraction selects their post-reset samples.</p>
+<p>Evaluate observation maps with saved states and current, on-demand physical parameters. Keep the trajectory&#39;s parameter/state containers consistent with its saved states. The four-argument form solves once and returns <code class="md-code-inline">(outputs, next_st)</code>.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.sampling_sums">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.sampling_sums</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">sampling_sums(oed, traj)
+</code></pre>
+</div>
+<p>Return sampling budgets, continuous measurements first and discrete measurements second. Continuous budgets are time integrals; discrete budgets are sums at measurement events. The four-argument form reads <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> without solving the differential equation; its <code class="md-code-inline">x</code> argument is unused. The trajectory form reads its retained parameter/state containers. Multi-experiment budgets concatenate experiment order. Return one scalar per measurement, not per observation row.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.sampling_sums!">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.sampling_sums!</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">sampling_sums!(res, oed, args)
+</code></pre>
+</div>
+<p>Write <code class="md-code-inline">sampling_sums(layer, args...)</code> into the prefix of <code class="md-code-inline">res</code> and return <code class="md-code-inline">res</code>. The buffer must have at least one entry per measurement; its remaining entries are unchanged. Throw <code class="md-code-inline">DimensionMismatch</code> for a shorter buffer. The buffer element type must accommodate the current numerical/AD values; the function does not solve when using the direct parameter/state form.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.continuous_sampling_sums">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.continuous_sampling_sums</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">continuous_sampling_sums(oed, lookup, times)
+</code></pre>
+</div>
+<p>Integrate each continuous measurement&#39;s piecewise-constant weight over the full problem time span. Pass a trajectory, or <code class="md-code-inline">lookup(id, time)</code> and the sorted interval boundaries covering the problem span. Return a vector in continuous declaration order; an empty continuous tuple returns an empty vector. Each interval uses its left endpoint&#39;s right-continuous weight. The trajectory form obtains boundaries from the current parameter schedule; neither form performs an ODE solve.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.discrete_sampling_sums">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.discrete_sampling_sums</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">discrete_sampling_sums(oed, lookup)
+</code></pre>
+</div>
+<p>Return the sum of the event weights for each discrete measurement. Pass a trajectory, or a callable <code class="md-code-inline">lookup(id, time)</code>. Return a vector in discrete declaration order; an empty discrete measurement tuple returns an empty vector. Initial/final measurements contribute normally. The trajectory form queries current weights without another solve; values between the declared events do not contribute.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.local_information_gain">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.local_information_gain</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">local_information_gain(oed, x, ps, st)
+</code></pre>
+</div>
+<p>Solve once and return <code class="md-code-inline">(gains, next_st)</code>. Each saved time contains the unweighted outer products <code class="md-code-inline">J[i:i, :]&#39; * J[i:i, :]</code> of individual observation-sensitivity rows, continuous observations first, then discrete observations. These are per output row, even when several rows share one measurement weight. <code class="md-code-inline">gains[k][i]</code> is an <code class="md-code-inline">n_s × n_s</code> matrix for output row <code class="md-code-inline">i</code> at saved sample <code class="md-code-inline">k</code>. All saved times and both reset sides are included, not just discrete event times. Sum rows belonging to a vector measurement when interpreting its shared weight.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.global_information_gain">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.global_information_gain</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">global_information_gain(oed, x, ps, st)
+</code></pre>
+</div>
+<p>Solve once and return <code class="md-code-inline">(gains, next_st)</code>. Each saved time contains per output-row matrices <code class="md-code-inline">(J[i:i, :] * inv(F))&#39; * (J[i:i, :] * inv(F))</code>. Here <code class="md-code-inline">F</code> includes the prior and all continuous/discrete information and must be nonsingular. Their traces measure the magnitude of marginal improvement in A-optimality before interval/event weighting for symmetric information. Output nesting, row order, and reset-side behavior match <a href="../../oed/api/#CorleoneOED.local_information_gain"><code class="md-code-inline">local_information_gain</code></a>; sum a vector measurement&#39;s rows for its shared weight. This uses current prior information and performs no additional solve after the single trajectory evaluation.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.update_fim">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.update_fim</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">update_fim(oed, experiments, st)
+</code></pre>
+</div>
+<p>Return state with the information from completed experiments added to <code class="md-code-inline">F_init</code>. Each experiment supplies <code class="md-code-inline">ps</code> and may supply its own <code class="md-code-inline">st</code> (otherwise use <code class="md-code-inline">st</code>). Existing priors are excluded from each experiment&#39;s contribution to avoid counting them repeatedly. The two-argument form starts from freshly initialized state. An empty collection returns the original state. Otherwise return a merged state without mutating the destination prior. Every supplied record is re-evaluated; keep the parameters and state used by that completed experiment. Single-experiment priors use its direction coordinates; multi-experiment priors use the sorted union of physical coordinates. Numerical records are not detached from AD.</p>
+</div>
+</div>
+<h2 id="Optimization-facade" class="md-heading">Optimization facade<a href="#Optimization-facade" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="Corleone.CorleoneDynamicOptProblem-Tuple{Union{CorleoneOED.MultiExperimentLayer, CorleoneOED.OEDLayer}}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>Corleone.CorleoneDynamicOptProblem</code> — <span class="md-docstring-sig">Tuple{Union{CorleoneOED.MultiExperimentLayer, CorleoneOED.OEDLayer}}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">CorleoneDynamicOptProblem(oed; ...)
+CorleoneDynamicOptProblem(
+    oed,
+    criterion,
+    constraints;
+    ps,
+    st,
+    rng,
+    M,
+    lcons,
+    ucons,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Prepare an OED objective with the root optimization facade. User constraints follow Corleone&#39;s callback/expression and structured-bound conventions. Optional <code class="md-code-inline">M</code> adds one upper budget per measurement, continuous then discrete, before the automatic shooting equalities. Supply <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> together to retain their current values. For a single experiment the prepared model stores its augmented <code class="md-code-inline">ShootingLayer</code>; for multiple experiments it stores the container. The objective computes information from the same trajectory without an additional solve and reads the current prior from the supplied state, not a prior captured at setup.</p>
+<p><code class="md-code-inline">M</code> must contain one nonnegative upper budget per measurement (not per observation row). Multiple experiments concatenate experiment order; within each experiment, continuous measurements precede discrete measurements. User constraint bounds follow Corleone&#39;s scalar/vector/in-place callback and structured subtree rules. Constraint order is user constraints, budgets, then automatic shooting equalities. Multi-experiment timed expressions are unsupported; use named-trajectory callbacks. Supply matching <code class="md-code-inline">lcons</code>/<code class="md-code-inline">ucons</code> for all user constraints.</p>
+<p>Preparation predicts once to validate outputs and saved layout. Reprepare after changing schedules, saved layout, or constraint output sizes. This constructor needs neither Optimization.jl nor ComponentArrays.</p>
+</div>
+</div>
+<div class="md-docstring" id="SciMLBase.OptimizationProblem-Tuple{Union{CorleoneOED.MultiExperimentLayer, CorleoneOED.OEDLayer}, CorleoneOED.AbstractCriterion}">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>SciMLBase.OptimizationProblem</code> — <span class="md-docstring-sig">Tuple{Union{CorleoneOED.MultiExperimentLayer, CorleoneOED.OEDLayer}, CorleoneOED.AbstractCriterion}</span></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">OptimizationProblem(
+    layer,
+    criterion;
+    AD,
+    vectorize,
+    ps,
+    st,
+    rng,
+    M,
+    integer_weights,
+    constraints,
+    lcons,
+    ucons,
+    kwargs...
+)
+</code></pre>
+</div>
+<p>Prepare an OED model and use Corleone&#39;s SciMLBase optimization bridge. Optional <code class="md-code-inline">M</code> adds budgets in experiment order (continuous then discrete); shooting equalities follow user constraints and budgets. <code class="md-code-inline">integer_weights=true</code> marks measurement weights only and works with any vectorizer implementing <code class="md-code-inline">pack</code>. It requires an integer-capable solver; continuous solvers do not enforce binary decisions merely because a mask is present. Physical controls and shooting variables are excluded from the mask. Supply <code class="md-code-inline">ps</code>/<code class="md-code-inline">st</code> together, or omit both to run setup once.</p>
+<p><code class="md-code-inline">AD=AutoForwardDiff()</code> selects the default outer differentiation backend. <code class="md-code-inline">pack(vectorize, parameters)</code> must flatten parameters, variable bounds, and masks in the same order and reconstruct named access from the current optimizer vector. The default vectorizer requires Corleone&#39;s loaded ComponentArrays extension; a custom <code class="md-code-inline">vectorize</code> implementation does not. SciMLBase constructs the problem without importing Optimization.jl; a solver frontend is needed to solve it. Extra keywords go to the shared optimization bridge. See <a href="../../oed/designs/#oed_optimization">optimization and vectorization</a>.</p>
+</div>
+</div>
+<h2 id="Criteria" class="md-heading">Criteria<a href="#Criteria" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<div class="md-docstring" id="CorleoneOED.AbstractCriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.AbstractCriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">abstract type AbstractCriterion</code></pre>
+</div>
+<p>Interface for an optimal-design criterion.</p>
+<p>Calling a criterion on an <code class="md-code-inline">AbstractMatrix</code> wraps it in <code class="md-code-inline">Symmetric</code>. Supply symmetric information; criteria do not regularize it or check positive definiteness. For a statistical covariance interpretation, positive-definite information is the relevant case. Inverse criteria require invertibility. See <a href="../../oed/formulation/#oed_criteria">criteria</a> for the exact definitions, which use neither logarithms nor dimension normalization.</p>
+<p>Concrete criteria must implement <code class="md-code-inline">(::MyCriterion)(F::Symmetric)</code> and return a scalar objective from a Fisher information matrix. The generic layer method calls <code class="md-code-inline">fisher_information(layer, x, ps, st)</code> and returns <code class="md-code-inline">(value, st)</code> while preserving the updated layer state. Criteria are pure with respect to the matrix input and must not mutate the layer state.</p>
+<p><strong>Example</strong></p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using CorleoneOED, LinearAlgebra
+struct TraceCriterion &lt;: AbstractCriterion end
+(::TraceCriterion)(F::Symmetric) = tr(F)</code></pre>
+</div>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.ACriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.ACriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ACriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Minimizes <span class="md-math md-math-inline">\(\operatorname{tr}(F^{-1})\)</span>. This is an A-optimality criterion and is defined for a nonsingular symmetric Fisher information matrix.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.DCriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.DCriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct DCriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Minimizes <span class="md-math md-math-inline">\(\det(F^{-1})\)</span> for a nonsingular symmetric Fisher information matrix.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.ECriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.ECriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct ECriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Minimizes the largest eigenvalue of <span class="md-math md-math-inline">\(F^{-1}\)</span> for a symmetric Fisher information matrix. It requires nonsingular information; repeated extreme eigenvalues can make the objective nondifferentiable.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.FisherACriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.FisherACriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct FisherACriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Maximizes <span class="md-math md-math-inline">\(\operatorname{tr}(F)\)</span> by minimizing its negative.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.FisherDCriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.FisherDCriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct FisherDCriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Maximizes <span class="md-math md-math-inline">\(\det(F)\)</span> by minimizing its negative.</p>
+</div>
+</div>
+<div class="md-docstring" id="CorleoneOED.FisherECriterion">
+<div class="md-docstring-header">
+<h4 class="md-docstring-binding"><code>CorleoneOED.FisherECriterion</code></h4>
+</div>
+<div class="md-docstring-content">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">struct FisherECriterion &lt;: CorleoneOED.AbstractCriterion</code></pre>
+</div>
+<p>Maximizes the smallest eigenvalue of <code class="md-code-inline">F</code> by minimizing its negative. Repeated smallest eigenvalues can make the objective nondifferentiable.</p>
+</div>
+</div>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Measurements-and-layers">Measurements and layers</a>
+          <a class="md-toc-link md-toc-h2" href="#Information-and-sampling">Information and sampling</a>
+          <a class="md-toc-link md-toc-h2" href="#Optimization-facade">Optimization facade</a>
+          <a class="md-toc-link md-toc-h2" href="#Criteria">Criteria</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.18.6/katex.min.js"></script>
+  <script>var MD_KATEX_OPTIONS = {};
+document.querySelectorAll('.md-math').forEach(function (el) {
+  var tex = el.textContent.trim().replace(/^\\[\[(]/, '').replace(/\\[\])]$/, '');
+  katex.render(tex, el, Object.assign({ throwOnError: false }, MD_KATEX_OPTIONS,
+    { displayMode: el.classList.contains('md-math-display') }));
+});</script>
+  <script src="../../siteinfo.js"></script>
+  <script src="../../../versions.js"></script>
+  <script src="../../assets/materialdocs.js?v=a8d4de6a"></script>
+</body>
+</html>

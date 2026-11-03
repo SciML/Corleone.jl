@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Historical AD validation — Corleone.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=76a6d506">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Historical AD validation — Corleone.jl">
+  <meta property="og:title" content="Historical AD validation — Corleone.jl">
+  <meta property="twitter:title" content="Historical AD validation — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/automatic_differentiation_history/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/automatic_differentiation_history/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/automatic_differentiation_history/">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../tutorials/">Overview</a>
+        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../shooting/">Constructing Shooting Problems</a>
+        <a href="../scheduling/">Scheduling Parameters</a>
+        <a href="../initialization/">Initializing Models</a>
+        <a href="../trajectories/">Inspecting Trajectories</a>
+        <a href="../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../oed/formulation/">Measurements and Information</a>
+          <a href="../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../oed/api/">API Reference</a>
+          <a href="../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../references/">References</a>
+      <a href="../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="Historical-AD-validation" class="md-heading">Historical AD validation<a href="#Historical-AD-validation" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p>This archive preserves the rewrite&#39;s dated correctness checks, measurements, and implementation investigations. References to “current” or “previous” describe the checkout used for that snapshot, not necessarily today&#39;s implementation. Earlier passing results are not a compatibility guarantee. Use the <a href="../automatic_differentiation/">current AD guide</a> for maintained regression coverage and recommended configurations.</p>
+<p>This page records the configurations tested with <code class="md-code-inline">ShootingLayer</code>, their known limitations, and the design decisions behind differentiable trajectory assembly. Compatibility depends on both the outer differentiation backend and the <code class="md-code-inline">sensealg</code> used by the underlying SciML problem.</p>
+<h2 id="Maintained-regression-groups" class="md-heading">Maintained regression groups<a href="#Maintained-regression-groups" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The <code class="md-code-inline">Differentiation</code> test group exercises full ODE solves with ForwardDiff, ReverseDiff, and Zygote against an analytic reference at two inputs. The loss includes saved states and continuity residuals; inputs include shared parameters, a free global initial value, interior shooting values, and numerical values in Lux state. ForwardDiff and Zygote cover serial and threaded layers. ReverseDiff uses serial execution with <code class="md-code-inline">FullSpecialize</code> and <code class="md-code-inline">SensitivityADPassThrough()</code>.</p>
+<p>The <code class="md-code-inline">Distributed</code> group compares two-worker ForwardDiff gradients with serial execution and finite differences. It uses a named callable objective loaded on every worker; anonymous objective closures can produce mismatched ForwardDiff tag types after serialization. Reverse-mode differentiation of the ensemble map still records blocks serially. These checks do not establish compiled ReverseDiff tapes, parallel reverse execution, Mooncake, or Enzyme support.</p>
+<p>Run either group from the repository root:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-sh">GROUP=Differentiation julia --project=. -e &#39;using Pkg; Pkg.test()&#39;
+GROUP=Distributed julia --project=. -e &#39;using Pkg; Pkg.test()&#39;</code></pre>
+</div>
+<p>The dated measurements below remain historical snapshots rather than a fresh benchmark of the current checkout.</p>
+<h2 id="Rewrite-validation:-28-October-2026" class="md-heading">Rewrite validation: 28 October 2026<a href="#Rewrite-validation:-28-October-2026" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The root test groups passed 1,630 checks, with the existing implicit-import check marked broken. Separate serial Lotka benchmarks checked controls alone and joint state/parameter shooting values at two inputs, including preparation reuse and unchanged inputs. Maximum gradient errors against central differences were below <code class="md-code-inline">3.5e-10</code>.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend/configuration</th>
+<th style="text-align:right">Controls</th>
+<th style="text-align:right">Joint states/parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff (pass-through)</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake reverse</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+</tr>
+<tr>
+<td style="text-align:right">Enzyme forward</td>
+<td style="text-align:right">Fail</td>
+<td style="text-align:right">Fail</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff (default)</td>
+<td style="text-align:right">Fail</td>
+<td style="text-align:right">Fail</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>ReverseDiff pass-through, Mooncake, and Enzyme use <code class="md-code-inline">FullSpecialize</code> and <code class="md-code-inline">SensitivityADPassThrough()</code>. Mooncake passes without caller-side initial-state promotion. Enzyme forward still hits LuxCore&#39;s layer-annotation restriction. Default ReverseDiff returns a tracked state array rather than a full solution; the next segment fails at <code class="md-code-inline">internal_solve</code>. Pass-through retains the solution interface. FiniteDiff is a numerical reference.</p>
+<p>The reproducible scripts and full tables, including first-use costs and forward allocations, are in <code class="md-code-inline">benchmark/README.md</code> and <code class="md-code-inline">benchmark/results/2026-10-28.md</code>. These runs use the regular <code class="md-code-inline">layer(nothing, ps, st)</code> entry point. Older measurements below used a direct <code class="md-code-inline">(problem, tstops)</code> call and different first-call timing boundaries, so they are historical snapshots rather than matched comparisons. The benchmark results do not establish parallel reverse execution, compiled ReverseDiff tapes, or broader Mooncake coverage beyond the two serial cases.</p>
+<h2 id="Scalar-packing-validation:-26-October-2026" class="md-heading">Scalar-packing validation: 26 October 2026<a href="#Scalar-packing-validation:-26-October-2026" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>State and parameter packing now uses vector literals to retain ordinary arrays of tracked scalars. Initial-condition resets return the same promoted scalar type as pass-through values, keeping preallocated solution buffers compatible across segments. The first-solve remake and paired NamedTuple worker-state traversal are also in place. The full Core suite passes <strong>1,063 checks</strong>, including full-solver ReverseDiff regressions without caller-side initial-state promotion. QA retains its existing broken implicit-import check.</p>
+<p>Full-solver checks use an in-place Lotka ODE on <code class="md-code-inline">[0, 4]</code>, eight original control intervals, and <code class="md-code-inline">abstol = reltol = 1e-10</code>. The controls case has eight inputs. The joint case lifts all three states at <code class="md-code-inline">1.25</code> and <code class="md-code-inline">2.75</code>, splitting crossing control intervals and giving 16 inputs. The loss is the terminal third state plus <code class="md-code-inline">0.1 * sum(abs2, shooting_constraints(trajectory))</code>. Two inputs and reused gradient preparations are compared against central differences, with discrepancies below <code class="md-code-inline">3.5e-10</code>; numerical inputs remain unchanged.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend</th>
+<th style="text-align:right">Controls</th>
+<th style="text-align:right">States and parameters</th>
+<th style="text-align:right">Configuration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Default solver settings</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">FullSpecialize and SensitivityADPassThrough; no caller-side initial-state promotion</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Default SciMLSensitivity path</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake reverse</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">FullSpecialize and pass-through, with the original active-initial-state setup</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Numerical central differences</td>
+</tr>
+<tr>
+<td style="text-align:right">Enzyme forward</td>
+<td style="text-align:right">Fails</td>
+<td style="text-align:right">Fails</td>
+<td style="text-align:right">LuxCore rejects a non-Const layer annotation despite a Const loss-function annotation and runtime activity</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Enzyme&#39;s failure existed before scalar packing changed. These ReverseDiff results cover serial execution with uncompiled tapes. The default ReverseDiff sensitivity adapter still returns tracked state arrays instead of the full solution interface required by trajectory assembly; it is a different route from pass-through. Compiled tapes and threaded ReverseDiff have not been established by these checks.</p>
+<p>Prepared in-place gradient measurements use one Julia and one BLAS thread:</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend</th>
+<th style="text-align:right">Controls (ms)</th>
+<th style="text-align:right">Joint case (ms)</th>
+<th style="text-align:right">Controls allocated MB</th>
+<th style="text-align:right">Joint allocated MB</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">0.05863</td>
+<td style="text-align:right">0.12672</td>
+<td style="text-align:right">0.08090</td>
+<td style="text-align:right">0.21018</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">10.88400</td>
+<td style="text-align:right">9.18074</td>
+<td style="text-align:right">11.29851</td>
+<td style="text-align:right">10.14730</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">2.49848</td>
+<td style="text-align:right">3.94483</td>
+<td style="text-align:right">1.65446</td>
+<td style="text-align:right">2.49101</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake reverse</td>
+<td style="text-align:right">62.31085</td>
+<td style="text-align:right">66.92498</td>
+<td style="text-align:right">220.56706</td>
+<td style="text-align:right">199.89452</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">0.53495</td>
+<td style="text-align:right">1.15247</td>
+<td style="text-align:right">0.63091</td>
+<td style="text-align:right">1.65504</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>ForwardDiff and Zygote values are medians of five alternating before/after rounds of 100 prepared <code class="md-code-inline">gradient!</code> calls. Other rows use medians of up to 20 warmed calls. Allocations are per call in decimal MB. Strategies differ between backends, so these exploratory measurements are not a universal backend ranking.</p>
+<p>The matched before/after gradient comparison isolates scalar packing and the promoted reset return type; the baseline already contains both inference fixes:</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend / case</th>
+<th style="text-align:right">Before (ms)</th>
+<th style="text-align:right">After (ms)</th>
+<th style="text-align:right">Bytes before → after</th>
+<th style="text-align:right">Allocations before → after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff, controls</td>
+<td style="text-align:right">0.05926</td>
+<td style="text-align:right">0.05863</td>
+<td style="text-align:right">84,096 → 80,896</td>
+<td style="text-align:right">884 → 836</td>
+</tr>
+<tr>
+<td style="text-align:right">ForwardDiff, joint</td>
+<td style="text-align:right">0.12889</td>
+<td style="text-align:right">0.12672</td>
+<td style="text-align:right">218,176 → 210,176</td>
+<td style="text-align:right">2,282 → 2,162</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote, controls</td>
+<td style="text-align:right">2.51358</td>
+<td style="text-align:right">2.49848</td>
+<td style="text-align:right">1,657,776 → 1,654,464</td>
+<td style="text-align:right">19,782 → 19,732</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote, joint</td>
+<td style="text-align:right">4.00395</td>
+<td style="text-align:right">3.94483</td>
+<td style="text-align:right">2,513,712 → 2,491,008</td>
+<td style="text-align:right">29,746 → 29,785</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>First preparation plus gradient measurements, excluding package loading:</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend</th>
+<th style="text-align:right">Controls (s)</th>
+<th style="text-align:right">Joint case (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">6.315</td>
+<td style="text-align:right">4.295</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">7.207</td>
+<td style="text-align:right">1.082</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">55.789</td>
+<td style="text-align:right">8.495</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake reverse</td>
+<td style="text-align:right">201.449</td>
+<td style="text-align:right">39.577</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">4.875</td>
+<td style="text-align:right">0.787</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>These include preparation and JIT; the joint case reuses compilation from controls. They are not pure compilation timings.</p>
+<p>Whole-layer forward measurements use the 120-interval Lotka problem on <code class="md-code-inline">[0, 12]</code>, tolerances <code class="md-code-inline">1e-9</code>, four Julia threads, and no optional AD backend explicitly loaded. Multiple shooting lifts all states at <code class="md-code-inline">3.05</code>, <code class="md-code-inline">6.05</code>, and <code class="md-code-inline">9.05</code>. Values below are medians of five alternating before/after rounds of 1,000 warmed calls, including trajectory construction. The baseline already includes the first-solve remake:</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Workload</th>
+<th style="text-align:right">Before scalar packing (µs)</th>
+<th style="text-align:right">After (µs)</th>
+<th style="text-align:right">Bytes/call</th>
+<th style="text-align:right">Allocations/call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">Single shooting</td>
+<td style="text-align:right">343.24</td>
+<td style="text-align:right">344.42</td>
+<td style="text-align:right">1,068,696</td>
+<td style="text-align:right">22,319</td>
+</tr>
+<tr>
+<td style="text-align:right">Multiple shooting, serial</td>
+<td style="text-align:right">343.97</td>
+<td style="text-align:right">343.33</td>
+<td style="text-align:right">1,040,240</td>
+<td style="text-align:right">21,574</td>
+</tr>
+<tr>
+<td style="text-align:right">Multiple shooting, four threads</td>
+<td style="text-align:right">133.29</td>
+<td style="text-align:right">137.26</td>
+<td style="text-align:right">1,079,408</td>
+<td style="text-align:right">21,842</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Bytes and allocation counts are identical before and after. Serial timing changes are small. Threaded round medians ranged approximately 128–166 µs, so the median difference does not establish a systematic regression. Fresh-process first calls measured 3.542 → 3.508 s for single shooting, 0.513 → 0.549 s for serial multiple shooting, and 1.261 → 1.273 s for threaded multiple shooting. Package loading and setup are excluded; later workloads reuse compilation. These are single observations.</p>
+<p>These checks used Julia 1.12.7, SciMLBase 3.58.0, DiffEqBase 7.21.4, OrdinaryDiffEqTsit5 2.1.5, SciMLSensitivity 7.119.13, DifferentiationInterface 0.7.21, ForwardDiff 1.4.6, ReverseDiff 1.18.6, Zygote 0.7.14, Mooncake 0.5.64, and Enzyme 0.13.216.</p>
+<h2 id="Historical-validation-snapshot:-22-October-2026" class="md-heading">Historical validation snapshot: 22 October 2026<a href="#Historical-validation-snapshot:-22-October-2026" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The following results were obtained on <strong>22 October 2026</strong> with the full layer returning <code class="md-code-inline">(trajectory, state)</code>, including <code class="md-code-inline">trajectory.residuals</code>. They describe the tested configurations, not unconditional backend support.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend</th>
+<th style="text-align:right">Control gradients</th>
+<th style="text-align:right">Trainable shooting-state gradients</th>
+<th style="text-align:right">Tested configuration</th>
+<th style="text-align:right">Maximum absolute gradient discrepancy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Default ODE specialization and sensitivity settings</td>
+<td style="text-align:right">1.25 × 10⁻⁷</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right"><code class="md-code-inline">FullSpecialize</code> + <code class="md-code-inline">SensitivityADPassThrough()</code>; initial-state promotion for the control-only case</td>
+<td style="text-align:right">1.25 × 10⁻⁷</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Default ODE specialization and sensitivity settings</td>
+<td style="text-align:right">1.25 × 10⁻⁷</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake</td>
+<td style="text-align:right">Not tested</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right"><code class="md-code-inline">FullSpecialize</code> + pass-through; segment times computed outside differentiation</td>
+<td style="text-align:right">1.25 × 10⁻⁷</td>
+</tr>
+<tr>
+<td style="text-align:right">Enzyme, forward mode</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Not tested</td>
+<td style="text-align:right"><code class="md-code-inline">FullSpecialize</code> + pass-through; segment times computed outside differentiation; runtime activity and <code class="md-code-inline">Const</code> loss annotation</td>
+<td style="text-align:right">6.00 × 10⁻¹⁰</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Not tested</td>
+<td style="text-align:right">Central differences</td>
+<td style="text-align:right">1.60 × 10⁻⁹</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>FiniteDiff is numerical differentiation, rather than automatic differentiation. &quot;Not tested&quot; does not indicate a failure. Compiled ReverseDiff tapes, Enzyme reverse mode, Mooncake forward mode, Tracker, and other configurations are not established by this snapshot.</p>
+<p>All nine full-solver checks passed. They used an eight-interval Lotka ODE with <code class="md-code-inline">Tsit5()</code> over <code class="md-code-inline">[0, 12]</code>, with <code class="md-code-inline">abstol = reltol = 1e-11</code>. The shooting-state cases also varied physical parameters and initial/interior shooting states. The loss combined the final third state with <code class="md-code-inline">0.3 * sum(r -&gt; sum(abs2, r), trajectory.residuals)</code>.</p>
+<p>Gradients were compared with central differences at two distinct inputs, using steps <code class="md-code-inline">1e-5</code> and <code class="md-code-inline">5e-6</code> to check reference stability. The second input reused the DifferentiationInterface preparation and exercised <code class="md-code-inline">gradient!</code>. Inputs were checked for unintended mutation. These were correctness checks, not gradient runtime benchmarks.</p>
+<p>The snapshot predates the subsequent change to extract terminal states from tracked matrices. After that change, the Core suite still passed all <strong>183 assertions</strong>, but the default ReverseDiff sensitivity path still failed on <code class="md-code-inline">sol.alg</code>. Rerun the backend matrix after further changes; the historical passing matrix does not replace regression checks on a new implementation.</p>
+<p>The per-variable <code class="md-code-inline">InitialConditions</code> implementation has focused regression tests in <code class="md-code-inline">test/core/initial_conditions_ad.jl</code> for ForwardDiff, ReverseDiff, and Zygote. These check stored values, pass-through state values, residuals, and numeric values held in Lux state. A full-solver ForwardDiff regression covers the first lifted value occurring after the simulation starts: pass-through must retain the numeric type required by later lifted values so the preallocated buffers remain compatible. The other full-solver configurations in the historical matrix have not been rerun for this representation.</p>
+<h2 id="Configuring-the-solver-and-backend" class="md-heading">Configuring the solver and backend<a href="#Configuring-the-solver-and-backend" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<h3 id="Full-specialization-and-pass-through" class="md-heading">Full specialization and pass-through<a href="#Full-specialization-and-pass-through" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>The ReverseDiff, Mooncake, and Enzyme configurations above used the following problem construction for an in-place right-hand side <code class="md-code-inline">rhs!</code>:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using SciMLBase, SciMLSensitivity
+
+f = ODEFunction{true, SciMLBase.FullSpecialize}(rhs!)
+prob = ODEProblem(f, u0, tspan, p;
+    abstol = 1e-11, reltol = 1e-11,
+    sensealg = SciMLSensitivity.SensitivityADPassThrough())</code></pre>
+</div>
+<p>Pass-through bypasses SciML&#39;s sensitivity overrides and lets the outer backend differentiate the numerical solver directly. It retains the solution object and its saved metadata. It is a different differentiation strategy from using a SciML adjoint algorithm, and the two strategies need not have the same memory or runtime behavior. See the <a href="https://docs.sciml.ai/SciMLBase/v2.8/interfaces/Differentiation/">SciML sensitivity interface</a>.</p>
+<h3 id="ForwardDiff-and-FiniteDiff" class="md-heading">ForwardDiff and FiniteDiff<a href="#ForwardDiff-and-FiniteDiff" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>The tested DifferentiationInterface backends were <code class="md-code-inline">DI.AutoForwardDiff()</code> and <code class="md-code-inline">DI.AutoFiniteDiff(; fdtype = Val(:central))</code>, where <code class="md-code-inline">import DifferentiationInterface as DI</code>.</p>
+<p>ForwardDiff passed both control-only and shooting-state cases with the default problem configuration. The FiniteDiff backend check covered controls; central differences were also used as the independent reference for the other cases.</p>
+<h3 id="ReverseDiff" class="md-heading">ReverseDiff<a href="#ReverseDiff" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>The passing configuration used <code class="md-code-inline">DI.AutoReverseDiff()</code> without a compiled tape, together with full specialization and pass-through sensitivity.</p>
+<p>In the historical control-only check, fixed initial states were promoted inside the differentiated loss using the value-preserving expression <code class="md-code-inline">[u + 0 * z[1] for u in prob.u0]</code>, where <code class="md-code-inline">z</code> is the active optimization vector. The problem was remade with those initial states before applying the layer. This makes the initial state compatible with the tracked arithmetic introduced by the controls. The shooting-state case did not need this separate promotion. The current scalar-packing implementation passes both cases without caller-side promotion.</p>
+<div class="md-admonition md-admonition-note">
+<p class="md-admonition-title">Default ReverseDiff sensitivity path is currently unsupported</p>
+<div class="md-admonition-body">
+<p>DiffEqBase&#39;s default ReverseDiff solve rule returns a tracked array of state values instead of the full solution object. Its implementation converts the primal solution with <code class="md-code-inline">Array(out[1])</code>. Consequently, <code class="md-code-inline">.u</code>, <code class="md-code-inline">.t</code>, <code class="md-code-inline">.alg</code>, and other solution fields are unavailable on that return value.</p>
+<p>Extracting the terminal matrix column and passing its boundary time to the initial-condition layer fixes the first handoff problem. The subsequent solve must also obtain its algorithm from the layer, and trajectory assembly still needs the actual saved times and state samples. Updating terminal-state extraction alone does not establish default-path support.</p>
+</div>
+</div>
+<p>Pass-through retains the full solution interface, but current tracked-array storage compatibility must also be checked; see the current validation above. For the relevant upstream conversion, see the <a href="https://github.com/SciML/DiffEqBase.jl/blob/master/ext/DiffEqBaseReverseDiffExt.jl">upstream ReverseDiff extension</a>. The historical check used DiffEqBase 7.21.4; this link tracks the upstream source.</p>
+<h3 id="Zygote" class="md-heading">Zygote<a href="#Zygote" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p><code class="md-code-inline">DI.AutoZygote()</code> passed both control-only and shooting-state cases with the default problem configuration.</p>
+<p>The original trajectory constructor collided with a LuxCore constructor rule that dispatched broadly on <code class="md-code-inline">UnionAll</code>. The layer now calls a named builder, and the public constructor has a constructor-specific configured ChainRules rule. Rules for parametric constructors should dispatch on an appropriate <code class="md-code-inline">Type{...}</code> signature, rather than <code class="md-code-inline">typeof(Constructor)</code>. See the <a href="https://juliadiff.org/ChainRulesCore.jl/stable/rule_author/writing_good_rules.html#Constructors">ChainRules constructor guidance</a>.</p>
+<p>Trajectory gathering uses a dedicated pullback instead of relying on <code class="md-code-inline">Zygote.Buffer</code>. The existing segment-solver buffers still use the Zygote extension when it is loaded. Zygote&#39;s <a href="https://fluxml.ai/Zygote.jl/stable/limitations/">limitations documentation</a> describes mutation restrictions and cautions about <code class="md-code-inline">Buffer</code>.</p>
+<h3 id="Mooncake-and-Enzyme" class="md-heading">Mooncake and Enzyme<a href="#Mooncake-and-Enzyme" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>These cases computed the segment times before differentiation and reused them while changing numerical parameters on the same grid. The benchmark used these internal entry points:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">segment_times = Corleone.get_timestops(layer, ps, st)
+trajectory, next_st = layer((layer.problem, segment_times), ps, st)</code></pre>
+</div>
+<p>This is distinct from preparing a gradient: all backend checks used <code class="md-code-inline">DI.prepare_gradient</code>, while these two also prepared the segment schedule. The current layer also caches segment times in <code class="md-code-inline">st.timestops</code> during setup; ordinary forward calls reuse that cache. After changing schedules, refresh it with <code class="md-code-inline">st = merge(st, (; timestops = Corleone.get_timestops(layer, nothing, st)))</code>. Gradient preparations may also need rebuilding when dimensions, types, or traced control flow change.</p>
+<p>Mooncake used <code class="md-code-inline">DI.AutoMooncake()</code> and passed the shooting-state case. An initial 180-second worker limit was too short and was inconclusive. The full-trajectory follow-up passed in approximately 290 seconds with a 900-second limit, including package loading, compilation, and validation. These worker times are not warmed gradient timings. In a separate run without trajectory construction, preparation alone took approximately 158 seconds.</p>
+<p>Enzyme used the following backend and passed the control-only case:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Enzyme
+import DifferentiationInterface as DI
+
+backend = DI.AutoEnzyme(;
+    mode = Enzyme.set_runtime_activity(Enzyme.Forward),
+    function_annotation = Enzyme.Const)</code></pre>
+</div>
+<p>The original trajectory construction raised an <code class="md-code-inline">IllegalTypeAnalysisException</code>. Resolving the symbolic container once at layer construction and retaining its concrete type removed that failure in the tested configuration. Runtime activity was already enabled; enabling it alone was not the fix. See the <a href="https://enzymead.github.io/Enzyme.jl/dev/faq/">Enzyme FAQ</a> for activity and memory-layout requirements.</p>
+<h2 id="Trajectory-differentiation-contract" class="md-heading">Trajectory differentiation contract<a href="#Trajectory-differentiation-contract" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The trajectory retains <code class="md-code-inline">layer</code>, <code class="md-code-inline">ps</code>, and <code class="md-code-inline">st</code> by reference. Saved state arrays are also shared with the segment solutions. Parameter histories are evaluated through <code class="md-code-inline">layer.parameter</code> and the retained <code class="md-code-inline">ps</code>/<code class="md-code-inline">st</code>; no separate parameter-history struct or detached copy is stored. Mutating these objects changes later parameter queries, so they must not be mutated between a forward evaluation and its pullback.</p>
+<p>Assembly separates fixed-grid layout metadata from numerical state gathering. The gathering pullback accumulates contributions into source samples, including when an index occurs more than once. State values, residuals, and parameter values remain differentiable. Symbolic metadata and the discrete layout are excluded from the ChainRules differentiation path.</p>
+<p>Validation covers numerical gradients on <strong>fixed time grids</strong>. It does not establish gradients with respect to event times, control-knot positions, or changes in grid topology. The full-solver matrix covers ODEs; it does not establish DAE, SDE, GPU, or higher-order derivative support.</p>
+<h3 id="Preserving-metadata-for-array-returning-solve-rules" class="md-heading">Preserving metadata for array-returning solve rules<a href="#Preserving-metadata-for-array-returning-solve-rules" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<p>Actual saved times cannot generally be reconstructed from the outer control grid or segment boundaries. <code class="md-code-inline">saveat</code>, callbacks, and other saving settings can affect the samples saved by the solver. Internal <code class="md-code-inline">tstops</code> affect integration and need not each appear as a saved sample. States and timestamps must correspond to the same actual solve. DAE derivative values may need preserving as well.</p>
+<p>If support for the default ReverseDiff sensitivity path becomes necessary, the adapter belongs at the segment-solve boundary. It should perform one primal solve, preserve that solve&#39;s actual metadata before array conversion, expose differentiable numerical values, and connect those values to the solve pullback. Metadata must remain consistent on subsequent evaluations and tape replay. An extra solve solely to recover timestamps is not the intended design.</p>
+<p>This adapter is deferred until a workload requires the array-returning adjoint path. Prefer documenting the working configuration over maintaining a custom solver differentiation rule without that requirement.</p>
+<h2 id="Forward-pass-measurements" class="md-heading">Forward-pass measurements<a href="#Forward-pass-measurements" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The AD refactor was also compared with the preceding trajectory assembly on a 120-interval Lotka problem. Five rounds of 5,000 samples used one Julia thread; these are warmed forward timings with <strong>no gradient evaluation</strong>.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Mode</th>
+<th style="text-align:right">Trajectory assembly</th>
+<th style="text-align:right">Forward time</th>
+<th style="text-align:right">Allocated bytes/call</th>
+<th style="text-align:right">Allocations/call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">No AD backend loaded</td>
+<td style="text-align:right">Previous</td>
+<td style="text-align:right">269.1 µs</td>
+<td style="text-align:right">865,368</td>
+<td style="text-align:right">17,381</td>
+</tr>
+<tr>
+<td style="text-align:right">No AD backend loaded</td>
+<td style="text-align:right">Current</td>
+<td style="text-align:right">256.5 µs</td>
+<td style="text-align:right">861,560</td>
+<td style="text-align:right">17,292</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote loaded</td>
+<td style="text-align:right">Previous</td>
+<td style="text-align:right">255.8 µs</td>
+<td style="text-align:right">884,704</td>
+<td style="text-align:right">17,385</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote loaded</td>
+<td style="text-align:right">Current</td>
+<td style="text-align:right">252.8 µs</td>
+<td style="text-align:right">879,888</td>
+<td style="text-align:right">17,295</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The previous assembly was reconstructed on the same current solver. In a separate assembly-only comparison with symbolic metadata cached in both versions, the old loop took 1.72 µs and the new layout/gather took 1.68 µs. The new version allocated 6,768 bytes in 21 allocations, versus 6,048 bytes in 25 allocations for the old loop. Thus the extra layout storage cost 720 bytes, with essentially equal runtime. Allocated bytes are not peak or retained memory.</p>
+<p>These measurements showed no full-forward regression; they do not rank backend gradient performance. Loading Zygote changes the existing solver-buffer path, so comparisons should record which optional backends are loaded.</p>
+<h2 id="Regression-checks-and-future-validation" class="md-heading">Regression checks and future validation<a href="#Regression-checks-and-future-validation" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Run the Core test group from the repository root:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-sh">GROUP=Core julia --project -e &#39;using Pkg; Pkg.test()&#39;</code></pre>
+</div>
+<p><code class="md-code-inline">test/core/trajectory_ad.jl</code> checks analytical gradients through the public constructor and named builder with ReverseDiff and Zygote. It covers state, residual, parameter-history, and combined losses at two inputs, continuous/reset boundaries, and repeated-source-index accumulation.</p>
+<p>The full backend matrix above was exploratory and is not part of the committed Core suite. To repeat or extend it, use isolated processes per backend, reconstruct the ODE/loss described above, and record the exact solver and backend configuration. Compare central differences at multiple inputs, verify reference stability, reuse gradient preparations at a second input, and check that inputs are unchanged. For new solve-boundary adapters, include interior <code class="md-code-inline">saveat</code> samples and callbacks and verify state/time correspondence. Record failures separately from timeouts and untested combinations.</p>
+<h3 id="Versions-used-in-the-historical-validation-snapshot" class="md-heading">Versions used in the historical validation snapshot<a href="#Versions-used-in-the-historical-validation-snapshot" class="md-heading-anchor" aria-label="Link to this section">#</a></h3>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Component</th>
+<th style="text-align:right">Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">Julia</td>
+<td style="text-align:right">1.12.7</td>
+</tr>
+<tr>
+<td style="text-align:right">SciMLBase</td>
+<td style="text-align:right">3.58.0</td>
+</tr>
+<tr>
+<td style="text-align:right">DiffEqBase</td>
+<td style="text-align:right">7.21.4</td>
+</tr>
+<tr>
+<td style="text-align:right">SciMLSensitivity</td>
+<td style="text-align:right">7.119.12</td>
+</tr>
+<tr>
+<td style="text-align:right">OrdinaryDiffEqTsit5</td>
+<td style="text-align:right">2.1.5</td>
+</tr>
+<tr>
+<td style="text-align:right">LuxCore</td>
+<td style="text-align:right">1.5.3</td>
+</tr>
+<tr>
+<td style="text-align:right">DifferentiationInterface</td>
+<td style="text-align:right">0.7.21</td>
+</tr>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">1.4.6</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">1.18.4</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">0.7.13</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake</td>
+<td style="text-align:right">0.5.63</td>
+</tr>
+<tr>
+<td style="text-align:right">Enzyme</td>
+<td style="text-align:right">0.13.216</td>
+</tr>
+<tr>
+<td style="text-align:right">FiniteDiff</td>
+<td style="text-align:right">2.33.0</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="Shared-grid-scalar-buffer-validation" class="md-heading">Shared-grid scalar-buffer validation<a href="#Shared-grid-scalar-buffer-validation" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>On 28 October 2026, Julia 1.12.7 checks exercised the shared-lookup implementation with two tunable controls and one fixed control on the same grid. A second case also grouped three shooting states and inserted parameter intervals at full-state resets. Each backend was checked at two inputs against central differences at two step sizes; prepared gradients were reused and input vectors remained unchanged.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Backend</th>
+<th style="text-align:right">Serial shared-grid solves</th>
+<th style="text-align:right">Additional validated execution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">ForwardDiff</td>
+<td style="text-align:right">Pass</td>
+<td style="text-align:right">Threads and two local distributed workers</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff</td>
+<td style="text-align:right">Pass with <code class="md-code-inline">FullSpecialize</code> and <code class="md-code-inline">SensitivityADPassThrough()</code></td>
+<td style="text-align:right">Serial only</td>
+</tr>
+<tr>
+<td style="text-align:right">Zygote</td>
+<td style="text-align:right">Pass with the default sensitivity path</td>
+<td style="text-align:right">Threaded layer; reverse block evaluation runs serially</td>
+</tr>
+<tr>
+<td style="text-align:right">Mooncake reverse</td>
+<td style="text-align:right">Pass with <code class="md-code-inline">FullSpecialize</code> and <code class="md-code-inline">SensitivityADPassThrough()</code></td>
+<td style="text-align:right">Serial only</td>
+</tr>
+<tr>
+<td style="text-align:right">Enzyme forward</td>
+<td style="text-align:right">Existing Lux layer-annotation failure</td>
+<td style="text-align:right">No shared-grid gradient established</td>
+</tr>
+<tr>
+<td style="text-align:right">ReverseDiff default sensitivities</td>
+<td style="text-align:right">Existing array-returning solution-handoff failure</td>
+<td style="text-align:right">Use the pass-through configuration above</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Successful serial backend gradients differed from finite differences by less than <code class="md-code-inline">5e-10</code> in these cases. FiniteDiff also passed as a numerical reference. This does not extend Mooncake or ReverseDiff validation to parallel execution, or establish Enzyme reverse support.</p>
+<p>The maintained <code class="md-code-inline">Differentiation</code> group now has 70 checks: 30 existing analytic checks and 40 additional checks for grouped parameter/reset containers, shared parameters, and numerical values in Lux state. The new analytic fixture varies both a fixed reset value and a fixed parameter through the input vector; their gradients remain part of the solve. The <code class="md-code-inline">Distributed</code> group has 25 checks, including this shared-grid fixture on two workers. Both fixtures use two inputs and verify that calls do not mutate their input vectors.</p>
+<p>Set <code class="md-code-inline">CORLEONE_AD_SHARED_GRIDS=true</code> when running <code class="md-code-inline">benchmark/shooting_ad.jl</code> to repeat the shared-control cases. The correctness audit used one benchmark sample per case and ran backend processes concurrently; its timings are not a performance comparison. The compatibility statements above apply to the tested configurations.</p>
+<h2 id="Initial-forward-measurements" class="md-heading">Initial forward measurements<a href="#Initial-forward-measurements" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>On 24 October 2026, Julia 1.12.7 with four threads, the benchmark above measured the following medians over 500 warmed calls per case (<code class="md-code-inline">evals=1</code>). Both cases use one state, 120 integration segments and 12 independent blocks. The expensive right-hand side adds a sum of 256 sine terms. Compilation and construction are excluded; no AD backend was loaded in the benchmark process.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Workload</th>
+<th style="text-align:right">Serial</th>
+<th style="text-align:right">Four threads</th>
+<th style="text-align:right">Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">Cheap right-hand side</td>
+<td style="text-align:right">276.6 µs</td>
+<td style="text-align:right">153.2 µs</td>
+<td style="text-align:right">1.81×</td>
+</tr>
+<tr>
+<td style="text-align:right">Expensive right-hand side</td>
+<td style="text-align:right">6.576 ms</td>
+<td style="text-align:right">1.808 ms</td>
+<td style="text-align:right">3.64×</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Both workloads allocated 638,216 bytes in 12,102 allocations serially and 687,408 bytes in 12,615 allocations with threads. These are illustrative workloads, not a performance guarantee for a different model or reset schedule.</p>
+<p>The benchmark source is <code class="md-code-inline">benchmark/shooting_parallel.jl</code>.</p>
+<h2 id="Reproducing-checks-and-measurements" class="md-heading">Reproducing checks and measurements<a href="#Reproducing-checks-and-measurements" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>From the repository root:</p>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-sh">JULIA_NUM_THREADS=2 GROUP=Core julia --project=. -e &#39;using Pkg; Pkg.test()&#39;
+JULIA_NUM_THREADS=2 GROUP=Differentiation julia --project=. -e &#39;using Pkg; Pkg.test()&#39;
+GROUP=Distributed julia --project=. -e &#39;using Pkg; Pkg.test()&#39;</code></pre>
+</div>
+<p><code class="md-code-inline">test/README.md</code> describes each group&#39;s environment and scope. The Core group also checks trajectory construction, parameter reconstruction, resets, and constraint derivatives. Run checks after changing these paths; old benchmark results do not replace regression coverage.</p>
+<p><code class="md-code-inline">benchmark/shooting_ad.jl</code> measures forward loss calls and prepared gradients in isolated backend processes. Its arguments include diagnostic configurations that are expected to fail. See <code class="md-code-inline">benchmark/README.md</code> for dependencies, tolerances, finite-difference checks, and the distinction between first-use and warmed costs. The <a href="../automatic_differentiation_history/">validation archive</a> preserves dated measurements and numerical investigations; it is not a live performance ranking.</p>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Maintained-regression-groups">Maintained regression groups</a>
+          <a class="md-toc-link md-toc-h2" href="#Rewrite-validation:-28-October-2026">Rewrite validation: 28 October 2026</a>
+          <a class="md-toc-link md-toc-h2" href="#Scalar-packing-validation:-26-October-2026">Scalar-packing validation: 26 October 2026</a>
+          <a class="md-toc-link md-toc-h2" href="#Historical-validation-snapshot:-22-October-2026">Historical validation snapshot: 22 October 2026</a>
+          <a class="md-toc-link md-toc-h2" href="#Configuring-the-solver-and-backend">Configuring the solver and backend</a>
+            <a class="md-toc-link md-toc-h3" href="#Full-specialization-and-pass-through">Full specialization and pass-through</a>
+            <a class="md-toc-link md-toc-h3" href="#ForwardDiff-and-FiniteDiff">ForwardDiff and FiniteDiff</a>
+            <a class="md-toc-link md-toc-h3" href="#ReverseDiff">ReverseDiff</a>
+            <a class="md-toc-link md-toc-h3" href="#Zygote">Zygote</a>
+            <a class="md-toc-link md-toc-h3" href="#Mooncake-and-Enzyme">Mooncake and Enzyme</a>
+          <a class="md-toc-link md-toc-h2" href="#Trajectory-differentiation-contract">Trajectory differentiation contract</a>
+            <a class="md-toc-link md-toc-h3" href="#Preserving-metadata-for-array-returning-solve-rules">Preserving metadata for array-returning solve rules</a>
+          <a class="md-toc-link md-toc-h2" href="#Forward-pass-measurements">Forward-pass measurements</a>
+          <a class="md-toc-link md-toc-h2" href="#Regression-checks-and-future-validation">Regression checks and future validation</a>
+            <a class="md-toc-link md-toc-h3" href="#Versions-used-in-the-historical-validation-snapshot">Versions used in the historical validation snapshot</a>
+          <a class="md-toc-link md-toc-h2" href="#Shared-grid-scalar-buffer-validation">Shared-grid scalar-buffer validation</a>
+          <a class="md-toc-link md-toc-h2" href="#Initial-forward-measurements">Initial forward measurements</a>
+          <a class="md-toc-link md-toc-h2" href="#Reproducing-checks-and-measurements">Reproducing checks and measurements</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=76a6d506"></script>
+</body>
+</html>

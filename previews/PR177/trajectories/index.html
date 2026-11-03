@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trajectories and reset samples — Corleone.jl</title>
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=b137e56c">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+  <meta name="title" content="Trajectories and reset samples — Corleone.jl">
+  <meta property="og:title" content="Trajectories and reset samples — Corleone.jl">
+  <meta property="twitter:title" content="Trajectories and reset samples — Corleone.jl">
+  <meta name="description" content="Documentation for Corleone.jl.">
+  <meta property="og:description" content="Documentation for Corleone.jl.">
+  <meta property="twitter:description" content="Documentation for Corleone.jl.">
+  <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/trajectories/">
+  <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/trajectories/">
+  <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/trajectories/">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
+  <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
+  <script>
+    (function(){
+      document.documentElement.classList.add('no-transition');
+      var t=localStorage.getItem('md-theme');if(t)document.documentElement.setAttribute('data-theme',t);
+      window.addEventListener('load',function(){setTimeout(function(){document.documentElement.classList.remove('no-transition');},50);});
+    })()
+  </script>
+</head>
+<body data-warn-outdated>
+  <header class="md-navbar">
+    <button id="md-hamburger" class="md-icon-btn md-hamburger" aria-label="Toggle navigation" aria-expanded="false"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+    <img class="md-navbar-logo" src="../assets/logo.png" alt="Corleone.jl logo" height="32">
+    <span class="md-navbar-title">Corleone.jl</span>
+    <span class="md-navbar-spacer"></span>
+    <button id="md-search-btn" class="md-search-bar" aria-label="Search documentation" aria-expanded="false">
+      <svg class="md-icon md-search-bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <span class="md-search-bar-label">Search docs</span>
+      <kbd class="md-search-bar-kbd">Ctrl K</kbd>
+    </button>
+    <div id="md-version" class="md-version" hidden>
+      <button id="md-version-btn" class="md-version-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select documentation version">
+        <span id="md-version-current" class="md-version-current"></span>
+        <svg class="md-icon md-version-caret" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <ul id="md-version-menu" class="md-version-menu" role="listbox" hidden></ul>
+    </div>
+    <a class="md-icon-btn md-repo-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub" aria-label="View the repository on GitHub" rel="noopener" target="_blank"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0012 .3z"/></svg><span class="md-repo-label">GitHub</span></a>
+    <button id="md-theme-toggle" class="md-icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="md-icon md-icon-light" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg><svg class="md-icon md-icon-dark" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg></button>
+  </header>
+  <div class="md-layout">
+    <nav class="md-sidebar">
+      <a href="../">Home</a>
+      <a href="../getting_started/">Getting Started</a>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Tutorials</span>
+        <a href="../tutorials/">Overview</a>
+        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Manual</span>
+        <a href="../shooting/">Constructing Shooting Problems</a>
+        <a href="../scheduling/">Scheduling Parameters</a>
+        <a href="../initialization/">Initializing Models</a>
+        <a href="../trajectories/" class="md-nav-active">Inspecting Trajectories</a>
+        <a href="../optimization_contracts/">Adding Objectives and Constraints</a>
+        <a href="../modelingtoolkit/">ModelingToolkit</a>
+        <a href="../automatic_differentiation/">Selecting Differentiation Methods</a>
+        <a href="../sparse_derivatives/">Preparing Sparse Derivatives</a>
+        <a href="../parallel_shooting/">Running Parallel Shooting</a>
+        <a href="../symbolic_metadata/">Querying Symbolic Metadata</a>
+      </div>
+      <div class="md-nav-section">
+        <span class="md-nav-section-title">Sublibraries</span>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../oed/index/">Overview</a>
+          <div class="md-nav-section md-nav-collapsed">
+            <span class="md-nav-section-title">Tutorials</span>
+            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+          </div>
+          <a href="../oed/formulation/">Measurements and Information</a>
+          <a href="../oed/designs/">Constructing and Optimizing Designs</a>
+          <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
+          <a href="../oed/api/">API Reference</a>
+          <a href="../oed/references/">References and Attribution</a>
+        </div>
+        <a href="../benchmarks/index/">Optimal Control Benchmarks</a>
+      </div>
+      <a href="../references/">References</a>
+      <a href="../api/">API Reference</a>
+    </nav>
+    <main class="md-content">
+      <article class="md-article">
+<h1 id="trajectory_guide" class="md-heading">Trajectories and reset samples<a href="#trajectory_guide" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<p><a href="../api/#Corleone.ShootingLayer"><code class="md-code-inline">ShootingLayer</code></a> returns <code class="md-code-inline">(trajectory, next_st)</code>. A <a href="../api/#Corleone.Trajectory"><code class="md-code-inline">Trajectory</code></a> contains saved state samples and access to the parameters used for prediction. It does not interpolate or integrate between those samples.</p>
+<h2 id="Saved-grids-and-both-sides-of-a-reset" class="md-heading">Saved grids and both sides of a reset<a href="#Saved-grids-and-both-sides-of-a-reset" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>Continuous handoffs appear once in <code class="md-code-inline">trajectory.t</code>. A scheduled interior reset retains both the incoming endpoint and outgoing start, even if their values are equal. <code class="md-code-inline">reset_indices</code> points to the <strong>outgoing</strong> samples. The immediately preceding samples contain the incoming values.</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+
+problem = ODEProblem((x, p, t) -&gt; [p[1]], [0.0], (0.0, 3.0), [1.0])
+layer = ShootingLayer(problem, Tsit5(),
+    Tunable(1; kind = Val(:variable), default = [0.5, 1.5]) =&gt; [1.0, 2.0],
+    Constant(1) =&gt; nothing)
+ps, st = LuxCore.setup(MersenneTwister(42), layer)
+trajectory, next_st = layer(nothing, ps, st)
+(; times = trajectory.t, outgoing_indices = trajectory.reset_indices)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(times = [0.0, 1.0, 1.0, 2.0, 2.0, 3.0], outgoing_indices = [3, 5])</code></pre>
+</div>
+<p>The saved times are <code class="md-code-inline">[0, 1, 1, 2, 2, 3]</code>. The two states at time 1 are the incoming value of approximately 1 and the assigned value 0.5:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">k = first(trajectory.reset_indices)
+round.([trajectory.u[k - 1][1], trajectory.u[k][1]]; digits = 6)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">2-element Vector{Float64}:
+ 1.0
+ 0.5</code></pre>
+</div>
+<p><code class="md-code-inline">trajectory.residuals</code> stores state matching residual vectors per integration segment start. Their entries are compressed to the active tunable variables; they are not a matrix indexed by every state and saved time. Use <a href="../api/#Corleone.shooting_constraints"><code class="md-code-inline">shooting_constraints</code></a> for the complete optimizer residual vector, including any inserted-parameter equalities:</p>
+<div class="md-multi-output">
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code class="language-julia">residuals = shooting_constraints(trajectory)
+round.(residuals; digits = 6)</code></pre>
+</div>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">2-element Vector{Float64}:
+ -0.5
+  0.0</code></pre>
+</div>
+<p>The <a href="../shooting/#shooting_formulation">shooting formulation</a> defines the residual sign. The <a href="../api/#Corleone.trajectoryplot">plotting API</a> draws reset segments without a continuous line across each jump and can show variable matching residuals.</p>
+<h2 id="Symbolic-state-and-parameter-queries" class="md-heading">Symbolic state and parameter queries<a href="#Symbolic-state-and-parameter-queries" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>For an ordinary numerical problem, the generated state and parameter names are <code class="md-code-inline">:u₁</code>, <code class="md-code-inline">:u₂</code>, … and <code class="md-code-inline">:p₁</code>, <code class="md-code-inline">:p₂</code>, …. Problems with a symbolic container retain its original symbols and indices.</p>
+<div class="md-table-wrap">
+<table class="md-table">
+<thead>
+<tr>
+<th style="text-align:right">Query</th>
+<th style="text-align:right">Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">trajectory.u[i]</code></td>
+<td style="text-align:right">State vector at saved index <code class="md-code-inline">i</code>.</td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">trajectory.t[i]</code></td>
+<td style="text-align:right">Time associated with that state vector.</td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">trajectory[state_symbol]</code></td>
+<td style="text-align:right">State values on the saved trajectory grid, including both reset sides.</td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">trajectory[parameter_symbol]</code></td>
+<td style="text-align:right">Parameter values on the parameter-change grid.</td>
+</tr>
+<tr>
+<td style="text-align:right"><code class="md-code-inline">parameter_values_at_time(trajectory, trajectory, t)</code></td>
+<td style="text-align:right">Full parameter vector at time <code class="md-code-inline">t</code>, for SII callers.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The last query is from SymbolicIndexingInterface. Parameters are piecewise constant and right-continuous, and their history grid can differ from the state sample grid. Do not combine the two histories by assuming matching column indices.</p>
+<p>For timed expressions, terminal selectors, and full-series expressions, see <a href="../optimization_contracts/#Timed-Julia-expressions">expression evaluation</a>.</p>
+<p>Internal solver saving options, including <code class="md-code-inline">saveat</code>, can add state samples. Integration stops need not each be saved. Read the actual <code class="md-code-inline">trajectory.t</code> and <code class="md-code-inline">trajectory.u</code> together rather than reconstructing a saved grid from control switches or segment endpoints.</p>
+<h2 id="Ownership-and-differentiation" class="md-heading">Ownership and differentiation<a href="#Ownership-and-differentiation" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
+<p>The trajectory retains the layer, supplied parameters, and returned Lux state by reference. Its numerical state arrays are shared with the segment solutions. Parameter histories are evaluated on demand through the retained parameter layer; there is no detached parameter-history copy.</p>
+<p>Consequently, changing a parameter buffer changes later parameter queries, but does not recompute saved state values. Run the layer again for a trajectory consistent with changed parameters. Avoid mutating retained numerical data between a forward evaluation and its pullback.</p>
+<p>Symbolic metadata is shared through <code class="md-code-inline">symbolic_container(trajectory)</code>, which returns the layer&#39;s <a href="../api/#Corleone.ControlSymbolCache"><code class="md-code-inline">ControlSymbolCache</code></a>. Query control and quadrature subsets on that wrapper; see <a href="../symbolic_metadata/">symbolic bookkeeping</a>.</p>
+<p>Differentiation is validated for numerical values on fixed time grids. It does not establish derivatives through changing reset times, grid topology, or event schedules. Backend and sensitivity requirements are documented in <a href="../automatic_differentiation/">automatic differentiation</a>.</p>
+      </article>
+      <footer class="md-footer">
+<p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
+      </footer>
+    </main>
+    <aside class="md-toc">
+      <div class="md-toc-inner">
+        <p class="md-toc-title">On this page</p>
+          <a class="md-toc-link md-toc-h2" href="#Saved-grids-and-both-sides-of-a-reset">Saved grids and both sides of a reset</a>
+          <a class="md-toc-link md-toc-h2" href="#Symbolic-state-and-parameter-queries">Symbolic state and parameter queries</a>
+          <a class="md-toc-link md-toc-h2" href="#Ownership-and-differentiation">Ownership and differentiation</a>
+      </div>
+    </aside>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/julia-repl.min.js"></script>
+  <script>hljs.highlightAll();</script>
+  <script src="../siteinfo.js"></script>
+  <script src="../../versions.js"></script>
+  <script src="../assets/materialdocs.js?v=b137e56c"></script>
+</body>
+</html>
