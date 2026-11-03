@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OptimalControlBenchmarks — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=2d0440f0">
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=5331221c">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="OptimalControlBenchmarks — Corleone.jl">
   <meta property="og:title" content="OptimalControlBenchmarks — Corleone.jl">
@@ -83,8 +83,9 @@
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Sublibraries</span>
+        <a href="../../sublibraries/">Overview</a>
         <div class="md-nav-section md-nav-collapsed">
-          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <span class="md-nav-section-title">CorleoneOED</span>
           <a href="../../oed/index/">Overview</a>
           <a href="../../oed/formulation/">Measurements and Information</a>
           <a href="../../oed/designs/">Constructing and Optimizing Designs</a>
@@ -92,7 +93,11 @@
           <a href="../../oed/api/">API Reference</a>
           <a href="../../oed/references/">References and Attribution</a>
         </div>
-        <a href="../../benchmarks/index/" class="md-nav-active">Optimal Control Benchmarks</a>
+        <div class="md-nav-section">
+          <span class="md-nav-section-title">OptimalControlBenchmarks</span>
+          <a href="../../benchmarks/index/" class="md-nav-active">Overview</a>
+          <a href="../../benchmarks/problems/">Problem Catalog</a>
+        </div>
       </div>
       <a href="../../references/">References</a>
       <a href="../../api/">API Reference</a>
@@ -103,6 +108,7 @@
 <h1 id="OptimalControlBenchmarks" class="md-heading">OptimalControlBenchmarks<a href="#OptimalControlBenchmarks" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <p>OptimalControlBenchmarks provides 31 ModelingToolkit optimal-control problems and a driver using Corleone&#39;s shared optimization bridge. Use it to prepare, solve, time, and plot problems with consistent control and shooting grids.</p>
 <p>Install <code class="md-code-inline">OptimalControlBenchmarks</code> and <code class="md-code-inline">Ipopt</code> for the example below. Familiarity with Corleone&#39;s <a href="../../shooting/">shooting workflow</a> helps when changing controls, shooting states, or constraints.</p>
+<p>Browse the <a href="../../benchmarks/problems/">problem catalog</a> for available models, control counts, and physical time spans.</p>
 <h2 id="Solve-an-LQR-problem" class="md-heading">Solve an LQR problem<a href="#Solve-an-LQR-problem" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>The linear quadratic regulator (LQR) benchmark tracks a target state while penalizing control effort. Start with single shooting and a piecewise-constant control on 20 intervals:</p>
 <div class="md-multi-output">
@@ -320,6 +326,6 @@ solve_with_corleone(
   <script>hljs.highlightAll();</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=2d0440f0"></script>
+  <script src="../../assets/materialdocs.js?v=5331221c"></script>
 </body>
 </html>

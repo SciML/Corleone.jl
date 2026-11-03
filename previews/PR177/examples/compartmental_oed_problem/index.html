@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Compartmental OED — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=e83d0aea">
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=300a234a">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="Compartmental OED — Corleone.jl">
   <meta property="og:title" content="Compartmental OED — Corleone.jl">
@@ -83,8 +83,9 @@
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Sublibraries</span>
+        <a href="../../sublibraries/">Overview</a>
         <div class="md-nav-section md-nav-collapsed">
-          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <span class="md-nav-section-title">CorleoneOED</span>
           <a href="../../oed/index/">Overview</a>
           <a href="../../oed/formulation/">Measurements and Information</a>
           <a href="../../oed/designs/">Constructing and Optimizing Designs</a>
@@ -92,7 +93,11 @@
           <a href="../../oed/api/">API Reference</a>
           <a href="../../oed/references/">References and Attribution</a>
         </div>
-        <a href="../../benchmarks/index/">Optimal Control Benchmarks</a>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">OptimalControlBenchmarks</span>
+          <a href="../../benchmarks/index/">Overview</a>
+          <a href="../../benchmarks/problems/">Problem Catalog</a>
+        </div>
       </div>
       <a href="../../references/">References</a>
       <a href="../../api/">API Reference</a>
@@ -191,10 +196,10 @@ figure</code></pre>
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
+<pre><code>Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [311a05b2] DemoCards v0.5.5
   [e30172f5] Documenter v1.19.0
@@ -235,14 +240,11 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 128 × AMD EPYC 9354 32-Core Processor
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver4)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
-Environment:
-  JULIA_CPU_THREADS = 4
-  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre>
 </div>
 </details>
@@ -254,7 +256,7 @@ Environment:
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+<pre><code>Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -314,7 +316,7 @@ Environment:
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [a8cc5b0e] Crayons v4.2.0
   [9a962f9c] DataAPI v1.16.0
@@ -330,7 +332,7 @@ Environment:
   [b552c78f] DiffRules v1.16.0
   [a0c0ee7d] DifferentiationInterface v0.7.21
   [8d63f2c5] DispatchDoctor v0.4.29
-  [31c24e10] Distributions v0.25.132
+  [31c24e10] Distributions v0.25.133
   [43dc2714] DocInventories v1.0.0
 ⌅ [ffbed154] DocStringExtensions v0.9.5
   [e30172f5] Documenter v1.19.0
@@ -709,6 +711,6 @@ Info Packages marked with ⌃ and ⌅ have new versions available. Those with �
   <script>hljs.highlightAll();</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=e83d0aea"></script>
+  <script src="../../assets/materialdocs.js?v=300a234a"></script>
 </body>
 </html>
