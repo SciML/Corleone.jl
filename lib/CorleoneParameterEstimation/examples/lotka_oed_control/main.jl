@@ -17,7 +17,7 @@
 # experiment has been *carried out in the real world*, we collect measurements and
 # estimate the model parameters. The designed control is then a **known, fixed input** of the
 # experiment -- it is *not* an optimization variable. [`CorleoneOED`](https://github.com/SciML/Corleone.jl)
-# produces that control, [`CorleoneParameterEstimation`](@ref) fits the parameters with it.
+# produces that control, `CorleoneParameterEstimation` fits the parameters with it.
 #
 # We use the canonical Lotka-Volterra fishing model: `p[1]` is the (piecewise-constant)
 # fishing control that *replaces* the prey growth parameter, and `p[2], p[3]` are the two
