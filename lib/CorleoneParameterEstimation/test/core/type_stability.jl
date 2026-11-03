@@ -85,8 +85,10 @@ end
     @test isconcretetype(P)
     @test fieldtype(P, :n_residuals) === Int
     @test fieldtype(P, :n_shooting_constraints) === Int
-    # 11 observations + 4 boundaries * (1 state + 1 parameter) continuity residuals.
-    @test pe_problem.n_shooting_constraints == 4 * 2
+    # 11 observations + 4 interior boundaries * 1 state-continuity residual. Model
+    # parameters are shared across shooting blocks in the native layout, so they do
+    # not add continuity residuals.
+    @test pe_problem.n_shooting_constraints == 4
     @test pe_problem.n_residuals == n_observations(data) + pe_problem.n_shooting_constraints
 
     @test inferred_return_type(

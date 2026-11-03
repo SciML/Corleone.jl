@@ -139,10 +139,7 @@ end
 
     # Finite bounds are kept; solve with a `Bounded*` solver, which handles bounds natively
     # (no mutating transform) and therefore stays reverse-mode differentiable.
-    layer_b = SingleShootingLayer(
-        prob, Tsit5(); saveat = unique(tdata), bounds_p = ([0.0], [2.0])
-    )
-    pe_b = ParameterEstimationLayer(layer_b, data)
+    pe_b = ParameterEstimationLayer(prob, Tsit5(), data; bounds_p = ([0.0], [2.0]))
     nlls_b = problem(pe_b)
     @test nlls_b.lb == [0.0] && nlls_b.ub == [2.0]
 

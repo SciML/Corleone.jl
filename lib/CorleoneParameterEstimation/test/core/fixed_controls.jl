@@ -28,15 +28,19 @@ ts = collect(0.2:0.4:11.8)
 σ = 0.05
 
 # Generate synthetic data for a given fixed control vector on the fishing slot.
+#
+# A fixed control is a `parameter_selector => annotation => switching_times` pair: the
+# annotation carries the (fixed) values via `default` and the switching times split the
+# horizon into constant intervals (the first interval starts at the problem's initial time).
+control_of(cvals; grid = cgrid) =
+    Tunable(1; default = cvals, lowerbound = 0.0, upperbound = 1.0) => grid[2:end]
+
 function generate_control_data(cvals)
-    c1 = (1 => ControlParameter(cgrid, controls = cvals, bounds = (0.0, 1.0)),)
-    lay = SingleShootingLayer(prob, Tsit5(); controls = c1, saveat = ts)
-    ps, st = LuxCore.setup(rng, lay)
-    ps = merge(ps, (p = [1.0, 1.0], controls = cvals))
-    sol, _ = lay(nothing, ps, st)
-    pe = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(ts, zeros(2, length(ts))); observed = obs
-    )
+    c1 = (1 => control_of(cvals),)
+    data = ExperimentData(ts, zeros(2, length(ts)); σ = σ, u0 = u0, controls = c1)
+    pe = CorleoneParameterEstimation.ParameterEstimationLayer(prob, Tsit5(), data; observed = obs)
+    ps, st = LuxCore.setup(rng, pe)
+    sol, _ = pe(nothing, ps, st)
     Y = CorleoneParameterEstimation.model_values(pe, sol, ts)
     return Y .+ σ .* randn(rng, 2, length(ts))
 end
@@ -48,7 +52,7 @@ function build_data(; exp1_ctrl = true_ctrl, exp2_ctrl = nothing, exp2_val = not
     push!(
         exps, Experiment(
             ts, generate_control_data(exp1_ctrl); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = exp1_ctrl, bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(exp1_ctrl),)
         )
     )
     if isnothing(exp2_val)
@@ -57,7 +61,7 @@ function build_data(; exp1_ctrl = true_ctrl, exp2_ctrl = nothing, exp2_val = not
             exps, Experiment(
                 ts, generate_control_data(isnothing(exp2_ctrl) ? zeros(nctrl) : exp2_ctrl);
                 σ = σ, u0 = u0, controls = isnothing(exp2_ctrl) ? nothing :
-                    (1 => ControlParameter(cgrid, controls = exp2_ctrl, bounds = (0.0, 1.0)),)
+                    (1 => control_of(exp2_ctrl),)
             )
         )
     else
@@ -70,7 +74,7 @@ end
     # per-experiment controls accessors
     exp1 = Experiment(
         ts, ones(2, length(ts)); σ = σ, u0 = u0,
-        controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+        controls = (1 => control_of(true_ctrl),)
     )
     exp2 = Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0)
     data = ExperimentData(exp1, exp2)
@@ -99,10 +103,12 @@ end
     # p[1] at its default (0.0) constantly.
     ps1 = LuxCore.initialparameters(rng, pe.layer[1])
     ps2 = LuxCore.initialparameters(rng, pe.layer[2])
-    @test pe.layer[1].controls !== nothing
-    @test pe.layer[2].controls !== nothing
-    @test ps1.controls ≈ true_ctrl atol = 1.0e-14   # controlled experiment uses its control
-    @test all(iszero, ps2.controls)                 # p[1] default is 0.0
+    ctrl_sym = only(Corleone.control_symbols(pe.layer[1].sys))
+    ctrl_values(ps) = vec(ps.parameter.parameters[ctrl_sym].parameter.ps)
+    @test !isempty(Corleone.control_symbols(pe.layer[1].sys))
+    @test !isempty(Corleone.control_symbols(pe.layer[2].sys))
+    @test ctrl_values(ps1) ≈ true_ctrl atol = 1.0e-14   # controlled experiment uses its control
+    @test all(iszero, ctrl_values(ps2))                 # p[1] default is 0.0
 
     # controls are excluded from the optimization variables: only p[2], p[3] are tuned
     inner = CorleoneParameterEstimationProblem(pe; x0 = [1.2, 1.3])
@@ -129,7 +135,7 @@ end
         exp1_ctrl = true_ctrl,
         exp2_val = Experiment(
             ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(true_ctrl),)
         )
     )
     @test has_controls(data) == true
@@ -154,7 +160,7 @@ end
         exp1_ctrl = true_ctrl,
         exp2_val = Experiment(
             ts, generate_control_data(true_ctrl); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = 0.3 .* ones(nctrl), bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(0.3 .* ones(nctrl)),)
         )
     )
     pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = obs)
@@ -168,14 +174,14 @@ end
 end
 
 @testset "Validation" begin
-    # control entries must be `index => ControlParameter` pairs
+    # control entries must be `index => annotation => switching_times` pairs
     exp_bad = Experiment(
         ts, ones(2, length(ts)); σ = σ, u0 = u0,
         controls = (1,)
     )   # entry is an Int, not a Pair
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), ExperimentData(exp_bad); observed = obs)
 
-    # control value must be a ControlParameter
+    # control value must be an `annotation => switching_times` pair
     exp_bad2 = Experiment(ts, ones(2, length(ts)); σ = σ, u0 = u0, controls = (1 => [0.0, 0.1],))
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), ExperimentData(exp_bad2); observed = obs)
 
@@ -183,11 +189,11 @@ end
     data_bad = ExperimentData(
         Experiment(
             ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(true_ctrl),)
         ),
         Experiment(
             ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (2 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+            controls = (2 => control_of(true_ctrl),)
         ),
     )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad; observed = obs)
@@ -196,11 +202,11 @@ end
     data_bad2 = ExperimentData(
         Experiment(
             ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid, controls = true_ctrl, bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(true_ctrl),)
         ),
         Experiment(
             ts, ones(2, length(ts)); σ = σ, u0 = u0,
-            controls = (1 => ControlParameter(cgrid[1:4], controls = ones(4), bounds = (0.0, 1.0)),)
+            controls = (1 => control_of(ones(4); grid = cgrid[1:4]),)
         ),
     )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad2; observed = obs)

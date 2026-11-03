@@ -96,7 +96,7 @@ end
     )
     @test_throws ArgumentError ParameterEstimationLayer(prob, Tsit5(), data_bad)
     # wrapping a single pre-built shooting layer keeps working for a single experiment
-    layer = SingleShootingLayer(prob, Tsit5(); saveat = unique(t1))
+    layer = ShootingLayer(prob, Tsit5())
     data_single = ExperimentData(t1, y1; σ = σ)
     pe = ParameterEstimationLayer(layer, data_single)
     @test pe isa ParameterEstimationLayer
