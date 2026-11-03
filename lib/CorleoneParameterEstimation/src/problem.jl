@@ -238,8 +238,10 @@ function _parameter_leaves(layer_child, ps_child)
     elseif layer_child isa Corleone.PiecewiseConstant && layer_child.parameter isa NamedTuple
         members = keys(layer_child.parameter)
         return tuple(
-            (ps_child.parameter[m].ps for m in members
-                if !(layer_child.parameter[m] isa Corleone.FixedLayer))...
+            (
+                ps_child.parameter[m].ps for m in members
+                    if !(layer_child.parameter[m] isa Corleone.FixedLayer)
+            )...
         )
     else
         return (ps_child.parameter.ps,)
@@ -294,8 +296,10 @@ function _shared_block(layer, ps0::NamedTuple)
         leaf = ic_ps[key].parameter
         if child.parameter isa NamedTuple
             return tuple(
-                (leaf[m].ps[sharedpos] for m in keys(child.parameter)
-                    if !(child.parameter[m] isa Corleone.FixedLayer))...
+                (
+                    leaf[m].ps[sharedpos] for m in keys(child.parameter)
+                        if !(child.parameter[m] isa Corleone.FixedLayer)
+                )...
             )
         end
         return (leaf.ps[sharedpos],)
@@ -320,8 +324,10 @@ function _local_states(layer, ps0_i::NamedTuple)
         leaf = ic_ps[key].parameter
         if child.parameter isa NamedTuple
             return tuple(
-                (leaf[m].ps[localpositions] for m in keys(child.parameter)
-                    if !(child.parameter[m] isa Corleone.FixedLayer))...
+                (
+                    leaf[m].ps[localpositions] for m in keys(child.parameter)
+                        if !(child.parameter[m] isa Corleone.FixedLayer)
+                )...
             )
         end
         return (leaf.ps[localpositions],)
@@ -553,7 +559,7 @@ end
 # mapped back to natural units with `transforms`; the remaining entries are the local
 # shooting states of the experiments in order.
 function _unflatten(
-        pe::ParameterEstimationLayer, ps0s::NTuple{N,Any}, x::AbstractVector, transforms
+        pe::ParameterEstimationLayer, ps0s::NTuple{N, Any}, x::AbstractVector, transforms
     ) where {N}
     layers = get_layer(pe)
     n_exp = N
