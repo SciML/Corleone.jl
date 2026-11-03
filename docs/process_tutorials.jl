@@ -66,15 +66,19 @@ end
 # DemoCards adds a heading before its source badge. Keep the script's own
 # heading and stable @id instead of emitting that anchor twice.
 function normalize_demo_output(content)
-    content = replace(content,
-        r"(?m)^# \[.*\]\(@id [^)]+\)\n(?=\n\[!\[Source code\])" => ""; count = 1)
+    content = replace(
+        content,
+        r"(?m)^# \[.*\]\(@id [^)]+\)\n(?=\n\[!\[Source code\])" => ""; count = 1
+    )
     edit_url = match(r"EditURL = \"([^\"]+)\"", content).captures[1]
     source_url = replace(replace(edit_url, "github.com" => "raw.githubusercontent.com"), "/blob/" => "/")
     badge_link = r"(?m)^(\[!\[Source code\].*?\]\()[^)]+(\))$"
-    replace(content, badge_link => m -> begin
-        captures = match(badge_link, m).captures
-        captures[1] * source_url * captures[2]
-    end)
+    return replace(
+        content, badge_link => m -> begin
+            captures = match(badge_link, m).captures
+            captures[1] * source_url * captures[2]
+        end
+    )
 end
 
 function make_tutorial(path; name = nothing, draft = false)
@@ -172,11 +176,13 @@ function trajectory_covers(tutorials, example_output, generated; draft = false)
         end
         id = match(r"@id ([^)]+)", read(metadata["source"], String)).captures[1]
         cp(image, joinpath(generated, "covers", "$name.png"); force = true)
-        gallery = replace(gallery,
+        gallery = replace(
+            gallery,
             "![card-cover-image](covers/democards_logo.svg)](@ref $id)" =>
-            "![Trajectory plot for $(metadata["title"])](covers/$name.png)](@ref $id)")
+                "![Trajectory plot for $(metadata["title"])](covers/$name.png)](@ref $id)"
+        )
     end
-    write(gallery_path, gallery)
+    return write(gallery_path, gallery)
 end
 trajectory_covers(tutorials, example_output, generated; draft)
 
@@ -189,8 +195,10 @@ benchmark_source = joinpath(
 benchmark_edit_url = "https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/index.md"
 benchmark_content = replace(
     read(benchmark_source, String),
-    ("https://github.com/SciML/Corleone.jl/blob/main/docs/src/$guide.md" => "../$guide.md"
-        for guide in ("shooting", "optimization_contracts"))...
+    (
+        "https://github.com/SciML/Corleone.jl/blob/main/docs/src/$guide.md" => "../$guide.md"
+            for guide in ("shooting", "optimization_contracts")
+    )...
 )
 write(
     joinpath(benchmark_output, "index.md"),
@@ -199,9 +207,11 @@ write(
 )
 
 benchmark_catalog = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks", "docs", "src", "problems.md")
-write(joinpath(benchmark_output, "problems.md"),
+write(
+    joinpath(benchmark_output, "problems.md"),
     "```@meta\nEditURL = \"https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/problems.md\"\n```\n\n" *
-    read(benchmark_catalog, String))
+        read(benchmark_catalog, String)
+)
 
 # Keep the OED guide/API authoritative in the sublibrary; generate root-site pages
 # with local cross-references and edit links pointing back to those source files.
