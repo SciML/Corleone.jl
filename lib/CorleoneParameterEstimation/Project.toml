@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Christoph Plate", "Carl Julius Martensen", "Sebastian Sager"]
 
 [deps]
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -28,9 +29,10 @@ CorleoneParameterEstimationOptimizationExtension = ["Optimization", "ComponentAr
 
 [compat]
 CairoMakie = "0.15"
+ChainRulesCore = "1"
 ComponentArrays = "0.15"
-Corleone = "1"
-CorleoneOED = "1.0.0"
+Corleone = "2"
+CorleoneOED = "2"
 DocStringExtensions = "0.9.3"
 ForwardDiff = "1.3"
 Ipopt = "1"
