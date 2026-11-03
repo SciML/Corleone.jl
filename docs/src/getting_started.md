@@ -1,10 +1,5 @@
 # Getting started
 
-Corleone turns differential equation solves into differentiable shooting layers
-for dynamic optimization. It combines SciML solvers with Lux parameter and state
-containers. You choose parameter schedules, state resets, an objective, and
-constraints; the layer supplies trajectories and continuity residuals.
-
 ## Installation
 
 For the introductory example, install Corleone, a solver, and LuxCore:
@@ -43,32 +38,15 @@ The layer returns `(trajectory, next_st)`. The default numerical symbols are
 `:u₁` for the first state and `:p₁` for the first parameter. State samples use the
 saved solution grid; parameter histories use their own change grid.
 
-An optimization model adds a scalar objective. Here it penalizes deviation from
-a terminal target of 1.5 and retains the supplied parameters and state:
+The final state is 1: the two intervals contribute `0.25 × 1` and `0.75 × 1`.
+This evaluates a prescribed control schedule; it does not optimize it.
 
-```@example quickstart
-model = CorleoneDynamicOptProblem(layer,
-    traj -> (last(traj.u)[1] - 1.5)^2; ps, st)
-round(optimization_objective(model); digits = 6)
-```
+## Next steps
 
-For a complete optimization, follow the
-[linear quadratic regulator tutorial](@ref linear_quad_reg). For a symbolic model,
-start with the [ModelingToolkit Lotka–Volterra tutorial](@ref mtk).
-
-## Find the right guide
-
-| Goal | Start here |
-|---|---|
-| Understand single and multiple shooting | [Shooting formulation](@ref shooting_formulation) |
-| Query samples and interpret reset jumps | [Trajectories](@ref trajectory_guide) |
-| Set initial guesses | [Initialization](initialization.md) |
-| Supply bounds, objectives, and constraints | [Optimization contracts](optimization_contracts.md) |
-| Define dynamics and costs symbolically | [ModelingToolkit](modelingtoolkit.md) |
-| Choose a tested gradient configuration | [Automatic differentiation](automatic_differentiation.md) |
-| Run independent shooting blocks concurrently | [Parallel shooting](parallel_shooting.md) |
-| Prepare, solve, and time benchmark problems | [Optimal Control Benchmarks](benchmarks/index.md) |
-| Look up constructors and fields | [API reference](api.md) |
-
-This manual covers Corleone, CorleoneOED, and OptimalControlBenchmarks. The
-sublibrary sections share their sources with the standalone documentation.
+Follow the [linear quadratic regulator tutorial](@ref linear_quad_reg) to add an
+objective and solve an optimization problem. Use the [Manual](shooting.md) to
+[define schedules](scheduling.md), [initialize shooting values](initialization.md),
+[inspect trajectories](trajectories.md), or [add constraints](optimization_contracts.md).
+For symbolic dynamics and costs, start with the
+[ModelingToolkit tutorial](@ref mtk). Constructors and arguments are in the
+[API reference](api.md).

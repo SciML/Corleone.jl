@@ -45,13 +45,13 @@ makedocs(;
     modules = [CorleoneOED],
     format = Documenter.HTML(edit_link = "main"),
     pages = [
-        "Overview and quick start" => "index.md",
+        "Overview" => "index.md",
         "Tutorials" => [
             "Continuous Lotka–Volterra design" => "tutorials/lotka_oed.md",
             "Multiple experiments" => "tutorials/lotka_multiexperiments.md",
             "Discrete compartmental design" => "tutorials/compartmental_oed.md",
         ],
-        "User guide" => [
+        "Manual" => [
             "Measurements and information" => "formulation.md",
             "Constructing and optimizing designs" => "designs.md",
             "Reduction, AD, and numerical scope" => "numerics.md",

@@ -28,7 +28,7 @@ features:
   - icon: 🔬
     title: Experimental design
     details: Optimize measurements and combine experiments to learn model parameters with CorleoneOED.
-    link: /oed/
+    link: /oed/index/
   - icon: 🧩
     title: Symbolic models
     details: Build dynamics and integral costs with ModelingToolkit, including parameter bounds and initial values.
@@ -44,17 +44,18 @@ features:
   - icon: 📊
     title: Benchmark problems
     details: Prepare, solve, and time optimal control problems with OptimalControlBenchmarks.
-    link: /benchmarks/
+    link: /benchmarks/index/
 ---
 ```
 
-## From a model to an optimization problem
+## Differentiable shooting for dynamic optimization
 
-Corleone turns differential equation solves into differentiable shooting layers.
-Choose parameter schedules, state resets, an objective, and constraints; the layer
-supplies trajectories and continuity residuals. SciML solvers handle the dynamics,
-and Lux containers hold parameters and state.
+Corleone turns differential-equation solves into Lux shooting layers for optimal
+control and experimental design. Use it to optimize piecewise-constant controls,
+model parameters, or shooting states with SciML solvers and trajectory-based
+objectives and constraints.
 
-Start with a [first shooting layer](getting_started.md), then work through the
-[optimal control and experimental design tutorials](tutorials.md).
-The [API reference](api.md) covers constructors, fields, and optimizer interfaces.
+Start with [Getting Started](getting_started.md), follow a [worked tutorial](tutorials.md),
+or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md)
+covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental
+design; [OptimalControlBenchmarks](benchmarks/index.md) provides test problems.

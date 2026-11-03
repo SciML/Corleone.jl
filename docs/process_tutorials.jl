@@ -119,10 +119,15 @@ benchmark_source = joinpath(
     @__DIR__, "..", "lib", "OptimalControlBenchmarks", "docs", "src", "index.md"
 )
 benchmark_edit_url = "https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/index.md"
+benchmark_content = replace(
+    read(benchmark_source, String),
+    ("https://github.com/SciML/Corleone.jl/blob/main/docs/src/$guide.md" => "../$guide.md"
+        for guide in ("shooting", "optimization_contracts"))...
+)
 write(
     joinpath(benchmark_output, "index.md"),
     "```@meta\nCurrentModule = OptimalControlBenchmarks\nEditURL = \"$benchmark_edit_url\"\n```\n\n" *
-        read(benchmark_source, String)
+        benchmark_content
 )
 
 # Keep the OED guide/API authoritative in the sublibrary; generate root-site pages

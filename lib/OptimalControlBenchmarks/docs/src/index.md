@@ -4,6 +4,10 @@ OptimalControlBenchmarks provides 31 ModelingToolkit optimal-control problems an
 a driver using Corleone's shared optimization bridge. Use it to prepare, solve,
 time, and plot problems with consistent control and shooting grids.
 
+Install `OptimalControlBenchmarks` and `Ipopt` for the example below. Familiarity
+with Corleone's [shooting workflow](https://github.com/SciML/Corleone.jl/blob/main/docs/src/shooting.md)
+helps when changing controls, shooting states, or constraints.
+
 ## Solve an LQR problem
 
 The linear quadratic regulator (LQR) benchmark tracks a target state while
@@ -45,9 +49,8 @@ endpoints do not create additional segments.
 
 `prepare_benchmark` returns a `CorleoneDynamicOptProblem`. Use its parameters and
 state with Corleone's bounds, vectorization, initialization, and optimization APIs.
-When evaluating optimized parameters, reconstruct them with the chosen vectorizer
-and reuse `model.st`. Controls are parameter histories; plotting selects them
-through symbolic metadata.
+See the shared [optimization guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/optimization_contracts.md)
+for parameter reconstruction and evaluation with the prepared model's state.
 
 To collect timing records, use the same catalog and grids:
 

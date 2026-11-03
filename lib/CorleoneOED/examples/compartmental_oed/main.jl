@@ -4,6 +4,8 @@
 #src ---
 
 # # [Compartmental OED](@id compartmental_oed)
+# Prerequisites: the [measurement formulation](@ref oed_formulation) and basic ODE
+# modeling. The solver imports below are needed for optimization and plots.
 # Estimate three parameters by observing one state. We optimize a relaxed
 # selection of six measurements from 19 candidate times, following the
 # [compartmental OED benchmark](https://mintoc.de/index.php?title=Compartmental_OED).

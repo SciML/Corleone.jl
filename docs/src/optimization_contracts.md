@@ -1,496 +1,177 @@
-# Optimization-facing contracts
+# [Adding objectives and constraints](@id Optimization-facing-contracts)
 
-Corleone provides bounds and shooting-residual helpers independently of an optimizer
-or vectorization package. Bounds follow generic Lux models and their parameter
-structure; shooting-residual helpers apply to `ShootingLayer` and `Trajectory`.
-The prepared facade adds objectives and sampled constraints. SciMLBase supplies
-the optimizer bridge, with parameter packing provided by extensions. Optimizer
-block structure remains separate.
-
-For the mathematical formulation and residual sign conventions, see
-[shooting](@ref shooting_formulation). For saved grids and reset sides, see
-[trajectories](@ref trajectory_guide).
-
-## Variable bounds
-
-After `ps, st = LuxCore.setup(rng, layer)`, call:
-
-```julia
-lower = get_lower_bound(layer, ps, st)
-upper = get_upper_bound(layer, ps, st)
-# Convenience form:
-lower, upper = get_bounds(layer, ps, st)
-```
-
-The directional functions follow Lux's recursive parameter convention:
-
-- `AbstractLuxContainerLayer{fields}` wraps bounds under its declared child fields.
-- `AbstractLuxWrapperLayer{field}` delegates to the wrapped layer without adding a key.
-- NamedTuple, Tuple, and array collections recurse over their layers.
-- Generic leaves default to `-Inf` or `Inf`, matching the supplied parameter shapes.
-
-Empty wrapper parameter subtrees stay empty, including `FixedLayer` values stored
-in state. This traversal requires no concrete bounds methods for `Parameter`,
-`InitialConditions`, `PiecewiseConstant`, or `ParameterCollection`.
-
-Only `ShootingLayer` has concrete layer specializations in Corleone. It first uses
-the generic traversal to construct the parameter tree, then applies its cache's
-per-symbol bounds. A larger Lux model can therefore contain ordinary layers and
-wrapped shooting layers: ordinary leaves remain unbounded, while the shooting
-subtree receives its symbolic bounds. Custom layers can extend `get_lower_bound`
-and `get_upper_bound` when they need different bounds. The optional `st` argument
-is forwarded to child layers.
-
-The returned parameter trees have the native Lux parameter structure and the same
-array shapes as `ps`. Each variable's bounds come from `layer.sys` and are repeated
-across all its scheduled values. This includes `n + 1` values for a parameter with
-`n` switching times. Unspecified bounds are `(-Inf, Inf)`.
-
-`FixedLayer` values live in Lux state and produce empty parameter bounds. Pass-through
-state variables also have no optimization entries. The helper reads metadata and
-parameter shapes; it does not invoke initializers, consume RNG values, solve the
-model, or change `ps` or `st`. Changes to the cache's bounds dictionary are reflected
-on the next bounds query.
-
-The overload `get_bounds(cache::ControlSymbolCache, symbol)` remains a bookkeeping
-query returning one bound pair. `get_bounds(layer, ps, st)` expands that metadata
-into optimizer variable bounds.
-
-A vectorizer must apply the same ordering to parameters and both bound trees. For
-example, with ComponentArrays:
-
-```julia
-q0 = ComponentArray(ps)
-lower, upper = get_bounds(layer, ps, st)
-lb, ub = ComponentArray(lower), ComponentArray(upper)
-parameter_axes = getaxes(q0)
-# Reconstruct numerical parameters inside the objective with
-# ComponentArray(q, parameter_axes).
-```
-
-The core helper accepts either native NamedTuple parameters or a structured
-ComponentArray, returning the same native bound trees for both, preserving the
-supplied field ordering. Core traversal uses named keys and property access;
-ComponentArrays-specific bounds methods are unnecessary. Flat vectors and
-mismatched parameter field sets are rejected. The extension supplies packing and
-rebuilds ComponentArray layouts when parameter splitting changes their shape.
-No setup or random parameter initialization occurs when requesting bounds.
-
-## Shooting equality constraints
-
-```julia
-n = get_number_of_shooting_constraints(layer, ps, st)
-trajectory, next_st = layer(nothing, ps, st)
-residuals = shooting_constraints(trajectory)
-```
-
-The count is computed from schedules and `st.timestops` without a solve. State
-residuals come from **tunable, active** state assignments strictly after the global
-problem start. Tunable assignments at the global start are free initial values;
-they are not matched against the original `u0`. Fixed assignments and assignments
-at the final endpoint also contribute none. After changing schedules, refresh
-`st.timestops` and recompute the count before allocating optimizer buffers.
-
-The residual vector starts with state residuals in chronological segment order,
-then canonical state index order within each segment. Each value is the assigned
-state minus the incoming state. Parameter matching residuals follow in canonical
-parameter order, then increasing inserted interval index. Each inserted interval
-contributes `values[i] - values[i - 1]` exactly once; original switches and fixed
-parameters contribute none. It has length `n`, including the zero-constraint case. Equality-constraint
-bounds are therefore `lcons = zeros(n)` and `ucons = zeros(n)`.
-
-Use the allocating form for a differentiable vector-valued function:
-
-```julia
-residuals = shooting_constraints(trajectory)
-```
-
-Or write into an existing buffer or view:
-
-```julia
-shooting_constraints!(res, trajectory)
-```
-
-The bang form checks the exact buffer length before writing and returns the buffer.
-It does not allocate an intermediate flattened residual vector. Its buffer must
-support the residual element type; when computing ForwardDiff Jacobians, that
-includes Dual numbers. Backends without array-mutation support should use the
-allocating form. Scheduling/count metadata is non-differentiable; residual values
-retain derivatives through assigned and incoming states.
-
-## Parameter segments
-
-To split tunable parameter intervals at interior full-state resets, call
-`ps, st = add_parameter_segments!(layer, ps, st)` after setup and before creating
-optimizer vectors or bounds. The helper reuses the layer and returns expanded
-parameters and state, preserving their current numerical signal. Each new interval
-starts with a duplicate of the previously active value. Original switches and
-fixed parameters stay unchanged. Partial-state resets do not split parameters.
-
-New right-hand interval indices are recorded in each parameter's
-`st.parameter.parameters.<name>.lookup.inserted`. These markers distinguish
-artificial splits from original switches. Repeated calls are idempotent. Changed
-arrays and grids are newly allocated, affected lookup caches are cleared, and
-`st.timestops` is refreshed from the current schedules. ComponentArray inputs
-receive rebuilt axes. The layer's setup dimensions remain those of the original
-layout; use the returned `ps` to size optimizer storage. Setup restores the original
-layout.
-
-Parameter matching residuals are computed on demand by `shooting_constraints` and
-`shooting_constraints!` from the trajectory's stored layer, parameters, and state.
-They are included in `get_number_of_shooting_constraints` but are not stored in
-`trajectory.residuals`, which continues to hold the forward pass's state residuals.
-Changing the stored parameter values changes the parameter differences on the next
-constraint query; no additional solve is needed to compute those differences.
-
-## Scope of the contract
-
-The optimizer-facing mapping is deliberately explicit:
-
-| Input | Contract |
-|---|---|
-| Initialized Lux parameters | Shape and ordering of optimization variables |
-| Bounds metadata | `get_bounds(layer, ps, st)` |
-| Cached schedules | `get_number_of_shooting_constraints(layer, ps, st)` |
-| Solved trajectory | `shooting_constraints` or `shooting_constraints!` |
-| Objective and path constraints | User callbacks operating on the trajectory |
-
-These helpers do not add path/terminal constraints automatically, infer an objective
-from quadrature metadata, or automatically split parameter intervals. Wrappers in
-sibling packages can delegate to the underlying layer using their own nested
-parameter/state locations. The prepared facade below uses these contracts without
-changing their ordering or initialization behavior. Block structure belongs to a
-future extension or package and is outside the core contract.
+Wrap an initialized shooting layer in [`CorleoneDynamicOptProblem`](@ref), then
+construct an Optimization.jl problem. The model evaluates trajectory objectives
+and constraints; the solver chooses the parameters.
 
 ## Prepared optimization models
 
-`CorleoneDynamicOptProblem(layer, objective, constraints...; lcons, ucons, ps, st)`
-prepares trajectory evaluations independently of an optimizer. Supply `ps` and `st`
-together to retain them by reference; otherwise setup runs once. The layer is
-reused. One initial prediction validates output sizes and prepares sample indices;
-its numerical solution is not retained.
+This example minimizes a terminal error subject to four sampled state limits.
+The interior tunable state introduces a continuity equality automatically.
 
-```jldoctest facade
-julia> using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+```@example optimization_workflow
+using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
+using ComponentArrays, ForwardDiff, Optimization, OptimizationMOI, Ipopt
 
-julia> prob = ODEProblem((u,p,t) -> [p[1]], [0.0], (0.0,2.0), [0.2];
-           saveat=[0.5,1.5]);
-
-julia> layer = ShootingLayer(prob, Tsit5(),
-           Tunable(1; kind=Val(:variable), default=0.2, lowerbound=0.0, upperbound=2.0) => [1.0],
-           Tunable(1; kind=Val(:parameter), default=0.2, lowerbound=0.0, upperbound=1.0) => nothing);
-
-julia> ps, st = LuxCore.setup(MersenneTwister(1), layer);
-
-julia> ps, st = add_parameter_segments!(layer, ps, st);
-
-julia> model = CorleoneDynamicOptProblem(layer, :((u₁(2.0)-1)^2),
-           :([u₁(0.5),u₁(1.0),u₁(1.5),u₁(2.0)]);
-           ps,st,lcons=zeros(4),ucons=fill(1.5,4));
-
-julia> optimization_objective(model) ≈ 0.36
-true
-
-julia> length(optimization_constraints(model)) # Four path values and two shooting equalities.
-6
+problem = ODEProblem((x, p, t) -> [p[1]], [0.0], (0.0, 2.0), [0.2])
+layer = ShootingLayer(problem, Tsit5(),
+    Tunable(1; kind = Val(:variable), default = 0.2,
+        lowerbound = 0.0, upperbound = 2.0) => [1.0],
+    Tunable(1; default = 0.2, lowerbound = 0.0, upperbound = 1.0) => [1.0])
+ps, st = LuxCore.setup(MersenneTwister(42), layer)
+model = CorleoneDynamicOptProblem(layer, :((u₁(2.0) - 1)^2),
+    :([u₁(0.5), u₁(1.0), u₁(1.5), u₁(2.0)]);
+    ps, st, lcons = zeros(4), ucons = fill(1.5, 4))
+optprob = OptimizationProblem(model, AutoForwardDiff())
+result = solve(optprob, Ipopt.Optimizer();
+    hessian_approximation = "limited-memory", tol = 1e-8, print_level = 0)
+@assert successful_retcode(result) # hide
+_, reconstruct = pack(default_vectorizer(), ps)
+optimized = reconstruct(result.u)
+@assert maximum(abs, optimization_constraints(model, optimized, optprob.p)[5:end]) < 1e-6 # hide
+(; objective = result.objective,
+    constraints = optimization_constraints(model, optimized, optprob.p))
 ```
 
-### Callbacks and structured bounds
+Supplying `ps` and `st` together retains them by reference; omitting both runs
+setup once. Preparation performs one prediction to validate dimensions and saved
+indices. Each later objective or constraint evaluation makes one prediction;
+there is no shared numerical-solution cache. Reprepare after changing schedules,
+saved layout, expression times, or callback output sizes.
 
-The objective callback is `traj -> scalar`, or `(prediction, st) -> scalar` when
-it needs the current Lux state supplied through the optimizer problem. A one-argument
-method takes precedence when both forms are applicable. Callback-based layer
-containers can use the same facade with a collection of trajectories as their
-prediction; timed expressions and terminal selectors require a `ShootingLayer`.
+## Callbacks and structured bounds
 
-A constraint callback is either
-`traj -> scalar_or_vector` or `(res, traj) -> ...`. Calling convention is detected
-once during preparation. In-place callback return values are ignored. Callable
-structs are supported as well as functions.
+An objective returns a real scalar: `traj -> scalar`, or `(prediction, st) -> scalar`
+when it needs the current optimizer state. The one-argument form takes precedence.
+A constraint returns a real scalar or flat vector, or writes into `f!(res, traj)`.
+In-place return values are ignored. Bounds specify the output sizes:
 
-Bounds describe each constraint's output size. With three constraint arguments,
-`lcons = [1.0, [2.0,3.0,4.0], 5.0]` declares output lengths `(1,3,1)`; `ucons` must
-have the same nested structure. Scalar constraints and vector/in-place constraints
-can be mixed in any order, including multiple in-place callbacks. With a single
-constraint, a flat vector is accepted directly, as in the example above. Both
-bounds must be supplied when user constraints are present. Invalid dimensions,
-reversed bounds and NaN bounds are rejected.
-
-After preparation, lower and upper bounds are flat vectors in declaration order.
-State and parameter shooting equalities are appended with zero bounds. Their
-ordering follows the core shooting contracts described above.
-
-```julia
+```@example optimization_workflow
 terminal(traj) = last(traj.u)[1]
-function populations!(res, traj)
+function endpoints!(res, traj)
     res[1] = first(traj.u)[1]
     res[2] = last(traj.u)[1]
     return nothing
 end
-model = CorleoneDynamicOptProblem(layer, traj -> terminal(traj)^2,
-    terminal, populations!;
-    ps, st, lcons=[0.0,[0.0,0.0]], ucons=[2.0,[2.0,2.0]])
+callback_model = CorleoneDynamicOptProblem(layer, traj -> terminal(traj)^2,
+    terminal, endpoints!;
+    ps, st, lcons = [0.0, [0.0, 0.0]], ucons = [2.0, [2.0, 2.0]])
+length(optimization_constraints(callback_model))
 ```
 
-`optimization_constraints` allocates and concatenates the outputs. An in-place
-callback receives a fresh buffer whose scalar type accounts for AD values.
-`optimization_constraints!` passes each in-place callback its own output slice
-directly, then writes shooting equalities into the remaining buffer. Arbitrary
-mutating callbacks require a backend that supports their mutation; use allocating
-callbacks for mutation-free reverse AD. Every evaluation performs one prediction,
-with no shared numerical solution cache.
+Supply both `lcons` and `ucons`, with one matching top-level subtree per constraint.
+A single vector constraint accepts flat bound vectors directly. Constraint outputs
+are flattened in declaration order, followed by automatic shooting equalities
+with zero bounds. Comparisons are not numerical constraints: return a value and
+supply its limits separately.
 
-### Timed Julia expressions
+`optimization_constraints(model, ps, st)` allocates the output;
+`optimization_constraints!(res, model, ps, st)` writes into a buffer of the exact
+length. In-place callbacks receive their own slices. Use allocating callbacks for
+reverse AD backends that cannot differentiate mutation. Callback-based Lux
+containers may also return collections of trajectories; timed expressions and
+terminal selectors require a `ShootingLayer`.
 
-Expressions specify values at independent times, for example
-`:(p₁(5.0)*u₂(15.0))` or `:(sin(x(3.0))-u(25.0))`, using the layer's actual state
-and parameter names. An objective may be `:(u₁(10.0))`; constraint expressions
-produce numerical values and use `lcons`/`ucons` for their bounds. Comparisons are
-not converted into constraints. The [ModelingToolkit frontend](modelingtoolkit.md)
-translates symbolic costs and constraints into this numerical interface.
-Ordinary Julia conditions inside numerical expressions retain their Julia meaning.
+## Timed Julia expressions
 
-Preparation collects requested times in `model.timepoints`, a dictionary keyed by
-signal name. `model.evaluation_grid` is their union with `st.timestops`. Prediction
-passes this explicit segment grid to the existing layer, preserving its caches
-and the caller's original state. The prepared indices refer to the **actual saved
-trajectory**, including extra internal `saveat` samples and both sides of resets.
-Time arguments must be finite real literals inside the problem time span;
-interpolate computed times, for example `:(u₁($(3 / 2)))`. No interpolation is performed.
+An expression such as `:(p₁(0.5) * u₁(1.5))` reads signals at specified times.
+Times must be finite real literals within the problem span; interpolate computed
+times, for example `:(u₁($(3 / 2)))`. Preparation adds requested times to the
+integration grid and resolves indices against actual saved samples, including
+`saveat` samples. It performs no interpolation. At resets, state reads select the
+post-reset sample; parameter reads are right-continuous.
 
-Each timed signal call is replaced with scalar indexing into a lazy trajectory
-view. State values come directly from saved arrays; parameter values are queried
-on demand at the same saved time. This avoids indexing parameter histories on the
-wrong grid or building a combined state/parameter matrix. At reset times, timed
-state calls select the post-reset sample. Parameter values remain right-continuous.
-Callbacks can explicitly inspect either or both saved reset sides.
+Within an expression, a bare signal denotes its full saved series:
+`:(sum(u₁))` includes both sides of resets. A plain Symbol or integer objective
+selector instead denotes a terminal value. Omitting the objective sums terminal
+quadratures and requires quadrature metadata. The
+[ModelingToolkit frontend](modelingtoolkit.md) translates symbolic costs and
+constraints into this interface.
 
-A bare signal within an expression denotes its full series on the saved trajectory
-grid: `:(sum(u₁))` sums all its saved values, including both reset sides. A plain
-Symbol or integer objective selector retains the terminal-value shorthand. With
-no objective supplied, terminal quadratures are summed; explicit objectives are
-required when no quadrature metadata exists.
+Expressions resolve functions and constants in `eval_module` (Corleone by default,
+including Base functions). Use `eval_module = @__MODULE__` for global helpers or
+interpolate literal constants; expressions do not capture local bindings.
+`default_evaluator()` selects RuntimeGeneratedFunctions when loaded, otherwise
+Julia eval. See [`compile_evaluator`](@ref) for custom evaluator implementations.
 
-Changing schedules, saved layout, expression times or callback dimensions requires
-repreparing the model. `ps` and `st` remain retained by reference; only discrete
-layout metadata is prepared separately.
+## Variable bounds
 
-### Expression evaluators
+`lower, upper = get_bounds(layer, ps, st)` returns trees with the parameter layout
+and array shapes of `ps`. Fixed values in Lux state have no optimizer entries.
+Missing bounds are infinite. The helper reads metadata without setup or solving.
+A larger Lux container can include shooting layers and ordinary layers, whose
+leaves are unbounded unless they specialize the bound methods.
 
-`evaluator = default_evaluator()` selects `Val(:RuntimeGeneratedFunctions)` when
-that extension is loaded, otherwise `Val(:Eval)`. The parsing, time collection and
-index substitution are shared. Override selection explicitly:
+Flatten parameters and both bound trees with the same vectorizer. The optimization
+bridge does this automatically. State bounds apply to stored initial/shooting
+values; use sampled constraints for limits elsewhere. See
+[numerical accuracy](shooting.md#Bounds-and-numerical-accuracy) for the limits of
+sampled feasibility checks.
 
-```julia
-model = CorleoneDynamicOptProblem(layer, :(u₁(1.0));
-    ps, st, evaluator=Val(:Eval))
+## Shooting equality constraints
+
+The model appends the equalities defined by the [shooting formulation](@ref shooting_formulation).
+For a custom optimizer integration, use:
+
+```@example optimization_workflow
+n = get_number_of_shooting_constraints(layer, ps, st) # No solve.
+trajectory, next_st = layer(nothing, ps, st)
+residuals = shooting_constraints(trajectory)
+@assert length(residuals) == n # hide
+residuals
 ```
 
-The built-in eval implementation invokes the compiled function in its latest
-world and supplies a reverse-mode rule for that call boundary. The optional
-RuntimeGeneratedFunctions extension supplies its world-age-safe compiled callable.
-`compile_evaluator(strategy, function_expression, eval_module)` is the extension
-hook. The default context is Corleone, which provides Base functions such as sin.
-Use `eval_module = @__MODULE__` for your own global helpers/constants, or interpolate
-literal constants. Neither evaluator captures local lexical bindings from Expr.
+Set both equality bounds to `zeros(n)`. Use [`shooting_constraints!`](@ref) to
+write into a preallocated buffer; its element type must accommodate AD values.
+State residuals precede inserted-parameter residuals; their signs and ordering
+are defined in [shooting](shooting.md). The helpers add neither an objective nor
+sampled constraints. Run [`add_parameter_segments!`](@ref), if needed, **before**
+packing parameters, querying bounds, or preparing a model.
 
-### SciMLBase optimization bridge
+## SciMLBase optimization bridge
 
-SciMLBase provides the bridge constructors; ComponentArrays supplies the default
-packing implementation. [Optimization.jl](@extref Optimization :std:doc:`index`) and a solver
-are needed to run the optimization.
-For example, with ADTypes/ForwardDiff and an installed optimizer:
+Load Optimization.jl, a solver, and ComponentArrays for the default bridge.
+`OptimizationProblem(model, adtype)` packs variables and bounds, stores Lux state
+in `optprob.p`, and creates objective and constraint callbacks. With no constraints,
+`cons`, `lcons`, and `ucons` are `nothing`. Choose a supported
+[differentiation configuration](automatic_differentiation.md).
 
-```julia
-using Optimization, ComponentArrays, ForwardDiff
-using OptimizationMOI, Ipopt
+Pass derivative options through `function_kwargs`, for example
+`function_kwargs = (; cons_j = custom_jacobian!)`; other keywords configure the
+optimization problem. Declare constraints on the model: the bridge's generated
+`cons` callback cannot be replaced. `inplace = false` selects allocating constraints
+and the out-of-place derivative convention. See [sparse derivatives](sparse_derivatives.md)
+for optional Jacobian and Hessian preparation.
 
-optprob = OptimizationProblem(model, AutoForwardDiff(); vectorize = default_vectorizer())
-result = solve(optprob, Ipopt.Optimizer();
-    hessian_approximation = "limited-memory", tol = 1e-8)
+After solving, reconstruct parameters from `result.u`. For timed expressions,
+evaluate with `(model.layer.problem, model.evaluation_grid)` as the layer input
+to include all requested times, or use `optimization_objective` and
+`optimization_constraints` with the reconstructed parameters and current state.
 
-_, reconstruct = pack(Val(:ComponentArrays), model.ps)
-parameters = reconstruct(result.u)
-trajectory, state = model.layer(nothing, parameters, optprob.p)
+## [Sparse derivatives](@id Sparse-constraint-Jacobians)
+
+```@raw html
+<span id="Lagrangian-Hessian-structure"></span>
+<span id="Sparse-exact-Hessians"></span>
 ```
 
-`optprob.u0` is a flat numerical vector; bounds are flattened in the same order.
-Packing a supplied ComponentVector reuses its backing storage, while packing a
-native NamedTuple allocates optimizer storage once. The reconstruction callable
-retains the layout separately from the numerical vector. During evaluations it
-wraps the **current** optimizer vector using those axes; it does not read stale initial
-parameter values. `optprob.p` holds the supplied Lux state. Fixed values remain
-outside the optimization variables. Constraint bounds combine user limits with
-zero bounds for all shooting equalities. With no constraints, `cons`, `lcons` and
-`ucons` are `nothing`.
+See [Preparing sparse derivatives](sparse_derivatives.md) for colored constraint
+Jacobians, Lagrangian structure, and exact Hessians.
 
-`OptimizationFunction(model, adtype; inplace = true)` constructs the callbacks
-without repeating setup. Pass `inplace = false` for allocating constraints and the
-out-of-place derivative convention. Derivative options such as custom Jacobians
-belong in `function_kwargs = (; cons_j = ...)` when constructing the problem;
-remaining keywords are passed to `OptimizationProblem`. The generated `cons`
-callback cannot be replaced: declare constraints on the model instead.
+## Parameter packing interface
 
-The convenience form `OptimizationProblem(layer, adtype; loss, constraints, ps, st)`
-prepares the model and bridge together. The `vectorize` keyword selects packing:
-`OptimizationProblem(model, adtype; vectorize = Val(:ComponentArrays))`. Its default,
-`default_vectorizer()`, selects a supported loaded extension, currently
-ComponentArrays. If none is loaded it throws `UndefKeywordError(:vectorize)`; load
-ComponentArrays or pass an explicit implementation. Other tags can implement `pack`
-without changing the bridge. The same keyword applies to OptimizationFunction.
-The bridge does not add new AD backend capabilities; see the backend requirements
-in [Automatic differentiation](automatic_differentiation.md).
-
-### Parameter packing interface
-
-```julia
-tag = Val(:ComponentArrays)
-q0, reconstruct = pack(tag, ps)   # Flat numerical vector and a callable layout.
-parameters = reconstruct(q0)     # ComponentArray viewing q0.
+```@example optimization_workflow
+q0, reconstruct = pack(default_vectorizer(), ps)
+parameters = reconstruct(q0)
+length(q0)
 ```
 
-Only packing depends on ComponentArrays. The objective, constraint, and SciMLBase
-constructors use the callable returned by `pack`. Other implementations may return
-a reconstruction function or callable struct producing a NamedTuple or another
-container with the named property access expected by the layer.
+ComponentArrays reconstruction wraps the **current** vector with the retained
+axes and scalar type, including AD values. Packing a native NamedTuple allocates
+flat storage; packing an existing ComponentVector reuses its backing storage.
+Retain or copy optimizer vectors deliberately when preserving earlier results.
 
-The ComponentArrays implementation returns the underlying numerical array and a
-callable retaining only the axes. Consequently, optimizers and
-AD backends can pass plain vectors without losing the parameter layout. Calling
-`reconstruct(q)` wraps the current vector in a ComponentArray without copying its
-values. It preserves the current scalar type, including tracked values and Dual
-numbers. No NamedTuple conversion is required. Packing a preexisting ComponentVector
-reuses its backing storage; packing a NamedTuple allocates flat storage once.
-
-Each packing implementation must use the same ordering for parameters and both
-bound trees. Reconstructors must use the supplied vector's values, rather than
-retaining initial numerical parameter values.
-
-### Sparse constraint Jacobians
-
-For ODE shooting problems, load DifferentiationInterface and SparseMatrixColorings
-and request sparse constraint differentiation explicitly:
-
-```julia
-import DifferentiationInterface, SparseMatrixColorings
-
-optprob = OptimizationProblem(model, AutoForwardDiff(); sparse_constraints = true)
-```
-
-This prepares a colored constraint Jacobian once, supplies `cons_j` and its sparse
-prototype, and retains the selected backend for the objective. It avoids tracing
-through the adaptive ODE solver. The same option is available on
-`OptimizationFunction`; it requires `inplace = true` and cannot be combined with
-user-supplied `cons_j`, `cons_jac_prototype`, or `cons_jac_colorvec`.
-
-Inspect the Boolean structural pattern with
-`constraint_jacobian_sparsity(model)`. Its columns use the chosen parameter
-vectorizer and its rows use the constraint output order. Parsed `Expr` constraints,
-including constraints lowered by ModelingToolkit, use their referenced signals
-and times. A control read depends on its active tunable interval; a state read
-uses the propagated dependencies at its saved time. Reset-time state reads select
-the post-reset side, while bare state series include both saved sides. Fixed
-signal reads and constant expressions contribute no parameter columns.
-
-For literal vector expressions such as `:([u₁(1.0), p₁(0.5)])`, dependencies are
-tracked per component. Other vector-valued expressions conservatively share the
-union of their referenced signals across all output rows. Bare signals refer to
-their complete saved series. Arbitrary callback rows remain dense. ODE callbacks, initialization metadata,
-and nonidentity mass matrices keep segment-start state reads conservative because
-initialization can mix state and parameter values.
-
-Shooting rows conservatively assume all states couple during integration,
-include parameters active in each segment, and propagate dependencies through
-partial resets. Fixed resets replace state dependencies without adding matching
-rows. Inserted parameter equalities each have two structural entries. Fixed
-values in Lux state are excluded from the optimization columns.
-
-Reconstruct the optimization problem after changing schedules, scalar/container
-types, or parameter/output layouts. Updated numerical parameters and fixed values
-in Lux state can reuse the preparation with the same types and layout. Use separate
-preparations and mutable Lux state buffers for concurrent evaluations. Sparse Jacobians are most useful
-when coloring reduces the number of derivative directions; dense user constraints
-can limit that reduction. DAE problems and other Lux layer types are not yet
-supported by this structural pattern generator.
-
-### Lagrangian Hessian structure
-
-The Lagrangian Hessian includes the objective and every user and shooting
-constraint:
-
-```math
-\nabla_q^2 L(q, \sigma, \lambda)
-= \sigma \nabla_q^2 f(q)
-+ \sum_i \lambda_i \nabla_q^2 c_i(q).
-```
-
-Here ``q`` is the packed parameter vector, ``\sigma`` is the objective factor,
-and ``\lambda_i`` are constraint multipliers. Inspect its symmetric Boolean
-structural pattern with:
-
-```julia
-pattern = lagrangian_hessian_sparsity(model)
-
-import OptimizationBase
-rows, cols = OptimizationBase.lag_hess_structure(model)
-```
-
-The coordinates follow OptimizationBase's convention: the upper triangle in
-CSC column order. Both calls accept the same `vectorize`, `ps`, and `st` keywords
-as `constraint_jacobian_sparsity`. The pattern includes objective curvature even
-for an unconstrained problem and retains possible entries independently of the
-current objective factor and multiplier values.
-
-Parsed expressions, including expressions lowered by ModelingToolkit, identify
-which optimization columns each output depends on. All pairs within that set
-are retained as possible Hessian entries. This covers general nonlinear
-operations without operation-specific derivative rules. Literal vector outputs
-retain separate dependency sets per component. Even an affine expression can
-therefore contribute extra structural entries; this deliberate overestimate
-avoids missing nonlinear interactions.
-
-State reads additionally include conservative curvature from the ODE solution.
-A linear expression in a predicted state can therefore have a nonlinear
-parameter dependence. Matching residuals include the incoming solution's
-curvature; the subtracted lifted value is affine. Inserted parameter equalities
-are affine and contribute no Hessian entries. Arbitrary callbacks use a dense
-fallback. These patterns are structural supersets; they do not symbolically
-differentiate the dynamics or detect algebraic cancellation.
-
-### Sparse exact Hessians
-
-Load DifferentiationInterface and SparseMatrixColorings, then enable sparse
-Hessian evaluation explicitly:
-
-```julia
-optprob = OptimizationProblem(
-    model, AutoForwardDiff(); sparse_constraints = true, sparse_hessian = true
-)
-solution = solve(optprob, Ipopt.Optimizer())
-```
-
-`sparse_hessian=true` uses the Lagrangian pattern to prepare colored second
-differentiation once. Objective and constraints share one trajectory prediction
-per Lagrangian evaluation. The prepared callbacks use the current objective
-factor, constraint multipliers, and Lux state; none are frozen at preparation.
-The option supplies `hess`, `hess_prototype`, `lag_h`, and `lag_hess_prototype`.
-It also supports unconstrained models through the objective Hessian callback.
-The vector-form Lagrangian callback uses OptimizationBase's upper-triangle CSC
-coordinate order.
-
-The option requires `inplace=true` and a dense AD backend supporting second-order
-differentiation of the model. ForwardDiff is covered by the integration tests;
-first-order compatibility alone does not imply second-order compatibility.
-Do not also provide custom Hessian callbacks, prototypes, or color vectors.
-Each prepared optimization function owns mutable differentiation buffers; use
-separate preparations for concurrent evaluations.
-
-!!! note "Exact and limited-memory Hessians"
-    `sparse_hessian=true` prepares exact Hessians. Ipopt's
-    `hessian_approximation="limited-memory"` does not use those callbacks.
-    Exact Hessians can reduce iterations but cost more per iteration; measure
-    total solve time for the intended model. The structure helpers alone do not
-    enable numerical evaluation.
-
-The same ODE, fixed-schedule, and parameter-layout restrictions as for the
-constraint Jacobian apply. Rebuild the pattern when the schedule or layout changes.
+Custom vectorizers implement [`pack`](@ref), returning a flat vector and a callable
+that restores named parameter access from its argument. They must order parameters
+and bounds identically. Select one with `vectorize = Val(:YourExtension)`;
+`default_vectorizer()` requires a supported loaded extension, currently ComponentArrays.

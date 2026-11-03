@@ -10,8 +10,9 @@
 
 # # [Linear Quadratic Regulator](@id linear_quad_reg)
 
-# We control two linear states with a shared input. The cost penalizes the first
-# state's deviation from three and the control effort:
+# Minimize a tracking cost for two linear states with one shared input.
+# Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.
+# The cost penalizes the first state's deviation from three and the control effort:
 
 # ```math
 # \begin{aligned}
@@ -23,16 +24,7 @@
 
 # ## Setup
 
-# Use Corleone to define the shooting layer and optimization model.
 using Corleone
-
-# The other packages provide:
-
-# - Layer initialization: `LuxCore` and `Random`
-# - ODE integration: `OrdinaryDiffEqTsit5`
-# - Optimization: `Optimization`, `OptimizationLBFGSB`, and `ComponentArrays`
-# - Objective gradients: `ForwardDiff`
-# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random

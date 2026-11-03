@@ -4,6 +4,8 @@
 #src ---
 
 # # [Multiple experiments](@id lotka_multiexp)
+# Prerequisites: the [single-experiment tutorial](@ref lotka_oed). The goal is to
+# optimize a joint design and carry its information into a later experiment.
 # Two experiments have independent fishing and measurement schedules. Their
 # information matrices add in a common physical-parameter coordinate system.
 # Both use `p = [fishing, interaction_1, interaction_2]`, estimating `[2,3]` while

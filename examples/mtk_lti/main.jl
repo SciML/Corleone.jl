@@ -9,6 +9,8 @@
 #src ---
 
 # # [LTI Control with Unknown Coefficients](@id mtk_lti)
+# Prerequisites: the [ModelingToolkit tutorial](@ref mtk) and basic linear systems.
+# This problem adds terminal equalities and a feasible multiple-shooting guess.
 # We jointly optimize a scalar input and three constant coefficients in
 # ``\dot{x} = A x + b u``, with ``x(0)=0`` and
 # ``x(10)=[3,1,-2]^T``. The objective is minimum control energy,

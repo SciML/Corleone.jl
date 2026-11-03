@@ -3,22 +3,11 @@
 ## Controls, fixed values, and initialization
 
 Construct `OEDLayer(problem, algorithm, definitions...; params, measurements)` or
-wrap an existing `ShootingLayer`. For example, the fragment below defines a bounded
-physical control at original parameter index 1:
-
-```julia
-control = Tunable(1; default=0.0, lowerbound=0.0, upperbound=1.0) => [0.5]
-design = OEDLayer(problem, Tsit5(), control;
-    params=[2, 3], measurements, controls=[1])
-ps, st = LuxCore.setup(Xoshiro(1), design)
-trajectory, next_st = design(nothing, ps, st)
-```
-
-This fragment assumes a model with at least three parameters and a span containing
-`0.5`; the [Lotka tutorial](@ref lotka_oed) provides a complete model. `controls=[1]`
-marks the physical control for symbolic bookkeeping and plotting. Measurement
-weights are marked as controls automatically. Bounds are queried through
-`get_bounds(design, ps, st)` using the supplied parameter structure.
+wrap an existing `ShootingLayer`. Pass control annotations as in Corleone's
+[shooting guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/shooting.md);
+`params` selects estimated physical parameters, and `measurements` supplies
+observation maps and grids. The [Lotka tutorial](@ref lotka_oed) is a complete example.
+Measurement weights are marked as controls automatically.
 
 Use `Constant` for prescribed values and `Tunable` for design variables. With the
 default OED constructor policy, unannotated original physical parameters remain
@@ -57,34 +46,17 @@ for reset schedules, residual signs, and initialization options.
 ## [Ownership, storage, and histories](@id oed_ownership)
 
 `OEDLayer` wraps an augmented `ShootingLayer` and delegates its parameter layout.
-Numerical parameter buffers are **vectors**, including when several variables or
-parameters share a grid and runtime lookup container. The matrices ``G``, ``J``,
-and ``F`` are mathematical sensitivity/information objects, not matrix-shaped
-optimizer storage. Avoid relying on a particular private grouping path to edit a
-named variable; shared-grid grouping can change that nesting.
+The mathematical sensitivity/information matrices are not optimizer buffers:
+each scheduled scalar still has a vector of values. Named property access is
+required; avoid private grouping paths. In a multi-experiment ComponentArray, use
+`ps.experiments.experiment_1` (or the chosen name): iteration yields numerical
+entries, not experiment subtrees.
 
-Parameter containers need named `getproperty` access, not a specific `NamedTuple`
-type. A ComponentArray preserves named access around flat numerical storage;
-iteration over it yields numbers, not experiment subtrees. For a multi-experiment
-parameter tree, use `ps.experiments.experiment_1` (or the supplied experiment name),
-not positional iteration of `ps.experiments`.
-
-A trajectory retains references to its layer, `ps`, and `st`. Saved augmented
-states share numerical arrays with the segment solutions. Parameter histories are
-queried on demand from the *current* containers using
-`SymbolicIndexingInterface.parameter_values_at_time(trajectory, trajectory, t)`.
-There is no copied parameter-history field. This applies to physical controls,
-fixed physical parameters, and measurement weights.
-
-Changing `ps` or numerical state after computing a trajectory changes later
-parameter queries without recomputing saved states. Information extraction can
-then mix old states with new weights/direct observation parameters. Re-evaluate
-the layer when both must describe the same prediction, and do not mutate these
-values between an AD forward evaluation and its pullback. Rebinding `ps` or `st`
-to a new container does not replace the references in an existing trajectory.
-Retain or copy optimizer
-vectors deliberately when preserving earlier designs. See the shared
-[trajectory ownership guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/trajectories.md).
+The shared [trajectory ownership rules](https://github.com/SciML/Corleone.jl/blob/main/docs/src/trajectories.md)
+apply. Information queries combine saved augmented states with **current** weights,
+direct observation parameters, and priors. Mutating retained containers can mix
+old states and new values. Re-evaluate the layer after changes, and avoid mutation
+between an AD forward evaluation and its pullback.
 
 ## [Optimization and vectorization](@id oed_optimization)
 
@@ -93,58 +65,27 @@ and use the shared SciMLBase optimization bridge. There is no OED-specific
 Optimization or ComponentArrays extension. CorleoneOED itself can execute a design,
 compute information, and prepare callbacks without importing either optional package.
 
-With ComponentArrays loaded, `default_vectorizer()` selects Corleone's packing
-extension. A complete solver workflow appears in each tutorial; its essential steps are:
+The [continuous-design tutorial](@ref lotka_oed) shows preparation with
+`CorleoneDynamicOptProblem(design, ACriterion(); ps, st, M)`, optimization, and
+trajectory reconstruction. Supply one `M` budget per measurement in the
+[documented order](@ref oed_measurements).
 
-```julia
-using ComponentArrays, Optimization, OptimizationMOI, Ipopt
-model = CorleoneDynamicOptProblem(design, ACriterion(); ps, st, M=[4.0, 4.0])
-optprob = OptimizationProblem(model, AutoForwardDiff())
-result = solve(optprob, Ipopt.Optimizer(); hessian_approximation="limited-memory")
-@assert CorleoneOED.SciMLBase.successful_retcode(result)
-_, reconstruct = pack(default_vectorizer(), ps)
-optimal_ps = reconstruct(result.u)
-optimal_trajectory, next_st = design(nothing, optimal_ps, st)
-```
-
-This fragment assumes two measurement budgets; use one entry of `M` per
-measurement in the [documented order](@ref oed_measurements).
-
-`pack(vectorize, parameters)` returns `(flat_values, reconstruct)`. Reconstruct
-using the **current optimizer input** in differentiated callbacks; do not close
-over initial numerical values. The default ComponentVector packing reuses backing
-storage when possible, and reconstruction wraps the current vector without copying
-its numerical values. The same vectorizer flattens parameters, bounds, and integer
-masks in matching order. Custom vectorizers implement `Corleone.pack`; they do not
-require ComponentArrays. See Corleone's
-[packing and optimization contracts](https://github.com/SciML/Corleone.jl/blob/main/docs/src/optimization_contracts.md).
-
-Supply `ps` and `st` together to retain current values; omitting both performs setup
-once. Preparing a model performs a prediction to validate callback outputs and
-saved layout. Numerical trajectories are not cached for subsequent optimizer calls.
-Each objective or constraint evaluation predicts once; extracting information and
-budgets from that prediction adds no extra solve.
+The shared [optimization guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/optimization_contracts.md)
+defines packing, current-vector reconstruction, bounds, and preparation ownership.
+Supply `ps` and `st` together to retain existing guesses. Each objective/constraint
+evaluation predicts once; information and budget extraction add no extra solve.
 
 ### Constraints and current state
 
-User constraints follow the root facade's scalar/vector callback, in-place callback,
-and structured-bound conventions. An OED example with one constraint is:
+Pass additional trajectory constraints after the criterion, with `lcons` and
+`ucons` defining their limits. For example, a terminal population callback
+`trajectory -> last(trajectory.u)[1]` can be bounded by `lcons=0.2, ucons=2.0`.
 
-```julia
-terminal_population = trajectory -> last(trajectory.u)[1]
-model = CorleoneDynamicOptProblem(design, ACriterion(), terminal_population;
-    ps, st, M=[4.0, 4.0], lcons=0.2, ucons=2.0)
-```
-
-For multiple callbacks, supply one top-level bound subtree per callback, such as
-`lcons=(0.0, [0.0, 0.0])`. In-place callbacks have the form `f!(res, prediction)`;
-their return value is ignored. Constraint order is user callbacks, sampling budgets,
-then automatic shooting equalities. Parameter-bound order follows the parameter
-vectorizer; it is distinct from this constraint order. Single-experiment timed
-expressions use the underlying augmented `ShootingLayer`; multi-experiment models
-use callbacks over named trajectories. See the shared
-[constraint documentation](https://github.com/SciML/Corleone.jl/blob/main/docs/src/optimization_contracts.md)
-for expression syntax and prepared callback rules.
+Constraint order is user callbacks, sampling budgets, then automatic shooting
+equalities. Single-experiment expressions use the underlying augmented layer;
+multi-experiment models use callbacks over named trajectories. Callback signatures,
+structured bounds, and expression syntax follow the shared
+[constraint guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/optimization_contracts.md).
 
 For a custom objective passed through the root facade, both `f(prediction)` and
 `f(prediction, st)` are supported; the one-argument form wins if both are applicable.

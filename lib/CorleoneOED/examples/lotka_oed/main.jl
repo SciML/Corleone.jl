@@ -4,6 +4,8 @@
 #src ---
 
 # # [Lotka–Volterra OED](@id lotka_oed)
+# Prerequisites: constructing a Corleone shooting layer and the
+# [measurement and information conventions](@ref oed_formulation).
 # We design an experiment to estimate the two interaction coefficients of a
 # Lotka–Volterra model. Fishing is a physical control; two measurement densities
 # select when to observe each population. This follows the

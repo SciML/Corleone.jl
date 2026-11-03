@@ -10,10 +10,27 @@ julia --project=docs docs/make.jl
 Serve the generated site locally so directory-style links resolve correctly:
 
 ```sh
-python3 -m http.server 8000 --bind 127.0.0.1 --directory docs/build
+julia --project=docs -e 'using LiveServer; serve(dir="docs/build", host="127.0.0.1", port=8000)'
 ```
 
-Open <http://127.0.0.1:8000/> to inspect the result. The build executes the LQR,
+Open <http://127.0.0.1:8000/> to inspect the result. LiveServer reloads the preview
+when generated files change. For source watching, run this from the repository
+root. Watch the authoritative sources and skip generated copies to avoid rebuild loops:
+
+```sh
+julia --project=docs -e '
+using LiveServer
+servedocs(
+    skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/benchmarks"],
+    include_dirs = ["examples", "lib/CorleoneOED/examples",
+        "lib/CorleoneOED/docs/src", "lib/OptimalControlBenchmarks/docs/src"],
+)
+'
+```
+
+Each source rebuild runs `docs/make.jl`, including its executable tutorials.
+
+The build executes the LQR,
 numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
 optimization tutorials, plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment,
 and discrete compartmental tutorials. It checks exported API coverage and resolves
@@ -37,8 +54,15 @@ MaterialDocs renders the manual with its Ocean Depth theme and a light/dark togg
 MaterialDocs provides code highlighting throughout the manual.
 `material_citations.jl` adapts the citation and bibliography nodes to MaterialDocs
 so the existing references and citation anchors are preserved.
+`material_images.jl` resolves Documenter's source-root figure paths relative to
+each MaterialDocs output page, keeping tutorial plots visible in local and deployed builds.
 DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
 inside a `@raw html` block; its stylesheet is added automatically.
+Navigation separates Getting Started, complete tutorials, a task-based Manual,
+sublibraries, and the docstring API reference. Scheduling and sparse derivative
+preparation have separate guides. Historical validation and deprecated constructors
+retain their URLs but are hidden from the main navigation and linked from relevant pages.
+
 The home page uses this layout for the package introduction and guide links;
 the installation instructions and executable quickstart live in `getting_started.md`.
 

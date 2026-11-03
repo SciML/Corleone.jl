@@ -1,10 +1,11 @@
 # Tutorials
 
-These examples use Corleone's shooting layers and the CorleoneOED experimental-design
-wrapper. All seven tutorials are executed during the documentation build.
+Each tutorial solves a complete problem. Start with [Getting Started](getting_started.md)
+for layer construction, or use the [Manual](shooting.md) for a single task.
+Imports in each tutorial list its dependencies.
 
 - [Linear quadratic regulator](examples/the_linear_quadratic_regulator.md):
-  parameter schedules, bounded optimization, and state/control plots.
+  parameter schedules, an integral objective, and state/control plots.
 - [Lotka–Volterra fishing](examples/the_lotka_volterra_fishing_problem.md):
   single shooting, lifted initial conditions, continuity constraints, and threaded
   multiple shooting.
