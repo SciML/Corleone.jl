@@ -1,16 +1,11 @@
-#src ---
-#src title: The Linear Quadratic Regulator
-#src description: Control a linear system with a tracking cost and a control penalty
-#src icon: 🌊
-#src difficulty: Beginner
-#src cover_figure: 1
-#src tags:
-#src   - Optimal Control
-#src   - Linear Systems
-#src   - Tracking
-#src ---
-
-# # [Linear Quadratic Regulator](@id linear_quad_reg)
+# ---
+# title: The Linear Quadratic Regulator
+# description: Control a linear system with a tracking cost and a control penalty
+# id: linear_quad_reg
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
 # Minimize a tracking cost for two linear states with one shared input.
 # Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.

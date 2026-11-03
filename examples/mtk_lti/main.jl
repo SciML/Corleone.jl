@@ -1,16 +1,12 @@
-#src ---
-#src title: LTI Control with Unknown Coefficients
-#src description: Optimize a scalar input and three constant coefficients under terminal state constraints
-#src icon: 🎛️
-#src difficulty: Advanced
-#src cover_figure: 1
-#src tags:
-#src   - Optimal Control
-#src   - ModelingToolkit
-#src   - Terminal Constraints
-#src ---
+# ---
+# title: LTI Control with Unknown Coefficients
+# description: Optimize a scalar input and three constant coefficients under terminal state constraints
+# id: mtk_lti
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [LTI Control with Unknown Coefficients](@id mtk_lti)
 # Prerequisites: the [ModelingToolkit tutorial](@ref mtk) and basic linear systems.
 # This problem adds terminal equalities and a feasible multiple-shooting guess.
 # We jointly optimize a scalar input and three constant coefficients in

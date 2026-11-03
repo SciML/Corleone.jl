@@ -1,15 +1,12 @@
-#src ---
-#src title: Joint Lotka–Volterra experiments
-#src description: Combine information from independent experimental designs.
-#src difficulty: Advanced
-#src cover_figure: 1
-#src tags:
-#src   - Optimal Experimental Design
-#src   - Multiple Experiments
-#src   - Prior Information
-#src ---
+# ---
+# title: Joint Lotka–Volterra experiments
+# description: Combine information from independent experimental designs.
+# id: lotka_multiexp
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Multiple experiments](@id lotka_multiexp)
 # Prerequisites: the [single-experiment tutorial](@ref lotka_oed). The goal is to
 # optimize a joint design and carry its information into a later experiment.
 # Two experiments have independent fishing and measurement schedules. Their

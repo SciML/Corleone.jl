@@ -92,14 +92,22 @@ The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local
 package, remove `docs/Manifest.toml` and run the setup command again.
 
-DemoCards.jl builds the seven root-site tutorials via `docs/process_tutorials.jl`.
+DemoCards.jl builds the eight root-site tutorials via `docs/process_tutorials.jl`.
 Its temporary staging directory is ignored; edit the original example scripts.
-The Tutorials overview uses DemoCards’ grid theme with Optimal Control and Optimal
-Experimental Design sections. Cards read titles and descriptions from each
-script’s metadata. The generated DemoCards stylesheet is loaded by MaterialDocs.
+The Tutorials overview uses DemoCards’ `bokehlist` theme with Optimal Control,
+Optimal Experimental Design, and Parameter Estimation sections. The generated
+DemoCards stylesheet is loaded by MaterialDocs.
 
-Card metadata lives in each script’s `#src` YAML header. Use `difficulty` and
-`tags` for the card description and `cover_figure` to select a numbered figure
-from that tutorial’s executed output (default: 1). The gallery copies this plot
-as its cover without executing the script again. Draft builds use the DemoCards
-placeholder when executed figures are unavailable.
+Card metadata uses native DemoCards YAML frontmatter, with a leading `# ` on each
+line between `# ---` delimiters. Set `title`, `description`, `id` (matching the
+page’s heading anchor), and `julia` (the minimum Julia version). Keep
+`notebook: false` and `generate_cover: false` so each tutorial executes once.
+The build sets `execute` according to its draft mode.
+
+The optional project-specific `category` selects a gallery section; root examples
+otherwise use Optimal Control and CorleoneOED examples use Optimal Experimental
+Design. The optional `cover_figure` selects a numbered figure from the tutorial’s
+executed output (default: 1). The gallery copies this plot as its cover without
+executing the script again. Draft builds use the DemoCards placeholder when
+executed figures are unavailable. The standalone CorleoneOED manual strips the
+card frontmatter before processing its tutorials with Literate.

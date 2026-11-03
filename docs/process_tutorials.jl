@@ -2,12 +2,12 @@ using Base64: base64decode
 
 function extract_metadata(file_path)
     content = read(file_path, String)
-    # Match the block between #src --- and #src ---
-    m = match(r"#src ---(?:\r?\n)((?:#src .*\r?\n)*)#src ---", content)
+    # Read DemoCards' native commented YAML frontmatter.
+    m = match(r"\A# ---(?:\r?\n)((?:# .*\r?\n)*)# ---", content)
 
     if m !== nothing
-        # Remove the "#src " prefix from each line to get valid YAML
-        yaml_text = replace(m.captures[1], r"^#src\s?"m => "")
+        # Remove the comment prefix to obtain YAML.
+        yaml_text = replace(m.captures[1], r"^# "m => "")
         return YAML.load(yaml_text)
     end
     # Try to get the first header for the title
@@ -72,7 +72,7 @@ function normalize_demo_output(content)
     )
     edit_url = match(r"EditURL = \"([^\"]+)\"", content).captures[1]
     source_url = replace(replace(edit_url, "github.com" => "raw.githubusercontent.com"), "/blob/" => "/")
-    badge_link = r"(?m)^(\[!\[Source code\].*?\]\()[^)]+(\))$"
+    badge_link = r"(\[!\[Source code\]\([^\n)]*\)\]\()[^)]+(\))"
     return replace(
         content, badge_link => m -> begin
             captures = match(badge_link, m).captures
@@ -95,13 +95,9 @@ function make_tutorial(path; name = nothing, draft = false)
     )
     staged = joinpath(demo_source, category, "$fname.jl")
     content = preprocess_script(read(path, String))
-    details = join(vcat([get(metadata, "difficulty", "")], get(metadata, "tags", String[])), " · ")
-    description = get(metadata, "description", "") * " — " * details
-    content = replace(content, r"(?m)^#src description:.*$" => "#src description: " * repr(description))
-    content = replace(content, "#src ---" => "# ---")
-    content = replace(content, r"^#src "m => "# ")
-    # Disable cover/notebook execution: each script runs once for its Markdown.
-    content = replace(content, "# ---\n" => "# ---\n# generate_cover: false\n# notebook: false\n# execute: $(!draft)\n"; count = 1)
+    # Each tutorial disables cover/notebook execution in its native frontmatter.
+    # Only the documentation build's draft mode needs a staging-time override.
+    content = replace(content, "# ---\n" => "# ---\n# execute: $(!draft)\n"; count = 1)
     write(staged, content)
     metadata = something(metadata, Dict("title" => fname))
     metadata["source"] = path
@@ -120,7 +116,7 @@ for (folder, title) in (("optimal_control", "Optimal Control"), ("experimental_d
     mkpath(joinpath(demo_source, folder))
     write(joinpath(demo_source, folder, "config.json"), "{\"title\":\"$title\"}")
 end
-write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"grid\",\"order\":[\"optimal_control\",\"experimental_design\",\"parameter_estimation\"]}")
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"bokehlist\",\"order\":[\"optimal_control\",\"experimental_design\",\"parameter_estimation\"]}")
 
 tutorials = map(
     [
@@ -157,7 +153,7 @@ for folder in ("optimal_control", "experimental_design", "parameter_estimation")
         mv(file, joinpath(example_output, basename(file)); force = true)
     end
 end
-# Keep DemoCards' metadata-driven grid while preserving published tutorial URLs.
+# Keep DemoCards' metadata-driven list while preserving published tutorial URLs.
 for metadata in tutorials
     name = basename(metadata["link"])
     path = joinpath(example_output, "$name.md")
@@ -179,11 +175,11 @@ function trajectory_covers(tutorials, example_output, generated; draft = false)
             draft && continue
             error("Missing trajectory cover for $name: $image")
         end
-        id = match(r"@id ([^)]+)", read(metadata["source"], String)).captures[1]
+        id = metadata["id"]
         cp(image, joinpath(generated, "covers", "$name.png"); force = true)
         gallery = replace(
             gallery,
-            "![card-cover-image](covers/democards_logo.svg)](@ref $id)" =>
+            "![bokeh-list-card-cover-image](covers/democards_logo.svg)](@ref $id)" =>
                 "![Trajectory plot for $(metadata["title"])](covers/$name.png)](@ref $id)"
         )
     end

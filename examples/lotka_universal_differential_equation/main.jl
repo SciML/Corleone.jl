@@ -1,17 +1,13 @@
-#src ---
-#src title: Lotka Volterra Universal Differential Equation
-#src description: Learn an unknown predator-prey interaction from population observations
-#src icon: 🧠
-#src category: parameter_estimation
-#src difficulty: Intermediate
-#src cover_figure: 1
-#src tags:
-#src   - Universal Differential Equations
-#src   - Parameter Estimation
-#src   - Neural Networks
-#src ---
+# ---
+# title: Lotka Volterra Universal Differential Equation
+# description: Learn an unknown predator-prey interaction from population observations
+# category: parameter_estimation
+# id: lotka_ude
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Lotka–Volterra Universal Differential Equation](@id lotka_ude)
 # Fit a hybrid mechanistic and neural model to synthetic population observations.
 # Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.
 # A universal differential equation (UDE) replaces an unknown part of the dynamics

@@ -1,15 +1,12 @@
-#src ---
-#src title: Discrete measurements for a compartmental model
-#src description: Allocate measurement weights at candidate sampling times.
-#src difficulty: Intermediate
-#src cover_figure: 1
-#src tags:
-#src   - Optimal Experimental Design
-#src   - Discrete Measurements
-#src   - Compartmental Model
-#src ---
+# ---
+# title: Discrete measurements for a compartmental model
+# description: Allocate measurement weights at candidate sampling times.
+# id: compartmental_oed
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Compartmental OED](@id compartmental_oed)
 # Prerequisites: the [measurement formulation](@ref oed_formulation) and basic ODE
 # modeling. The solver imports below are needed for optimization and plots.
 # Estimate three parameters by observing one state. We optimize a relaxed

@@ -33,6 +33,8 @@ for (name, alt) in (
     Literate.markdown(
         joinpath(@__DIR__, "..", "examples", name, "main.jl"), output;
         name, execute = true, flavor = Literate.DocumenterFlavor(),
+        # DemoCards metadata is only needed by the root gallery.
+        preprocess = content -> replace(content, r"\A# ---\n.*?# ---\n"s => ""; count = 1),
         image_formats = [(MIME("image/png"), ".png")],
         postprocess = content -> tutorial_figures(content, output, name, alt),
     )

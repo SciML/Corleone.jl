@@ -1,16 +1,12 @@
-#src ---
-#src title: ModelingToolkit Integration
-#src description: Define and solve an optimal control problem with ModelingToolkit
-#src icon: 🎣
-#src difficulty: Intermediate
-#src cover_figure: 1
-#src tags:
-#src   - Optimal Control
-#src   - ModelingToolkit
-#src   - Multiple Shooting
-#src ---
+# ---
+# title: ModelingToolkit Integration
+# description: Define and solve an optimal control problem with ModelingToolkit
+# id: mtk
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [ModelingToolkit Integration](@id mtk)
 # Define symbolic dynamics and an integral objective, then solve with single and
 # multiple shooting. Prerequisites: [Getting Started](../getting_started.md) and
 # basic ModelingToolkit equations and metadata.
