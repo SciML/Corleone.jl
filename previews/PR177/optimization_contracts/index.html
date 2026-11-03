@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Adding objectives and constraints — Corleone.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=d839cef6">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=5eb88ecb">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="Adding objectives and constraints — Corleone.jl">
   <meta property="og:title" content="Adding objectives and constraints — Corleone.jl">
@@ -15,6 +15,7 @@
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/optimization_contracts/">
+  <link rel="stylesheet" href="../democards/gridtheme.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -52,11 +53,20 @@
       <a href="../getting_started/">Getting Started</a>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Tutorials</span>
-        <a href="../tutorials/">Overview</a>
-        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
-        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
-        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
-        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        <a href="../gallery/index/">Overview</a>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Control</span>
+          <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+          <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+          <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+          <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+          <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+          <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+        </div>
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Manual</span>
@@ -76,12 +86,6 @@
         <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../oed/index/">Overview</a>
-          <div class="md-nav-section md-nav-collapsed">
-            <span class="md-nav-section-title">Tutorials</span>
-            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
-            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
-            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
-          </div>
           <a href="../oed/formulation/">Measurements and Information</a>
           <a href="../oed/designs/">Constructing and Optimizing Designs</a>
           <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
@@ -122,7 +126,7 @@ optimized = reconstruct(result.u)
 (; objective = result.objective,
     constraints = optimization_constraints(model, optimized, optprob.p))</code></pre>
 </div>
-<pre class="md-output md-output-text"><code class="nohighlight ansi">(objective = 8.333625259671728e-22, constraints = [0.20157990210407772, 0.40315980420815517, 0.7015799020896436, 0.999999999971132, -2.7755575615628914e-16])</code></pre>
+<pre class="md-output md-output-text"><code class="nohighlight ansi">(objective = 8.333753459922626e-22, constraints = [0.20157990210407767, 0.403159804208155, 0.7015799020896434, 0.9999999999711318, -3.3306690738754696e-16])</code></pre>
 </div>
 <p>Supplying <code class="md-code-inline">ps</code> and <code class="md-code-inline">st</code> together retains them by reference; omitting both runs setup once. Preparation performs one prediction to validate dimensions and saved indices. Each later objective or constraint evaluation makes one prediction; there is no shared numerical-solution cache. Reprepare after changing schedules, saved layout, expression times, or callback output sizes.</p>
 <h2 id="Callbacks-and-structured-bounds" class="md-heading">Callbacks and structured bounds<a href="#Callbacks-and-structured-bounds" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
@@ -211,6 +215,6 @@ length(q0)</code></pre>
   <script>hljs.highlightAll();</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=d839cef6"></script>
+  <script src="../assets/materialdocs.js?v=5eb88ecb"></script>
 </body>
 </html>

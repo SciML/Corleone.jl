@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tutorials — Corleone.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=1f1e086a">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=4f1114ac">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="Tutorials — Corleone.jl">
   <meta property="og:title" content="Tutorials — Corleone.jl">
@@ -15,6 +15,7 @@
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/tutorials/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/tutorials/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/tutorials/">
+  <link rel="stylesheet" href="../democards/gridtheme.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -52,11 +53,20 @@
       <a href="../getting_started/">Getting Started</a>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Tutorials</span>
-        <a href="../tutorials/" class="md-nav-active">Overview</a>
-        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
-        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
-        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
-        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        <a href="../gallery/index/">Overview</a>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Control</span>
+          <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+          <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+          <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+          <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+          <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+          <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+        </div>
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Manual</span>
@@ -76,12 +86,6 @@
         <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../oed/index/">Overview</a>
-          <div class="md-nav-section md-nav-collapsed">
-            <span class="md-nav-section-title">Tutorials</span>
-            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
-            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
-            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
-          </div>
           <a href="../oed/formulation/">Measurements and Information</a>
           <a href="../oed/designs/">Constructing and Optimizing Designs</a>
           <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
@@ -96,27 +100,7 @@
     <main class="md-content">
       <article class="md-article">
 <h1 id="Tutorials" class="md-heading">Tutorials<a href="#Tutorials" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
-<p>Each tutorial solves a complete problem. Start with <a href="../getting_started/">Getting Started</a> for layer construction, or use the <a href="../shooting/">Manual</a> for a single task. Imports in each tutorial list its dependencies.</p>
-<ul class="md-list-tight">
-<li><p><a href="../examples/the_linear_quadratic_regulator/">Linear quadratic regulator</a>: parameter schedules, an integral objective, and state/control plots.</p>
-</li>
-<li><p><a href="../examples/the_lotka_volterra_fishing_problem/">Lotka–Volterra fishing</a>: single shooting, lifted initial conditions, continuity constraints, and threaded multiple shooting.</p>
-</li>
-<li><p><a href="../examples/modelingtoolkit_integration/">ModelingToolkit integration</a>: symbolic dynamics and integral costs, metadata bounds, and single and multiple shooting with fixed global initial values.</p>
-</li>
-<li><p><a href="../examples/lti_control_with_unknown_coefficients/">LTI control with unknown coefficients</a>: three terminal state equalities, a scalar input, three unknown constant coefficients, and shared-grid multiple shooting.</p>
-</li>
-</ul>
-<h2 id="Optimal-experimental-design" class="md-heading">Optimal experimental design<a href="#Optimal-experimental-design" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
-<p>These tutorials execute the same authoritative sources as the standalone CorleoneOED manual. See the <a href="../oed/index/#oed_overview">OED overview</a> for measurement grids, parameter directions, optimization, and numerical scope.</p>
-<ul class="md-list-tight">
-<li><p><a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">Continuous Lotka–Volterra design</a>: jointly optimize fishing and continuous measurement densities.</p>
-</li>
-<li><p><a href="../examples/compartmental_oed_problem/#compartmental_oed">Discrete compartmental design</a>: allocate relaxed weights to candidate sampling events and construct a binary-weight problem description.</p>
-</li>
-<li><p><a href="../examples/the_lotka_volterra_multiexperiment_problem/#lotka_multiexp">Multiple experiments</a>: combine independent design trees in common physical coordinates and account for a global prior once.</p>
-</li>
-</ul>
+<p>Browse the <a href="../gallery/index/">tutorial gallery</a> for optimal control and optimal experimental design examples.</p>
       </article>
       <footer class="md-footer">
 <p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
@@ -125,7 +109,6 @@
     <aside class="md-toc">
       <div class="md-toc-inner">
         <p class="md-toc-title">On this page</p>
-          <a class="md-toc-link md-toc-h2" href="#Optimal-experimental-design">Optimal experimental design</a>
       </div>
     </aside>
   </div>
@@ -135,6 +118,6 @@
   <script>hljs.highlightAll();</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=1f1e086a"></script>
+  <script src="../assets/materialdocs.js?v=4f1114ac"></script>
 </body>
 </html>

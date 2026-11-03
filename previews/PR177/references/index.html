@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>References — Corleone.jl</title>
-  <link rel="stylesheet" href="../assets/materialdocs.css?v=c4e2a99a">
+  <link rel="stylesheet" href="../assets/materialdocs.css?v=c1dcbb7a">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="References — Corleone.jl">
   <meta property="og:title" content="References — Corleone.jl">
@@ -15,6 +15,7 @@
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/references/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/references/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/references/">
+  <link rel="stylesheet" href="../democards/gridtheme.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -52,11 +53,20 @@
       <a href="../getting_started/">Getting Started</a>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Tutorials</span>
-        <a href="../tutorials/">Overview</a>
-        <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
-        <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
-        <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
-        <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        <a href="../gallery/index/">Overview</a>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Control</span>
+          <a href="../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+          <a href="../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+          <a href="../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+          <a href="../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+          <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+          <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+        </div>
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Manual</span>
@@ -76,12 +86,6 @@
         <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../oed/index/">Overview</a>
-          <div class="md-nav-section md-nav-collapsed">
-            <span class="md-nav-section-title">Tutorials</span>
-            <a href="../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
-            <a href="../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
-            <a href="../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
-          </div>
           <a href="../oed/formulation/">Measurements and Information</a>
           <a href="../oed/designs/">Constructing and Optimizing Designs</a>
           <a href="../oed/numerics/">Reduction, AD, and Numerical Scope</a>
@@ -128,6 +132,6 @@
   <script>hljs.highlightAll();</script>
   <script src="../siteinfo.js"></script>
   <script src="../../versions.js"></script>
-  <script src="../assets/materialdocs.js?v=c4e2a99a"></script>
+  <script src="../assets/materialdocs.js?v=c1dcbb7a"></script>
 </body>
 </html>

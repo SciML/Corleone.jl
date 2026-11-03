@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LTI Control with Unknown Coefficients — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=1aa67820">
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=b98ac914">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="LTI Control with Unknown Coefficients — Corleone.jl">
   <meta property="og:title" content="LTI Control with Unknown Coefficients — Corleone.jl">
@@ -15,6 +15,7 @@
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/lti_control_with_unknown_coefficients/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/lti_control_with_unknown_coefficients/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/lti_control_with_unknown_coefficients/">
+  <link rel="stylesheet" href="../../democards/gridtheme.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -52,11 +53,20 @@
       <a href="../../getting_started/">Getting Started</a>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Tutorials</span>
-        <a href="../../tutorials/">Overview</a>
-        <a href="../../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
-        <a href="../../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
-        <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
-        <a href="../../examples/lti_control_with_unknown_coefficients/" class="md-nav-active">LTI Control with Unknown Coefficients</a>
+        <a href="../../gallery/index/">Overview</a>
+        <div class="md-nav-section">
+          <span class="md-nav-section-title">Optimal Control</span>
+          <a href="../../examples/the_linear_quadratic_regulator/">Linear Quadratic Regulator</a>
+          <a href="../../examples/the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a>
+          <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
+          <a href="../../examples/lti_control_with_unknown_coefficients/" class="md-nav-active">LTI Control with Unknown Coefficients</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Optimal Experimental Design</span>
+          <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
+          <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
+          <a href="../../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
+        </div>
       </div>
       <div class="md-nav-section">
         <span class="md-nav-section-title">Manual</span>
@@ -76,12 +86,6 @@
         <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../../oed/index/">Overview</a>
-          <div class="md-nav-section md-nav-collapsed">
-            <span class="md-nav-section-title">Tutorials</span>
-            <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
-            <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
-            <a href="../../examples/the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a>
-          </div>
           <a href="../../oed/formulation/">Measurements and Information</a>
           <a href="../../oed/designs/">Constructing and Optimizing Designs</a>
           <a href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a>
@@ -95,6 +99,12 @@
     </nav>
     <main class="md-content">
       <article class="md-article">
+      <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/SciML/Corleone.jl/blob/main/examples/mtk_lti/main.jl" title="View source on GitHub" aria-label="View source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg></a></div>
+<p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/examples/mtk_lti/main.jl"><figure class="md-figure">
+<img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code" loading="lazy">
+<figcaption>Source code</figcaption>
+</figure>
+</a></p>
 <h1 id="mtk_lti" class="md-heading">LTI Control with Unknown Coefficients<a href="#mtk_lti" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <p>Prerequisites: the <a href="../../examples/modelingtoolkit_integration/#mtk">ModelingToolkit tutorial</a> and basic linear systems. This problem adds terminal equalities and a feasible multiple-shooting guess. We jointly optimize a scalar input and three constant coefficients in <span class="md-math md-math-inline">\(\dot{x} = A x + b u\)</span>, with <span class="md-math md-math-inline">\(x(0)=0\)</span> and <span class="md-math md-math-inline">\(x(10)=[3,1,-2]^T\)</span>. The objective is minimum control energy, <span class="md-math md-math-inline">\(\frac12\int_0^{10}u(t)^2\,dt\)</span>.</p>
 <div class="md-code-block">
@@ -169,14 +179,14 @@ dynopt = CorleoneDynamicOptProblem(
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1006&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x76320c4e, 0x79a56b6b, 0xa58fa0ae, 0xa351a2a1, 0x13979cc0), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, Tuple{Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1007&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xbe25d8bc, 0x7cb46c51, 0x8d09c9e4, 0xd51b29da, 0x32b4cf47), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}, Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1008&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8ab98f93, 0x17479cbc, 0x10dbfbc3, 0xc32449fe, 0x0c547eb7), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}, Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1009&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x108e0e10, 0xc7bef6c8, 0x3a26b154, 0x50f151f0, 0xefd45409), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x₂(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x₁(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;var\&quot;##quadrature#911\&quot;(t)&quot;::@NamedTuple{ps::Vector{Float64}}}}}}, parameter::@NamedTuple{parameters::@NamedTuple{b₁::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{b₁::@NamedTuple{ps::Vector{Float64}}, var&quot;a[1]&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;a[2]&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x_t[1]&quot;::@NamedTuple{}, var&quot;x_t[2]&quot;::@NamedTuple{}, var&quot;x_t[3]&quot;::@NamedTuple{}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{}, var&quot;x₂(t)&quot;::@NamedTuple{}, var&quot;x₁(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#911\&quot;(t)&quot;::@NamedTuple{}}, active::Bool}}, active::Vector{Bool}, permutation::Vector{Int64}}, parameter::@NamedTuple{parameters::@NamedTuple{b₁::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{b₁::@NamedTuple{}, var&quot;a[1]&quot;::@NamedTuple{}, var&quot;a[2]&quot;::@NamedTuple{}, var&quot;x_t[1]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, var&quot;x_t[2]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, var&quot;x_t[3]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}, permutation::Vector{Int64}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lti:
+<pre><code>CorleoneDynamicOptProblem{ShootingLayer{}, Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#239&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x89279db1, 0x0f6eb0cd, 0x06027271, 0xf5ebc157, 0x45d69d87), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, Tuple{Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#240&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x5e748e62, 0x389957af, 0xa064e4a9, 0xf09b9ae0, 0x50715cd8), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}, Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#241&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x562610de, 0x8396e1ee, 0xe68fd41d, 0x1549180a, 0x3d52d8c0), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}, Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#242&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8d122ee8, 0x7565c952, 0xf2efb07f, 0xfef16ed7, 0xaa0d4f02), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x₂(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x₁(t)&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;var\&quot;##quadrature#144\&quot;(t)&quot;::@NamedTuple{ps::Vector{Float64}}}}}}, parameter::@NamedTuple{parameters::@NamedTuple{b₁::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{b₁::@NamedTuple{ps::Vector{Float64}}, var&quot;a[1]&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;a[2]&quot;::@NamedTuple{ps::Vector{Float64}}, var&quot;x_t[1]&quot;::@NamedTuple{}, var&quot;x_t[2]&quot;::@NamedTuple{}, var&quot;x_t[3]&quot;::@NamedTuple{}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{}, parameter::@NamedTuple{ps::Vector{Float64}}}}}}, @NamedTuple{initialcondition::@NamedTuple{initialconditions::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Dict{Float64, Int64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{var&quot;x₃(t)&quot;::@NamedTuple{}, var&quot;x₂(t)&quot;::@NamedTuple{}, var&quot;x₁(t)&quot;::@NamedTuple{}, var&quot;var\&quot;##quadrature#144\&quot;(t)&quot;::@NamedTuple{}}, active::Bool}}, active::Vector{Bool}, permutation::Vector{Int64}}, parameter::@NamedTuple{parameters::@NamedTuple{b₁::@NamedTuple{lookup::@NamedTuple{collection::Nothing, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{b₁::@NamedTuple{}, var&quot;a[1]&quot;::@NamedTuple{}, var&quot;a[2]&quot;::@NamedTuple{}, var&quot;x_t[1]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, var&quot;x_t[2]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}, var&quot;x_t[3]&quot;::@NamedTuple{states::@NamedTuple{}, parameters::@NamedTuple{ps::Vector{Float64}}}}}, var&quot;u(t)&quot;::@NamedTuple{lookup::@NamedTuple{collection::Vector{Float64}, inserted::Vector{Int64}, cache::Nothing}, parameter::@NamedTuple{}}}, permutation::Vector{Int64}}, timestops::Vector{Float64}}, Dict{Symbol, Vector{Real}}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}(ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}, Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoDespecialize, ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}, LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}, Nothing, ModelingToolkitBase.System, Union{Nothing, SciMLBase.OverrideInitData}, Union{Nothing, SciMLBase.ODENLStepData}}(ModelingToolkitBase.GeneratedFunctionWrapper{Tuple{2, 3, false}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}, RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0xae9b3ee2, 0x7ab31eb1, 0xe571b385, 0x60ee7a80, 0xb93b5165), Nothing}(nothing), RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(:__argₛᵧₘ14743185283305486891, :___mtkunknowns___, :__mtk_arg_2, :__argₛᵧₘ8912177291400142833), ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, ModelingToolkitBase.var&quot;#_RGF_ModTag&quot;, (0x50ca3223, 0xc265cf0e, 0x3cac1654, 0x0299c8fb, 0x81cfa71a), Nothing}(nothing)), LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, ModelingToolkitBase.ObservedFunctionCache{ModelingToolkitBase.System, Nothing}(Model lti:
 Equations (4):
   4 standard: see equations(lti)
 Unknowns (4): see unknowns(lti)
   x₃(t)
   x₂(t)
   x₁(t)
-  var&quot;##quadrature#911&quot;(t)
+  var&quot;##quadrature#144&quot;(t)
 Parameters (7): see parameters(lti)
   b₁
   a[1]
@@ -191,7 +201,7 @@ Unknowns (4): see unknowns(lti)
   x₃(t)
   x₂(t)
   x₁(t)
-  var&quot;##quadrature#911&quot;(t)
+  var&quot;##quadrature#144&quot;(t)
 Parameters (7): see parameters(lti)
   b₁
   a[1]
@@ -199,14 +209,14 @@ Parameters (7): see parameters(lti)
   x_t[1]
   x_t[2]
   x_t[3]
-  u(t) [defaults to missing], nothing, nothing), [0.0, 0.0, 0.0, 0.0], (0.0, 10.0), [0.5, -0.2, -0.1, 3.0, 1.0, -2.0, 0.0], Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}(:reltol =&gt; 1.0e-10, :sensealg =&gt; SciMLBase.NoAD(), :abstol =&gt; 1.0e-10), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.0, 0.0, 0.0, 0.0]), (var&quot;x₃(t)&quot; = InitialCondition{}(Symbol(&quot;x₃(t)&quot;), LookUp{}(Dict(2.0 =&gt; 1, 6.0 =&gt; 3, 4.0 =&gt; 2, 8.0 =&gt; 4), nothing), (var&quot;x₃(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;x₂(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;x₁(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;var\&quot;##quadrature#911\&quot;(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4))),), ([1, 2, 3, 4],)), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.5, -0.2, -0.1, 3.0, 1.0, -2.0, 0.0]), (b₁ = PiecewiseConstant{}(:b₁, LookUp{}(nothing, nothing), (b₁ = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((0.1, 1.0)), Core.Box(0.5)), 1), var&quot;a[1]&quot; = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-0.5, -0.05)), Core.Box(-0.2)), 1), var&quot;a[2]&quot; = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-0.5, -0.05)), Core.Box(-0.1)), 1), var&quot;x_t[1]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(3.0)), 1)), var&quot;x_t[2]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(1.0)), 1)), var&quot;x_t[3]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(-2.0)), 1)))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], nothing), ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], Core.Box((-3.0, 3.0)), Core.Box(0.0)), 20))), ([1, 2, 3, 4, 5, 6], [7])), ControlSymbolCache{}(Model lti:
+  u(t) [defaults to missing], nothing, nothing), [0.0, 0.0, 0.0, 0.0], (0.0, 10.0), [0.5, -0.2, -0.1, 3.0, 1.0, -2.0, 0.0], Base.Pairs{Symbol, Any, Nothing, @NamedTuple{reltol::Float64, sensealg::SciMLBase.NoAD, abstol::Float64}}(:reltol =&gt; 1.0e-10, :sensealg =&gt; SciMLBase.NoAD(), :abstol =&gt; 1.0e-10), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.0, 0.0, 0.0, 0.0]), (var&quot;x₃(t)&quot; = InitialCondition{}(Symbol(&quot;x₃(t)&quot;), LookUp{}(Dict(2.0 =&gt; 1, 6.0 =&gt; 3, 4.0 =&gt; 2, 8.0 =&gt; 4), nothing), (var&quot;x₃(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;x₂(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;x₁(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4), var&quot;var\&quot;##quadrature#144\&quot;(t)&quot; = ParameterCollection{}(Corleone.var&quot;#118#119&quot;{Tuple{Float64, Float64}, Float64}((-Inf, Inf), 0.0, Core.Box([2.0, 4.0, 6.0, 8.0])), 4))),), ([1, 2, 3, 4],)), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.5, -0.2, -0.1, 3.0, 1.0, -2.0, 0.0]), (b₁ = PiecewiseConstant{}(:b₁, LookUp{}(nothing, nothing), (b₁ = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((0.1, 1.0)), Core.Box(0.5)), 1), var&quot;a[1]&quot; = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-0.5, -0.05)), Core.Box(-0.2)), 1), var&quot;a[2]&quot; = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-0.5, -0.05)), Core.Box(-0.1)), 1), var&quot;x_t[1]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(3.0)), 1)), var&quot;x_t[2]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(1.0)), 1)), var&quot;x_t[3]&quot; = FixedLayer{}(ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(-2.0)), 1)))), var&quot;u(t)&quot; = PiecewiseConstant{}(Symbol(&quot;u(t)&quot;), LookUp{}([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], nothing), ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], Core.Box((-3.0, 3.0)), Core.Box(0.0)), 20))), ([1, 2, 3, 4, 5, 6], [7])), ControlSymbolCache{}(Model lti:
 Equations (4):
   4 standard: see equations(lti)
 Unknowns (4): see unknowns(lti)
   x₃(t)
   x₂(t)
   x₁(t)
-  var&quot;##quadrature#911&quot;(t)
+  var&quot;##quadrature#144&quot;(t)
 Parameters (7): see parameters(lti)
   b₁
   a[1]
@@ -214,7 +224,7 @@ Parameters (7): see parameters(lti)
   x_t[1]
   x_t[2]
   x_t[3]
-  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#911&quot;(t)], Dict{Any, Any}(x_t[2] =&gt; (-Inf, Inf), x_t[1] =&gt; (-Inf, Inf), a[2] =&gt; (-0.5, -0.05), x_t[3] =&gt; (-Inf, Inf), var&quot;##quadrature#911&quot;(t) =&gt; (-Inf, Inf), a[1] =&gt; (-0.5, -0.05), u(t) =&gt; (-3.0, 3.0), x₃(t) =&gt; (-Inf, Inf), b₁ =&gt; (0.1, 1.0), x₂(t) =&gt; (-Inf, Inf), x₁(t) =&gt; (-Inf, Inf)))), Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1006&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x76320c4e, 0x79a56b6b, 0xa58fa0ae, 0xa351a2a1, 0x13979cc0), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1006&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x76320c4e, 0x79a56b6b, 0xa58fa0ae, 0xa351a2a1, 0x13979cc0), Expr}(:((+)(Base.getindex((var&quot;##samples#1006&quot;).states, 4, 25), (*)(-1, Base.getindex((var&quot;##samples#1006&quot;).states, 4, 1))))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 4, 10.0), (:states, 4, 0.0)], nothing), (Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1007&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xbe25d8bc, 0x7cb46c51, 0x8d09c9e4, 0xd51b29da, 0x32b4cf47), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1007&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xbe25d8bc, 0x7cb46c51, 0x8d09c9e4, 0xd51b29da, 0x32b4cf47), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1007&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0xbe25d8bc, 0x7cb46c51, 0x8d09c9e4, 0xd51b29da, 0x32b4cf47), Expr}(:((+)(Base.getindex((var&quot;##samples#1007&quot;).states, 3, 25), (*)(-1, Base.getindex((var&quot;##samples#1007&quot;).parameters, 4, 25))))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 3, 10.0), (:parameters, 4, 10.0)], nothing), 1), Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1008&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8ab98f93, 0x17479cbc, 0x10dbfbc3, 0xc32449fe, 0x0c547eb7), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1008&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8ab98f93, 0x17479cbc, 0x10dbfbc3, 0xc32449fe, 0x0c547eb7), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1008&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8ab98f93, 0x17479cbc, 0x10dbfbc3, 0xc32449fe, 0x0c547eb7), Expr}(:((+)((*)(-1, Base.getindex((var&quot;##samples#1008&quot;).parameters, 5, 25)), Base.getindex((var&quot;##samples#1008&quot;).states, 2, 25)))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:parameters, 5, 10.0), (:states, 2, 10.0)], nothing), 1), Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1009&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x108e0e10, 0xc7bef6c8, 0x3a26b154, 0x50f151f0, 0xefd45409), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1009&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x108e0e10, 0xc7bef6c8, 0x3a26b154, 0x50f151f0, 0xefd45409), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#1009&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x108e0e10, 0xc7bef6c8, 0x3a26b154, 0x50f151f0, 0xefd45409), Expr}(:((+)(Base.getindex((var&quot;##samples#1009&quot;).states, 1, 25), (*)(-1, Base.getindex((var&quot;##samples#1009&quot;).parameters, 6, 25))))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 1, 10.0), (:parameters, 6, 10.0)], nothing), 1)), (initialcondition = (initialconditions = (var&quot;x₃(t)&quot; = (lookup = NamedTuple(), parameter = (var&quot;x₃(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;x₂(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;x₁(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;var\&quot;##quadrature#911\&quot;(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],))),),), parameter = (parameters = (b₁ = (lookup = NamedTuple(), parameter = (b₁ = (ps = [0.5],), var&quot;a[1]&quot; = (ps = [-0.2],), var&quot;a[2]&quot; = (ps = [-0.1],), var&quot;x_t[1]&quot; = NamedTuple(), var&quot;x_t[2]&quot; = NamedTuple(), var&quot;x_t[3]&quot; = NamedTuple())), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;x₃(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 1, 6.0 =&gt; 3, 4.0 =&gt; 2, 8.0 =&gt; 4), inserted = Int64[], cache = nothing), parameter = (var&quot;x₃(t)&quot; = NamedTuple(), var&quot;x₂(t)&quot; = NamedTuple(), var&quot;x₁(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#911\&quot;(t)&quot; = NamedTuple()), active = false),), active = Bool[0, 0, 0, 0], permutation = [1, 2, 3, 4]), parameter = (parameters = (b₁ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (b₁ = NamedTuple(), var&quot;a[1]&quot; = NamedTuple(), var&quot;a[2]&quot; = NamedTuple(), var&quot;x_t[1]&quot; = (states = NamedTuple(), parameters = (ps = [3.0],)), var&quot;x_t[2]&quot; = (states = NamedTuple(), parameters = (ps = [1.0],)), var&quot;x_t[3]&quot; = (states = NamedTuple(), parameters = (ps = [-2.0],)))), var&quot;u(t)&quot; = (lookup = (collection = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], inserted = Int64[], cache = nothing), parameter = NamedTuple())), permutation = [1, 2, 3, 4, 5, 6, 7]), timestops = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;x₁(t)&quot;) =&gt; [10.0], Symbol(&quot;x₂(t)&quot;) =&gt; [10.0], Symbol(&quot;x_t[1]&quot;) =&gt; [10.0], Symbol(&quot;x_t[3]&quot;) =&gt; [10.0], Symbol(&quot;var\&quot;##quadrature#911\&quot;(t)&quot;) =&gt; [0.0, 10.0], Symbol(&quot;x_t[2]&quot;) =&gt; [10.0], Symbol(&quot;x₃(t)&quot;) =&gt; [10.0]), [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.5, 1.0, 1.5, 2.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.0, 4.5, 5.0, 5.5, 6.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 16)</code></pre>
+  u(t) [defaults to missing], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[u(t)], SymbolicUtils.BasicSymbolicImpl.var&quot;typeof(BasicSymbolicImpl)&quot;{SymbolicUtils.SymReal}[var&quot;##quadrature#144&quot;(t)], Dict{Any, Any}(x_t[2] =&gt; (-Inf, Inf), x_t[1] =&gt; (-Inf, Inf), a[2] =&gt; (-0.5, -0.05), x_t[3] =&gt; (-Inf, Inf), a[1] =&gt; (-0.5, -0.05), var&quot;##quadrature#144&quot;(t) =&gt; (-Inf, Inf), u(t) =&gt; (-3.0, 3.0), x₃(t) =&gt; (-Inf, Inf), b₁ =&gt; (0.1, 1.0), x₂(t) =&gt; (-Inf, Inf), x₁(t) =&gt; (-Inf, Inf)))), Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#239&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x89279db1, 0x0f6eb0cd, 0x06027271, 0xf5ebc157, 0x45d69d87), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#239&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x89279db1, 0x0f6eb0cd, 0x06027271, 0xf5ebc157, 0x45d69d87), Expr}(:((+)((*)(-1, Base.getindex((var&quot;##samples#239&quot;).states, 4, 1)), Base.getindex((var&quot;##samples#239&quot;).states, 4, 25)))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 4, 0.0), (:states, 4, 10.0)], nothing), (Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#240&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x5e748e62, 0x389957af, 0xa064e4a9, 0xf09b9ae0, 0x50715cd8), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#240&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x5e748e62, 0x389957af, 0xa064e4a9, 0xf09b9ae0, 0x50715cd8), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#240&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x5e748e62, 0x389957af, 0xa064e4a9, 0xf09b9ae0, 0x50715cd8), Expr}(:((+)(Base.getindex((var&quot;##samples#240&quot;).states, 3, 25), (*)(-1, Base.getindex((var&quot;##samples#240&quot;).parameters, 4, 25))))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 3, 10.0), (:parameters, 4, 10.0)], nothing), 1), Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#241&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x562610de, 0x8396e1ee, 0xe68fd41d, 0x1549180a, 0x3d52d8c0), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#241&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x562610de, 0x8396e1ee, 0xe68fd41d, 0x1549180a, 0x3d52d8c0), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#241&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x562610de, 0x8396e1ee, 0xe68fd41d, 0x1549180a, 0x3d52d8c0), Expr}(:((+)((*)(-1, Base.getindex((var&quot;##samples#241&quot;).parameters, 5, 25)), Base.getindex((var&quot;##samples#241&quot;).states, 2, 25)))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:parameters, 5, 10.0), (:states, 2, 10.0)], nothing), 1), Corleone.PreparedTrajectoryConstraint{Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#242&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8d122ee8, 0x7565c952, 0xf2efb07f, 0xfef16ed7, 0xaa0d4f02), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}, false}(Corleone.ParsedTrajectoryExpression{RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#242&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8d122ee8, 0x7565c952, 0xf2efb07f, 0xfef16ed7, 0xaa0d4f02), Expr}, Vector{Tuple{Symbol, Int64, Union{Nothing, Real}}}, Nothing}(RuntimeGeneratedFunctions.RuntimeGeneratedFunction{(Symbol(&quot;##samples#242&quot;),), CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, CorleoneRuntimeGeneratedFunctionsExtension.var&quot;#_RGF_ModTag&quot;, (0x8d122ee8, 0x7565c952, 0xf2efb07f, 0xfef16ed7, 0xaa0d4f02), Expr}(:((+)(Base.getindex((var&quot;##samples#242&quot;).states, 1, 25), (*)(-1, Base.getindex((var&quot;##samples#242&quot;).parameters, 6, 25))))), Tuple{Symbol, Int64, Union{Nothing, Real}}[(:states, 1, 10.0), (:parameters, 6, 10.0)], nothing), 1)), (initialcondition = (initialconditions = (var&quot;x₃(t)&quot; = (lookup = NamedTuple(), parameter = (var&quot;x₃(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;x₂(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;x₁(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],), var&quot;var\&quot;##quadrature#144\&quot;(t)&quot; = (ps = [0.0, 0.0, 0.0, 0.0],))),),), parameter = (parameters = (b₁ = (lookup = NamedTuple(), parameter = (b₁ = (ps = [0.5],), var&quot;a[1]&quot; = (ps = [-0.2],), var&quot;a[2]&quot; = (ps = [-0.1],), var&quot;x_t[1]&quot; = NamedTuple(), var&quot;x_t[2]&quot; = NamedTuple(), var&quot;x_t[3]&quot; = NamedTuple())), var&quot;u(t)&quot; = (lookup = NamedTuple(), parameter = (ps = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],))),)), (initialcondition = (initialconditions = (var&quot;x₃(t)&quot; = (lookup = (collection = Dict(2.0 =&gt; 1, 6.0 =&gt; 3, 4.0 =&gt; 2, 8.0 =&gt; 4), inserted = Int64[], cache = nothing), parameter = (var&quot;x₃(t)&quot; = NamedTuple(), var&quot;x₂(t)&quot; = NamedTuple(), var&quot;x₁(t)&quot; = NamedTuple(), var&quot;var\&quot;##quadrature#144\&quot;(t)&quot; = NamedTuple()), active = false),), active = Bool[0, 0, 0, 0], permutation = [1, 2, 3, 4]), parameter = (parameters = (b₁ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (b₁ = NamedTuple(), var&quot;a[1]&quot; = NamedTuple(), var&quot;a[2]&quot; = NamedTuple(), var&quot;x_t[1]&quot; = (states = NamedTuple(), parameters = (ps = [3.0],)), var&quot;x_t[2]&quot; = (states = NamedTuple(), parameters = (ps = [1.0],)), var&quot;x_t[3]&quot; = (states = NamedTuple(), parameters = (ps = [-2.0],)))), var&quot;u(t)&quot; = (lookup = (collection = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5], inserted = Int64[], cache = nothing), parameter = NamedTuple())), permutation = [1, 2, 3, 4, 5, 6, 7]), timestops = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0]), Dict{Symbol, Vector{Real}}(Symbol(&quot;var\&quot;##quadrature#144\&quot;(t)&quot;) =&gt; [0.0, 10.0], Symbol(&quot;x₁(t)&quot;) =&gt; [10.0], Symbol(&quot;x_t[1]&quot;) =&gt; [10.0], Symbol(&quot;x₂(t)&quot;) =&gt; [10.0], Symbol(&quot;x_t[3]&quot;) =&gt; [10.0], Symbol(&quot;x_t[2]&quot;) =&gt; [10.0], Symbol(&quot;x₃(t)&quot;) =&gt; [10.0]), [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.5, 1.0, 1.5, 2.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.0, 4.5, 5.0, 5.5, 6.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.0, 8.5, 9.0, 9.5, 10.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 16)</code></pre>
 </div>
 <h2 id="Feasible-initialization" class="md-heading">Feasible initialization<a href="#Feasible-initialization" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>At the nominal coefficients, an exact zero-order-hold discretization gives <span class="md-math md-math-inline">\(x_{k+1}=\Phi x_k+\Gamma u_k\)</span>. Its reachability matrix supplies a minimum-norm input that reaches the target. This initializes the control without changing the layer or its parameter layout. Forward initialization fills the lifted states and quadrature from that input.</p>
@@ -254,6 +264,17 @@ coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[
 @assert maximum(abs, optimization_constraints(dynopt, optimized, optprob.p)) &lt; 1.0e-5
 @assert result.objective &lt;= initial_energy + 1.0e-6</code></pre>
 </div>
+<div class="md-code-block">
+<button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
+<pre><code>
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+</code></pre>
+</div>
 <p>Replaying the fitted constant system provides a check independent of lifted states.</p>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
@@ -270,7 +291,7 @@ replayed_terminal = foldl(
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>(coefficients = (A₂₁ = -0.4082192613181104, A₃₃ = -0.05000000000344472, b₁ = 0.10000000001017893), terminal_state = [3.000000000000169, 1.0000000000000786, -2.000000000000001], energy = 1.4685725855497456)</code></pre>
+<pre><code>(coefficients = (A₂₁ = -0.4082192613181104, A₃₃ = -0.05000000000344472, b₁ = 0.10000000001017893), terminal_state = [3.0000000000001723, 1.000000000000078, -2.0], energy = 1.4685725855497471)</code></pre>
 </div>
 <h2 id="Plot" class="md-heading">Plot<a href="#Plot" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <p>Plot the three physical states and the scalar input. The energy is reported above.</p>
@@ -296,11 +317,12 @@ trajectoryplot(
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+<pre><code>Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [311a05b2] DemoCards v0.5.5
   [e30172f5] Documenter v1.19.0
   [daee34ce] DocumenterCitations v1.5.0
   [d12716ef] DocumenterInterLinks v1.1.0
@@ -308,7 +330,7 @@ trajectoryplot(
   [f6369f11] ForwardDiff v1.4.7
   [b6b21f68] Ipopt v1.16.0
   [98b081ad] Literate v2.21.0
-  [16fef848] LiveServer v1.6.0
+⌃ [16fef848] LiveServer v1.5.0
   [bb33d45b] LuxCore v1.5.4
   [10bdffc8] MaterialDocs v0.2.2
   [961ee093] ModelingToolkit v11.46.1
@@ -321,6 +343,7 @@ trajectoryplot(
   [ddb6d928] YAML v0.4.17
   [2a0f44e3] Base64 v1.11.0
   [9a3f8284] Random v1.11.0
+Info Packages marked with ⌃ have new versions available and may be upgradable.
 </code></pre>
 </div>
 </details>
@@ -338,11 +361,14 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 128 × AMD EPYC 9354 32-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver4)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+Environment:
+  JULIA_CPU_THREADS = 4
+  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre>
 </div>
 </details>
@@ -354,7 +380,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </div>
 <div class="md-code-block">
 <button class="md-copy-btn" title="Copy to clipboard" aria-label="Copy code"><span class="md-copy-icon">⧉</span><span class="md-copy-feedback">Copied!</span></button>
-<pre><code>Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+<pre><code>Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -382,6 +408,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [e2ed5e7c] Bijections v0.2.2
   [b2a6c25c] BinaryHeaps v1.1.0
   [caf10ac8] BipartiteGraphs v0.1.15
+  [d1d4a3ce] BitFlags v0.1.10
   [8e7c35d0] BlockArrays v1.10.3
   [70df07ce] BracketingNonlinearSolve v1.12.8
 ⌅ [fa961155] CEnum v0.5.0
@@ -408,18 +435,21 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [a33af91c] CompositionsBase v0.1.2
   [95dc2771] ComputePipeline v0.1.9
   [2569d6c7] ConcreteStructs v0.2.8
+  [f0e56b4a] ConcurrentUtilities v2.8.0
   [88cd18e8] ConsoleProgressMonitor v0.1.2
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [a8cc5b0e] Crayons v4.2.0
   [9a962f9c] DataAPI v1.16.0
+  [a93c6f00] DataFrames v1.8.2
   [864edb3b] DataStructures v0.19.6
   [e2d170a0] DataValueInterfaces v1.0.0
   [927a84f5] DelaunayTriangulation v1.7.0
   [8bb1440f] DelimitedFiles v1.9.1
+  [311a05b2] DemoCards v0.5.5
   [2b5f629d] DiffEqBase v7.21.5
   [459566f4] DiffEqCallbacks v4.19.6
   [163ba53b] DiffResults v1.1.0
@@ -438,6 +468,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [4e289a0a] EnumX v1.0.7
   [f151be2c] EnzymeCore v0.8.26
   [429591f6] ExactPredicates v2.2.9
+  [460bff9d] ExceptionUnwrapping v0.1.12
   [e2ba6199] ExprTools v0.1.11
   [21656369] ExpressionExplorer v1.1.6
   [55351af7] ExproniconLite v0.10.14
@@ -468,7 +499,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [a2bd30eb] Graphics v1.1.3
   [86223c79] Graphs v1.15.0
   [3955a311] GridLayoutBase v0.11.3
-  [cd3eb016] HTTP v2.14.2
+⌅ [cd3eb016] HTTP v1.11.1
   [076d061b] HashArrayMappedTries v0.2.0
   [5880b2e8] HelpPlots v1.1.0
   [34004b35] HypergeometricFunctions v0.3.31
@@ -483,18 +514,20 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [9b13fd28] IndirectArrays v1.0.0
   [d25df0c9] Inflate v0.1.5
   [22cec73e] InitialValues v0.3.1
+⌅ [842dd82b] InlineStrings v1.4.6
   [18e54dd8] IntegerMathUtils v0.1.4
   [a98d9a8b] Interpolations v0.16.3
   [d1acc4aa] IntervalArithmetic v1.0.12
   [8197267c] IntervalSets v0.7.15
   [3587e190] InverseFunctions v0.1.18
+  [41ab1584] InvertedIndices v1.3.1
   [b6b21f68] Ipopt v1.16.0
   [92d709cd] IrrationalConstants v0.2.7
   [f1662d9f] Isoband v0.1.1
   [c8e1da08] IterTools v1.11.0
   [82899510] IteratorInterfaceExtensions v1.0.0
   [692b3bcd] JLLWrappers v1.8.0
-  [682c06a0] JSON v1.13.4
+⌅ [682c06a0] JSON v0.21.4
   [7d188eb4] JSONSchema v1.6.0
   [ae98c720] Jieko v0.2.1
   [b835a17e] JpegTurbo v0.1.6
@@ -510,11 +543,11 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [87fe0de2] LineSearch v0.1.20
   [7ed4a6bd] LinearSolve v5.18.3
   [98b081ad] Literate v2.21.0
-  [16fef848] LiveServer v1.6.0
+⌃ [16fef848] LiveServer v1.5.0
   [2ab3a3ac] LogExpFunctions v1.0.3
   [e6f89c97] LoggingExtras v1.2.0
   [bb33d45b] LuxCore v1.5.4
-  [6c6e2e6c] MIMEs v1.1.0
+⌅ [6c6e2e6c] MIMEs v0.1.4
   [1914dd2f] MacroTools v0.5.16
   [ee78f7c6] Makie v0.24.17
   [dbb5928d] MappedArrays v0.4.3
@@ -524,6 +557,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [b8f27783] MathOptInterface v1.54.0
   [0a4f8689] MathTeXEngine v0.6.9
   [bb5d69b7] MaybeInplace v0.1.8
+  [739be429] MbedTLS v1.2.0
   [e1d29d7a] Missings v1.2.1
   [961ee093] ModelingToolkit v11.46.1
   [7771a370] ModelingToolkitBase v1.79.0
@@ -532,6 +566,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [2e0e35c7] Moshi v0.3.13
   [46d2c3a1] MuladdMacro v0.2.7
 ⌅ [102ac46a] MultivariatePolynomials v0.5.20
+  [ffc61752] Mustache v1.1.0
   [d8a4904e] MutableArithmetics v1.9.3
   [77ba4419] NaNMath v1.1.5
   [f09324ee] Netpbm v1.1.1
@@ -541,6 +576,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [6fe1bfb0] OffsetArrays v1.17.0
   [67456a42] OhMyThreads v0.8.9
   [52e1d378] OpenEXR v0.3.3
+  [4d8831e6] OpenSSL v1.10.0
   [d147904a] OptimalControlBenchmarks v0.1.0 `../lib/OptimalControlBenchmarks`
   [7f7a1694] Optimization v5.9.1
   [bca83a33] OptimizationBase v5.10.0
@@ -553,11 +589,12 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [f57f5aa1] PNGFiles v0.4.5
   [19eb6ba3] Packing v0.5.1
   [5432bcbf] PaddedViews v0.5.12
-  [69de0a69] Parsers v3.0.5
+⌅ [69de0a69] Parsers v2.8.11
   [eebad327] PkgVersion v0.3.3
   [995b91a9] PlotUtils v1.5.1
   [e409e4f3] PoissonRandom v0.4.14
   [647866c9] PolygonOps v0.1.2
+  [2dfb63ee] PooledArrays v1.4.3
   [d236fae5] PreallocationTools v1.7.1
   [aea7be01] PrecompileTools v1.3.4
   [21216c6a] Preferences v1.6.1
@@ -580,7 +617,6 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [2792f1a3] RegistryInstances v0.1.0
   [05181044] RelocatableFolders v1.0.1
   [ae029012] Requires v1.3.1
-  [802f3686] Reseau v1.6.6
   [9fe22ead] RespecializeParams v1.3.0
   [79098fc4] Rmath v0.9.0
   [f2b01f46] Roots v3.0.13
@@ -596,9 +632,11 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [53ae85a6] SciMLStructures v1.10.6
   [7e506255] ScopedValues v1.6.2
   [6c6a2e73] Scratch v1.3.0
+  [91c51154] SentinelArrays v1.4.11
   [efcf1570] Setfield v1.2.0
   [65257c39] ShaderAbstractions v0.5.1
   [73760f76] SignedDistanceFields v0.4.1
+  [777ac1f9] SimpleBufferStream v1.2.0
   [727e6d20] SimpleNonlinearSolve v2.14.6
   [699a6c99] SimpleTraits v0.9.6
   [45858cf5] Sixel v0.1.6
@@ -623,7 +661,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [69024149] StringEncodings v0.3.7
   [892a3eda] StringManipulation v0.6.1
   [09ab397b] StructArrays v0.7.4
-  [ec057cc2] StructUtils v2.12.0
+  [fd094767] Suppressor v0.2.8
   [2efcf032] SymbolicIndexingInterface v0.3.56
   [19f23fe9] SymbolicLimits v1.2.2
   [d1185830] SymbolicUtils v4.55.0
@@ -684,6 +722,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [d00139f3] METIS_jll v5.1.4+0
   [856f044c] MKL_jll v2025.2.0+0
   [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
   [e7412a2a] Ogg_jll v1.3.6+0
   [656ef2d0] OpenBLAS32_jll v0.3.34+1
   [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
@@ -772,12 +811,10 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850b90] libblastrampoline_jll v5.15.0+0
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
-Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
 </code></pre>
 </div>
 </details>
-<hr class="md-hr">
-<p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p>
       </article>
       <footer class="md-footer">
 <p>Built with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and <a href="https://github.com/mthelm85/MaterialDocs.jl">MaterialDocs.jl</a>.</p>
@@ -809,6 +846,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=1aa67820"></script>
+  <script src="../../assets/materialdocs.js?v=b98ac914"></script>
 </body>
 </html>
