@@ -71,8 +71,9 @@ without developing or resolving packages again. Set `CI=false` for a local build
 if your shell otherwise sets `CI=true`; deployment runs only in CI.
 
 Edit tutorials in their `examples/<name>/main.jl` sources, not the generated
-Markdown. Literate executes each tutorial once and Documenter includes its rendered
-output. Introductory guide examples and doctests execute through Documenter.
+Markdown. DemoCards stages the authoritative scripts and executes each tutorial
+once through Literate; Documenter includes its rendered output. Introductory
+guide examples and doctests execute through Documenter.
 
 The manual documents the checked-out Corleone, CorleoneOED, and
 OptimalControlBenchmarks modules. OED tutorials
@@ -89,3 +90,7 @@ OptimalControlBenchmarks module. Edit that source rather than
 The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local
 package, remove `docs/Manifest.toml` and run the setup command again.
+
+DemoCards.jl builds the seven root-site tutorials via `docs/process_tutorials.jl`.
+Its temporary staging directory is ignored; edit the original example scripts.
+All tutorials appear under Tutorials → Optimal Control or Optimal Experimental Design.

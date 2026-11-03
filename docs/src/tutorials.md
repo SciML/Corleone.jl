@@ -4,6 +4,8 @@ Each tutorial solves a complete problem. Start with [Getting Started](getting_st
 for layer construction, or use the [Manual](shooting.md) for a single task.
 Imports in each tutorial list its dependencies.
 
+## Optimal control
+
 - [Linear quadratic regulator](examples/the_linear_quadratic_regulator.md):
   parameter schedules, an integral objective, and state/control plots.
 - [Lotka–Volterra fishing](examples/the_lotka_volterra_fishing_problem.md):

@@ -63,6 +63,20 @@ function preprocess_script(content)
 end
 
 
+# DemoCards adds a heading before its source badge. Keep the script's own
+# heading and stable @id instead of emitting that anchor twice.
+function normalize_demo_output(content)
+    content = replace(content,
+        r"(?m)^# \[.*\]\(@id [^)]+\)\n(?=\n\[!\[Source code\])" => ""; count = 1)
+    edit_url = match(r"EditURL = \"([^\"]+)\"", content).captures[1]
+    source_url = replace(replace(edit_url, "github.com" => "raw.githubusercontent.com"), "/blob/" => "/")
+    badge_link = r"(?m)^(\[!\[Source code\].*?\]\()[^)]+(\))$"
+    replace(content, badge_link => m -> begin
+        captures = match(badge_link, m).captures
+        captures[1] * source_url * captures[2]
+    end)
+end
+
 function make_tutorial(path; name = nothing, draft = false)
     isfile(path) || return nothing
     metadata = extract_metadata(path)
@@ -71,15 +85,15 @@ function make_tutorial(path; name = nothing, draft = false)
     fname = isnothing(name) ? replace(lowercase(title), " " => "_") : name
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
-    Literate.markdown(
-        path, outpath,
-        execute = !draft,
-        preprocess = preprocess_script,
-        postprocess = content -> tutorial_figures(content, title, outpath, fname),
-        flavor = Literate.DocumenterFlavor(),
-        name = fname
-    )
+    staged = joinpath(demo_source, "cards", "$fname.jl")
+    content = preprocess_script(read(path, String))
+    content = replace(content, "#src ---" => "# ---")
+    content = replace(content, r"^#src "m => "# ")
+    # Disable cover/notebook execution: each script runs once for its Markdown.
+    content = replace(content, "# ---\n" => "# ---\n# generate_cover: false\n# notebook: false\n# execute: $(!draft)\n"; count = 1)
+    write(staged, content)
     metadata = something(metadata, Dict("title" => fname))
+    metadata["source"] = path
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
 end
@@ -88,6 +102,11 @@ end
 # the OED tutorial URLs already published by main, independently of source titles.
 example_output = joinpath(@__DIR__, "src", "examples")
 isdir(example_output) && rm(example_output; recursive = true)
+
+demo_source = joinpath(@__DIR__, ".democards", "gallery")
+isdir(demo_source) && rm(demo_source; recursive = true)
+mkpath(joinpath(demo_source, "cards"))
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":null}")
 
 tutorials = map(
     [
@@ -110,6 +129,25 @@ tutorials = map(
     ]
 ) do (path, name)
     make_tutorial(path; name, draft)
+end
+
+# DemoCards owns Julia/Literate generation; retain published tutorial URLs.
+demo_pages, demo_postprocess, demo_assets = DemoCards.makedemos(
+    demo_source; root = @__DIR__, credit = false, throw_error = true,
+    edit_branch = "main",
+)
+generated = joinpath(@__DIR__, "src", "gallery")
+for file in readdir(joinpath(generated, "cards"); join = true)
+    mv(file, joinpath(example_output, basename(file)); force = true)
+end
+demo_postprocess()
+for metadata in tutorials
+    name = basename(metadata["link"])
+    path = joinpath(example_output, "$name.md")
+    edit_url = "https://github.com/SciML/Corleone.jl/blob/main/" * replace(relpath(metadata["source"], joinpath(@__DIR__, "..")), '\\' => '/')
+    content = normalize_demo_output(tutorial_figures(read(path, String), metadata["title"], example_output, name))
+    content = replace(content, r"```@meta\n.*?```\n"s => ""; count = 1)
+    write(path, "```@meta\nEditURL = \"$edit_url\"\n```\n\n" * content)
 end
 
 # Include the benchmark guide/API from its authoritative sublibrary source.

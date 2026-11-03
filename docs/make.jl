@@ -14,6 +14,7 @@ using DocumenterInterLinks
 using DocumenterLandingPage
 using MaterialDocs
 using Literate
+using DemoCards
 using Dates
 using YAML
 
@@ -48,10 +49,17 @@ makedocs(
         "Getting Started" => "getting_started.md",
         "Tutorials" => [
             "Overview" => "tutorials.md",
-            "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
-            "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
-            "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
-            "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
+            "Optimal Control" => [
+                "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
+                "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
+                "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
+                "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
+            ],
+            "Optimal Experimental Design" => [
+                "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
+                "Discrete Compartmental Design" => "examples/compartmental_oed_problem.md",
+                "Multiple Experiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
+            ],
         ],
         "Manual" => [
             "Constructing Shooting Problems" => "shooting.md",
@@ -68,11 +76,6 @@ makedocs(
         "Sublibraries" => [
             "Optimal Experimental Design" => [
                 "Overview" => "oed/index.md",
-                "Tutorials" => [
-                    "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
-                    "Discrete Compartmental Design" => "examples/compartmental_oed_problem.md",
-                    "Multiple Experiments" => "examples/the_lotka_volterra_multiexperiment_problem.md",
-                ],
                 "Measurements and Information" => "oed/formulation.md",
                 "Constructing and Optimizing Designs" => "oed/designs.md",
                 "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
