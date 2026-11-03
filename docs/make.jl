@@ -13,10 +13,12 @@ using DocumenterCitations
 using DocumenterCodeBlocks
 using DocumenterInterLinks
 using DocumenterLandingPage
+using MaterialDocs
 using Literate
 using Dates
 using YAML
 
+include("material_citations.jl")
 include("draft.jl")
 draft = documentation_draft()
 @info "Documentation build" draft
@@ -30,7 +32,9 @@ makedocs(
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
     modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
-    format = Documenter.HTML(
+    format = Material3(
+        theme = :ocean_depth,
+        dark_mode = :toggle,
         edit_link = "main",
         repolink = "https://github.com/SciML/Corleone.jl",
         canonical = "https://docs.sciml.ai/Corleone/stable/",
@@ -41,6 +45,7 @@ makedocs(
     linkcheck = get(ENV, "DOCS_LINKCHECK", "false") == "true",
     pages = [
         "Home" => "index.md",
+        "Getting Started" => "getting_started.md",
         "Tutorials" => [
             "Overview" => "tutorials.md",
             "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",

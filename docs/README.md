@@ -33,9 +33,15 @@ in `docs/interlinks.jl` and reference their entries with `@extref`, for example
 ``[`OptimizationLBFGSB.LBFGSB`](@extref Optimization)``. Optimization's inventory
 also contains its solver packages, so they share the `Optimization` inventory.
 
-DocumenterCodeBlocks enhances code blocks throughout the manual.
+MaterialDocs renders the manual with its Ocean Depth theme and a light/dark toggle.
+DocumenterCodeBlocks remains registered, but currently only enhances
+`Documenter.HTML` output; MaterialDocs provides its own code highlighting.
+`material_citations.jl` adapts the citation and bibliography nodes to MaterialDocs
+so the existing references and citation anchors are preserved.
 DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
 inside a `@raw html` block; its stylesheet is added automatically.
+The home page uses this layout for the package introduction and guide links;
+the installation instructions and executable quickstart live in `getting_started.md`.
 
 Dependency setup is separate from the build: `make.jl` uses the active environment
 without developing or resolving packages again. Set `CI=false` for a local build
