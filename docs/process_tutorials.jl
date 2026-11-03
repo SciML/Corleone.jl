@@ -87,6 +87,9 @@ function make_tutorial(path; name = nothing, draft = false)
     isdir(outpath) || mkdir(outpath)
     staged = joinpath(demo_source, occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control", "$fname.jl")
     content = preprocess_script(read(path, String))
+    details = join(vcat([get(metadata, "difficulty", "")], get(metadata, "tags", String[])), " · ")
+    description = get(metadata, "description", "") * " — " * details
+    content = replace(content, r"(?m)^#src description:.*$" => "#src description: " * repr(description))
     content = replace(content, "#src ---" => "# ---")
     content = replace(content, r"^#src "m => "# ")
     # Disable cover/notebook execution: each script runs once for its Markdown.
@@ -154,6 +157,28 @@ for metadata in tutorials
     content = replace(content, r"```@meta\n.*?```\n"s => ""; count = 1)
     write(path, normalize_demo_output("```@meta\nEditURL = \"$edit_url\"\n```\n\n" * content))
 end
+
+# Reuse executed trajectory figures rather than running examples for covers.
+function trajectory_covers(tutorials, example_output, generated; draft = false)
+    gallery_path = joinpath(generated, "index.md")
+    gallery = read(gallery_path, String)
+    for metadata in tutorials
+        name = basename(metadata["link"])
+        figure = get(metadata, "cover_figure", 1)
+        image = joinpath(example_output, "$name-figure-$figure.png")
+        if !isfile(image)
+            draft && continue
+            error("Missing trajectory cover for $name: $image")
+        end
+        id = match(r"@id ([^)]+)", read(metadata["source"], String)).captures[1]
+        cp(image, joinpath(generated, "covers", "$name.png"); force = true)
+        gallery = replace(gallery,
+            "![card-cover-image](covers/democards_logo.svg)](@ref $id)" =>
+            "![Trajectory plot for $(metadata["title"])](covers/$name.png)](@ref $id)")
+    end
+    write(gallery_path, gallery)
+end
+trajectory_covers(tutorials, example_output, generated; draft)
 
 # Include the benchmark guide/API from its authoritative sublibrary source.
 benchmark_output = joinpath(@__DIR__, "src", "benchmarks")

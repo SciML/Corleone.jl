@@ -1,6 +1,12 @@
 #src ---
 #src title: Joint Lotka–Volterra experiments
 #src description: Combine information from independent experimental designs.
+#src difficulty: Advanced
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Experimental Design
+#src   - Multiple Experiments
+#src   - Prior Information
 #src ---
 
 # # [Multiple experiments](@id lotka_multiexp)

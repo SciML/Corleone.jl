@@ -1,6 +1,12 @@
 #src ---
 #src title: Discrete measurements for a compartmental model
 #src description: Allocate measurement weights at candidate sampling times.
+#src difficulty: Intermediate
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Experimental Design
+#src   - Discrete Measurements
+#src   - Compartmental Model
 #src ---
 
 # # [Compartmental OED](@id compartmental_oed)

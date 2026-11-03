@@ -1,11 +1,13 @@
 #src ---
 #src title: The Linear Quadratic Regulator
 #src description: Control a linear system with a tracking cost and a control penalty
-#src tags:
-#src   - Beginner
-#src   - Optimal Control
-#src   - Linear System
 #src icon: 🌊
+#src difficulty: Beginner
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Control
+#src   - Linear Systems
+#src   - Tracking
 #src ---
 
 # # [Linear Quadratic Regulator](@id linear_quad_reg)

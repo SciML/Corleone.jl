@@ -1,6 +1,12 @@
 #src ---
 #src title: Lotka–Volterra optimal experimental design
 #src description: Jointly optimize fishing and continuous measurement schedules.
+#src difficulty: Intermediate
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Experimental Design
+#src   - Continuous Measurements
+#src   - Fisher Information
 #src ---
 
 # # [Lotka–Volterra OED](@id lotka_oed)

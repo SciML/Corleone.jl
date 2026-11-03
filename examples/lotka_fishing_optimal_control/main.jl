@@ -1,10 +1,13 @@
 #src ---
 #src title: The Lotka Volterra Fishing Problem
 #src description: Optimize fishing intensity in a predator-prey model
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
 #src icon: 🎣
+#src difficulty: Intermediate
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Control
+#src   - Multiple Shooting
+#src   - Continuity Constraints
 #src ---
 
 # # [Lotka–Volterra Fishing Problem](@id lotka_fishing)

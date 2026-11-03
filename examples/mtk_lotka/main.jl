@@ -1,11 +1,13 @@
 #src ---
 #src title: ModelingToolkit Integration
 #src description: Define and solve an optimal control problem with ModelingToolkit
+#src icon: 🎣
+#src difficulty: Intermediate
+#src cover_figure: 1
 #src tags:
-#src   - Lotka Volterra
 #src   - Optimal Control
 #src   - ModelingToolkit
-#src icon: 🎣
+#src   - Multiple Shooting
 #src ---
 
 # # [ModelingToolkit Integration](@id mtk)

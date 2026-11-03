@@ -1,11 +1,13 @@
 #src ---
 #src title: LTI Control with Unknown Coefficients
 #src description: Optimize a scalar input and three constant coefficients under terminal state constraints
-#src tags:
-#src   - ModelingToolkit
-#src   - Linear System
-#src   - Optimal Control
 #src icon: 🎛️
+#src difficulty: Advanced
+#src cover_figure: 1
+#src tags:
+#src   - Optimal Control
+#src   - ModelingToolkit
+#src   - Terminal Constraints
 #src ---
 
 # # [LTI Control with Unknown Coefficients](@id mtk_lti)

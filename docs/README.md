@@ -96,3 +96,9 @@ Its temporary staging directory is ignored; edit the original example scripts.
 The Tutorials overview uses DemoCards’ grid theme with Optimal Control and Optimal
 Experimental Design sections. Cards read titles and descriptions from each
 script’s metadata. The generated DemoCards stylesheet is loaded by MaterialDocs.
+
+Card metadata lives in each script’s `#src` YAML header. Use `difficulty` and
+`tags` for the card description and `cover_figure` to select a numbered figure
+from that tutorial’s executed output (default: 1). The gallery copies this plot
+as its cover without executing the script again. Draft builds use the DemoCards
+placeholder when executed figures are unavailable.
