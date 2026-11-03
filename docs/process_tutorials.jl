@@ -198,6 +198,11 @@ write(
         benchmark_content
 )
 
+benchmark_catalog = joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks", "docs", "src", "problems.md")
+write(joinpath(benchmark_output, "problems.md"),
+    "```@meta\nEditURL = \"https://github.com/SciML/Corleone.jl/blob/main/lib/OptimalControlBenchmarks/docs/src/problems.md\"\n```\n\n" *
+    read(benchmark_catalog, String))
+
 # Keep the OED guide/API authoritative in the sublibrary; generate root-site pages
 # with local cross-references and edit links pointing back to those source files.
 oed_output = joinpath(@__DIR__, "src", "oed")

@@ -75,7 +75,8 @@ makedocs(
             "Querying Symbolic Metadata" => "symbolic_metadata.md",
         ],
         "Sublibraries" => [
-            "Optimal Experimental Design" => [
+            "Overview" => "sublibraries.md",
+            "CorleoneOED" => [
                 "Overview" => "oed/index.md",
                 "Measurements and Information" => "oed/formulation.md",
                 "Constructing and Optimizing Designs" => "oed/designs.md",
@@ -83,7 +84,10 @@ makedocs(
                 "API Reference" => "oed/api.md",
                 "References and Attribution" => "oed/references.md",
             ],
-            "Optimal Control Benchmarks" => "benchmarks/index.md",
+            "OptimalControlBenchmarks" => [
+                "Overview" => "benchmarks/index.md",
+                "Problem Catalog" => "benchmarks/problems.md",
+            ],
         ],
         "References" => "references.md",
         "API Reference" => "api.md",

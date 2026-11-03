@@ -8,6 +8,9 @@ Install `OptimalControlBenchmarks` and `Ipopt` for the example below. Familiarit
 with Corleone's [shooting workflow](https://github.com/SciML/Corleone.jl/blob/main/docs/src/shooting.md)
 helps when changing controls, shooting states, or constraints.
 
+Browse the [problem catalog](problems.md) for available models, control counts,
+and physical time spans.
+
 ## Solve an LQR problem
 
 The linear quadratic regulator (LQR) benchmark tracks a target state while
