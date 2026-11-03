@@ -32,8 +32,9 @@ Each source rebuild runs `docs/make.jl`, including its executable tutorials.
 
 The build executes the LQR,
 numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
-optimization tutorials, plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment,
-and discrete compartmental tutorials. It checks exported API coverage and resolves
+optimization tutorials, and the Lotka–Volterra universal differential equation tutorial,
+plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment, and discrete
+compartmental tutorials. It checks exported API coverage and resolves
 internal cross-references. External URL checks can be enabled with
 `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 

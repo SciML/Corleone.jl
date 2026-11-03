@@ -56,6 +56,9 @@ makedocs(
                 "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
                 "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
             ],
+            "Parameter Estimation" => [
+                "Lotka–Volterra Universal Differential Equation" => "examples/lotka_volterra_universal_differential_equation.md",
+            ],
             "Optimal Experimental Design" => [
                 "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
                 "Discrete Compartmental Design" => "examples/compartmental_oed_problem.md",

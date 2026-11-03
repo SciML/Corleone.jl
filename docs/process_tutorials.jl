@@ -89,7 +89,11 @@ function make_tutorial(path; name = nothing, draft = false)
     fname = isnothing(name) ? replace(lowercase(title), " " => "_") : name
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
-    staged = joinpath(demo_source, occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control", "$fname.jl")
+    category = get(
+        something(metadata, Dict()), "category",
+        occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control"
+    )
+    staged = joinpath(demo_source, category, "$fname.jl")
     content = preprocess_script(read(path, String))
     details = join(vcat([get(metadata, "difficulty", "")], get(metadata, "tags", String[])), " · ")
     description = get(metadata, "description", "") * " — " * details
@@ -112,17 +116,18 @@ isdir(example_output) && rm(example_output; recursive = true)
 
 demo_source = joinpath(@__DIR__, ".democards", "gallery")
 isdir(demo_source) && rm(demo_source; recursive = true)
-for (folder, title) in (("optimal_control", "Optimal Control"), ("experimental_design", "Optimal Experimental Design"))
+for (folder, title) in (("optimal_control", "Optimal Control"), ("experimental_design", "Optimal Experimental Design"), ("parameter_estimation", "Parameter Estimation"))
     mkpath(joinpath(demo_source, folder))
     write(joinpath(demo_source, folder, "config.json"), "{\"title\":\"$title\"}")
 end
-write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"grid\",\"order\":[\"optimal_control\",\"experimental_design\"]}")
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"grid\",\"order\":[\"optimal_control\",\"experimental_design\",\"parameter_estimation\"]}")
 
 tutorials = map(
     [
         (joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
         (
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
@@ -147,7 +152,7 @@ demo_pages, demo_postprocess, demo_assets = DemoCards.makedemos(
     edit_branch = "main",
 )
 generated = joinpath(@__DIR__, "src", "gallery")
-for folder in ("optimal_control", "experimental_design")
+for folder in ("optimal_control", "experimental_design", "parameter_estimation")
     for file in readdir(joinpath(generated, folder); join = true)
         mv(file, joinpath(example_output, basename(file)); force = true)
     end
