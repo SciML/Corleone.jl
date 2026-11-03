@@ -99,7 +99,7 @@ Optimal Experimental Design, and Parameter Estimation sections. The generated
 DemoCards stylesheet is loaded by MaterialDocs.
 
 Card metadata uses native DemoCards YAML frontmatter, with a leading `# ` on each
-line between `# ---` delimiters. Set `title`, `description`, `id` (matching the
+line between `# ---` delimiters. Set `title`, `description`, `id` (the generated
 pageâ€™s heading anchor), and `julia` (the minimum Julia version). Keep
 `notebook: false` and `generate_cover: false` so each tutorial executes once.
 The build sets `execute` according to its draft mode.
@@ -110,4 +110,5 @@ Design. The optional `cover_figure` selects a numbered figure from the tutorialâ
 executed output (default: 1). The gallery copies this plot as its cover without
 executing the script again. Draft builds use the DemoCards placeholder when
 executed figures are unavailable. The standalone CorleoneOED manual strips the
-card frontmatter before processing its tutorials with Literate.
+card frontmatter and generates the same heading before processing its tutorials
+with Literate.

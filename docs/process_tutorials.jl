@@ -63,13 +63,9 @@ function preprocess_script(content)
 end
 
 
-# DemoCards adds a heading before its source badge. Keep the script's own
-# heading and stable @id instead of emitting that anchor twice.
+# DemoCards generates the page heading and anchor from native frontmatter.
+# Keep that heading, and point the source badge at the authoritative script.
 function normalize_demo_output(content)
-    content = replace(
-        content,
-        r"(?m)^# \[.*\]\(@id [^)]+\)\n(?=\n\[!\[Source code\])" => ""; count = 1
-    )
     edit_url = match(r"EditURL = \"([^\"]+)\"", content).captures[1]
     source_url = replace(replace(edit_url, "github.com" => "raw.githubusercontent.com"), "/blob/" => "/")
     badge_link = r"(\[!\[Source code\]\([^\n)]*\)\]\()[^)]+(\))"

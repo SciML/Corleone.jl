@@ -1,5 +1,6 @@
-using CorleoneOED, Documenter, Literate
+using CorleoneOED, Documenter, Literate, YAML
 using Base64: base64decode
+include("tutorial_source.jl")
 
 realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..", "..", "..")) ||
@@ -33,8 +34,7 @@ for (name, alt) in (
     Literate.markdown(
         joinpath(@__DIR__, "..", "examples", name, "main.jl"), output;
         name, execute = true, flavor = Literate.DocumenterFlavor(),
-        # DemoCards metadata is only needed by the root gallery.
-        preprocess = content -> replace(content, r"\A# ---\n.*?# ---\n"s => ""; count = 1),
+        preprocess = tutorial_source,
         image_formats = [(MIME("image/png"), ".png")],
         postprocess = content -> tutorial_figures(content, output, name, alt),
     )
