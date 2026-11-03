@@ -34,8 +34,7 @@ in `docs/interlinks.jl` and reference their entries with `@extref`, for example
 also contains its solver packages, so they share the `Optimization` inventory.
 
 MaterialDocs renders the manual with its Ocean Depth theme and a light/dark toggle.
-DocumenterCodeBlocks remains registered, but currently only enhances
-`Documenter.HTML` output; MaterialDocs provides its own code highlighting.
+MaterialDocs provides code highlighting throughout the manual.
 `material_citations.jl` adapts the citation and bibliography nodes to MaterialDocs
 so the existing references and citation anchors are preserved.
 DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
