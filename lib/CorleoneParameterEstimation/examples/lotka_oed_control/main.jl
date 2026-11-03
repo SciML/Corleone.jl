@@ -96,8 +96,8 @@ designed_control = optimal_ps.parameter.parameters.p₁.parameter.p₁.ps
 w1 = optimal_ps.parameter.parameters.p₁.parameter.w1.ps
 w2 = optimal_ps.parameter.parameters.p₁.parameter.w2.ps
 
-w1_t = [t for (i,t) in enumerate(measure_times) if w1[i] > 0.5]
-w2_t = [t for (i,t) in enumerate(measure_times) if w2[i] > 0.5]
+w1_t = [t for (i, t) in enumerate(measure_times) if w1[i] > 0.5]
+w2_t = [t for (i, t) in enumerate(measure_times) if w2[i] > 0.5]
 measure_pts = sort(unique(vcat(w1_t, w2_t)))
 println("Fishing control starts at:   ", round.(designed_control[1:5]; digits = 2), " ...")
 println("Species-1 measurement times: ", round.(w1_t; digits = 2))
