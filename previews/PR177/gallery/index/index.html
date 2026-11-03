@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tutorials — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=7a5da474">
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=3fe7978e">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
   <meta name="title" content="Tutorials — Corleone.jl">
   <meta property="og:title" content="Tutorials — Corleone.jl">
@@ -15,7 +15,7 @@
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/gallery/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/gallery/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/gallery/">
-  <link rel="stylesheet" href="../../democards/gridtheme.css">
+  <link rel="stylesheet" href="../../democards/bokehlisttheme.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -62,6 +62,10 @@
           <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
         </div>
         <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Parameter Estimation</span>
+          <a href="../../examples/lotka_volterra_universal_differential_equation/">Lotka–Volterra Universal Differential Equation</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
           <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
@@ -106,114 +110,156 @@
       <article class="md-article">
 <h1 id="Tutorials" class="md-heading">Tutorials<a href="#Tutorials" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <h1 id="Optimal-Control" class="md-heading">Optimal Control<a href="#Optimal-Control" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
-<div class="grid-card-section">
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Optimize a scalar input and three constant coefficients under terminal state constraints — Advanced · Optimal Control · ModelingToolkit · Terminal Constraints</p>
-</div>
+<div class="bokeh-list-card-section">
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/lti_control_with_unknown_coefficients/#mtk_lti"><figure class="md-figure">
 <img src="../../gallery/covers/lti_control_with_unknown_coefficients.png" alt="Trajectory plot for LTI Control with Unknown Coefficients" loading="lazy">
 <figcaption>Trajectory plot for LTI Control with Unknown Coefficients</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/lti_control_with_unknown_coefficients/#mtk_lti">LTI Control with Unknown Coefficients</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Optimize a scalar input and three constant coefficients under terminal state constraints</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Define and solve an optimal control problem with ModelingToolkit — Intermediate · Optimal Control · ModelingToolkit · Multiple Shooting</p>
-</div>
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/modelingtoolkit_integration/#mtk"><figure class="md-figure">
 <img src="../../gallery/covers/modelingtoolkit_integration.png" alt="Trajectory plot for ModelingToolkit Integration" loading="lazy">
 <figcaption>Trajectory plot for ModelingToolkit Integration</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/modelingtoolkit_integration/#mtk">ModelingToolkit Integration</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Define and solve an optimal control problem with ModelingToolkit</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Control a linear system with a tracking cost and a control penalty — Beginner · Optimal Control · Linear Systems · Tracking</p>
-</div>
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/the_linear_quadratic_regulator/#linear_quad_reg"><figure class="md-figure">
 <img src="../../gallery/covers/the_linear_quadratic_regulator.png" alt="Trajectory plot for The Linear Quadratic Regulator" loading="lazy">
 <figcaption>Trajectory plot for The Linear Quadratic Regulator</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/the_linear_quadratic_regulator/#linear_quad_reg">The Linear Quadratic Regulator</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Control a linear system with a tracking cost and a control penalty</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Optimize fishing intensity in a predator-prey model — Intermediate · Optimal Control · Multiple Shooting · Continuity Constraints</p>
-</div>
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/the_lotka_volterra_fishing_problem/#lotka_fishing"><figure class="md-figure">
 <img src="../../gallery/covers/the_lotka_volterra_fishing_problem.png" alt="Trajectory plot for The Lotka Volterra Fishing Problem" loading="lazy">
 <figcaption>Trajectory plot for The Lotka Volterra Fishing Problem</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/the_lotka_volterra_fishing_problem/#lotka_fishing">The Lotka Volterra Fishing Problem</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Optimize fishing intensity in a predator-prey model</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
 </div>
 <h1 id="Optimal-Experimental-Design" class="md-heading">Optimal Experimental Design<a href="#Optimal-Experimental-Design" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
-<div class="grid-card-section">
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Allocate measurement weights at candidate sampling times. — Intermediate · Optimal Experimental Design · Discrete Measurements · Compartmental Model</p>
-</div>
+<div class="bokeh-list-card-section">
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/compartmental_oed_problem/#compartmental_oed"><figure class="md-figure">
 <img src="../../gallery/covers/compartmental_oed_problem.png" alt="Trajectory plot for Discrete measurements for a compartmental model" loading="lazy">
 <figcaption>Trajectory plot for Discrete measurements for a compartmental model</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/compartmental_oed_problem/#compartmental_oed">Discrete measurements for a compartmental model</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Allocate measurement weights at candidate sampling times.</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Combine information from independent experimental designs. — Advanced · Optimal Experimental Design · Multiple Experiments · Prior Information</p>
-</div>
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/the_lotka_volterra_multiexperiment_problem/#lotka_multiexp"><figure class="md-figure">
 <img src="../../gallery/covers/the_lotka_volterra_multiexperiment_problem.png" alt="Trajectory plot for Joint Lotka–Volterra experiments" loading="lazy">
 <figcaption>Trajectory plot for Joint Lotka–Volterra experiments</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/the_lotka_volterra_multiexperiment_problem/#lotka_multiexp">Joint Lotka–Volterra experiments</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Combine information from independent experimental designs.</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
-<div class="card grid-card">
-<div class="grid-card-cover">
-<div class="grid-card-description">
-<p>Jointly optimize fishing and continuous measurement schedules. — Intermediate · Optimal Experimental Design · Continuous Measurements · Fisher Information</p>
-</div>
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
 <p><a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed"><figure class="md-figure">
 <img src="../../gallery/covers/the_lotka_volterra_optimal_experimental_design_problem.png" alt="Trajectory plot for Lotka–Volterra optimal experimental design" loading="lazy">
 <figcaption>Trajectory plot for Lotka–Volterra optimal experimental design</figcaption>
 </figure>
 </a></p>
-</div>
-<div class="grid-card-text">
+  </div></td>
+  <td><div class="bokeh-list-card-text">
 <p><a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">Lotka–Volterra optimal experimental design</a></p>
 </div>
+    <div class="bokeh-list-card-description">
+<p>Jointly optimize fishing and continuous measurement schedules.</p>
+    </div>
+  </td>
+</tbody></table>
+</div>
+</div>
+<h1 id="Parameter-Estimation" class="md-heading">Parameter Estimation<a href="#Parameter-Estimation" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+<div class="bokeh-list-card-section">
+<div class="bokeh-list-card">
+<table>
+  <td valign="bottom"><div class="bokeh-list-card-cover">
+<p><a href="../../examples/lotka_volterra_universal_differential_equation/#lotka_ude"><figure class="md-figure">
+<img src="../../gallery/covers/lotka_volterra_universal_differential_equation.png" alt="Trajectory plot for Lotka Volterra Universal Differential Equation" loading="lazy">
+<figcaption>Trajectory plot for Lotka Volterra Universal Differential Equation</figcaption>
+</figure>
+</a></p>
+  </div></td>
+  <td><div class="bokeh-list-card-text">
+<p><a href="../../examples/lotka_volterra_universal_differential_equation/#lotka_ude">Lotka Volterra Universal Differential Equation</a></p>
+</div>
+    <div class="bokeh-list-card-description">
+<p>Learn an unknown predator-prey interaction from population observations</p>
+    </div>
+  </td>
+</tbody></table>
 </div>
 </div>
       </article>
@@ -233,6 +279,6 @@
   <script>hljs.highlightAll();</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=7a5da474"></script>
+  <script src="../../assets/materialdocs.js?v=3fe7978e"></script>
 </body>
 </html>

@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Multiple experiments — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=7f1c2165">
+  <title>Joint Lotka–Volterra experiments — Corleone.jl</title>
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=108986e6">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
-  <meta name="title" content="Multiple experiments — Corleone.jl">
-  <meta property="og:title" content="Multiple experiments — Corleone.jl">
-  <meta property="twitter:title" content="Multiple experiments — Corleone.jl">
+  <meta name="title" content="Joint Lotka–Volterra experiments — Corleone.jl">
+  <meta property="og:title" content="Joint Lotka–Volterra experiments — Corleone.jl">
+  <meta property="twitter:title" content="Joint Lotka–Volterra experiments — Corleone.jl">
   <meta name="description" content="Documentation for Corleone.jl.">
   <meta property="og:description" content="Documentation for Corleone.jl.">
   <meta property="twitter:description" content="Documentation for Corleone.jl.">
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_multiexperiment_problem/">
-  <link rel="stylesheet" href="../../democards/gridtheme.css">
+  <link rel="stylesheet" href="../../democards/bokehlisttheme.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -61,6 +61,10 @@
           <a href="../../examples/modelingtoolkit_integration/">ModelingToolkit Integration</a>
           <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
         </div>
+        <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Parameter Estimation</span>
+          <a href="../../examples/lotka_volterra_universal_differential_equation/">Lotka–Volterra Universal Differential Equation</a>
+        </div>
         <div class="md-nav-section">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
@@ -105,12 +109,16 @@
     <main class="md-content">
       <article class="md-article">
       <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/SciML/Corleone.jl/blob/main/lib/CorleoneOED/examples/lotka_multiexperiments/main.jl" title="View source on GitHub" aria-label="View source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg></a></div>
+<h1 id="lotka_multiexp" class="md-heading">Joint Lotka–Volterra experiments<a href="#lotka_multiexp" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"><figure class="md-figure">
 <img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code" loading="lazy">
 <figcaption>Source code</figcaption>
 </figure>
-</a></p>
-<h1 id="lotka_multiexp" class="md-heading">Multiple experiments<a href="#lotka_multiexp" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+</a> <figure class="md-figure">
+<img src="https://img.shields.io/badge/julia-1.10.0-blue.svg" alt="compat" loading="lazy">
+<figcaption>compat</figcaption>
+</figure>
+</p>
 <p>Prerequisites: the <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">single-experiment tutorial</a>. The goal is to optimize a joint design and carry its information into a later experiment. Two experiments have independent fishing and measurement schedules. Their information matrices add in a common physical-parameter coordinate system. Both use <code class="md-code-inline">p = [fishing, interaction_1, interaction_2]</code>, estimating <code class="md-code-inline">[2,3]</code> while holding those rates fixed at nominal values. Fishing and both measurement densities are tunable. This repeats the <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/#lotka_oed">single-experiment model</a>; identical nominal experiments may yield symmetric optimal designs. Independence of their parameter trees does not force different schedules.</p>
 <p>ComponentArrays supplies packing; Optimization/OptimizationMOI and Ipopt solve the relaxation; CairoMakie plots each experiment. No shooting resets are used, so there are no automatic shooting equalities in this example.</p>
 <div class="md-code-block">
@@ -271,9 +279,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  CPU: 4 × INTEL(R) XEON(R) PLATINUM 8573C
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
+  LLVM: libLLVM-20.1.8 (ORCJIT, emeraldrapids)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre>
@@ -480,7 +488,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [be0214bd] NonlinearSolveBase v2.55.1
   [5959db7a] NonlinearSolveFirstOrder v2.10.0
   [510215fc] Observables v0.5.5
-  [6fe1bfb0] OffsetArrays v1.17.0
+  [6fe1bfb0] OffsetArrays v1.18.0
   [67456a42] OhMyThreads v0.8.9
   [52e1d378] OpenEXR v0.3.3
   [4d8831e6] OpenSSL v1.10.0
@@ -743,6 +751,6 @@ Info Packages marked with ⌃ and ⌅ have new versions available. Those with �
   <script>hljs.highlightAll();</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=7f1c2165"></script>
+  <script src="../../assets/materialdocs.js?v=108986e6"></script>
 </body>
 </html>

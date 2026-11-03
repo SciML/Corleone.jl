@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lotka–Volterra Fishing Problem — Corleone.jl</title>
-  <link rel="stylesheet" href="../../assets/materialdocs.css?v=18660b5a">
+  <title>The Lotka Volterra Fishing Problem — Corleone.jl</title>
+  <link rel="stylesheet" href="../../assets/materialdocs.css?v=4b3dd81b">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
-  <meta name="title" content="Lotka–Volterra Fishing Problem — Corleone.jl">
-  <meta property="og:title" content="Lotka–Volterra Fishing Problem — Corleone.jl">
-  <meta property="twitter:title" content="Lotka–Volterra Fishing Problem — Corleone.jl">
+  <meta name="title" content="The Lotka Volterra Fishing Problem — Corleone.jl">
+  <meta property="og:title" content="The Lotka Volterra Fishing Problem — Corleone.jl">
+  <meta property="twitter:title" content="The Lotka Volterra Fishing Problem — Corleone.jl">
   <meta name="description" content="Documentation for Corleone.jl.">
   <meta property="og:description" content="Documentation for Corleone.jl.">
   <meta property="twitter:description" content="Documentation for Corleone.jl.">
   <meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/">
   <meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/">
   <link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/">
-  <link rel="stylesheet" href="../../democards/gridtheme.css">
+  <link rel="stylesheet" href="../../democards/bokehlisttheme.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing.css">
   <link rel="stylesheet" href="../../assets/documenterlandingpage/landing-material.css">
   <script>
@@ -62,6 +62,10 @@
           <a href="../../examples/lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a>
         </div>
         <div class="md-nav-section md-nav-collapsed">
+          <span class="md-nav-section-title">Parameter Estimation</span>
+          <a href="../../examples/lotka_volterra_universal_differential_equation/">Lotka–Volterra Universal Differential Equation</a>
+        </div>
+        <div class="md-nav-section md-nav-collapsed">
           <span class="md-nav-section-title">Optimal Experimental Design</span>
           <a href="../../examples/the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a>
           <a href="../../examples/compartmental_oed_problem/">Discrete Compartmental Design</a>
@@ -105,12 +109,16 @@
     <main class="md-content">
       <article class="md-article">
       <div class="md-article-actions"><a class="md-icon-btn md-edit-link" href="https://github.com/SciML/Corleone.jl/blob/main/examples/lotka_fishing_optimal_control/main.jl" title="View source on GitHub" aria-label="View source on GitHub"><svg class="md-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg></a></div>
+<h1 id="lotka_fishing" class="md-heading">The Lotka Volterra Fishing Problem<a href="#lotka_fishing" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
 <p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/examples/lotka_fishing_optimal_control/main.jl"><figure class="md-figure">
 <img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code" loading="lazy">
 <figcaption>Source code</figcaption>
 </figure>
-</a></p>
-<h1 id="lotka_fishing" class="md-heading">Lotka–Volterra Fishing Problem<a href="#lotka_fishing" class="md-heading-anchor" aria-label="Link to this section">#</a></h1>
+</a> <figure class="md-figure">
+<img src="https://img.shields.io/badge/julia-1.10.0-blue.svg" alt="compat" loading="lazy">
+<figcaption>compat</figcaption>
+</figure>
+</p>
 <p>Optimize bounded fishing intensity, then add multiple shooting and continuity constraints. Prerequisites: the <a href="../../examples/the_linear_quadratic_regulator/#linear_quad_reg">LQR tutorial</a> and the <a href="../../shooting/#shooting_formulation">shooting formulation</a>. This example is based on the <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">Lotka-Volterra fishing problem</a>.</p>
 <h2 id="lotka_oc_setup" class="md-heading">Setup<a href="#lotka_oc_setup" class="md-heading-anchor" aria-label="Link to this section">#</a></h2>
 <div class="md-code-block">
@@ -234,7 +242,7 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 0
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 45.804
+Total seconds in IPOPT                               = 60.953
 
 EXIT: Optimal Solution Found.
 </code></pre>
@@ -573,7 +581,7 @@ Number of inequality constraint evaluations          = 0
 Number of equality constraint Jacobian evaluations   = 199
 Number of inequality constraint Jacobian evaluations = 0
 Number of Lagrangian Hessian evaluations             = 0
-Total seconds in IPOPT                               = 49.146
+Total seconds in IPOPT                               = 69.862
 
 EXIT: Optimal Solution Found.
 </code></pre>
@@ -653,9 +661,9 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  CPU: 4 × INTEL(R) XEON(R) PLATINUM 8573C
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
+  LLVM: libLLVM-20.1.8 (ORCJIT, emeraldrapids)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
 </code></pre>
@@ -862,7 +870,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [be0214bd] NonlinearSolveBase v2.55.1
   [5959db7a] NonlinearSolveFirstOrder v2.10.0
   [510215fc] Observables v0.5.5
-  [6fe1bfb0] OffsetArrays v1.17.0
+  [6fe1bfb0] OffsetArrays v1.18.0
   [67456a42] OhMyThreads v0.8.9
   [52e1d378] OpenEXR v0.3.3
   [4d8831e6] OpenSSL v1.10.0
@@ -1134,6 +1142,6 @@ document.querySelectorAll('.md-math').forEach(function (el) {
 });</script>
   <script src="../../siteinfo.js"></script>
   <script src="../../../versions.js"></script>
-  <script src="../../assets/materialdocs.js?v=18660b5a"></script>
+  <script src="../../assets/materialdocs.js?v=4b3dd81b"></script>
 </body>
 </html>
