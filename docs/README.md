@@ -20,6 +20,14 @@ and discrete compartmental tutorials. It checks exported API coverage and resolv
 internal cross-references. External URL checks can be enabled with
 `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 
+On GitHub pull requests, the build uses Documenter's `draft=true` mode unless
+the PR changes a tutorial under `examples/` or `lib/CorleoneOED/examples/`, the
+benchmark tutorial page, or `docs/process_tutorials.jl`. This compares the PR
+merge commit with its first parent, fetching that parent for shallow checkouts.
+Draft builds generate tutorial Markdown without executing Literate code; outputs
+and plots are omitted. Builds on `main`, tags, and local builds always execute
+the full documentation. If change detection fails, a full build runs.
+
 Dependency setup is separate from the build: `make.jl` uses the active environment
 without developing or resolving packages again. Set `CI=false` for a local build
 if your shell otherwise sets `CI=true`; deployment runs only in CI.

@@ -14,10 +14,14 @@ using Literate
 using Dates
 using YAML
 
+include("draft.jl")
+draft = documentation_draft()
+@info "Documentation build" draft
 include("process_tutorials.jl")
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
+    draft = draft,
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",

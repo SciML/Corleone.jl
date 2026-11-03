@@ -67,7 +67,7 @@ function preprocess_script(content)
 end
 
 
-function make_tutorial(path; name = nothing)
+function make_tutorial(path; name = nothing, draft = false)
     isfile(path) || return nothing
     metadata = extract_metadata(path)
     _..., scriptname = splitpath(path)
@@ -77,7 +77,7 @@ function make_tutorial(path; name = nothing)
     isdir(outpath) || mkdir(outpath)
     Literate.markdown(
         path, outpath,
-        execute = true,
+        execute = !draft,
         preprocess = preprocess_script,
         postprocess = content -> tutorial_figures(content, title, outpath, fname),
         flavor = Literate.DocumenterFlavor(),
@@ -113,7 +113,7 @@ tutorials = map(
         ),
     ]
 ) do (path, name)
-    make_tutorial(path; name)
+    make_tutorial(path; name, draft)
 end
 
 # Include the benchmark guide/API from its authoritative sublibrary source.
