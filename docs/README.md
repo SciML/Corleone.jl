@@ -33,6 +33,10 @@ in `docs/interlinks.jl` and reference their entries with `@extref`, for example
 ``[`OptimizationLBFGSB.LBFGSB`](@extref Optimization)``. Optimization's inventory
 also contains its solver packages, so they share the `Optimization` inventory.
 
+DocumenterCodeBlocks enhances code blocks throughout the manual.
+DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
+inside a `@raw html` block; its stylesheet is added automatically.
+
 Dependency setup is separate from the build: `make.jl` uses the active environment
 without developing or resolving packages again. Set `CI=false` for a local build
 if your shell otherwise sets `CI=true`; deployment runs only in CI.

@@ -10,7 +10,9 @@ realpath(pkgdir(OptimalControlBenchmarks)) ==
     error("Develop OptimalControlBenchmarks from this checkout; see docs/README.md.")
 
 using DocumenterCitations
+using DocumenterCodeBlocks
 using DocumenterInterLinks
+using DocumenterLandingPage
 using Literate
 using Dates
 using YAML
@@ -78,7 +80,7 @@ makedocs(
         "Deprecated Constructors" => "legacy_constructors.md",
     ],
     remotes = nothing,
-    plugins = [bib, links],
+    plugins = [bib, links, CodeBlocks(), LandingPage()],
 )
 
 # Local documentation builds never publish the site.
