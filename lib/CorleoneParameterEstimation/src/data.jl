@@ -36,11 +36,13 @@ There are two equivalent ways to describe the observations:
 - `u0`: Initial conditions used to simulate this experiment. Either `nothing` (the initial
   conditions of the differential-equation problem the layer is built from are used) or an
   `AbstractVector` of the same length as the state vector of the problem.
-- `controls`: A tuple of `control_index => ControlParameter` pairs (the same form as the
-  `controls` keyword of `SingleShootingLayer`), specifying the *fixed* piecewise-constant
-  control functions applied in this experiment. Control values are read from the
-  `controls` field of each `ControlParameter` and are **not** estimated: they are treated as
-  fixed inputs of the experiment design (e.g. produced by optimal experimental design).
+- `controls`: A tuple of `control_index => annotation => switching_times` pairs
+  (`Tunable(control_index; default, lowerbound, upperbound) => switching_times`), specifying
+  the *fixed* piecewise-constant control functions applied in this experiment. The annotation
+  provides the control values (via `default`) and bounds, and the switching times are the
+  interior interval boundaries; the first interval starts at the problem's initial time.
+  Control values are **not** estimated: they are treated as fixed inputs of the experiment
+  design (e.g. produced by optimal experimental design).
 
 # Examples
 ```julia
@@ -49,8 +51,10 @@ y = [0.1, 0.25, 0.6, 1.1, 1.9, 3.0, 4.5, 6.2, 8.1, 10.2, 12.5]
 exp = Experiment(t, y; σ = 0.05, u0 = [1.0])
 
 # An experiment with a fixed control acting on parameter 1
-exp = Experiment(t, y; σ = 0.05, u0 = [1.0],
-    controls = (1 => ControlParameter(collect(0.0:1.0:5.0), controls = ones(5)),))
+# (five unit values on the intervals (0,1), (1,2), (2,3), (3,4), (4,5))
+control = Tunable(1; default = ones(5), lowerbound = 0.0, upperbound = 1.0) =>
+    collect(1.0:1.0:4.0)
+exp = Experiment(t, y; σ = 0.05, u0 = [1.0], controls = (1 => control,))
 
 # Two quantities observed at different time points (per-quantity form)
 exp = Experiment([prey_times, predator_times], [prey_data, predator_data]; σ = 0.05)
@@ -67,7 +71,7 @@ struct Experiment{
     σ::S
     "Initial conditions of this experiment (or `nothing` to use the problem's initial conditions)"
     u0::U
-    "Fixed controls `(idx => ControlParameter)` applied in this experiment (or `nothing`)"
+    "Fixed controls `(idx => annotation => switching_times)` applied in this experiment (or `nothing`)"
     controls::C
     "Per-quantity observation time vectors, or `nothing` when `y` is a shared-grid matrix"
     times::P
@@ -197,7 +201,7 @@ end
 """
     controls(data::ExperimentData, i::Int)
 
-Return the fixed controls (a tuple of `control_index => ControlParameter` pairs) of experiment
+Return the fixed controls (a tuple of `control_index => annotation => switching_times` pairs) of experiment
 `i`, or `nothing` if that experiment does not prescribe fixed controls.
 """
 controls(data::ExperimentData, i::Int) = experiments(data)[i].controls

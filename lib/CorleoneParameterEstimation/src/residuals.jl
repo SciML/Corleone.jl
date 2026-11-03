@@ -1,3 +1,5 @@
+import ChainRulesCore
+
 """
     model_values(pe::ParameterEstimationLayer, traj)
     model_values(pe::ParameterEstimationLayer, traj, times)
@@ -25,7 +27,11 @@ function model_values(pe::ParameterEstimationLayer, traj, times::AbstractVector)
     # solve may additionally store the end of the shared `tspan`, which is beyond the last
     # observation time of a shorter experiment and is dropped here).
     idx = indexin(times, traj.t)
-    n_obs = _obs_length(obs, first(traj.u), traj.p, first(traj.t))
+    n_obs = _obs_length(
+        obs, first(traj.u),
+        SymbolicIndexingInterface.parameter_values_at_time(traj, traj, first(traj.t)),
+        first(traj.t)
+    )
     Y = _alloc_obs_matrix(eltype(first(traj.u)), n_obs, length(times))
     if any(isnothing, idx)
         # A shooting sub-interval can diverge mid-solve (stiff steps or a blow-up), leaving
@@ -41,12 +47,14 @@ function model_values(pe::ParameterEstimationLayer, traj, times::AbstractVector)
         fill!(Y, NaN)
         for (j, k) in enumerate(idx)
             isnothing(k) && continue
-            _obs_into!(Y, j, obs, traj.u[k], traj.p, traj.t[k])
+            p = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, traj.t[k])
+            _obs_into!(Y, j, obs, traj.u[k], p, traj.t[k])
         end
         return Y
     end
     for (j, k) in enumerate(idx)
-        _obs_into!(Y, j, obs, traj.u[k], traj.p, traj.t[k])
+        p = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, traj.t[k])
+        _obs_into!(Y, j, obs, traj.u[k], p, traj.t[k])
     end
     return Y
 end
@@ -102,7 +110,9 @@ function residuals!(res::AbstractVector, pe::ParameterEstimationLayer, ps, st, a
     # nothing for a single-shooting trajectory, so this adds nothing when no shooting is
     # used. The total number of continuity residuals is `n_shooting_constraints(pe)`.
     for i in 1:n_exp
-        n_shoot = _layer_shooting_constraints(get_layer(pe)[i])
+        n_shoot = _layer_shooting_constraints(
+            get_layer(pe)[i], _experiment_ps(pe, ps, i), st[i]
+        )
         Corleone.shooting_constraints!(
             view(res, (offset + 1):(offset + n_shoot)), trajs[i]
         )
@@ -150,6 +160,11 @@ end
 # `residuals!`: all observation residuals first (experiment by experiment), then the
 # multiple-shooting continuity residuals (experiment by experiment).
 
+# The model parameter vector of `traj` at time `t`, in the same (canonical) order as the
+# underlying problem's `p`. Piecewise-constant control slots are evaluated on their interval,
+# so every observation time sees the control values in force there.
+_traj_p(traj, t) = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t)
+
 # Functional counterpart of `model_values`: build the `(n_obs, n_t)` observation matrix
 # without mutating a preallocated buffer. The element type follows the trajectory state so
 # that forward-mode `Dual` numbers are preserved (matching `model_values`).
@@ -159,7 +174,11 @@ function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVe
     # reverse-mode AD (Zygote) cannot differentiate through.
     idx = map(t -> findfirst(isequal(t), traj.t), times)
     nT = eltype(first(traj.u))
-    n_obs = _obs_length(obs, first(traj.u), traj.p, first(traj.t))
+    n_obs = _obs_length(
+        obs, first(traj.u),
+        SymbolicIndexingInterface.parameter_values_at_time(traj, traj, first(traj.t)),
+        first(traj.t)
+    )
     if any(isnothing, idx)
         # A shooting sub-interval can diverge mid-solve, leaving a trajectory that does not
         # cover every observation time; mark the uncovered columns `NaN` (see `model_values`).
@@ -169,12 +188,13 @@ function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVe
             )
         )
         cols = map(idx) do k
-            isnothing(k) ? fill(nT(NaN), n_obs) : collect(obs(traj.u[k], traj.p, traj.t[k]))
+            isnothing(k) ? fill(nT(NaN), n_obs) :
+                collect(obs(traj.u[k], _traj_p(traj, traj.t[k]), traj.t[k]))
         end
         return reduce(hcat, cols)
     end
     cols = map(idx) do k
-        collect(obs(traj.u[k], traj.p, traj.t[k]))
+        collect(obs(traj.u[k], _traj_p(traj, traj.t[k]), traj.t[k]))
     end
     return reduce(hcat, cols)
 end
@@ -221,24 +241,22 @@ end
 _layer_trajectories(traj) = (traj,)
 _layer_trajectories(trajs::Tuple) = trajs
 
-# The `p` block of the model parameters in the layer parameters `ps`. For a single
-# experiment `ps` is the layer's parameter NamedTuple (single shooting: `(u0, p, controls)`;
-# multiple shooting: the interval NamedTuples), while for several experiments it is a tuple
-# with one entry per experiment; unwrap the tuple recursively.
-_model_params(layer, ps::Tuple) = isempty(ps) ? () : _model_params(layer, first(ps))
-_model_params(::Corleone.SingleShootingLayer, ps::NamedTuple) = ps.p
-function _model_params(::Corleone.MultipleShootingLayer, ps::NamedTuple)
-    return isempty(ps) ? () : first(values(ps)).p
+# Element type of the residual vector. Taken from the (first experiment's) model parameters
+# so that manual AD through `residual` stays dual-safe, falling back to the initial-state
+# element type when the model has no trainable parameter block.
+function _residual_eltype(pe::ParameterEstimationLayer, ps)
+    layer = first(get_layer(pe))
+    ps1 = _experiment_ps(pe, ps, 1)
+    p = _shared_block(layer, ps1).p
+    isempty(p) || return eltype(p)
+    u0 = _shared_block(layer, ps1).u0
+    isempty(u0) || return eltype(u0)
+    return eltype(layer.problem.u0)
 end
 
-# Element type of the residual vector. Taken from the model parameters so that manual AD
-# through `residual` stays dual-safe, falling back to the state element type when the model
-# has no parameter block.
-function _residual_eltype(pe::ParameterEstimationLayer, ps)
-    layers = get_layer(pe)
-    mp = _model_params(layers[1], ps)
-    return isempty(mp) ? eltype(Corleone.get_problem(layers[1]).u0) : eltype(mp)
-end
+# The residual element type is metadata only; it must not be traced by reverse-mode AD,
+# which would otherwise differentiate the (mutating) parameter-tree assembly helpers.
+ChainRulesCore.@non_differentiable _residual_eltype(::Any, ::Any)
 
 """
     residual(pe, ps, st[, alg])
@@ -261,19 +279,14 @@ function residual(pe::ParameterEstimationLayer, ps, st, args...)
     return _concretize_residual(pe, ps, r)
 end
 
-# Single-shooting residuals are already inferred as a concrete `Vector`. A
-# `MultipleShootingLayer`'s trajectory type is not fully inferred (its `shootings` NamedTuple
-# is built by splatting a `Vector`), so the blocks above infer as `Any`; assert the concrete
-# element type for the plain floating-point case so the residual stays stable. Other number
-# types are left untouched: `ForwardDiff.Dual` does not need the hint, and for
-# `ReverseDiff.TrackedReal` the residual's tape parameter need not match the parameters'
-# (the assertion would wrongly reject it).
-_concretize_residual(::ParameterEstimationLayer, ps, r) = r
-function _concretize_residual(
-        pe::ParameterEstimationLayer{<:Tuple{<:Corleone.MultipleShootingLayer, Vararg}}, ps, r
-    )
-    return _assert_residual_eltype(_residual_eltype(pe, ps), r)
-end
+# The trajectory of a shooting layer is not fully inferred (its shooting blocks are built by
+# splatting), so the residual blocks above can infer as `Any`; assert the concrete element
+# type for the plain floating-point case so the residual stays stable. Other number types are
+# left untouched: `ForwardDiff.Dual` does not need the hint, and for `ReverseDiff.TrackedReal`
+# the residual's tape parameter need not match the parameters' (the assertion would wrongly
+# reject it).
+_concretize_residual(pe::ParameterEstimationLayer, ps, r) =
+    _assert_residual_eltype(_residual_eltype(pe, ps), r)
 
 _assert_residual_eltype(::Type{El}, r) where {El <: AbstractFloat} = r::Vector{El}
 _assert_residual_eltype(::Type, r) = r
@@ -282,29 +295,29 @@ _assert_residual_eltype(::Type, r) = r
     n_shooting_constraints(pe::ParameterEstimationLayer)
 
 Total number of shooting continuity (matching) residuals over all experiments of `pe`,
-computed from each experiment's (multiple-)shooting layer. This is zero when every
-experiment uses a `SingleShootingLayer`.
+computed from each experiment's shooting layer. This is zero when every experiment uses a
+single-shooting layer (a `ShootingLayer` without lifted local states).
 
 !!! note
     This convenience method recomputes the layer states from the layer, which is not
-type-stable for `MultipleShootingLayer`s. Prefer the `n_shooting_constraints` field of a
+type-stable for multiple-shooting layers. Prefer the `n_shooting_constraints` field of a
 [`CorleoneParameterEstimationProblem`](@ref), which is computed once at construction.
 """
 function n_shooting_constraints(pe::ParameterEstimationLayer)
-    return sum(i -> _layer_shooting_constraints(get_layer(pe)[i]), 1:n_experiments(get_data(pe)))
+    rng = Random.default_rng()
+    ps = LuxCore.initialparameters(rng, pe)
+    st = LuxCore.initialstates(rng, pe)
+    return sum(1:n_experiments(get_data(pe))) do i
+        _layer_shooting_constraints(
+            get_layer(pe)[i], _experiment_ps(pe, ps, i), st[i]
+        )
+    end
 end
 
-# The number of continuity (matching) constraints generated by one experiment's shooting
-# layer. Single shooting has no matching constraints; a multiple-shooting layer counts
-# state, parameter and control continuity constraints in that order (see `Corleone`).
-_layer_shooting_constraints(::Corleone.SingleShootingLayer) = 0
-_layer_shooting_constraints(layer::Corleone.MultipleShootingLayer) =
-    Corleone.get_number_of_shooting_constraints(layer)
-
-# Type-stable variant that reuses already-computed layer parameters and states instead of
-# recomputing them from the layer (which would call the not-type-stable `initialstates`).
-_layer_shooting_constraints(::Corleone.SingleShootingLayer, ps, st) = 0
-_layer_shooting_constraints(layer::Corleone.MultipleShootingLayer, ps, st) =
+# Number of continuity (matching) constraints generated by one experiment's shooting layer.
+# Corleone's `ShootingLayer` counts state, parameter and control continuity constraints;
+# the count is read from metadata in the layer state and runs no model.
+_layer_shooting_constraints(layer, ps, st) =
     Corleone.get_number_of_shooting_constraints(layer, ps, st)
 
 """
