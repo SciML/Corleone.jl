@@ -27,7 +27,7 @@ data = ExperimentData(tdata, ydata; σ = σ)
 end
 
 @testset "ParameterEstimationLayer construction" begin
-    layer = SingleShootingLayer(prob, Tsit5(); saveat = unique(tdata))
+    layer = ShootingLayer(prob, Tsit5())
     pe = ParameterEstimationLayer(layer, data)
     @test pe isa ParameterEstimationLayer
     # direct construction from the problem (handles saveat internally)

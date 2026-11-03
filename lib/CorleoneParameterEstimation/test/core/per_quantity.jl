@@ -27,9 +27,8 @@ pe_true = ParameterEstimationLayer(
         Experiment(tt, zeros(2, length(tt)); σ = σ, u0 = [1.0, 2.0])
     ); observed = obs
 )
-ps, st = LuxCore.setup(rng, first(pe_true.layer))
-ps = merge(ps, (p = [p_true, p_true],))
-traj, _ = first(pe_true.layer)(nothing, ps, st)
+ps, st = LuxCore.setup(rng, pe_true)
+traj, _ = pe_true(nothing, ps, st)
 M = model_values(pe_true, traj, tt)
 
 @testset "Per-quantity observation times: construction & accessors" begin

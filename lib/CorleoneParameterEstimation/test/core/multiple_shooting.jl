@@ -28,19 +28,19 @@ shooting_points = collect(0.0:1.0:5.0)
         observed = (u, p, t) -> u[1:1]
     )
     @test pe isa ParameterEstimationLayer
-    @test pe.layer[1] isa MultipleShootingLayer
-    ls, st = LuxCore.setup(Random.default_rng(), pe)
-    @test haskey(ls, :interval_1)
-    @test length(keys(ls)) == length(shooting_points) - 1
+    @test pe.layer[1] isa Corleone.ShootingLayer
+    # 6 shooting points -> 4 interior boundaries -> 4 state-continuity residuals.
+    @test CorleoneParameterEstimation.n_shooting_constraints(pe) == 4
 
     # Flat optimization variables: the shared model block `[u0; p]` (here just `p`,
     # since there are no tunable initial conditions) plus the local shooting states
     # of intervals 2..K (4 of them: (6 points - 1) * 1 state).
     nlls = problem(pe)
     @test length(nlls.u0) == 1 + 4
-    # 11 observations + 4 boundaries * (1 state + 1 parameter) continuity residuals.
+    # 11 observations + 4 boundaries * 1 state continuity residuals (parameters are
+    # shared across blocks in the native layout, so they add no continuity residuals).
     corr = CorleoneParameterEstimation.n_residuals(pe) - CorleoneParameterEstimation.n_observations(data)
-    @test corr == 4 * 2
+    @test corr == 4
     @test n_shooting_constraints(pe) == corr
 end
 

@@ -221,11 +221,9 @@ end
     tdata_m = collect(0.0:0.25:5.0)
     ydata_m = exp.(-p_true .* tdata_m) .+ σ .* randn(rng, length(tdata_m))
     data_m = ExperimentData(tdata_m, ydata_m; σ = σ)
-    layer = SingleShootingLayer(
-        prob, Tsit5(); saveat = unique(tdata_m),
-        tunable_ic = [1], bounds_ic = ([0.0], [5.0])
+    pe = ParameterEstimationLayer(
+        prob, Tsit5(), data_m; tunable_ic = [1], bounds_ic = ([0.0], [5.0])
     )
-    pe = ParameterEstimationLayer(layer, data_m)
     pe_problem = CorleoneParameterEstimation.CorleoneParameterEstimationProblem(
         pe; transforms = [Identity(), Log()]
     )

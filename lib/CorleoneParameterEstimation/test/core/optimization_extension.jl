@@ -41,10 +41,9 @@ pe = ParameterEstimationLayer(prob, Tsit5(), data; observed = (u, p, t) -> u[1:1
 
     # Finite bounds (here from `bounds_p`) are kept so that bounded solvers still enforce
     # them.
-    layer_b = SingleShootingLayer(
-        prob, Tsit5(); saveat = unique(tdata), bounds_p = ([0.0], [2.0])
+    pe_b = ParameterEstimationLayer(
+        prob, Tsit5(), data; observed = (u, p, t) -> u[1:1], bounds_p = ([0.0], [2.0])
     )
-    pe_b = ParameterEstimationLayer(layer_b, data; observed = (u, p, t) -> u[1:1])
     optprob_b = OptimizationProblem(pe_b)
     @test optprob_b.lb == [0.0]
     @test optprob_b.ub == [2.0]

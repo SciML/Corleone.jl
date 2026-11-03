@@ -30,9 +30,8 @@ pe_true = ParameterEstimationLayer(
         Experiment(tt, zeros(3, length(tt)); σ = σ, u0 = [1.0, 1.0, 1.0])
     ); observed = obs
 )
-ps_true, st_true = LuxCore.setup(rng, first(pe_true.layer))
-ps_true = merge(ps_true, (p = p_true,))
-traj_true, _ = first(pe_true.layer)(nothing, ps_true, st_true)
+ps_true, st_true = LuxCore.setup(rng, pe_true)
+traj_true, _ = pe_true(nothing, ps_true, st_true)
 M = model_values(pe_true, traj_true, tt)
 
 @testset "params reduces the optimization variables" begin
@@ -144,7 +143,7 @@ end
 
 @testset "params validation" begin
     # Control slots cannot be selected as tunable parameters.
-    ctrl = 1 => ControlParameter(collect(0.0:1.0:5.0), controls = ones(6))
+    ctrl = 1 => (Tunable(1; default = ones(6), lowerbound = 0.0, upperbound = 1.0) => collect(1.0:1.0:5.0))
     @test_throws ArgumentError ParameterEstimationLayer(
         prob, Tsit5(), ExperimentData(
             Experiment(tt, M; σ = σ, u0 = [1.0, 1.0, 1.0])
