@@ -28,6 +28,11 @@ Draft builds generate tutorial Markdown without executing Literate code; outputs
 and plots are omitted. Builds on `main`, tags, and local builds always execute
 the full documentation. If change detection fails, a full build runs.
 
+External documentation links use DocumenterInterLinks. Configure inventory roots
+in `docs/interlinks.jl` and reference their entries with `@extref`, for example
+``[`OptimizationLBFGSB.LBFGSB`](@extref Optimization)``. Optimization's inventory
+also contains its solver packages, so they share the `Optimization` inventory.
+
 Dependency setup is separate from the build: `make.jl` uses the active environment
 without developing or resolving packages again. Set `CI=false` for a local build
 if your shell otherwise sets `CI=true`; deployment runs only in CI.

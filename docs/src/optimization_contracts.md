@@ -297,7 +297,8 @@ literal constants. Neither evaluator captures local lexical bindings from Expr.
 ### SciMLBase optimization bridge
 
 SciMLBase provides the bridge constructors; ComponentArrays supplies the default
-packing implementation. Optimization.jl and a solver are needed to run the optimization.
+packing implementation. [Optimization.jl](@extref Optimization :std:doc:`index`) and a solver
+are needed to run the optimization.
 For example, with ADTypes/ForwardDiff and an installed optimizer:
 
 ```julia

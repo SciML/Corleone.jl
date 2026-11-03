@@ -10,6 +10,7 @@ realpath(pkgdir(OptimalControlBenchmarks)) ==
     error("Develop OptimalControlBenchmarks from this checkout; see docs/README.md.")
 
 using DocumenterCitations
+using DocumenterInterLinks
 using Literate
 using Dates
 using YAML
@@ -18,6 +19,7 @@ include("draft.jl")
 draft = documentation_draft()
 @info "Documentation build" draft
 include("process_tutorials.jl")
+include("interlinks.jl")
 bib = CitationBibliography(joinpath(@__DIR__, "src", "assets", "bibliography.bib"))
 
 makedocs(
@@ -76,7 +78,7 @@ makedocs(
         "Deprecated Constructors" => "legacy_constructors.md",
     ],
     remotes = nothing,
-    plugins = [bib],
+    plugins = [bib, links],
 )
 
 # Local documentation builds never publish the site.

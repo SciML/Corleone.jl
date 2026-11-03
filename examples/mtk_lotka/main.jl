@@ -10,7 +10,7 @@
 
 # # [ModelingToolkit Integration](@id mtk)
 # This tutorial models the [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
-# with [ModelingToolkit.jl](https://docs.sciml.ai/ModelingToolkit/stable/).
+# with [ModelingToolkit.jl](@extref ModelingToolkit :std:doc:`index`).
 # We solve it using single and multiple shooting, as in the
 # [numerical fishing example](@ref lotka_fishing).
 

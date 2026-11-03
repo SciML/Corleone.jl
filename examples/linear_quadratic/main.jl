@@ -92,6 +92,7 @@ dynprob = CorleoneDynamicOptProblem(
 )
 
 # OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
+# Solve it with [`OptimizationLBFGSB.LBFGSB`](@extref Optimization).
 opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
 usol = solve(opt, OptimizationLBFGSB.LBFGSB());
 @assert successful_retcode(usol)

@@ -31,11 +31,7 @@ function tutorial_figures(content, title, outpath, name)
 end
 
 function preprocess_script(content)
-    content = replace(
-        content, "TODAY" => string(Date(now())),
-        "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
-            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)"
-    )
+    content = replace(content, "TODAY" => string(Date(now())))
     content *= """
             # ## Appendix
             # ```@raw html
