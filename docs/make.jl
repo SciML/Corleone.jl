@@ -40,6 +40,7 @@ makedocs(
         repolink = "https://github.com/SciML/Corleone.jl",
         canonical = "https://docs.sciml.ai/Corleone/stable/",
         size_threshold = 1_500_000,
+        assets = isnothing(demo_assets) ? String[] : [demo_assets],
     ),
     doctest = true,
     checkdocs = :exports,
@@ -48,7 +49,7 @@ makedocs(
         "Home" => "index.md",
         "Getting Started" => "getting_started.md",
         "Tutorials" => [
-            "Overview" => "tutorials.md",
+            "Overview" => "gallery/index.md",
             "Optimal Control" => [
                 "Linear Quadratic Regulator" => "examples/the_linear_quadratic_regulator.md",
                 "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
@@ -86,6 +87,7 @@ makedocs(
         ],
         "References" => "references.md",
         "API Reference" => "api.md",
+        hide("Tutorials" => "tutorials.md"),
         hide("Historical Validation" => "automatic_differentiation_history.md"),
         hide("Deprecated Constructors" => "legacy_constructors.md"),
     ],

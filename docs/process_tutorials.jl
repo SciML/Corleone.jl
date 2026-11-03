@@ -85,7 +85,7 @@ function make_tutorial(path; name = nothing, draft = false)
     fname = isnothing(name) ? replace(lowercase(title), " " => "_") : name
     outpath = joinpath(@__DIR__, "src", "examples")
     isdir(outpath) || mkdir(outpath)
-    staged = joinpath(demo_source, "cards", "$fname.jl")
+    staged = joinpath(demo_source, occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control", "$fname.jl")
     content = preprocess_script(read(path, String))
     content = replace(content, "#src ---" => "# ---")
     content = replace(content, r"^#src "m => "# ")
@@ -105,8 +105,11 @@ isdir(example_output) && rm(example_output; recursive = true)
 
 demo_source = joinpath(@__DIR__, ".democards", "gallery")
 isdir(demo_source) && rm(demo_source; recursive = true)
-mkpath(joinpath(demo_source, "cards"))
-write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":null}")
+for (folder, title) in (("optimal_control", "Optimal Control"), ("experimental_design", "Optimal Experimental Design"))
+    mkpath(joinpath(demo_source, folder))
+    write(joinpath(demo_source, folder, "config.json"), "{\"title\":\"$title\"}")
+end
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"grid\",\"order\":[\"optimal_control\",\"experimental_design\"]}")
 
 tutorials = map(
     [
@@ -137,17 +140,19 @@ demo_pages, demo_postprocess, demo_assets = DemoCards.makedemos(
     edit_branch = "main",
 )
 generated = joinpath(@__DIR__, "src", "gallery")
-for file in readdir(joinpath(generated, "cards"); join = true)
-    mv(file, joinpath(example_output, basename(file)); force = true)
+for folder in ("optimal_control", "experimental_design")
+    for file in readdir(joinpath(generated, folder); join = true)
+        mv(file, joinpath(example_output, basename(file)); force = true)
+    end
 end
-demo_postprocess()
+# Keep DemoCards' metadata-driven grid while preserving published tutorial URLs.
 for metadata in tutorials
     name = basename(metadata["link"])
     path = joinpath(example_output, "$name.md")
     edit_url = "https://github.com/SciML/Corleone.jl/blob/main/" * replace(relpath(metadata["source"], joinpath(@__DIR__, "..")), '\\' => '/')
-    content = normalize_demo_output(tutorial_figures(read(path, String), metadata["title"], example_output, name))
+    content = tutorial_figures(read(path, String), metadata["title"], example_output, name)
     content = replace(content, r"```@meta\n.*?```\n"s => ""; count = 1)
-    write(path, "```@meta\nEditURL = \"$edit_url\"\n```\n\n" * content)
+    write(path, normalize_demo_output("```@meta\nEditURL = \"$edit_url\"\n```\n\n" * content))
 end
 
 # Include the benchmark guide/API from its authoritative sublibrary source.

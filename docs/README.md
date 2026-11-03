@@ -93,4 +93,6 @@ package, remove `docs/Manifest.toml` and run the setup command again.
 
 DemoCards.jl builds the seven root-site tutorials via `docs/process_tutorials.jl`.
 Its temporary staging directory is ignored; edit the original example scripts.
-All tutorials appear under Tutorials → Optimal Control or Optimal Experimental Design.
+The Tutorials overview uses DemoCards’ grid theme with Optimal Control and Optimal
+Experimental Design sections. Cards read titles and descriptions from each
+script’s metadata. The generated DemoCards stylesheet is loaded by MaterialDocs.

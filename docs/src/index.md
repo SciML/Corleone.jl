@@ -55,7 +55,7 @@ control and experimental design. Use it to optimize piecewise-constant controls,
 model parameters, or shooting states with SciML solvers and trajectory-based
 objectives and constraints.
 
-Start with [Getting Started](getting_started.md), follow a [worked tutorial](tutorials.md),
+Start with [Getting Started](getting_started.md), follow a [worked tutorial](gallery/index.md),
 or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md)
 covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental
 design; [OptimalControlBenchmarks](benchmarks/index.md) provides test problems.
