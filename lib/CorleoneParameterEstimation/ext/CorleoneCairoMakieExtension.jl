@@ -2,6 +2,7 @@ module CorleoneCairoMakieExtension
 
 using CorleoneParameterEstimation
 import CorleoneParameterEstimation: get_data
+import SymbolicIndexingInterface
 using CairoMakie
 
 # --------------------------------------------------------------------------------------
@@ -67,16 +68,16 @@ function _resolve_idxs(idxs, nq::Int, traj)
     isnothing(traj) && error(
         "Symbolic `idxs` require a trajectory to resolve against (pass integer quantity indices)."
     )
-    vars = traj.sys.variables
-    return [vars[name] for name in idxs]
+    vars = SymbolicIndexingInterface.variable_symbols(traj)
+    return [SymbolicIndexingInterface.variable_index(traj, name) for name in idxs]
 end
 
 # Default label of observed quantity `k`: the state variable name when the observed map is
 # the identity on the state (so quantity `k` is state `k`), otherwise `"q$k"`.
 function _quantity_label(traj, nq::Int, k::Int)
     if !isnothing(traj)
-        for (name, idx) in traj.sys.variables
-            idx == k && return string(name)
+        for name in SymbolicIndexingInterface.variable_symbols(traj)
+            SymbolicIndexingInterface.variable_index(traj, name) == k && return string(name)
         end
     end
     return "q$(k)"

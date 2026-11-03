@@ -45,6 +45,7 @@ using LuxCore
 using StableRNGs
 using LinearAlgebra
 using Random
+using SymbolicIndexingInterface: parameter_values_at_time, parameter_index
 
 # ## Model dynamics and the OED-designed control
 #
@@ -64,33 +65,27 @@ fish_p_true = [1.0, 1.0]         # the two tunable parameters (p[2], p[3])
 prob_fish = ODEProblem(fishing_lotka!, fish_u0, fish_tspan, fish_p0)
 rng_f = StableRNG(7)
 
-fish_grid = collect(0.0:0.2:11.8)                      # control grid (piecewise-constant)
+fish_grid = collect(0.0:0.25:11.75)                    # control grid (piecewise-constant)
 measure_times = collect(0.0:0.25:11.75)                # candidate observation times
 obs_fish = (u, p, t) -> u[1:2]                         # both species are measurable
 
 # ## Solve the optimal experimental design problem
 #
-# We wrap the model in an [`CorleoneOED.OEDLayer`](@ref) with the tunable parameters
+# We wrap the model in a `CorleoneOED.OEDLayer` with the tunable parameters
 # `params = [2, 3]`, the fishing control on index `1` and two sampling controls (one per
 # measured component). Minimising the `DCriterion` yields the most informative fishing
 # strategy.
 
-fishing_control = ControlParameter(
-    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid))
+control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => fish_grid[2:end]
+measurements = (
+    ContinuousMeasurement(:w1, measure_times, (x, p, t) -> x[1]),
+    ContinuousMeasurement(:w2, measure_times, (x, p, t) -> x[2]),
 )
-oed = OEDLayer{false}(
-    prob_fish, Tsit5();
-    params = [2, 3],
-    controls = (1 => fishing_control,),
-    bounds_p = ([1.0, 1.0], [2.0, 2.0]),
-    observed = obs_fish,
-    measurements = [
-        ControlParameter(measure_times, controls = 0.5 * ones(length(measure_times)), bounds = (0.0, 1.0)),
-        ControlParameter(measure_times, controls = 0.5 * ones(length(measure_times)), bounds = (0.0, 1.0)),
-    ],
-)
+oed = OEDLayer(prob_fish, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed)
 
-optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
+model = CorleoneDynamicOptProblem(oed, DCriterion(); ps = ps_oed, st = st_oed, M = [4.0, 4.0])
+optprob = OptimizationProblem(model, AutoForwardDiff())
 uopt = solve(
     optprob, Ipopt.Optimizer(); tol = 1.0e-8,
     hessian_approximation = "limited-memory", max_iter = 300
@@ -98,13 +93,15 @@ uopt = solve(
 println("OED solve successful: ", SciMLBase.successful_retcode(uopt))
 
 # Read off the designed fishing control and the per-species OED-selected sampling times.
-ps_oed, _ = LuxCore.setup(Random.default_rng(), oed)
-cc = uopt.u + zero(ComponentArray(ps_oed))
-nfish = length(fish_grid)
-nm = length(measure_times)
-designed_control = collect(cc.controls[1:nfish])
-w1 = measure_times[collect(cc.controls[nfish .+ (1:nm)]) .> 0.5]
-w2 = measure_times[collect(cc.controls[nfish .+ nm .+ (1:nm)]) .> 0.5]
+_, reconstruct = pack(default_vectorizer(), ps_oed)
+optimal_ps = reconstruct(uopt.u)
+traj_oed, _ = oed(nothing, optimal_ps, st_oed)
+position = parameter_index(traj_oed, 1)
+control_at(t) = parameter_values_at_time(traj_oed, traj_oed, t)[position]
+edges = vcat(first(prob_fish.tspan), fish_grid[2:end], last(prob_fish.tspan))
+designed_control = control_at.((edges[1:(end - 1)] .+ edges[2:end]) ./ 2)
+w1 = [t for t in measure_times if CorleoneOED.weight_at(oed, traj_oed, :w1, t) > 0.5]
+w2 = [t for t in measure_times if CorleoneOED.weight_at(oed, traj_oed, :w2, t) > 0.5]
 measure_pts = sort(unique(vcat(w1, w2)))
 println("Fishing control starts at:   ", round.(designed_control[1:5]; digits = 2), " ...")
 println("Species-1 measurement times: ", round.(w1; digits = 2))
@@ -117,15 +114,21 @@ println("Species-2 measurement times: ", round.(w2; digits = 2))
 # Gaussian noise -- the *per-quantity observation times* form of `Experiment`.
 
 function simulate_species_times(cvals, noise_rng; σ = 0.02)
-    c1 = (1 => ControlParameter(fish_grid, controls = cvals, bounds = (0.0, 1.0)),)
-    lay = SingleShootingLayer(prob_fish, Tsit5(); controls = c1, saveat = unique(measure_pts))
-    ps, st = LuxCore.setup(noise_rng, lay)
-    ps = merge(ps, (p = fish_p_true, controls = cvals))
-    sol, _ = lay(nothing, ps, st)
-    dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish
+    sim_data = ExperimentData(
+        Experiment(
+            [w1, w2], [zeros(length(w1)), zeros(length(w2))]; σ = 0.02, u0 = fish_u0,
+            controls = (
+                1 => Tunable(1; default = cvals, lowerbound = 0.0, upperbound = 1.0) =>
+                    fish_grid[2:end],
+            )
+        )
     )
-    M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts)
+    sim = CorleoneParameterEstimation.ParameterEstimationLayer(
+        prob_fish, Tsit5(), sim_data; observed = obs_fish
+    )
+    ps, st = LuxCore.setup(noise_rng, sim)
+    sol, _ = sim(nothing, ps, st)
+    M = CorleoneParameterEstimation.model_values(sim, sol, measure_pts)
     prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
     predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
     return prey, predator
@@ -135,15 +138,18 @@ prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
 data_control = ExperimentData(
     Experiment(
         [w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
-        controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)
+        controls = (
+            1 => Tunable(1; default = designed_control, lowerbound = 0.0, upperbound = 1.0) =>
+                fish_grid[2:end],
+        )
     )
 )
 
-# ## Build the `MultipleShootingLayer`
+# ## Build the multiple-shooting problem
 #
 # We pass a *single* shooting point `sp = [6.0]`, which partitions the horizon into `(0, 6)`
 # and `(6, 12)` and introduces a local state at `t = 6`. The designed fishing control still
-# enters in exactly the same way -- a fixed `ControlParameter` in `controls` that is *not* an
+# enters in exactly the same way -- as a fixed annotation in `controls` that is *not* an
 # optimization variable.
 
 shooting_point = [6.0]

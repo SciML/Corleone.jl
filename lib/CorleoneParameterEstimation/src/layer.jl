@@ -423,16 +423,31 @@ end
 
 function Base.show(io::IO, pe::ParameterEstimationLayer)
     type_color, no_color = SciMLBase.get_colorizers(io)
+    exps = experiments(pe.data)
     print(
         io,
         type_color, "ParameterEstimationLayer", no_color,
-        " with ", type_color, n_experiments(pe.data), no_color,
-        " experiment(s) and ", type_color, n_observations(pe.data), no_color,
-        " observations.\n",
+        " with ", _count_label(length(exps), "experiment"),
+        " and ", _count_label(n_observations(pe.data), "observation"),
     )
-    print(io, no_color, "Underlying problem: ")
+    n_ctrl = count(e -> !isnothing(e.controls), exps)
+    n_ctrl > 0 && print(io, " (", _count_label(n_ctrl, "experiment"), " with fixed controls)")
+    print(io, "\n  Tunable parameters: ", LuxCore.parameterlength(first(pe.layer)))
+    if length(exps) > 1
+        for (i, e) in enumerate(exps)
+            print(io, "\n  [", i, "] ", _experiment_description(e))
+        end
+    else
+        print(io, "\n  ", _experiment_description(first(exps)))
+    end
+    print(io, "\n", no_color, "Underlying problem: ")
     return Base.show(io, "text/plain", first(pe.layer).problem)
 end
+
+# `Lux` (when loaded) defines a recursive `MIME"text/plain"` show for every
+# `AbstractLuxWrapperLayer`, which would otherwise hide the compact summary above in the
+# REPL. This concrete method is more specific and wins regardless of load order.
+Base.show(io::IO, ::MIME"text/plain", pe::ParameterEstimationLayer) = show(io, pe)
 
 "Return the tuple of shooting layers (one per experiment) wrapped by `pe`."
 get_layer(pe::ParameterEstimationLayer) = pe.layer

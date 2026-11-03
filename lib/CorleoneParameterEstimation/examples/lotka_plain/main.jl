@@ -63,7 +63,7 @@ data = ExperimentData(tsteps, Y; σ = 0.05)
 # `(y_obs - y_model) / σ`, so the uncertainties are computed on the right scale.
 
 # ## Build the parameter-estimation layer
-# `ParameterEstimationLayer` wraps one Corleone `SingleShootingLayer` per experiment
+# `ParameterEstimationLayer` wraps one `ShootingLayer` per experiment
 # together with the observation map and the data. The layer of each experiment is built
 # from the same problem and solved with `saveat = data.t[i]` automatically, so the model is
 # sampled exactly at the observation times.
@@ -148,15 +148,12 @@ fpl
 # ## Fitting an unknown initial condition
 #
 # If the initial condition of the experiment were *unknown* (rather than a known control of
-# the experiment design), it could be made tunable on the wrapped `SingleShootingLayer` via
+# the experiment design), it could be made tunable on the shooting layer via
 # `tunable_ic`. The optimization variables then include the tunable initial condition in
 # addition to the parameters, which is useful when the initial state itself has to be
 # estimated from the data.
 
-pe_ic = ParameterEstimationLayer(
-    SingleShootingLayer(prob, Tsit5(); saveat = unique(tsteps), tunable_ic = [1, 2]),
-    data,
-)
+pe_ic = ParameterEstimationLayer(prob, Tsit5(), data; tunable_ic = [1, 2])
 println(
     "Optimization variables when the IC is also tunable: ",
     length(problem(pe_ic).u0), " (4 parameters + 2 initial-state components)"

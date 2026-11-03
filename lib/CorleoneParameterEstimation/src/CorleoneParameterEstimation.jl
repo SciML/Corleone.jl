@@ -1,3 +1,11 @@
+"""
+    CorleoneParameterEstimation
+
+Parameter estimation for [Corleone](https://github.com/SciML/Corleone.jl) models: fit the
+tunable parameters (and initial conditions) of a differential-equation model to measured
+data by nonlinear least squares, with optional parameter transforms, regularization, and
+profile-likelihood or covariance-based uncertainty quantification.
+"""
 module CorleoneParameterEstimation
 
 using Reexport

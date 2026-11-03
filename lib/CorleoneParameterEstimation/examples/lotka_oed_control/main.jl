@@ -33,6 +33,7 @@ using OrdinaryDiffEqTsit5
 using NonlinearSolve
 using Optimization, OptimizationMOI, Ipopt, ComponentArrays
 using StableRNGs
+using SymbolicIndexingInterface: parameter_values_at_time, parameter_index
 
 # ## Model dynamics and problem
 
@@ -50,89 +51,97 @@ rng_f = StableRNG(7)
 
 # The fishing control and the candidate measurement times share a common discretization.
 
-fish_grid = collect(0.0:0.2:11.8)                      # control grid (piecewise-constant)
+fish_grid = collect(0.0:0.25:11.75)                    # control grid (piecewise-constant)
 measure_times = collect(0.0:0.25:11.75)                # candidate observation times
 obs_fish = (u, p, t) -> u[1:2]                         # both species are measurable
 
 # ## Solve the optimal experimental design problem
 #
-# We wrap the model in an [`CorleoneOED.OEDLayer`](@ref) with the tunable parameters
+# We wrap the model in a `CorleoneOED.OEDLayer` with the tunable parameters
 # `params = [2, 3]`, the fishing control on index `1` and two sampling controls (one per
 # measured component). Minimising the `DCriterion` (the determinant of the inverse Fisher
 # information matrix) yields the most informative fishing strategy.
 
-fishing_control = ControlParameter(
-    fish_grid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(fish_grid))
+control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => fish_grid[2:end]
+measurements = (
+    ContinuousMeasurement(:w1, measure_times, (x, p, t) -> x[1]),
+    ContinuousMeasurement(:w2, measure_times, (x, p, t) -> x[2]),
 )
-oed = OEDLayer{false}(
-    prob_fish, Tsit5();
-    params = [2, 3],
-    controls = (1 => fishing_control,),
-    bounds_p = ([1.0, 1.0], [2.0, 2.0]),
-    observed = obs_fish,
-    measurements = [
-        ControlParameter(measure_times, controls = 0.5 * ones(length(measure_times)), bounds = (0.0, 1.0)),
-        ControlParameter(measure_times, controls = 0.5 * ones(length(measure_times)), bounds = (0.0, 1.0)),
-    ],
-)
+oed = OEDLayer(prob_fish, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed)
 
-optprob = OptimizationProblem(oed, DCriterion(); M = [4.0, 4.0])
+model = CorleoneDynamicOptProblem(oed, DCriterion(); ps = ps_oed, st = st_oed, M = [4.0, 4.0])
+optprob = OptimizationProblem(model, AutoForwardDiff())
+
 uopt = solve(
     optprob, Ipopt.Optimizer(); tol = 1.0e-8,
     hessian_approximation = "limited-memory", max_iter = 300
 )
 println("OED solve successful: ", SciMLBase.successful_retcode(uopt))
 
-# The optimal design stores the fishing control values first in its `controls` block, so
-# we can read off the designed control for the experiment. The two sampling controls `w₁`
-# and `w₂` (one per measured species) tell us *when* to measure: they are active (≈ 1) at
-# the optimized observation points. We collect the **union** of the times chosen for either
-# species and observe both species at those times (per-quantity observation times are a
-# natural extension, since each experiment's observation schedule is stored separately).
+# Reconstruct the optimal parameter tree and read the designed schedules back with
+# symbolic parameter queries: the fishing control at each interval midpoint and the
+# measurement densities at the candidate observation times. The two sampling densities
+# `w1` and `w2` (one per measured species) tell us *when* to measure: they are active
+# (≈ 1) at the optimized observation points. We collect the **union** of the times chosen
+# for either species and observe both species at those times (per-quantity observation
+# times are a natural extension, since each experiment's observation schedule is stored
+# separately).
 
-ps_oed, _ = LuxCore.setup(Random.default_rng(), oed)
-cc = uopt.u + zero(ComponentArray(ps_oed))
-nfish = length(fish_grid)
-nm = length(measure_times)
-designed_control = collect(cc.controls[1:nfish])
-w1 = measure_times[collect(cc.controls[nfish .+ (1:nm)]) .> 0.5]
-w2 = measure_times[collect(cc.controls[nfish .+ nm .+ (1:nm)]) .> 0.5]
-measure_pts = sort(unique(vcat(w1, w2)))
+_, reconstruct = pack(default_vectorizer(), ps_oed)
+optimal_ps = reconstruct(uopt.u)
+traj_oed, _ = oed(nothing, optimal_ps, st_oed)
+edges = vcat(first(prob_fish.tspan), fish_grid[2:end], last(prob_fish.tspan))
+designed_control = optimal_ps.parameter.parameters.p₁.parameter.p₁.ps
+w1 = optimal_ps.parameter.parameters.p₁.parameter.w1.ps
+w2 = optimal_ps.parameter.parameters.p₁.parameter.w2.ps
+
+w1_t = [t for (i,t) in enumerate(measure_times) if w1[i] > 0.5]
+w2_t = [t for (i,t) in enumerate(measure_times) if w2[i] > 0.5]
+measure_pts = sort(unique(vcat(w1_t, w2_t)))
 println("Fishing control starts at:   ", round.(designed_control[1:5]; digits = 2), " ...")
-println("Species-1 measurement times: ", round.(w1; digits = 2))
-println("Species-2 measurement times: ", round.(w2; digits = 2))
+println("Species-1 measurement times: ", round.(w1_t; digits = 2))
+println("Species-2 measurement times: ", round.(w2_t; digits = 2))
 println("Union observation times (n = ", length(measure_pts), "): ", round.(measure_pts; digits = 2))
 
 # ## Parameter estimation with the designed control fixed
 #
 # Now the same experiment is *actually run*: we apply the designed fishing control, and we
-# observe prey and predator **only at their own OED-selected sampling times** (`w1` and `w2`,
-# which differ between the two species), adding Gaussian noise. This is expressed with the
-# *per-quantity observation times* form of `Experiment` (`Experiment([w1, w2], [prey, predator])`),
+# observe prey and predator **only at their own OED-selected sampling times** (`w1_t` and
+# `w2_t`, which differ between the two species), adding Gaussian noise. This is expressed with
+# the *per-quantity observation times* form of `Experiment` (`Experiment([w1_t, w2_t], [prey, predator])`),
 # in which each measured quantity is sampled at its own time points instead of a single shared
-# grid. The designed control is supplied through `controls = (1 => ControlParameter(...),)` and
-# is held **fixed** during the fit -- only `p[2], p[3]` are estimated.
+# grid. The designed control is supplied through
+# `controls = (1 => annotation => switching_times,)` and is held **fixed** during the fit --
+# only `p[2], p[3]` are estimated.
 
 function simulate_species_times(cvals, noise_rng; σ = 0.02)
-    c1 = (1 => ControlParameter(fish_grid, controls = cvals, bounds = (0.0, 1.0)),)
-    lay = SingleShootingLayer(prob_fish, Tsit5(); controls = c1, saveat = unique(measure_pts))
-    ps, st = LuxCore.setup(noise_rng, lay)
-    ps = merge(ps, (p = fish_p_true, controls = cvals))
-    sol, _ = lay(nothing, ps, st)
-    dummy = CorleoneParameterEstimation.ParameterEstimationLayer(
-        lay, ExperimentData(measure_pts, zeros(2, length(measure_pts))); observed = obs_fish
+    control = Tunable(1; default = cvals, lowerbound = 0.0, upperbound = 1.0) => fish_grid[2:end]
+    sim_data = ExperimentData(
+        Experiment(
+            [w1_t, w2_t], [zeros(length(w1_t)), zeros(length(w2_t))]; σ = 0.02, u0 = fish_u0,
+            controls = (1 => control,)
+        )
     )
-    M = CorleoneParameterEstimation.model_values(dummy, sol, measure_pts) # Prey at w1, predator at w2 (each species measured at its own OED times).
-    prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
-    predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
+    sim = CorleoneParameterEstimation.ParameterEstimationLayer(
+        prob_fish, Tsit5(), sim_data; observed = obs_fish
+    )
+    ps, st = LuxCore.setup(noise_rng, sim)
+    sol, _ = sim(nothing, ps, st)
+    M = CorleoneParameterEstimation.model_values(sim, sol, measure_pts) # Prey at w1_t, predator at w2_t (each species measured at its own OED times).
+    prey = M[1, indexin(w1_t, measure_pts)] .+ σ .* randn(noise_rng, length(w1_t))
+    predator = M[2, indexin(w2_t, measure_pts)] .+ σ .* randn(noise_rng, length(w2_t))
     return prey, predator
 end
 
 prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
 data_control = ExperimentData(
     Experiment(
-        [w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
-        controls = (1 => ControlParameter(fish_grid, controls = designed_control, bounds = (0.0, 1.0)),)
+        [w1_t, w2_t], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
+        controls = (
+            1 => Tunable(1; default = designed_control, lowerbound = 0.0, upperbound = 1.0) =>
+                fish_grid[2:end],
+        )
     )
 )
 
@@ -156,8 +165,11 @@ println("With OED control:      std errors = ", round.(est_control.std_errors; d
 prey_free, pred_free = simulate_species_times(zeros(length(fish_grid)), rng_f)
 data_free = ExperimentData(
     Experiment(
-        [w1, w2], [prey_free, pred_free]; σ = 0.02, u0 = fish_u0,
-        controls = (1 => ControlParameter(fish_grid, controls = zeros(length(fish_grid)), bounds = (0.0, 1.0)),)
+        [w1_t, w2_t], [prey_free, pred_free]; σ = 0.02, u0 = fish_u0,
+        controls = (
+            1 => Tunable(1; default = zeros(length(fish_grid)), lowerbound = 0.0, upperbound = 1.0) =>
+                fish_grid[2:end],
+        )
     )
 )
 
