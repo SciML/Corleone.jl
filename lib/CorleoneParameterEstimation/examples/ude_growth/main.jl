@@ -97,7 +97,7 @@ ps_nn = (
 # The trick is to put the network parameters into the ODE parameter container `p` under a
 # dedicated field `net`. A `ComponentArray` gives that container a flat vector view while
 # keeping the nested `net.layer_1.weight`, ... access in the right-hand side. Corleone's
-# `SingleShootingLayer` then treats *every* entry of this flat vector as a tunable model
+# `ShootingLayer` then treats *every* entry of this flat vector as a tunable model
 # parameter, so the network weights are optimized together with the rest of the model.
 
 p0 = ComponentArray(; net = ComponentArray(ps_nn))
@@ -126,10 +126,10 @@ pe_1 = ParameterEstimationLayer(prob, Tsit5(), data_1)
 opt_1 = OptimizationProblem(pe_1)
 println("Number of tunable parameters: ", length(opt_1.u0))
 
-sol_adam_1 = solve(opt_1, Adam(0.01); maxiters = 500)
+sol_adam_1 = solve(opt_1, Adam(0.01); maxiters = 100)
 println("Adam objective (experiment 1): ", sol_adam_1.objective)
 
-sol_1 = solve(opt_1, LBFGSB(); u0 = sol_adam_1.u, maxiters = 500)
+sol_1 = solve(opt_1, LBFGSB(); u0 = sol_adam_1.u, maxiters = 100)
 println("L-BFGS-B objective (experiment 1): ", sol_1.objective)
 
 # The optimization variables are exactly the flattened parameter vector (the model has no
@@ -248,10 +248,10 @@ println("Total number of observations: ", n_observations(data_joint))
 pe_joint = ParameterEstimationLayer(prob, Tsit5(), data_joint)
 opt_joint = OptimizationProblem(pe_joint)
 
-sol_adam_joint = solve(opt_joint, Adam(0.01); u0 = sol_1.u, maxiters = 500)
+sol_adam_joint = solve(opt_joint, Adam(0.01); u0 = sol_1.u, maxiters = 100)
 println("Adam objective (joint): ", sol_adam_joint.objective)
 
-sol_joint = solve(opt_joint, LBFGSB(); u0 = sol_adam_joint.u, maxiters = 500)
+sol_joint = solve(opt_joint, LBFGSB(); u0 = sol_adam_joint.u, maxiters = 100)
 println("L-BFGS-B objective (joint): ", sol_joint.objective)
 
 p_joint = ComponentArray(sol_joint.u, getaxes(p0))
@@ -412,8 +412,8 @@ println("Regularization residual rows added: ", lasso_prob.n_regularization_resi
 # with the L1 penalty active.
 
 lasso_opt = OptimizationProblem(pe_joint; regularization = L1Regularizer(1.0e-4))
-sol_lasso = solve(lasso_opt, Adam(0.01); u0 = sol_joint.u, maxiters = 300)
-sol_lasso = solve(lasso_opt, LBFGSB(); u0 = sol_lasso.u, maxiters = 500)
+sol_lasso = solve(lasso_opt, Adam(0.01); u0 = sol_joint.u, maxiters = 100)
+sol_lasso = solve(lasso_opt, LBFGSB(); u0 = sol_lasso.u, maxiters = 100)
 p_lasso = ComponentArray(sol_lasso.u, getaxes(p0))
 
 # ## The L1-regularized fit

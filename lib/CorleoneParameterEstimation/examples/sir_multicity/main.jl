@@ -93,16 +93,14 @@ t_rec = collect(0.0:4.0:30.0)             # recovered reported every fourth day
 
 # New infections per day ≈ `β S I / N` (the *instantaneous* flux into the infected compartment,
 # the same quantity that `obs_sir` below reports), evaluated at each report time; recovered is
-# simply the `R` state. The transmission rate `β` is read from the layer's own model parameters
-# (not a free global), and the total population `N` from the conserved `S + I + R` of the state,
-# so the helper is self-contained and consistent with the fit. It returns the noisy series
-# *and* the noise levels, so the data and its `σ` are guaranteed to match.
+# simply the `R` state. The transmission rate `β` is read from the problem's own model
+# parameters (not a free global), and the total population `N` from the conserved `S + I + R` of
+# the state, so the helper is self-contained and consistent with the fit. It returns the noisy
+# series *and* the noise levels, so the data and its `σ` are guaranteed to match.
 function simulate_region(prob_model, times_inf, times_rec, noise_rng; σ_inf = 15.0, σ_rec = 150.0)
-    lay0 = SingleShootingLayer(prob_model, Tsit5(); saveat = unique(sort(vcat(times_inf, times_rec))))
-    ps, st = LuxCore.setup(noise_rng, lay0)
-    sol, _ = lay0(nothing, ps, st)
+    sol = solve(prob_model, Tsit5(); saveat = unique(sort(vcat(times_inf, times_rec))))
 
-    β = ps.p[1]                       # transmission rate of this outbreak (p[1])
+    β = prob_model.p[1]               # transmission rate of this outbreak (p[1])
     S = getindex.(sol.u, 1)
     I = getindex.(sol.u, 2)
     R = getindex.(sol.u, 3)
@@ -136,7 +134,7 @@ obs_sir = (u, p, t) -> (p[1] * u[1] * u[2] / (u[1] + u[2] + u[3]), u[3])
 # ## Build the parameter-estimation layer (joint multi-experiment fit)
 #
 # We use the convenience constructor `ParameterEstimationLayer(prob, alg, data)`, which
-# builds **one `SingleShootingLayer` per experiment** from the same problem — each region is
+# builds **one `ShootingLayer` per experiment** from the same problem — each region is
 # simulated from its own stored `u0` and sampled at its own observation times. Only the model
 # parameters `p = (β, γ)` are tunable; the (known) initial conditions come from the data.
 #
@@ -309,11 +307,11 @@ f
 # So far the initial infection counts were *known* inputs of the experiment design. In many
 # real datasets the number of infected individuals at the start of an epidemic is **not**
 # known — only the first *reported* cases are. We can then make `I(0)` a tunable parameter of
-# the wrapped `SingleShootingLayer` via `tunable_ic = [2]`, so it is estimated from the data
+# the shooting layer via `tunable_ic = [2]`, so it is estimated from the data
 # alongside `β` and `γ` (the infected count is state component `2`).
 #
-# We use the single-region dataset `dataA`, so a single explicit `SingleShootingLayer` is
-# enough. Two things to note:
+# We use the single-region dataset `dataA`, so the convenience constructor is enough. Two
+# things to note:
 #
 #   * the **starting guess** for the tunable entry is the `u0` of the *wrapped ODEProblem* —
 #     here a deliberately wrong `I(0) = 40` (the truth is `2.0`), so the fit has to walk the
@@ -324,14 +322,12 @@ f
 I0_guess = 40.0                           # wrong on purpose (true: 2.0)
 prob_ic_guess = ODEProblem(sir!, [Npop - I0_guess, I0_guess, 0.0], tspan, [β_guess, γ_guess])
 
-lay_ic = SingleShootingLayer(
-    prob_ic_guess, Tsit5();
-    saveat = unique(sort(vcat(t_inf, t_rec))),
+pe_ic = ParameterEstimationLayer(
+    prob_ic_guess, Tsit5(), dataA; observed = obs_sir,
     tunable_ic = [2],
     bounds_ic = ([-Inf, 0.0, -Inf], [Inf, 100.0, Inf]),
     bounds_p = ([0.1, 0.05], [2.0, 0.6]),
 )
-pe_ic = ParameterEstimationLayer(lay_ic, dataA; observed = obs_sir)
 
 # The optimization variables now hold `[I(0), β, γ]` — the tunable initial infected count
 # followed by the two rates:
