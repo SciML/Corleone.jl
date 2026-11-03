@@ -18,7 +18,7 @@ interval only uses the model trajectory at its own observation times when buildi
 residuals. The least-squares residuals of all experiments are concatenated into a single
 residual vector.
 
-Like the underlying `SingleShootingLayer`/`MultipleShootingLayer`, this layer is a callable
+Like the underlying `ShootingLayer`, this layer is a callable
 Lux layer: `LuxCore.setup` produces the initial parameters and states (shared by all
 experiments), and calling the layer with `(nothing, ps, st)` integrates the problem for every
 experiment. A single-experiment layer returns one `Trajectory`; a multi-experiment layer
@@ -32,7 +32,7 @@ be kept at known values while the rest are estimated. To estimate only a *chosen
 the model parameters (and keep every other parameter fixed at its value in `prob.p`), pass
 the `params` keyword to the convenience constructors
 `ParameterEstimationLayer(prob, alg, data; params = ...)`; `params` is forwarded to the
-underlying `SingleShootingLayer`/`MultipleShootingLayer`. Tunable initial conditions
+underlying `ShootingLayer`. Tunable initial conditions
 (`tunable_ic`) are shared between all experiments: the tunable entries of the state vector
 are fitted jointly while the remaining entries stay at each experiment's prescribed initial
 conditions.
@@ -53,7 +53,7 @@ Construct a `ParameterEstimationLayer` from pre-built Corleone shooting layers (
 experiment), an observation map and measured data.
 
 # Arguments
-- `layer`: A `SingleShootingLayer`/`MultipleShootingLayer`, or a tuple with one shooting
+- `layer`: A `ShootingLayer`, or a tuple with one shooting
   layer per experiment. All layers must be built from the same differential-equation problem.
 - `data`: An [`ExperimentData`](@ref) holding the observation time points, values and
   (optionally) initial conditions of each experiment.
@@ -70,7 +70,7 @@ short-cut constructor `ParameterEstimationLayer(prob, alg, data)` handles this a
 # Examples
 ```julia
 prob = ODEProblem(lotka, u0, tspan, p0)
-shooting = SingleShootingLayer(prob, Tsit5())
+shooting = ShootingLayer(prob, Tsit5())
 data = ExperimentData(times, y)
 pe = ParameterEstimationLayer(shooting, data; observed = (u, p, t) -> u[1:2])
 ```
@@ -91,14 +91,128 @@ function ParameterEstimationLayer(layer, data::ExperimentData; observed = (u, p,
     return ParameterEstimationLayer((layer,), data; observed = observed)
 end
 
+# Translate the legacy PE construction keywords into a native Corleone 2.x `ShootingLayer`.
+#
+# The deprecated legacy single/multiple-shooting constructors hard-code every
+# non-control parameter as tunable; PE also supports estimating only a *subset* of the
+# parameters via the `params` keyword, which is expressed here as `Constant` annotations for
+# the unselected parameters. `saveat` is deliberately not forwarded: PE samples each
+# experiment by passing its observation times as explicit segment boundaries to the layer.
+function _pe_shooting_layer(
+        prob, alg; params = nothing, controls = (), tunable_ic = Int[],
+        bounds_ic = nothing, bounds_p = nothing, quadrature_indices = Int[],
+        name = nothing, kwargs...
+    )
+    prob = SciMLBase.remake(prob; kwargs...)
+    sys = Corleone.get_symbolic_container(prob)
+    pvals, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
+    uvals, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.u0)
+    conditions = collect(tunable_ic)
+    allunique(conditions) && all(i -> i isa Integer && checkbounds(Bool, uvals, i), conditions) ||
+        throw(ArgumentError("Tunable initial-condition indices must be valid and unique."))
+    qindices = collect(quadrature_indices)
+    allunique(qindices) && all(i -> i isa Integer && checkbounds(Bool, uvals, i), qindices) ||
+        throw(ArgumentError("Quadrature indices must be valid and unique."))
+    definitions = Pair[]
+    control_indices = Int[]
+    for entry in controls
+        entry isa Pair && last(entry) isa Pair && first(last(entry)) isa Corleone.AbstractAnnotation ||
+            throw(
+            ArgumentError(
+                "Fixed controls must be `parameter_selector => annotation => switching_times` " *
+                    "pairs, where the annotation is a `Tunable`/`Constant` parameter annotation."
+            )
+        )
+        selector, definition = entry
+        index = selector isa Integer ? selector :
+            SymbolicIndexingInterface.parameter_index(sys, selector)
+        index isa Integer && checkbounds(Bool, pvals, index) ||
+            throw(ArgumentError("Invalid control parameter: $selector"))
+        push!(control_indices, index)
+        annotation, grid = definition
+        SymbolicIndexingInterface.is_variable(annotation) &&
+            throw(ArgumentError("A control must select a parameter."))
+        times = filter(t -> first(prob.tspan) < t < last(prob.tspan), grid)
+        annotation = SciMLBase.remake(
+            annotation; index = index, sym = nothing, kind = Val(:parameter)
+        )
+        push!(definitions, annotation => times)
+    end
+    allunique(control_indices) || throw(ArgumentError("Define each control parameter only once."))
+    ordinary = collect(setdiff(eachindex(pvals), control_indices))
+    selected = isnothing(params) ? ordinary :
+        _resolve_param_selection(params, sys, length(pvals), control_indices)
+    plower, pupper = Corleone.legacy_bounds(
+        isnothing(bounds_p) ? (-Inf, Inf) : bounds_p, length(ordinary), "parameter"
+    )
+    u_lower, u_upper = Corleone.legacy_bounds(
+        isnothing(bounds_ic) ? (-Inf, Inf) : bounds_ic, length(uvals), "initial-condition"
+    )
+    for k in eachindex(ordinary)
+        index = ordinary[k]
+        lo, hi = plower[k], pupper[k]
+        if index in selected
+            push!(
+                definitions, Tunable(
+                    index; kind = Val(:parameter),
+                    default = clamp(pvals[index], lo, hi), lowerbound = lo, upperbound = hi
+                ) => nothing
+            )
+        else
+            push!(
+                definitions, Constant(
+                    index; kind = Val(:parameter), default = pvals[index],
+                    lowerbound = lo, upperbound = hi
+                ) => nothing
+            )
+        end
+    end
+    for index in conditions
+        push!(
+            definitions, Tunable(
+                index; kind = Val(:variable),
+                default = clamp(uvals[index], u_lower[index], u_upper[index]),
+                lowerbound = u_lower[index], upperbound = u_upper[index]
+            ) => [first(prob.tspan)]
+        )
+    end
+    bounds = Dict(
+        sym => (u_lower[variable_index(sys, sym)], u_upper[variable_index(sys, sym)])
+            for sym in variable_symbols(sys)
+    )
+    return ShootingLayer(
+        prob, alg, definitions...; name, controls = control_indices,
+        quadratures = qindices, bounds
+    )
+end
+
+# Resolve the `params` selection (indices and/or symbols) into a unique set of non-control
+# parameter indices, rejecting unknown, out-of-range, control, and duplicate entries.
+function _resolve_param_selection(params, sys, np::Int, control_indices)
+    selected = Int[]
+    for selector in params
+        index = selector isa Integer ? selector :
+            SymbolicIndexingInterface.parameter_index(sys, selector)
+        isnothing(index) && throw(ArgumentError("Unknown parameter: $selector"))
+        index isa Integer && checkbounds(Bool, Base.OneTo(np), index) ||
+            throw(ArgumentError("Invalid parameter index: $selector"))
+        index in control_indices && throw(
+            ArgumentError("Control slots cannot be selected as tunable parameters (index $index).")
+        )
+        push!(selected, index)
+    end
+    allunique(selected) || throw(ArgumentError("The `params` selection must be unique."))
+    return selected
+end
+
 """
     ParameterEstimationLayer(prob, alg, data; kwargs...)
 
 Construct a `ParameterEstimationLayer` directly from a differential-equation problem, an
-integrator and data, by building one `SingleShootingLayer` per experiment from the *same*
+integrator and data, by building one `ShootingLayer` per experiment from the *same*
 problem. The layer of experiment `i` is built with `saveat = unique(data.t[i])` and, if the
 experiment prescribes its own initial conditions, with `u0 = data.u0[i]`. All remaining
-keywords are forwarded to the `SingleShootingLayer` constructors.
+keywords are forwarded to the underlying shooting-layer constructors.
 
 ```julia
 data = ExperimentData(
@@ -113,19 +227,18 @@ function ParameterEstimationLayer(
         data::ExperimentData; observed = (u, p, t) -> u, kwargs...
     )
     _validate_experiments(prob, data)
-    # Each experiment is simulated with its own `SingleShootingLayer` (and thus its own
+    # Each experiment is simulated with its own `ShootingLayer` (and thus its own
     # layer state) built from the same problem, so each experiment may use its own fixed
     # controls (grid and values) independently. Experiments that do not specify controls are
     # simulated with the control-slot parameters held constant at their default value from
     # `prob.p`. The tunable model parameters (all indices that are not control slots) and
     # tunable initial conditions are shared optimization variables across experiments.
     layers = ntuple(n_experiments(data)) do i
-        t_i = observation_times(data, i)
         prob_i = prob
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
         c_i = _experiment_layer_controls(data, i, prob)
-        SingleShootingLayer(prob_i, alg; saveat = unique(t_i), controls = c_i, kwargs...)
+        _pe_shooting_layer(prob_i, alg; controls = c_i, kwargs...)
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
@@ -133,7 +246,7 @@ end
 """
     ParameterEstimationLayer(prob, alg, data, shooting_points; kwargs...)
 
-Construct a `ParameterEstimationLayer` on top of a `MultipleShootingLayer` built from `prob`
+Construct a `ParameterEstimationLayer` on top of a multiple-shooting layer built from `prob`
 with the given `shooting_points`, one layer per experiment, sampling the model at the
 observation time points of each experiment.
 """
@@ -142,16 +255,16 @@ function ParameterEstimationLayer(
         data::ExperimentData, shooting_points::AbstractVector{<:Real}; observed = (u, p, t) -> u, kwargs...
     )
     _validate_experiments(prob, data)
-    # Each experiment has its own `MultipleShootingLayer` (and layer state); controls are
+    # Each experiment has its own multiple-shooting layer (and layer state); controls are
     # provided per experiment, and experiments without controls keep the control-slot
     # parameters constant at their `prob.p` default.
     layers = ntuple(n_experiments(data)) do i
-        t_i = observation_times(data, i)
         prob_i = prob
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
         c_i = _experiment_layer_controls(data, i, prob)
-        MultipleShootingLayer(prob_i, alg, shooting_points...; saveat = unique(t_i), controls = c_i, kwargs...)
+        base = _pe_shooting_layer(prob_i, alg; controls = c_i, kwargs...)
+        Corleone.legacy_lift_states(base, shooting_points, SciMLBase.EnsembleSerial())
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
@@ -193,21 +306,21 @@ end
 # its own control grid and values (it gets its own shooting layer and layer state).
 function _validate_controls(data::ExperimentData)
     has_controls(data) || return nothing
-    # Every control entry must be a `control_index => ControlParameter` pair.
+    # Every control entry must be a `control_index => annotation => switching_times` pair.
     for i in 1:n_experiments(data)
         c_i = controls(data, i)
         isnothing(c_i) && continue
         for pair in c_i
             pair isa Pair || throw(
                 ArgumentError(
-                    "Fixed controls must be `control_index => ControlParameter` pairs;" *
-                        " got an entry of type $(typeof(pair)) in experiment $i."
+                    "Fixed controls must be `control_index => annotation => switching_times` " *
+                        "pairs; got an entry of type $(typeof(pair)) in experiment $i."
                 )
             )
-            last(pair) isa Corleone.ControlParameter || throw(
+            last(pair) isa Pair && first(last(pair)) isa Corleone.AbstractAnnotation || throw(
                 ArgumentError(
-                    "Fixed controls must be `control_index => ControlParameter` pairs;" *
-                        " got a value of type $(typeof(last(pair))) in experiment $i."
+                    "Fixed controls must be `control_index => annotation => switching_times` " *
+                        "pairs; got a value of type $(typeof(last(pair))) in experiment $i."
                 )
             )
         end
@@ -222,7 +335,7 @@ function _validate_controls(data::ExperimentData)
     return
 end
 
-# Return the tuple of `control_index => ControlParameter` pairs defining the model-level
+# Return the tuple of `control_index => annotation => switching_times` pairs defining the model-level
 # control slots, taken from the first experiment that specifies controls, or `nothing` if no
 # experiment does. The discretization grid of this reference is only used as the default for
 # experiments that specify no controls; controlled experiments keep their own grid.
@@ -254,7 +367,7 @@ end
 
 # The `controls` tuple used to build the shooting layer of experiment `i`.
 #
-# - If experiment `i` specifies controls, its own `(index => ControlParameter)` pairs (grid
+# - If experiment `i` specifies controls, its own `(index => annotation => switching_times)` pairs (grid
 #   and fixed values) are used.
 # - If experiment `i` specifies no controls but the model has control slots, every control
 #   slot is held at its *default* value from `prob.p`, as a constant piecewise control on the
@@ -277,7 +390,7 @@ function _experiment_layer_controls(data::ExperimentData, i::Int, prob)
             )
         )
         cp = last(c_i[me])
-        Corleone.control_length(cp; tspan = tspan) == Corleone.control_length(ref_cp; tspan = tspan) ||
+        _control_nvalues(cp) == _control_nvalues(ref_cp) ||
             throw(
             ArgumentError(
                 "The control discretization of experiment $i on index $idx does not match" *
@@ -289,18 +402,22 @@ function _experiment_layer_controls(data::ExperimentData, i::Int, prob)
     end
 end
 
+# Number of interval values a control definition describes. A definition is an
+# `annotation => switching_times` pair; `n` switching times separate `n + 1` intervals.
+_control_nvalues(control) = length(last(control)) + 1
+
 # The `controls` tuple for an experiment that does *not* specify controls but whose model has
 # control slots: each slot held constant at its default value from `prob.p` on the reference
 # grid. (Used when an experiment supplies `controls = nothing` yet other experiments control
 # the same parameter indices.)
 function _experiment_layer_controls_uncontrolled(structure, prob)
     p_full, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), prob.p)
-    tspan = prob.tspan
     return ntuple(length(structure)) do k
         (idx, ref_cp) = structure[k]
-        nlen = Corleone.control_length(ref_cp; tspan = tspan)
-        values = fill(p_full[idx], nlen)
-        idx => Corleone.ControlParameter(ref_cp.t; name = ref_cp.name, controls = values, bounds = ref_cp.bounds)
+        annotation, grid = ref_cp
+        values = fill(p_full[idx], _control_nvalues(ref_cp))
+        replacement = SciMLBase.remake(annotation; index = idx, sym = nothing, default = values)
+        idx => (replacement => grid)
     end
 end
 
@@ -314,30 +431,24 @@ function Base.show(io::IO, pe::ParameterEstimationLayer)
         " observations.\n",
     )
     print(io, no_color, "Underlying problem: ")
-    return Base.show(io, "text/plain", Corleone.get_problem(first(pe.layer)))
+    return Base.show(io, "text/plain", first(pe.layer).problem)
 end
 
 "Return the tuple of shooting layers (one per experiment) wrapped by `pe`."
 get_layer(pe::ParameterEstimationLayer) = pe.layer
 get_observed(pe::ParameterEstimationLayer) = pe.observed
 get_data(pe::ParameterEstimationLayer) = pe.data
-# The shared layer parameters. For a single-shooting layer (or a multiple-shooting layer
-# with a single experiment) the shared `(u0, p, controls)` / interval parameters are
-# returned. For multiple shooting with several experiments every experiment has its own
-# local shooting states, so a tuple with one parameter set per experiment is returned; this
-# matches the tuple accepted by the layer callable (`_experiment_ps_ms`).
+# The layer parameters. With several experiments each experiment carries its own
+# shooting-layer parameters (and thus its own local shooting states and control values), so
+# a tuple with one parameter set per experiment is returned. A single experiment keeps the
+# bare per-layer parameter tree.
 function LuxCore.initialparameters(rng::Random.AbstractRNG, pe::ParameterEstimationLayer)
-    if _is_multiple_shooting(pe) && n_experiments(pe.data) > 1
-        return map(l -> LuxCore.initialparameters(rng, l), pe.layer)
-    end
-    return LuxCore.initialparameters(rng, first(pe.layer))
+    n_experiments(pe.data) == 1 && return LuxCore.initialparameters(rng, first(pe.layer))
+    return map(l -> LuxCore.initialparameters(rng, l), pe.layer)
 end
 
 function LuxCore.parameterlength(pe::ParameterEstimationLayer)
-    if _is_multiple_shooting(pe) && n_experiments(pe.data) > 1
-        return sum(l -> LuxCore.parameterlength(l), pe.layer)
-    end
-    return LuxCore.parameterlength(first(pe.layer))
+    return sum(l -> LuxCore.parameterlength(l), pe.layer)
 end
 
 # Each experiment gets its *own* shooting-layer state, built from its own layer, so that
@@ -350,47 +461,27 @@ function (pe::ParameterEstimationLayer)(::Any, ps, st::Tuple, args...)
     layers = pe.layer
     data = pe.data
     trajs = ntuple(n_experiments(data)) do i
-        ps_i = _experiment_ps(pe, layers[i], ps, i)
-        first(layers[i](nothing, ps_i, st[i], args...))
+        ps_i = _experiment_ps(pe, ps, i)
+        tstops = _experiment_tstops(data, layers[i], st[i], i)
+        first(layers[i]((layers[i].problem, tstops), ps_i, st[i]))
     end
     return (n_experiments(data) == 1 ? first(trajs) : trajs, st)
 end
 
-# Build the parameter NamedTuple used to simulate experiment `i`, dispatching on the kind
-# of shooting layer wrapped by `pe`.
-#
-# * **Single shooting**: `ps` is the shared `(u0, p, controls)` NamedTuple; the fixed
-#   control values of experiment `i` (from the data, or the parameter default for
-#   controlless experiments) are merged in. When the model has no controls at all the
-#   shared `ps` is returned unchanged (its control vector is empty). The control values
-#   are baked into each layer and are never part of the fitted optimization variables.
-# * **Multiple shooting**: `ps` is either a *tuple* with one `(interval_1, ...)` NamedTuple
-#   per experiment (produced by `_unflatten`), in which case every experiment already
-#   carries its own local shooting states and fixed controls and `ps[i]` is used directly;
-#   or a single shared interval NamedTuple (one experiment, or a caller reusing one `ps`
-#   for all experiments), in which case the shared local states are kept and only the
-#   fixed controls of experiment `i` are swapped in.
-function _experiment_ps(pe::ParameterEstimationLayer, layer, ps, i::Int)
-    if layer isa Corleone.MultipleShootingLayer
-        return _experiment_ps_ms(pe, ps, i)
-    end
-    data = pe.data
-    has_controls(data) || return ps
-    ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i]).controls
-    return merge(ps, (controls = ctrl,))
+# Segment boundary grid used to simulate experiment `i`: the layer's natural switching times
+# (control grids, shooting intervals, ...) extended with the experiment's observation times
+# so that the solver lands exactly on every sample.
+function _experiment_tstops(data, layer, st_i, i::Int)
+    base = Corleone.get_timestops(layer, nothing, st_i)
+    times = observation_times(data, i)
+    isempty(times) && return base
+    return sort(unique(vcat(collect(base), collect(times))))
 end
 
-function _experiment_ps_ms(pe::ParameterEstimationLayer, ps::Tuple, i::Int)
-    return ps[i]
-end
+# The time grid is discrete metadata; reverse-mode AD must not trace its assembly.
+ChainRulesCore.@non_differentiable _experiment_tstops(::Any, ::Any, ::Any, ::Any)
 
-function _experiment_ps_ms(pe::ParameterEstimationLayer, ps::NamedTuple, i::Int)
-    ctrl = LuxCore.initialparameters(Random.default_rng(), pe.layer[i])
-    blocks = ntuple(
-        k -> begin
-            cb = ctrl[k]
-            merge(ps[k], (controls = cb.controls,))
-        end, length(ps)
-    )
-    return NamedTuple{keys(ps)}(blocks)
-end
+# Return the parameter tree used to simulate experiment `i`. Multiple experiments carry one
+# parameter tree per experiment (a tuple); a single experiment uses the tree directly.
+_experiment_ps(pe::ParameterEstimationLayer, ps::Tuple, i::Int) = ps[i]
+_experiment_ps(pe::ParameterEstimationLayer, ps, i::Int) = ps

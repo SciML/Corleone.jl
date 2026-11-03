@@ -11,7 +11,8 @@ optimization variables are exactly the tunable model parameters. Parameters that
 on the wrapped layer (e.g. provided via `bounds_p` with coincident lower/upper bounds) are
 not part of the optimization variables and are kept at their values.
 
-With a [`MultipleShootingLayer`](@ref) the flat vector additionally contains the *local*
+With a multiple-shooting setup (a `ShootingLayer` with lifted local states) the flat vector
+additionally contains the *local*
 shooting initial conditions of every experiment (see [`ParameterEstimationLayer`](@ref)),
 which keep the trajectory continuous at the shooting points.
 
@@ -97,19 +98,21 @@ end
 # shooting layer, for display. Returns `nothing` when the names cannot be recovered (e.g.
 # no symbol cache), in which case `show` falls back to a plain index list.
 function _tunable_parameter_names(problem::CorleoneParameterEstimationProblem)
-    pe = problem.layer
-    layer = first(get_layer(pe))
-    inner = layer isa Corleone.MultipleShootingLayer ? layer.layer : layer
-    cache = try
-        Corleone.retrieve_symbol_cache(inner.problem, inner.control_indices)
-    catch
-        return nothing
+    layer = first(get_layer(problem.layer))
+    names = Symbol[]
+    for key in keys(layer.parameter.parameters)
+        key in Corleone.control_symbols(layer.sys) && continue
+        child = layer.parameter.parameters[key]
+        if child isa Corleone.PiecewiseConstant && child.parameter isa NamedTuple
+            for member in keys(child.parameter)
+                child.parameter[member] isa Corleone.FixedLayer && continue
+                push!(names, member)
+            end
+        elseif !(child isa Corleone.FixedLayer)
+            push!(names, key)
+        end
     end
-    names = SymbolicIndexingInterface.parameter_symbols(cache)
-    # Raw index of the k-th non-control parameter of `prob.p` (canonical order).
-    pvec, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), inner.problem.p)
-    nonidx = sort!(Int.(setdiff(eachindex(pvec), inner.control_indices)))
-    return [String(names[findfirst(==(ri), nonidx)]) for ri in inner.tunable_p]
+    return isempty(names) ? nothing : String.(names)
 end
 
 # Engine shorthand used only for display purposes.
@@ -186,8 +189,7 @@ end
 # the `show` fallback when names cannot be resolved. Returns the layers' `tunable_p`.
 function _raw_param_indices(problem::CorleoneParameterEstimationProblem)
     layer = first(get_layer(problem.layer))
-    inner = layer isa Corleone.MultipleShootingLayer ? layer.layer : layer
-    return inner.tunable_p
+    return collect(Iterators.flatten(layer.parameter.indices))
 end
 
 # --------------------------------------------------------------------------------------
@@ -209,35 +211,131 @@ end
 # reports; the local shooting states `λ_e` are auxiliary continuity variables used only to
 # keep the trajectory continuous at the shooting points.
 
-"True if `pe` wraps `MultipleShootingLayer`s."
-_is_multiple_shooting(pe::ParameterEstimationLayer) =
-    first(get_layer(pe)) isa Corleone.MultipleShootingLayer
+"True if `pe` has any interior shooting state (i.e. was built from shooting points)."
+function _is_multiple_shooting(pe::ParameterEstimationLayer)
+    layers = get_layer(pe)
+    for layer in layers
+        for child in values(layer.initialcondition.initialconditions)
+            child isa Corleone.InitialCondition || continue
+            length(child.lookup.collection) > 1 && return true
+        end
+    end
+    return false
+end
 
-# The shared `(u0, p)` model block of the (first) layer parameters `ps0`.
-function _shared_block(::Corleone.SingleShootingLayer, ps0::NamedTuple)
-    return (u0 = ps0.u0, p = ps0.p)
-end
-function _shared_block(::Corleone.MultipleShootingLayer, ps0::NamedTuple)
-    interval_1 = first(values(ps0))
-    return (u0 = interval_1.u0, p = interval_1.p)
+# Parameter groups of `layer` that are *not* control slots (i.e. ordinary model parameters).
+# Control slots are held fixed by the trajectory and are never optimization variables.
+function _ordinary_parameter_keys(layer)
+    controls = Corleone.control_symbols(layer.sys)
+    return [k for k in keys(layer.parameter.parameters) if !(k in controls)]
 end
 
-# The local shooting initial conditions of one experiment, i.e. the concatenation of the
-# `u0` blocks of its intervals `2..K`. Empty for a single-shooting layer.
-function _local_states(::Corleone.SingleShootingLayer, ps0_i::NamedTuple)
-    return eltype(ps0_i.p)[]
+# The trainable leaf value vectors of one (possibly grouped) parameter entry, in canonical
+# order. A `FixedLayer` group (all entries fixed) contributes nothing.
+function _parameter_leaves(layer_child, ps_child)
+    if layer_child isa Corleone.FixedLayer
+        return ()
+    elseif layer_child isa Corleone.PiecewiseConstant && layer_child.parameter isa NamedTuple
+        members = keys(layer_child.parameter)
+        return tuple(
+            (ps_child.parameter[m].ps for m in members
+                if !(layer_child.parameter[m] isa Corleone.FixedLayer))...
+        )
+    else
+        return (ps_child.parameter.ps,)
+    end
 end
-function _local_states(::Corleone.MultipleShootingLayer, ps0_i::NamedTuple)
-    return reduce(vcat, (vec(b.u0) for b in Iterators.drop(values(ps0_i), 1)))
+
+# Concatenate the scalar values collected in `parts` (a collection of tuples of scalars),
+# in order. Always returns a `Vector`, even for zero or one value.
+function _collect_scalars(parts)
+    values = [v for part in parts for v in part]
+    return isempty(values) ? Float64[] : values
+end
+
+# Concatenate the value vectors collected in `parts` (a collection of tuples of vectors),
+# in order. Always returns a `Vector`, even for zero or one non-empty vector.
+function _collect_vectors(parts)
+    nonempty = [v for part in parts for v in part if !isempty(v)]
+    return isempty(nonempty) ? Float64[] : reduce(vcat, nonempty)
+end
+
+# Positions of the *shared* (global initial) value and of every interior (local shooting)
+# value within an initial-condition grid. The shared position is the one at the global
+# start; a `PassThrough` group has neither.
+function _ic_positions(layer_child, t0)
+    collection = layer_child.lookup.collection
+    n = length(collection)
+    sharedpos = get(collection, t0, nothing)
+    localpositions = [i for i in 1:n if !isequal(i, sharedpos)]
+    return sharedpos, localpositions
+end
+
+# The number of trainable state values of one initial-condition group (one per member).
+function _ic_trainable_count(layer_child)
+    if layer_child.parameter isa NamedTuple
+        return count(m -> !(layer_child.parameter[m] isa Corleone.FixedLayer), keys(layer_child.parameter))
+    end
+    return 1
+end
+
+# The shared `(u0, p)` model block of the (first) layer parameters `ps0`. `u0` holds the
+# global-start value of every tunable initial condition, `p` every trainable model
+# parameter (controls excluded).
+function _shared_block(layer, ps0::NamedTuple)
+    t0 = first(layer.problem.tspan)
+    ic_layers = layer.initialcondition.initialconditions
+    ic_ps = ps0.initialcondition.initialconditions
+    ic_parts = map(collect(keys(ic_layers))) do key
+        child = ic_layers[key]
+        child isa Corleone.InitialCondition || return ()
+        sharedpos, _ = _ic_positions(child, t0)
+        isnothing(sharedpos) && return ()
+        leaf = ic_ps[key].parameter
+        if child.parameter isa NamedTuple
+            return tuple(
+                (leaf[m].ps[sharedpos] for m in keys(child.parameter)
+                    if !(child.parameter[m] isa Corleone.FixedLayer))...
+            )
+        end
+        return (leaf.ps[sharedpos],)
+    end
+    p_parts = map(_ordinary_parameter_keys(layer)) do key
+        _parameter_leaves(layer.parameter.parameters[key], ps0.parameter.parameters[key])
+    end
+    return (u0 = _collect_scalars(ic_parts), p = _collect_vectors(p_parts))
+end
+
+# The local shooting initial conditions of one experiment, i.e. the concatenation of every
+# interior-grid value of its tunable initial conditions. Empty for a single-shooting layer.
+function _local_states(layer, ps0_i::NamedTuple)
+    t0 = first(layer.problem.tspan)
+    ic_layers = layer.initialcondition.initialconditions
+    ic_ps = ps0_i.initialcondition.initialconditions
+    parts = map(collect(keys(ic_layers))) do key
+        child = ic_layers[key]
+        child isa Corleone.InitialCondition || return ()
+        _, localpositions = _ic_positions(child, t0)
+        isempty(localpositions) && return ()
+        leaf = ic_ps[key].parameter
+        if child.parameter isa NamedTuple
+            return tuple(
+                (leaf[m].ps[localpositions] for m in keys(child.parameter)
+                    if !(child.parameter[m] isa Corleone.FixedLayer))...
+            )
+        end
+        return (leaf.ps[localpositions],)
+    end
+    return _collect_vectors(parts)
 end
 
 "Flat vector of the optimization variables for the layer parameters `ps0s`."
 function _flatten(pe::ParameterEstimationLayer, ps0s::Tuple)
     layers = get_layer(pe)
     shared = _shared_block(layers[1], ps0s[1])
-    x = reduce(vcat, (vec(v) for v in values(shared)))   # [u0; p]
+    x = vcat(shared.u0, shared.p)   # [u0; p]
     for i in eachindex(ps0s)
-        append!(x, _local_states(layers[i], ps0s[i]))
+        x = vcat(x, _local_states(layers[i], ps0s[i]))
     end
     return x
 end
@@ -286,66 +384,194 @@ function _to_internal_shared(natural::AbstractVector, transforms::Tuple, m::Int)
     return vcat(shared, natural[(m + 1):end])
 end
 
+# Number of local shooting-state entries of one experiment (0 for single shooting).
+_n_local_states(layer, ps0_i::NamedTuple) = length(_local_states(layer, ps0_i))
+
+# Rebuild a named tuple from its compile-time `names` type parameter so the result keeps the
+# concrete `NamedTuple{names}` type (a runtime `keys(nt)` value would only be known as
+# `NTuple{N,Symbol}` and make the rebuild type-unstable).
+_nt_rebuild(f::F, ::NamedTuple{names}) where {F, names} = NamedTuple{names}(f(names))
+
+# Assemble one initial-condition value vector of length `n` from the shared value `uval`
+# (placed at `sharedpos`) and the interior values `lvals` (placed at `localpositions`).
+function _assemble_ic_vector(n::Int, sharedpos, localpositions, uval, lvals)
+    return map(1:n) do i
+        (!isnothing(sharedpos) && i == sharedpos) ? uval :
+            lvals[findfirst(==(i), localpositions)]
+    end
+end
+
+# The shared-block/local-state extraction and scalar/vector gathering only inspect the
+# incoming (constant) parameter buffers to derive metadata and base values. They must not be
+# traced by reverse-mode AD, both for performance and because their assembly is mutating.
+ChainRulesCore.@non_differentiable _collect_scalars(::Any)
+ChainRulesCore.@non_differentiable _collect_vectors(::Any)
+ChainRulesCore.@non_differentiable _shared_block(::Any, ::Any)
+ChainRulesCore.@non_differentiable _local_states(::Any, ::Any)
+
+# Rebuild the value vectors of one (possibly grouped) initial-condition entry. Dispatch on
+# the *concrete* `ps_child.parameter` shape: a scalar collection stores its vector under the
+# `:ps` key, while a grouped collection stores one child per variable name. The layer's own
+# `parameter` field is sometimes only known as an abstract `ParameterCollection` type, so it
+# cannot drive dispatch without losing type stability.
+function _rebuild_ic_group(layer_child, ps_child, sharedpos, localpositions, uvals, lvals)
+    return _rebuild_ic_group_ps(
+        ps_child.parameter, layer_child, ps_child, sharedpos, localpositions, uvals, lvals
+    )
+end
+
+function _rebuild_ic_group_ps(
+        ::NamedTuple{(:ps,)}, layer_child, ps_child, sharedpos, localpositions, uvals, lvals
+    )
+    n = length(ps_child.parameter.ps)
+    uval = isnothing(sharedpos) ? zero(eltype(lvals)) : only(uvals)
+    v = _assemble_ic_vector(n, sharedpos, localpositions, uval, lvals)
+    return merge(ps_child, (parameter = merge(ps_child.parameter, (ps = v,)),))
+end
+
+function _rebuild_ic_group_ps(
+        ::NamedTuple{names}, layer_child, ps_child, sharedpos, localpositions, uvals, lvals
+    ) where {names}
+    newmembers = _nt_rebuild(ps_child.parameter) do members
+        trainable = [m for m in members if !(layer_child.parameter[m] isa Corleone.FixedLayer)]
+        nl = length(localpositions)
+        map(members) do member
+            j = findfirst(==(member), trainable)
+            if isnothing(j)
+                ps_child.parameter[member]
+            else
+                n = length(ps_child.parameter[member].ps)
+                uval = isnothing(sharedpos) ? zero(eltype(lvals)) : uvals[j]
+                localvals = lvals[((j - 1) * nl + 1):(j * nl)]
+                v = _assemble_ic_vector(n, sharedpos, localpositions, uval, localvals)
+                merge(ps_child.parameter[member], (ps = v,))
+            end
+        end
+    end
+    return merge(ps_child, (parameter = newmembers,))
+end
+
+# Rebuild the value vector of one (possibly grouped) parameter entry.
+function _rebuild_param_group(layer_child, ps_child, values)
+    if layer_child isa Corleone.FixedLayer
+        return ps_child
+    elseif layer_child isa Corleone.PiecewiseConstant && layer_child.parameter isa NamedTuple
+        newmembers = _nt_rebuild(layer_child.parameter) do members
+            trainable = [m for m in members if !(layer_child.parameter[m] isa Corleone.FixedLayer)]
+            sizes = [length(ps_child.parameter[m].ps) for m in trainable]
+            offsets = [1 + sum(sizes[1:(j - 1)]) for j in eachindex(trainable)]
+            map(members) do member
+                j = findfirst(==(member), trainable)
+                isnothing(j) ? ps_child.parameter[member] :
+                    merge(ps_child.parameter[member], (ps = values[offsets[j]:(offsets[j] + sizes[j] - 1)],))
+            end
+        end
+        return merge(ps_child, (parameter = newmembers,))
+    end
+    return merge(ps_child, (parameter = merge(ps_child.parameter, (ps = values,)),))
+end
+
+# Rebuild the initial-condition container of one experiment from the shared `u0` block and
+# the experiment's local shooting states `λ`.
+# Prefix offsets of a tuple of block sizes: `(1, 1+n1, 1+n1+n2, ...)`. Recursing on the
+# tuple keeps both the offsets and their element types concrete.
+_prefix_offsets(sizes::Tuple) = _prefix_offsets(sizes, 1)
+_prefix_offsets(::Tuple{}, ::Int) = ()
+function _prefix_offsets(sizes::Tuple, offset::Int)
+    return (offset, _prefix_offsets(Base.tail(sizes), offset + first(sizes))...)
+end
+
+# Rebuild the initial-condition container of one experiment from the shared `u0` block and
+# the experiment's local shooting states `λ`.
+function _rebuild_ic_tree(layer, ps, u0, λ)
+    t0 = first(layer.problem.tspan)
+    psnt = ps.initialcondition.initialconditions
+    laynt = layer.initialcondition.initialconditions
+    iclayers = values(laynt)
+    pschildren = values(psnt)
+    sharedsizes = map(iclayers) do c
+        c isa Corleone.InitialCondition || return 0
+        sharedpos, _ = _ic_positions(c, t0)
+        isnothing(sharedpos) ? 0 : _ic_trainable_count(c)
+    end
+    localsizes = map(iclayers) do c
+        c isa Corleone.InitialCondition || return 0
+        _, localpositions = _ic_positions(c, t0)
+        length(localpositions) * _ic_trainable_count(c)
+    end
+    uoffsets = _prefix_offsets(sharedsizes)
+    loffsets = _prefix_offsets(localsizes)
+    newgroups = _nt_rebuild(psnt) do _
+        map(iclayers, pschildren, sharedsizes, localsizes, uoffsets, loffsets) do child, ps_child, ss, ls, uo, lo
+            child isa Corleone.InitialCondition || return ps_child
+            sharedpos, localpositions = _ic_positions(child, t0)
+            uvals = u0[uo:(uo + ss - 1)]
+            lvals = λ[lo:(lo + ls - 1)]
+            _rebuild_ic_group(child, ps_child, sharedpos, localpositions, uvals, lvals)
+        end
+    end
+    return merge(ps.initialcondition, (initialconditions = newgroups,))
+end
+
+# Sum the lengths of the entries of `parts` (a tuple/collection of arrays) without the
+# keyword `sum(f, itr; init)` form, whose `kwcall` Zygote cannot differentiate.
+function _total_length(parts)
+    n = 0
+    for part in parts
+        n += length(part)
+    end
+    return n
+end
+
+# Rebuild the parameter container of one experiment from the trainable parameter values.
+function _rebuild_param_tree(layer, ps, p)
+    keys_ = keys(ps.parameter.parameters)
+    sizes = map(keys_) do key
+        key in Corleone.control_symbols(layer.sys) && return 0
+        _total_length(_parameter_leaves(layer.parameter.parameters[key], ps.parameter.parameters[key]))
+    end
+    offsets = _prefix_offsets(sizes)
+    index = Ref(0)
+    newgroups = _nt_rebuild(ps.parameter.parameters) do names
+        map(names) do key
+            index[] += 1
+            k = index[]
+            # Control slots are prescribed by the data/trajectory and are not optimization
+            # variables; leave their (already populated) parameter buffers untouched.
+            key in Corleone.control_symbols(layer.sys) && return ps.parameter.parameters[key]
+            _rebuild_param_group(
+                layer.parameter.parameters[key], ps.parameter.parameters[key],
+                p[offsets[k]:(offsets[k] + sizes[k] - 1)]
+            )
+        end
+    end
+    return merge(ps.parameter, (parameters = newgroups,))
+end
+
 # Reconstruct the structured layer parameters `ps` used by the layer callable (and the
 # residual evaluation) from the flat internal vector `x`. The shared `[u0; p]` block is
-# mapped back to natural units with `transforms`.
-#
-# * Single shooting: a single shared `(u0, p, controls)` NamedTuple (controls picked up
-#   from the first experiment and overridden per experiment with fixed design inputs).
-# * Multiple shooting with one experiment: a single `(interval_1, ..., interval_K)`
-#   NamedTuple carrying that experiment's controls and local states.
-# * Multiple shooting with several experiments: a *tuple* with one such interval NamedTuple
-#   per experiment (each with its own local shooting states and fixed controls, sharing the
-#   model `[u0; p]`).
-function _unflatten(pe::ParameterEstimationLayer, ps0s::Tuple, x::AbstractVector, transforms)
+# mapped back to natural units with `transforms`; the remaining entries are the local
+# shooting states of the experiments in order.
+function _unflatten(
+        pe::ParameterEstimationLayer, ps0s::NTuple{N,Any}, x::AbstractVector, transforms
+    ) where {N}
     layers = get_layer(pe)
-    data = get_data(pe)
-    n_exp = n_experiments(data)
+    n_exp = N
     shared = _shared_block(layers[1], ps0s[1])
     nu = length(shared.u0)
     np = length(shared.p)
     m = nu + np
     @assert length(x) >= m
     u0, p = _natural_shared(x, transforms, nu, np)
-    if !_is_multiple_shooting(pe)
-        return (u0 = u0, p = p, controls = ps0s[1].controls)
-    end
-    # Split the flat local-states block into per-experiment slices and rebuild the interval
-    # parameters of every experiment. Local states of intervals `2..K` each hold the full
-    # (non-quadrature) state vector, so their size is constant across those intervals.
-    ps = ntuple(n_exp) do i
+    ps = ntuple(Val(N)) do i
         li = _n_local_states(layers[i], ps0s[i])
         start = m + 1 + (i - 1) * li
-        λi = collect(x[start:(start + li - 1)])
-        _unflatten_ms(ps0s[i], (u0 = u0, p = p), λi)
+        λi = x[start:(start + li - 1)]
+        ic = _rebuild_ic_tree(layers[i], ps0s[i], u0, λi)
+        par = _rebuild_param_tree(layers[i], ps0s[i], p)
+        merge(ps0s[i], (initialcondition = ic, parameter = par))
     end
     return n_exp == 1 ? only(ps) : ps
-end
-
-# Number of local shooting-state entries of one experiment (0 for single shooting).
-_n_local_states(::Corleone.SingleShootingLayer, ps0_i::NamedTuple) = 0
-function _n_local_states(::Corleone.MultipleShootingLayer, ps0_i::NamedTuple)
-    return sum(length(b.u0) for b in Iterators.drop(values(ps0_i), 1))
-end
-
-# Rebuild the `(interval_1, ..., interval_K)` NamedTuple of one multiple-shooting layer
-# from the shared model block `(u0, p)` and the flat local states `λ` of its intervals
-# `2..K`. Fixed controls are carried over from the initial layer parameters.
-function _unflatten_ms(ps0_i::NamedTuple, shared, λ::AbstractVector)
-    nint = length(ps0_i)
-    blocks = ntuple(nint) do k
-        base = ps0_i[k]
-        if k == 1
-            (u0 = copy(shared.u0), p = copy(shared.p), controls = base.controls)
-        else
-            s = length(ps0_i[2].u0)
-            # local-state block occupied by interval `k` (intervals `2..K` are concatenated)
-            lo = (k - 2) * s + 1
-            hi = (k - 1) * s
-            (u0 = collect(λ[lo:hi]), p = copy(shared.p), controls = base.controls)
-        end
-    end
-    return NamedTuple{keys(ps0_i)}(blocks)
 end
 
 # --- Transforms --------------------------------------------------------------------
@@ -397,56 +623,21 @@ function _transformed_bounds(transforms::Tuple, lb, ub, m::Int)
 end
 
 # --- Bounds ------------------------------------------------------------------------
+# Flat natural bounds of every optimization variable, in the same order as `_flatten`:
+# the shared `[u0; p]` block followed by the local shooting states of every experiment.
+# `Corleone.get_bounds` returns a tree shaped like the layer parameters, so the same
+# flattening helpers apply.
 function _tunable_bounds(pe::ParameterEstimationLayer, ps0s::Tuple)
     layers = get_layer(pe)
-    if _is_multiple_shooting(pe)
-        return _ms_bounds(pe, layers, ps0s)
-    end
-    return _ss_bounds(layers[1], ps0s)
-end
-
-# Single shooting: bounds of the shared `[u0; p]` block. The `u0`/`p` bound vectors
-# returned by `Corleone.get_bounds` already match the sizes of `ps0.u0`/`ps0.p` (the
-# initial-condition bounds are restricted to the tunable entries by the layer).
-function _ss_bounds(layer::Corleone.SingleShootingLayer, ps0s::Tuple)
-    ps0 = ps0s[1]
-    lb, ub = Corleone.get_bounds(layer)
-    flat_lb, flat_ub = eltype(ps0.p)[], eltype(ps0.p)[]
-    if !isempty(ps0.u0)
-        append!(flat_lb, vec(lb.u0))
-        append!(flat_ub, vec(ub.u0))
-    end
-    if !isempty(ps0.p)
-        append!(flat_lb, vec(lb.p))
-        append!(flat_ub, vec(ub.p))
-    end
-    return flat_lb, flat_ub
-end
-
-# Multiple shooting: bounds of the shared `[u0; p]` block (from interval 1 of the first
-# experiment) followed by the local shooting-state bounds of every experiment's intervals
-# `2..K`.
-function _ms_bounds(pe::ParameterEstimationLayer, layers::Tuple, ps0s::Tuple)
-    ps0 = ps0s[1]
-    el = eltype(ps0[1].p)
-    flat_lb, flat_ub = el[], el[]
-
-    lb, ub = Corleone.get_bounds(layers[1])
-    if !isempty(ps0[1].u0)
-        append!(flat_lb, vec(lb[1].u0))
-        append!(flat_ub, vec(ub[1].u0))
-    end
-    if !isempty(ps0[1].p)
-        append!(flat_lb, vec(lb[1].p))
-        append!(flat_ub, vec(ub[1].p))
-    end
-
+    lb, ub = Corleone.get_bounds(layers[1], ps0s[1])
+    shared_lb = _shared_block(layers[1], lb)
+    shared_ub = _shared_block(layers[1], ub)
+    flat_lb = vcat(shared_lb.u0, shared_lb.p)
+    flat_ub = vcat(shared_ub.u0, shared_ub.p)
     for i in eachindex(ps0s)
-        lbi, ubi = Corleone.get_bounds(layers[i])
-        for k in 2:length(lbi)
-            append!(flat_lb, vec(lbi[k].u0))
-            append!(flat_ub, vec(ubi[k].u0))
-        end
+        lbi, ubi = Corleone.get_bounds(layers[i], ps0s[i])
+        flat_lb = vcat(flat_lb, _local_states(layers[i], lbi))
+        flat_ub = vcat(flat_ub, _local_states(layers[i], ubi))
     end
     return flat_lb, flat_ub
 end

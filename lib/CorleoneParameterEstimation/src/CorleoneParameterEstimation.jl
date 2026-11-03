@@ -10,6 +10,7 @@ using SciMLBase
 using SciMLStructures
 using SymbolicIndexingInterface
 using ForwardDiff
+import ChainRulesCore
 
 using NonlinearSolve
 using NonlinearSolve: NonlinearLeastSquaresProblem
