@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Lotka Volterra Fishing · Corleone.jl</title><meta name="title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="og:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta property="twitter:title" content="Lotka Volterra Fishing · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/the_lotka_volterra_fishing_problem/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li class="is-active"><a class="tocitem" href>Lotka Volterra Fishing</a><ul class="internal"><li><a class="tocitem" href="#Lotka-Volterra-Fishing-Problem"><span>Lotka-Volterra Fishing Problem</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Lotka-Volterrra-Dynamics"><span>Lotka Volterrra Dynamics</span></a></li><li><a class="tocitem" href="#Single-Shooting-Approach"><span>Single Shooting Approach</span></a></li><li><a class="tocitem" href="#Multiple-Shooting"><span>Multiple Shooting</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Optimal Experimental Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete measurements</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiexperiments</a></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Lotka Volterra Fishing</a></li></ul></nav><div class="docs-right"><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="Lotka-Volterra-Fishing-Problem"><a class="docs-heading-anchor" href="#Lotka-Volterra-Fishing-Problem">Lotka-Volterra Fishing Problem</a><a id="Lotka-Volterra-Fishing-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#Lotka-Volterra-Fishing-Problem" title="Permalink"></a></h2><p>This is a quick intro based on <a href="https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem">the lotka volterra fishing problem</a>.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>We will use <code>Corleone</code> to define our optimal control problem.</p><pre><code class="language-julia hljs">using Corleone</code></pre><p>Additionally, we will need the following packages</p><ul><li><a href><code>LuxCore</code></a> and <a href><code>Random</code></a> for basic setup functions</li><li><a href><code>OrdinaryDiffEqTsit5</code></a> as an adaptive solver for the related ODEProblem</li><li><a href><code>SymbolicIndexingInterface</code></a> to conveniently access variables and controls of the solution</li><li><a href><code>Optimization</code></a>, <a href><code>OptimizationMOI</code></a>, <a href><code>Ipopt</code></a>, and <a href><code>ComponentArrays</code></a> to setup and solve the optimization problem</li><li><a href><code>CairoMakie</code></a> to plot the solution</li></ul><pre><code class="language-julia hljs">using LuxCore
+using Random
+using OrdinaryDiffEqTsit5
+using SymbolicIndexingInterface
+using Optimization
+using OptimizationMOI
+using Ipopt
+using ComponentArrays
+using CairoMakie</code></pre><h2 id="Lotka-Volterrra-Dynamics"><a class="docs-heading-anchor" href="#Lotka-Volterrra-Dynamics">Lotka Volterrra Dynamics</a><a id="Lotka-Volterrra-Dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Lotka-Volterrra-Dynamics" title="Permalink"></a></h2><p>First, in the ODEProblem has to be defined in a standard way.</p><pre><code class="language-julia hljs">function lotka_dynamics(du, u, p, t)
+    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    return du[3] = (u[1] - 1.0)^2 + (u[2] - 1.0)^2
+end
+tspan = (0.0, 12.0)
+u0 = [0.5, 0.7, 0.0]
+p0 = [0.0, 1.0, 1.0]
+prob = ODEProblem(lotka_dynamics, u0, tspan, p0)</code></pre><pre><code class="nohighlight hljs">ODEProblem with uType Vector{Float64} and tType Float64. In-place: true
+Non-trivial mass matrix: false
+timespan: (0.0, 12.0)
+u0: 3-element Vector{Float64}:
+ 0.5
+ 0.7
+ 0.0</code></pre><h2 id="Single-Shooting-Approach"><a class="docs-heading-anchor" href="#Single-Shooting-Approach">Single Shooting Approach</a><a id="Single-Shooting-Approach-1"></a><a class="docs-heading-anchor-permalink" href="#Single-Shooting-Approach" title="Permalink"></a></h2><p>Then, as shown before in the LQR example, the discretized control needs to be defined and applied to the problem by constructing a <code>SingleShootingLayer</code></p><pre><code class="language-julia hljs">cgrid = collect(0.0:0.1:11.9)
+control = ControlParameter(
+    cgrid, name = :fishing, bounds = (0.0, 1.0), controls = ones(length(cgrid))
+)
+layer = Corleone.SingleShootingLayer(prob, Tsit5(), controls = (1 =&gt; control,), bounds_p = ([1.0, 1.0], [1.0, 1.0]))
+
+function plot_lotka(sol)
+    f = Figure()
+    ax = CairoMakie.Axis(f[1, 1])
+    scatterlines!(ax, sol, vars = [:x₁, :x₂])
+    f[1, 2] = Legend(f, ax, &quot;States&quot;, framevisible = false)
+    ax1 = CairoMakie.Axis(f[2, 1])
+    stairs!(ax1, sol, vars = [:fishing])
+    f[2, 2] = Legend(f, ax1, &quot;Controls&quot;, framevisible = false)
+    return f
+end</code></pre><pre><code class="nohighlight hljs">plot_lotka (generic function with 1 method)</code></pre><p>The OptimizationProblem minimizing the terminal value of state <code>x₃</code> is easily set up and solved.</p><pre><code class="language-julia hljs">optprob = OptimizationProblem(layer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-6,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
+);</code></pre><pre><code class="nohighlight hljs">
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:        0
+
+Total number of variables............................:      120
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      120
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  9.3555088e+00 0.00e+00 4.50e-01   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  8.8025628e+00 0.00e+00 2.58e-01  -0.8 1.51e-01    -  9.96e-01 1.00e+00f  1
+   2  3.4618539e+00 0.00e+00 2.54e-01  -1.2 1.52e+00    -  9.26e-01 5.47e-01f  1
+   3  2.4303981e+00 0.00e+00 2.37e-01  -1.8 4.57e-01    -  9.79e-01 1.00e+00f  1
+   4  2.0495594e+00 0.00e+00 8.41e-02  -2.1 1.33e-01    -  9.90e-01 1.00e+00f  1
+   5  1.7065566e+00 0.00e+00 3.37e-02  -2.3 2.41e-01    -  9.78e-01 1.00e+00f  1
+   6  1.5045501e+00 0.00e+00 3.03e-02  -2.9 2.26e-01    -  9.88e-01 1.00e+00f  1
+   7  1.3962652e+00 0.00e+00 2.17e-02  -3.5 2.08e-01    -  1.00e+00 8.86e-01f  1
+   8  1.3710133e+00 0.00e+00 2.06e-02  -4.0 2.40e-01    -  1.00e+00 5.63e-01f  1
+   9  1.3601040e+00 0.00e+00 1.27e-02  -3.9 3.49e-01    -  1.00e+00 4.31e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.3544968e+00 0.00e+00 3.79e-03  -4.3 2.16e-01    -  1.00e+00 4.23e-01f  1
+  11  1.3491980e+00 0.00e+00 3.48e-03  -5.2 2.70e-01    -  9.98e-01 5.50e-01f  1
+  12  1.3465288e+00 0.00e+00 4.64e-03  -5.3 5.12e-01    -  1.00e+00 4.55e-01f  1
+  13  1.3463491e+00 0.00e+00 2.22e-03  -5.5 1.48e-01    -  1.00e+00 6.29e-02f  3
+  14  1.3451740e+00 0.00e+00 4.07e-03  -5.3 1.19e-02    -  1.00e+00 9.80e-01f  1
+  15  1.3447077e+00 0.00e+00 8.33e-04  -6.5 3.37e-02    -  1.00e+00 6.66e-01f  1
+  16  1.3445826e+00 0.00e+00 2.04e-03  -8.1 4.15e-02    -  1.00e+00 5.80e-01f  1
+  17  1.3445024e+00 0.00e+00 1.05e-03  -8.4 7.26e-02    -  1.00e+00 2.06e-01f  1
+  18  1.3444366e+00 0.00e+00 3.91e-04  -7.6 3.17e-02    -  1.00e+00 6.63e-01f  1
+  19  1.3444269e+00 0.00e+00 3.04e-04  -6.8 4.45e-02    -  1.00e+00 1.89e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  1.3444038e+00 0.00e+00 1.43e-03  -7.5 1.55e-01    -  1.00e+00 2.88e-01f  1
+  21  1.3443808e+00 0.00e+00 1.13e-03  -8.0 9.07e-02    -  1.00e+00 7.67e-01f  1
+  22  1.3443869e+00 0.00e+00 2.84e-04  -6.6 6.54e-02    -  9.87e-01 1.00e+00f  1
+  23  1.3443875e+00 0.00e+00 3.28e-04  -6.5 1.57e-01    -  1.00e+00 3.12e-02f  6
+  24  1.3443776e+00 0.00e+00 2.80e-04  -6.5 1.14e-01    -  1.00e+00 1.94e-01f  2
+  25  1.3443650e+00 0.00e+00 8.86e-04  -6.8 6.23e-02    -  1.00e+00 8.62e-01f  1
+  26  1.3443556e+00 0.00e+00 5.60e-04  -7.5 1.05e-01    -  1.00e+00 1.36e-01f  2
+  27  1.3443462e+00 0.00e+00 1.05e-04  -7.9 1.48e-02    -  1.00e+00 7.18e-01f  1
+  28  1.3443448e+00 0.00e+00 1.76e-04  -7.4 1.63e-02    -  1.00e+00 5.00e-01f  2
+  29  1.3443416e+00 0.00e+00 5.35e-05  -8.4 5.35e-03    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  1.3443414e+00 0.00e+00 8.84e-05 -10.0 1.11e-02    -  1.00e+00 7.04e-01f  1
+  31  1.3443402e+00 0.00e+00 1.10e-04  -8.6 3.22e-02    -  1.00e+00 4.99e-01f  1
+  32  1.3443399e+00 0.00e+00 8.14e-05 -10.1 9.05e-03    -  1.00e+00 5.14e-01f  1
+  33  1.3443398e+00 0.00e+00 1.68e-04  -9.3 3.47e-03    -  1.00e+00 2.50e-01f  3
+  34  1.3443395e+00 0.00e+00 1.39e-04  -8.6 1.02e-03    -  1.00e+00 1.00e+00f  1
+  35  1.3443393e+00 0.00e+00 2.37e-05 -11.0 1.39e-03    -  1.00e+00 7.12e-01f  1
+  36  1.3443391e+00 0.00e+00 2.33e-05 -11.0 3.58e-03    -  1.00e+00 7.59e-01f  1
+  37  1.3443391e+00 0.00e+00 3.46e-05 -11.0 2.75e-02    -  1.00e+00 1.90e-01f  1
+  38  1.3443389e+00 0.00e+00 1.24e-04  -9.4 2.92e-02    -  1.00e+00 2.50e-01f  3
+  39  1.3443388e+00 0.00e+00 8.15e-05  -9.2 5.31e-01    -  1.00e+00 5.54e-02f  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  1.3443387e+00 0.00e+00 6.77e-05  -9.6 8.26e-02    -  1.00e+00 2.82e-02f  4
+  41  1.3443388e+00 0.00e+00 1.66e-04  -8.1 3.23e-02    -  1.00e+00 2.50e-01f  3
+  42  1.3443384e+00 0.00e+00 5.77e-05  -8.3 1.11e-02    -  4.28e-01 5.00e-01f  2
+  43  1.3443381e+00 0.00e+00 7.37e-05  -9.0 3.07e-03    -  1.00e+00 9.80e-01f  1
+  44  1.3443379e+00 0.00e+00 7.38e-05  -9.7 2.06e-02    -  1.00e+00 2.90e-01f  2
+  45  1.3443378e+00 0.00e+00 9.58e-05 -10.5 1.54e-02    -  1.00e+00 2.50e-01f  3
+  46  1.3443377e+00 0.00e+00 7.75e-05 -10.5 1.60e-01    -  1.00e+00 3.99e-02f  4
+  47  1.3443380e+00 0.00e+00 8.13e-05  -8.4 7.01e-02    -  1.00e+00 1.00e+00f  1
+  48  1.3443380e+00 0.00e+00 1.23e-04  -8.5 4.29e-01    -  9.42e-02 4.89e-03f  5
+  49  1.3443376e+00 0.00e+00 5.06e-05  -8.5 1.01e-02    -  1.00e+00 3.33e-01f  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  1.3443375e+00 0.00e+00 9.53e-05  -8.5 4.96e-02    -  1.00e+00 4.99e-01f  1
+  51  1.3443371e+00 0.00e+00 5.13e-05  -8.2 2.18e-01    -  1.00e+00 1.76e-01f  2
+  52  1.3443370e+00 0.00e+00 7.55e-05  -7.9 4.44e-02    -  1.00e+00 2.61e-02f  4
+  53  1.3443370e+00 0.00e+00 7.06e-05  -8.2 1.17e-02    -  1.00e+00 1.25e-01f  4
+  54  1.3443370e+00 0.00e+00 3.47e-05  -8.3 3.56e-03    -  9.46e-01 1.00e+00f  1
+  55  1.3443369e+00 0.00e+00 8.80e-05  -9.1 1.37e-02    -  1.00e+00 5.00e-01f  2
+  56  1.3443369e+00 0.00e+00 3.85e-05  -9.2 2.87e-02    -  1.00e+00 4.17e-02f  3
+  57  1.3443366e+00 0.00e+00 2.41e-05  -9.1 5.95e-03    -  1.00e+00 1.00e+00f  1
+  58  1.3443366e+00 0.00e+00 4.51e-05  -8.8 1.69e-02    -  1.00e+00 4.31e-01f  2
+  59  1.3443366e+00 0.00e+00 2.22e-05  -9.2 1.16e-02    -  1.00e+00 6.25e-02f  5
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  1.3443366e+00 0.00e+00 5.38e-05  -9.2 2.70e-02    -  1.00e+00 4.29e-02f  5
+  61  1.3443366e+00 0.00e+00 1.98e-05  -9.3 2.00e-02    -  1.00e+00 2.92e-01f  2
+  62  1.3443366e+00 0.00e+00 1.60e-05  -9.5 1.49e-01    -  1.00e+00 1.54e-02f  4
+  63  1.3443366e+00 0.00e+00 3.46e-05 -10.0 1.19e-02    -  1.00e+00 2.46e-01f  3
+  64  1.3443365e+00 0.00e+00 1.16e-05  -9.1 2.16e-02    -  1.00e+00 2.25e-01f  3
+  65  1.3443365e+00 0.00e+00 1.60e-05  -8.9 8.35e-02    -  1.00e+00 8.73e-02f  2
+  66  1.3443366e+00 0.00e+00 4.40e-05  -8.2 1.48e-02    -  1.00e+00 1.10e-01f  4
+  67  1.3443366e+00 0.00e+00 4.80e-05  -8.3 6.93e-03    -  8.39e-01 2.50e-01f  3
+  68  1.3443367e+00 0.00e+00 2.95e-05  -8.3 2.07e-03    -  1.00e+00 1.00e+00f  1
+  69  1.3443366e+00 0.00e+00 1.78e-05  -8.3 1.50e-03    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  1.3443366e+00 0.00e+00 1.60e-05  -8.3 4.60e-03    -  7.35e-01 1.25e-01f  4
+  71  1.3443366e+00 0.00e+00 9.35e-06  -8.3 1.76e-03    -  1.00e+00 5.00e-01f  2
+  72  1.3443366e+00 0.00e+00 5.02e-06  -8.3 1.68e-03    -  1.00e+00 2.50e-01f  3
+  73  1.3443366e+00 0.00e+00 9.45e-06  -8.3 6.20e-04    -  1.00e+00 1.00e+00f  1
+  74  1.3443366e+00 0.00e+00 2.82e-05  -8.3 6.75e-04    -  1.00e+00 1.00e+00f  1
+  75  1.3443366e+00 0.00e+00 6.48e-06  -8.3 4.16e-03    -  1.00e+00 1.25e-01f  4
+  76  1.3443366e+00 0.00e+00 9.59e-06  -8.3 5.97e-04    -  1.00e+00 1.00e+00f  1
+  77  1.3443366e+00 0.00e+00 8.25e-06  -8.3 2.54e-03    -  1.00e+00 6.25e-02f  5
+  78  1.3443366e+00 0.00e+00 9.30e-06  -8.3 1.71e-04    -  1.00e+00 1.00e+00f  1
+  79  1.3443366e+00 0.00e+00 2.36e-06  -8.3 1.72e-04    -  1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  1.3443366e+00 0.00e+00 3.65e-06  -8.3 6.25e-04    -  1.00e+00 1.00e+00f  1
+  81  1.3443366e+00 0.00e+00 1.19e-05  -8.3 5.29e-03    -  1.00e+00 5.00e-01f  2
+  82  1.3443366e+00 0.00e+00 1.14e-05  -8.3 3.35e-02    -  7.87e-01 7.81e-03f  8
+  83  1.3443366e+00 0.00e+00 5.01e-06  -8.3 4.04e-04    -  1.00e+00 1.00e+00f  1
+  84  1.3443366e+00 0.00e+00 5.56e-06  -8.3 1.61e-03    -  1.00e+00 1.25e-01f  4
+  85  1.3443366e+00 0.00e+00 9.15e-06  -8.3 4.91e-03    -  1.00e+00 5.00e-01f  2
+  86  1.3443366e+00 0.00e+00 7.92e-06  -8.3 6.44e-03    -  1.00e+00 5.00e-01f  2
+  87  1.3443366e+00 0.00e+00 1.13e-05  -8.3 1.33e-02    -  1.00e+00 2.50e-01f  3
+  88  1.3443366e+00 0.00e+00 4.80e-06  -8.3 2.33e-03    -  1.00e+00 2.50e-01f  3
+  89  1.3443366e+00 0.00e+00 6.64e-06  -8.3 2.93e-03    -  1.00e+00 5.00e-01f  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  1.3443366e+00 0.00e+00 8.18e-06  -8.3 3.80e-03    -  1.00e+00 1.25e-01f  4
+  91  1.3443366e+00 0.00e+00 1.19e-05  -8.3 1.74e-02    -  1.00e+00 6.25e-02f  5
+  92  1.3443366e+00 0.00e+00 7.10e-06  -8.3 3.91e-03    -  1.00e+00 1.56e-02f  7
+  93  1.3443366e+00 0.00e+00 1.55e-06  -8.3 1.11e-03    -  1.00e+00 1.00e+00f  1
+  94  1.3443366e+00 0.00e+00 3.68e-06  -8.3 1.97e-03    -  1.00e+00 1.25e-01f  4
+  95  1.3443366e+00 0.00e+00 1.07e-06  -8.3 1.87e-04    -  1.00e+00 1.00e+00f  1
+  96  1.3443366e+00 0.00e+00 2.60e-06  -8.3 7.15e-04    -  1.00e+00 5.00e-01f  2
+  97  1.3443366e+00 0.00e+00 7.69e-06  -8.3 6.76e-03    -  1.00e+00 6.25e-02f  5
+  98  1.3443366e+00 0.00e+00 4.30e-06  -8.3 1.52e-02    -  1.00e+00 1.56e-02f  7
+  99  1.3443366e+00 0.00e+00 5.56e-06  -8.3 1.82e-03    -  1.00e+00 3.12e-02f  6
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  1.3443366e+00 0.00e+00 2.67e-06  -8.3 2.58e-04    -  1.00e+00 1.00e+00f  1
+ 101  1.3443366e+00 0.00e+00 6.09e-06  -8.3 7.05e-03    -  1.00e+00 1.25e-01f  4
+ 102  1.3443366e+00 0.00e+00 4.85e-06  -8.3 4.70e-03    -  1.00e+00 1.25e-01f  4
+ 103  1.3443366e+00 0.00e+00 4.15e-06  -8.3 9.57e-03    -  1.00e+00 2.50e-01f  3
+ 104  1.3443366e+00 0.00e+00 6.02e-06  -8.3 1.20e-01    -  5.13e-01 7.81e-03f  8
+ 105  1.3443366e+00 0.00e+00 4.95e-06  -8.3 4.40e-02    -  1.00e+00 7.81e-03f  8
+ 106  1.3443366e+00 0.00e+00 3.68e-06  -8.3 2.39e-02    -  1.00e+00 1.56e-02f  7
+ 107  1.3443366e+00 0.00e+00 1.73e-06  -8.3 1.82e-03    -  1.00e+00 5.00e-01f  2
+ 108  1.3443366e+00 0.00e+00 3.52e-06  -8.3 1.53e-02    -  1.00e+00 3.12e-02f  6
+ 109  1.3443366e+00 0.00e+00 5.82e-06  -8.3 1.10e-02    -  1.00e+00 1.25e-01f  4
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 110  1.3443366e+00 0.00e+00 2.57e-06  -8.3 4.47e-03    -  1.00e+00 6.25e-02f  5
+ 111  1.3443366e+00 0.00e+00 3.37e-05  -8.3 4.43e-03    -  1.00e+00 1.00e+00w  1
+ 112  1.3443369e+00 0.00e+00 9.58e-05  -8.3 2.00e-03    -  1.00e+00 1.00e+00w  1
+ 113  1.3443368e+00 0.00e+00 9.15e-05  -8.3 1.05e-02    -  1.00e+00 1.00e+00w  1
+ 114  1.3443366e+00 0.00e+00 2.08e-06  -8.3 9.29e-02    -  1.00e+00 6.25e-02f  4
+ 115  1.3443366e+00 0.00e+00 3.60e-06  -8.3 3.07e-03    -  1.00e+00 1.25e-01f  4
+ 116  1.3443366e+00 0.00e+00 2.14e-06  -8.3 1.03e-02    -  1.00e+00 1.56e-02f  7
+ 117  1.3443366e+00 0.00e+00 3.67e-06  -8.3 1.42e-03    -  1.00e+00 2.50e-01f  3
+ 118  1.3443366e+00 0.00e+00 6.78e-06  -8.3 1.05e-02    -  1.00e+00 6.25e-02f  5
+ 119  1.3443366e+00 0.00e+00 2.54e-06  -8.3 3.22e-03    -  1.00e+00 6.25e-02f  5
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 120  1.3443366e+00 0.00e+00 5.72e-06  -8.3 5.03e-03    -  1.00e+00 2.50e-01f  3
+ 121  1.3443366e+00 0.00e+00 3.54e-06  -8.3 9.68e-02    -  1.00e+00 7.81e-03f  8
+ 122  1.3443366e+00 0.00e+00 1.87e-06  -8.3 1.32e-02    -  1.00e+00 6.25e-02f  5
+ 123  1.3443366e+00 0.00e+00 2.98e-06  -8.3 4.77e-03    -  1.00e+00 3.12e-02f  6
+ 124  1.3443366e+00 0.00e+00 1.01e-05  -8.3 2.84e-03    -  1.00e+00 1.00e+00w  1
+ 125  1.3443433e+00 0.00e+00 6.06e-04  -8.3 4.64e-02    -  1.00e+00 9.85e-01w  1
+ 126  1.3443384e+00 0.00e+00 2.95e-04  -8.3 3.32e-02    -  1.00e+00 1.00e+00w  1
+ 127  1.3443366e+00 0.00e+00 4.61e-06  -8.3 1.43e+00    -  1.00e+00 5.00e-01f  1
+ 128  1.3443366e+00 0.00e+00 2.23e-06  -8.3 1.71e-02    -  1.00e+00 3.12e-02f  6
+ 129  1.3443366e+00 0.00e+00 4.33e-06  -8.3 4.20e-02    -  1.00e+00 7.81e-03f  8
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 130  1.3443366e+00 0.00e+00 4.15e-06  -8.3 1.18e-03    -  1.00e+00 5.00e-01f  2
+ 131  1.3443366e+00 0.00e+00 5.77e-06  -8.3 3.66e-02    -  1.00e+00 1.56e-02f  7
+ 132  1.3443366e+00 0.00e+00 1.42e-06  -8.3 3.36e-03    -  1.00e+00 2.50e-01f  3
+ 133  1.3443366e+00 0.00e+00 5.23e-06  -8.3 2.22e-02    -  1.00e+00 1.56e-02f  7
+ 134  1.3443366e+00 0.00e+00 2.46e-06  -8.3 1.04e-02    -  1.00e+00 1.25e-01f  4
+ 135  1.3443366e+00 0.00e+00 3.49e-06  -8.3 2.14e-02    -  1.00e+00 3.12e-02f  6
+ 136  1.3443366e+00 0.00e+00 1.14e-06  -8.3 4.56e-02    -  1.00e+00 7.81e-03f  8
+ 137  1.3443366e+00 0.00e+00 1.59e-06  -8.3 2.85e-02    -  1.00e+00 7.81e-03f  8
+ 138  1.3443370e+00 0.00e+00 1.06e-04  -8.3 3.74e-02    -  1.00e+00 1.00e+00w  1
+ 139  1.3443387e+00 0.00e+00 2.39e-04  -8.3 4.67e-02    -  1.00e+00 1.00e+00w  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 140  1.3444121e+00 0.00e+00 1.60e-03  -8.3 2.02e+00    -  1.71e-01 1.69e-01w  1
+ 141  1.3443366e+00 0.00e+00 1.55e-06  -8.3 6.71e-01    -  1.00e+00 1.56e-02f  6
+ 142  1.3443366e+00 0.00e+00 2.81e-06  -8.3 6.61e-02    -  1.00e+00 1.56e-02f  7
+ 143  1.3443366e+00 0.00e+00 3.21e-06  -8.3 6.54e-02    -  1.00e+00 3.91e-03f  9
+ 144  1.3443366e+00 0.00e+00 2.95e-06  -8.3 5.11e-02    -  1.00e+00 3.91e-03f  9
+ 145  1.3443366e+00 0.00e+00 1.67e-06  -8.3 2.65e-02    -  1.00e+00 7.81e-03f  8
+ 146  1.3443366e+00 0.00e+00 2.86e-06  -8.3 5.55e-02    -  1.00e+00 7.81e-03f  8
+ 147  1.3443366e+00 0.00e+00 1.07e-06  -8.3 1.65e-03    -  1.00e+00 5.00e-01f  2
+ 148  1.3443366e+00 0.00e+00 8.02e-07  -8.3 4.44e-02    -  1.00e+00 3.91e-03f  9
+
+Number of Iterations....: 148
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.3443365601750652e+00    1.3443365601750652e+00
+Dual infeasibility......:   8.0179593431577850e-07    8.0179593431577850e-07
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   5.4540495157055894e-09    5.4540495157055894e-09
+Overall NLP error.......:   8.0179593431577850e-07    8.0179593431577850e-07
+
+
+Number of objective function evaluations             = 812
+Number of objective gradient evaluations             = 149
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 0
+Total seconds in IPOPT                               = 41.123
+
+EXIT: Optimal Solution Found.
+</code></pre><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), layer)
+optsol, _ = layer(nothing, uopt + zero(ComponentArray(ps)), st)
+
+plot_lotka(optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-14.png" alt/></p><h2 id="Multiple-Shooting"><a class="docs-heading-anchor" href="#Multiple-Shooting">Multiple Shooting</a><a id="Multiple-Shooting-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Shooting" title="Permalink"></a></h2><p>We can also partition the time horizon into smaller intervals on which the integration is decoupled. At these shooting points, variables are introduced for the initial values of the differential states. By this lifting approach, nonlinearities can be reduced. In <code>Corleone</code>, this can be done by constructing a <code>MultipleShootingLayer</code> from the <code>ODEProblem</code> and adding a vector of shooting points. The optimization problem is constructed in the same way as with the <code>SingleShootingLayer</code>. However, in the background matching constraints are added that require the final state on one shooting interval matches the initial state on the subsequent shooting interval.</p><pre><code class="language-julia hljs">shooting_points = [0.0, 3.0, 6.0, 9.0, 12.0]
+mslayer = MultipleShootingLayer(
+    prob, Tsit5(), shooting_points...; controls = (1 =&gt; control,),
+    bounds_p = ([1.0, 1.0], [1.0, 1.0])
+)
+
+msps, msst = LuxCore.setup(Random.default_rng(), mslayer)
+
+optprob = OptimizationProblem(mslayer, AutoForwardDiff(), Val(:ComponentArrays), loss = :x₃)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer(),
+    tol = 1.0e-5,
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 300
+);
+
+mssol, _ = mslayer(nothing, uopt + zero(ComponentArray(msps)), msst);
+
+plot_lotka(mssol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-17.png" alt/></p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+  [13f3f980] CairoMakie v0.15.14
+  [b0b7db55] ComponentArrays v0.15.48
+  [2751e0db] Corleone v0.0.8 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v0.0.9 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [f6369f11] ForwardDiff v1.4.5
+  [b6b21f68] Ipopt v1.15.0
+  [682c06a0] JSON v1.8.0
+  [2ddba703] Juniper v0.9.4
+  [98b081ad] Literate v2.21.0
+  [bb33d45b] LuxCore v1.5.3
+  [961ee093] ModelingToolkit v11.41.0
+  [d147904a] OptimalControlBenchmarks v0.0.3 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
+  [7f7a1694] Optimization v5.9.0
+  [22f7324a] OptimizationLBFGSB v1.5.1
+  [fd9f6733] OptimizationMOI v1.4.1
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.4
+  [2efcf032] SymbolicIndexingInterface v0.3.55
+  [ddb6d928] YAML v0.4.16
+  [9a3f8284] Random v1.11.0
+</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre><pre><code class="nohighlight hljs">Julia Version 1.12.7
+Commit 6d172b025e4 (2026-08-15 08:05 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-18.1.7 (ORCJIT, znver5)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+  [47edcb42] ADTypes v1.24.0
+  [14f7f29c] AMD v0.5.4
+  [a4c015fc] ANSIColoredPrinters v0.0.1
+  [621f4979] AbstractFFTs v1.5.0
+  [6e696c72] AbstractPlutoDingetjes v1.4.1
+  [1520ce14] AbstractTrees v0.4.5
+  [7d9f7c33] Accessors v0.1.45
+  [79e6a3ab] Adapt v4.7.0
+  [35492f91] AdaptivePredicates v1.2.0
+  [66dad0bd] AliasTables v1.1.3
+  [27a7e980] Animations v0.4.2
+  [ec485272] ArnoldiMethod v0.4.0
+  [4fba245c] ArrayInterface v7.30.1
+  [4c555306] ArrayLayouts v1.12.2
+  [67c07d97] Automa v1.2.0
+  [13072b0f] AxisAlgorithms v1.1.0
+  [39de3d68] AxisArrays v0.4.8
+  [aae01518] BandedMatrices v1.12.0
+  [198e06fe] BangBang v0.4.9
+  [18cc8868] BaseDirs v1.4.0
+  [6e4b80f9] BenchmarkTools v1.8.0
+  [2027ae74] BibInternal v0.4.0
+  [13533e5b] BibParser v0.3.0
+  [f1be7e48] Bibliography v0.4.0
+  [e2ed5e7c] Bijections v0.2.2
+  [b2a6c25c] BinaryHeaps v1.1.0
+  [caf10ac8] BipartiteGraphs v0.1.14
+  [8e7c35d0] BlockArrays v1.10.0
+  [70df07ce] BracketingNonlinearSolve v1.12.6
+  [fa961155] CEnum v0.5.0
+  [96374032] CRlibm v1.0.2
+  [159f3aea] Cairo v1.1.1
+  [13f3f980] CairoMakie v0.15.14
+  [d360d2e6] ChainRulesCore v1.26.1
+  [ae650224] ChunkSplitters v3.2.0
+  [523fee87] CodecBzip2 v0.8.5
+  [944b1d66] CodecZlib v0.7.9
+  [6b39b394] CodecZstd v0.8.7
+  [a2cac450] ColorBrewer v0.4.2
+  [35d6a980] ColorSchemes v3.31.0
+  [3da002f7] ColorTypes v0.12.1
+  [c3611d14] ColorVectorSpace v0.11.0
+  [5ae59095] Colors v0.13.1
+⌅ [861a8166] Combinatorics v1.0.2
+  [38540f10] CommonSolve v0.2.14
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [f70d9fcc] CommonWorldInvalidations v1.2.2
+  [34da2185] Compat v4.18.1
+  [b0b7db55] ComponentArrays v0.15.48
+  [b152e2b5] CompositeTypes v0.1.4
+  [a33af91c] CompositionsBase v0.1.2
+  [95dc2771] ComputePipeline v0.1.8
+  [2569d6c7] ConcreteStructs v0.2.8
+  [88cd18e8] ConsoleProgressMonitor v0.1.2
+  [187b0558] ConstructionBase v1.6.0
+  [d38c429a] Contour v0.6.3
+  [b7a15901] CoreMath v0.1.0
+  [2751e0db] Corleone v0.0.8 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v0.0.9 `~/work/Corleone.jl/Corleone.jl/lib/CorleoneOED`
+  [a8cc5b0e] Crayons v4.2.0
+  [9a962f9c] DataAPI v1.16.0
+  [864edb3b] DataStructures v0.19.6
+  [e2d170a0] DataValueInterfaces v1.0.0
+  [927a84f5] DelaunayTriangulation v1.6.6
+  [2b5f629d] DiffEqBase v7.20.1
+  [459566f4] DiffEqCallbacks v4.19.3
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.16.0
+  [a0c0ee7d] DifferentiationInterface v0.7.21
+  [8d63f2c5] DispatchDoctor v0.4.28
+  [31c24e10] Distributions v0.25.131
+  [43dc2714] DocInventories v1.0.0
+  [ffbed154] DocStringExtensions v0.9.5
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [5b8099bc] DomainSets v0.8.1
+  [7c1d4256] DynamicPolynomials v0.6.8
+  [4e289a0a] EnumX v1.0.7
+  [f151be2c] EnzymeCore v0.8.21
+  [429591f6] ExactPredicates v2.2.9
+  [e2ba6199] ExprTools v0.1.11
+  [55351af7] ExproniconLite v0.10.14
+  [b86e33f2] FFTA v0.3.1
+  [7034ab61] FastBroadcast v1.4.0
+  [9aa1b823] FastClosures v0.3.2
+  [a4df4552] FastPower v1.5.0
+  [5789e2e9] FileIO v1.20.0
+  [8fc22ac5] FilePaths v0.9.0
+  [48062228] FilePathsBase v0.9.24
+  [1a297f60] FillArrays v1.17.0
+  [64ca27bc] FindFirstFunctions v3.2.1
+  [6a86dc24] FiniteDiff v2.33.0
+⌅ [53c48c17] FixedPointNumbers v0.8.6
+  [1fa38f19] Format v1.3.7
+  [f6369f11] ForwardDiff v1.4.5
+  [b38be410] FreeType v4.1.1
+  [663a7486] FreeTypeAbstraction v0.10.8
+  [a85aefff] FunctionMaps v0.1.2
+  [069b7b12] FunctionWrappers v1.1.3
+  [77dc65aa] FunctionWrappersWrappers v1.13.0
+  [d9f16b24] Functors v0.5.3
+  [46192b85] GPUArraysCore v0.2.0
+  [a0844989] Gamma v1.2.0
+  [5c1252a2] GeometryBasics v0.5.12
+  [d7ba0133] Git v1.5.0
+  [a2bd30eb] Graphics v1.1.3
+  [86223c79] Graphs v1.15.0
+  [3955a311] GridLayoutBase v0.11.3
+  [076d061b] HashArrayMappedTries v0.2.0
+  [34004b35] HypergeometricFunctions v0.3.30
+  [b5f81e59] IOCapture v1.0.0
+  [615f187c] IfElse v0.1.1
+  [2803e5a7] ImageAxes v0.6.12
+  [c817782e] ImageBase v0.1.7
+  [a09fc81d] ImageCore v0.10.5
+  [82e4d734] ImageIO v0.6.10
+  [bc367c6b] ImageMetadata v0.9.10
+  [3263718b] ImplicitDiscreteSolve v2.3.0
+  [9b13fd28] IndirectArrays v1.0.0
+  [d25df0c9] Inflate v0.1.5
+  [22cec73e] InitialValues v0.3.1
+  [18e54dd8] IntegerMathUtils v0.1.4
+  [a98d9a8b] Interpolations v0.16.3
+  [d1acc4aa] IntervalArithmetic v1.0.11
+  [8197267c] IntervalSets v0.7.14
+  [3587e190] InverseFunctions v0.1.17
+  [b6b21f68] Ipopt v1.15.0
+  [92d709cd] IrrationalConstants v0.2.6
+  [f1662d9f] Isoband v0.1.1
+  [c8e1da08] IterTools v1.10.0
+  [82899510] IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] JLLWrappers v1.8.0
+  [682c06a0] JSON v1.8.0
+  [7d188eb4] JSONSchema v1.5.0
+  [ae98c720] Jieko v0.2.1
+  [b835a17e] JpegTurbo v0.1.6
+  [ccbc3e58] JumpProcesses v9.32.2
+  [2ddba703] Juniper v0.9.4
+  [5ab0869b] KernelDensity v0.6.12
+  [ba0b0d4f] Krylov v0.10.9
+  [5be7bae1] LBFGSB v0.4.1
+  [2faa5264] LHLFactorization v2.2.2
+  [b964fa9f] LaTeXStrings v1.4.1
+  [0e77f7df] LazilyInitializedFields v1.3.0
+  [8cdb02fc] LazyModules v0.3.1
+  [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
+  [87fe0de2] LineSearch v0.1.16
+  [7ed4a6bd] LinearSolve v5.16.0
+  [98b081ad] Literate v2.21.0
+  [2ab3a3ac] LogExpFunctions v1.0.1
+  [e6f89c97] LoggingExtras v1.2.0
+  [bb33d45b] LuxCore v1.5.3
+  [1914dd2f] MacroTools v0.5.16
+  [ee78f7c6] Makie v0.24.14
+  [dbb5928d] MappedArrays v0.4.3
+  [d0879d2d] MarkdownAST v0.1.3
+  [b8f27783] MathOptInterface v1.53.0
+  [0a4f8689] MathTeXEngine v0.6.9
+  [bb5d69b7] MaybeInplace v0.1.8
+  [e1d29d7a] Missings v1.2.0
+  [961ee093] ModelingToolkit v11.41.0
+⌃ [7771a370] ModelingToolkitBase v1.68.3
+  [6bb917b9] ModelingToolkitTearing v1.20.6
+  [e94cdb99] MosaicViews v0.3.4
+  [2e0e35c7] Moshi v0.3.12
+  [46d2c3a1] MuladdMacro v0.2.7
+  [102ac46a] MultivariatePolynomials v0.5.19
+  [d8a4904e] MutableArithmetics v1.8.0
+  [77ba4419] NaNMath v1.1.4
+  [f09324ee] Netpbm v1.1.1
+  [be0214bd] NonlinearSolveBase v2.49.4
+  [5959db7a] NonlinearSolveFirstOrder v2.5.1
+  [510215fc] Observables v0.5.5
+  [6fe1bfb0] OffsetArrays v1.17.0
+  [67456a42] OhMyThreads v0.8.6
+  [52e1d378] OpenEXR v0.3.3
+  [d147904a] OptimalControlBenchmarks v0.0.3 `~/work/Corleone.jl/Corleone.jl/lib/OptimalControlBenchmarks`
+  [7f7a1694] Optimization v5.9.0
+  [bca83a33] OptimizationBase v5.5.3
+  [22f7324a] OptimizationLBFGSB v1.5.1
+  [fd9f6733] OptimizationMOI v1.4.1
+  [bac558e1] OrderedCollections v2.0.1
+  [bbf590c4] OrdinaryDiffEqCore v4.16.1
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.4
+  [90014a1f] PDMats v0.11.41
+  [f57f5aa1] PNGFiles v0.4.5
+  [19eb6ba3] Packing v0.5.1
+  [5432bcbf] PaddedViews v0.5.12
+  [69de0a69] Parsers v3.0.0
+  [eebad327] PkgVersion v0.3.3
+  [995b91a9] PlotUtils v1.4.4
+  [e409e4f3] PoissonRandom v0.4.13
+  [647866c9] PolygonOps v0.1.2
+  [d236fae5] PreallocationTools v1.7.1
+  [aea7be01] PrecompileTools v1.3.4
+  [21216c6a] Preferences v1.5.2
+  [08abe8d2] PrettyTables v3.4.8
+  [27ebfcd6] Primes v0.5.7
+  [33c8b6b6] ProgressLogging v0.1.6
+  [92933f4c] ProgressMeter v1.11.0
+  [43287f4e] PtrArrays v1.4.0
+  [0c0d3e7f] PureKLU v1.4.1
+  [4b34888f] QOI v1.0.2
+  [1fd47b50] QuadGK v2.11.3
+  [b3c3ace0] RangeArrays v0.3.2
+  [c84ed2f1] Ratios v0.4.5
+  [988b38a3] ReadOnlyArrays v0.2.0
+  [795d4caa] ReadOnlyDicts v1.0.1
+  [3cdcf5f2] RecipesBase v1.3.4
+  [731186ca] RecursiveArrayTools v4.5.1
+  [189a3867] Reexport v1.2.2
+  [2792f1a3] RegistryInstances v0.1.0
+  [05181044] RelocatableFolders v1.0.1
+  [ae029012] Requires v1.3.1
+  [9fe22ead] RespecializeParams v1.3.0
+  [79098fc4] Rmath v0.9.0
+  [f2b01f46] Roots v3.0.8
+  [5eaf0fd0] RoundingEmulator v0.2.1
+  [7e49a35a] RuntimeGeneratedFunctions v0.5.26
+  [9dfe8606] SCCNonlinearSolve v1.15.2
+  [fdea26ae] SIMD v3.7.2
+  [0bca4576] SciMLBase v3.53.1
+  [19f34311] SciMLJacobianOperators v0.1.19
+  [a6db7da4] SciMLLogging v2.1.0
+  [c0aeaf25] SciMLOperators v1.30.0
+  [431bcebd] SciMLPublic v1.3.0
+  [53ae85a6] SciMLStructures v1.10.5
+  [7e506255] ScopedValues v1.6.2
+  [6c6a2e73] Scratch v1.3.0
+  [efcf1570] Setfield v1.1.2
+  [65257c39] ShaderAbstractions v0.5.0
+  [73760f76] SignedDistanceFields v0.4.1
+  [727e6d20] SimpleNonlinearSolve v2.14.2
+  [699a6c99] SimpleTraits v0.9.6
+  [45858cf5] Sixel v0.1.5
+  [a2af1166] SortingAlgorithms v1.2.3
+  [a57abbd0] SparseColumnPivotedQR v2.1.8
+  [9f842d2f] SparseConnectivityTracer v1.2.3
+  [0a514795] SparseMatrixColorings v0.4.28
+  [276daf66] SpecialFunctions v2.9.0
+  [860ef19b] StableRNGs v1.0.4
+  [91464d47] StableTasks v0.1.7
+  [cae243ae] StackViews v0.1.2
+  [0c0c59c1] StarAlgebras v0.3.0
+  [64909d44] StateSelection v1.11.1
+  [aedffcd0] Static v1.4.6
+  [0d7ed370] StaticArrayInterface v1.10.0
+  [90137ffa] StaticArrays v1.9.20
+  [1e83bf80] StaticArraysCore v1.4.4
+  [10745b16] Statistics v1.11.5
+  [82ae8749] StatsAPI v1.8.0
+  [2913bbd2] StatsBase v0.34.13
+  [4c63d2b9] StatsFuns v2.2.1
+  [69024149] StringEncodings v0.3.7
+⌅ [892a3eda] StringManipulation v0.5.0
+  [09ab397b] StructArrays v0.7.3
+  [ec057cc2] StructUtils v2.8.5
+  [2efcf032] SymbolicIndexingInterface v0.3.55
+  [19f23fe9] SymbolicLimits v1.2.1
+⌃ [d1185830] SymbolicUtils v4.46.1
+  [0c5d862f] Symbolics v7.39.0
+  [3783bdb8] TableTraits v1.0.1
+  [bd369af6] Tables v1.14.0
+  [ed4db957] TaskLocalValues v0.1.3
+  [62fd8b95] TensorCore v0.1.1
+  [8ea1fca8] TermInterface v2.0.0
+  [5d786b92] TerminalLoggers v0.1.8
+  [1c621080] TestItems v1.1.0
+  [731e570b] TiffImages v0.11.9
+  [a759f4b9] TimerOutputs v1.2.1
+  [3bb67fe8] TranscodingStreams v0.11.3
+  [981d1d27] TriplotBase v0.1.0
+  [781d530d] TruncatedStacktraces v1.4.0
+  [5c2747f8] URIs v1.7.0
+  [3a884ed6] UnPack v1.0.2
+  [1cfade01] UnicodeFun v0.4.1
+  [1986cc42] Unitful v1.29.0
+  [d30d5f5c] WeakCacheSets v0.1.0
+  [e3aaa7dc] WebP v0.1.3
+  [efce3f68] WoodburyMatrices v1.1.0
+  [ddb6d928] YAML v0.4.16
+  [ae81ac8f] ASL_jll v0.1.5+0
+  [6e34b625] Bzip2_jll v1.0.9+0
+  [4e9b3aee] CRlibm_jll v1.0.1+0
+  [83423d85] Cairo_jll v1.18.7+0
+  [a38c48d9] CoreMath_jll v0.1.0+0
+⌅ [5ae413db] EarCut_jll v2.2.4+0
+  [2e619515] Expat_jll v2.8.3+0
+⌅ [b22a6f82] FFMPEG_jll v8.1.2+0
+  [a3f928ae] Fontconfig_jll v2.17.1+0
+  [d7e528f0] FreeType2_jll v2.14.3+1
+  [559328eb] FriBidi_jll v1.0.17+0
+⌅ [b0724c58] GettextRuntime_jll v0.22.4+0
+⌅ [59f7168a] Giflib_jll v5.2.3+0
+  [020c3dae] Git_LFS_jll v3.7.1+0
+  [f8c6e375] Git_jll v2.55.0+0
+  [7746bdde] Glib_jll v2.88.3+0
+  [3b182d85] Graphite2_jll v1.3.16+0
+  [2e76f6c2] HarfBuzz_jll v100.14003.0+0
+  [e33a78d0] Hwloc_jll v2.14.0+0
+  [905a6f67] Imath_jll v3.2.2+0
+  [1d5cc7b8] IntelOpenMP_jll v2025.2.0+0
+⌅ [9cc047cb] Ipopt_jll v300.1400.1902+0
+  [aacddb02] JpegTurbo_jll v3.2.0+1
+  [c1c5ebd0] LAME_jll v3.100.3+0
+  [88015f11] LERC_jll v4.1.0+0
+  [1d63c593] LLVMOpenMP_jll v22.1.7+0
+  [81d17ec3] L_BFGS_B_jll v3.0.1+0
+⌅ [e9f186c6] Libffi_jll v3.4.7+0
+  [7e76a0d4] Libglvnd_jll v1.7.1+1
+  [94ce4f54] Libiconv_jll v1.18.0+0
+  [4b2f31a3] Libmount_jll v2.42.0+0
+  [89763e89] Libtiff_jll v4.7.3+0
+  [38a345b3] Libuuid_jll v2.42.0+0
+  [d00139f3] METIS_jll v5.1.3+0
+  [856f044c] MKL_jll v2025.2.0+0
+  [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [e7412a2a] Ogg_jll v1.3.6+0
+  [656ef2d0] OpenBLAS32_jll v0.3.34+0
+  [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
+  [18a262bb] OpenEXR_jll v3.4.14+0
+  [9bd350c2] OpenSSH_jll v10.5.1+0
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [91d4177d] Opus_jll v1.6.1+0
+  [36c8627f] Pango_jll v1.58.2+0
+  [30392449] Pixman_jll v0.46.4+0
+  [f50d1b31] Rmath_jll v0.5.2+0
+  [319450e9] SPRAL_jll v2025.9.18+1
+⌅ [02c8fc9c] XML2_jll v2.13.9+0
+  [ffd25f8a] XZ_jll v5.8.3+0
+  [4f6342f7] Xorg_libX11_jll v1.8.13+0
+  [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
+  [a3789734] Xorg_libXdmcp_jll v1.1.6+0
+  [1082639a] Xorg_libXext_jll v1.3.8+0
+  [d091e8ba] Xorg_libXfixes_jll v6.0.2+0
+  [ea2f1a96] Xorg_libXrender_jll v0.9.12+0
+  [a65dc6b1] Xorg_libpciaccess_jll v0.19.0+0
+  [c7cfdc94] Xorg_libxcb_jll v1.17.1+0
+  [c5fb5394] Xorg_xtrans_jll v1.6.0+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [9a68df92] isoband_jll v0.2.3+0
+  [a4ae2306] libaom_jll v3.14.1+0
+  [0ac62f75] libass_jll v0.17.5+0
+  [8e53e030] libdrm_jll v2.4.134+0
+  [f638f0a6] libfdk_aac_jll v2.0.4+0
+  [b53b4c65] libpng_jll v1.6.58+0
+  [075b6546] libsixel_jll v1.10.5+0
+  [9a156e7d] libva_jll v2.23.0+0
+  [f27f6e37] libvorbis_jll v1.3.8+0
+  [c5f90fcd] libwebp_jll v1.6.0+0
+  [1317d2d5] oneTBB_jll v2022.3.0+0
+⌅ [1270edf5] x264_jll v10164.0.1+0
+  [dfaa095f] x265_jll v4.1.0+0
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [8bf52ea8] CRC32c v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [9fa8497b] Future v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] LazyArtifacts v1.11.0
+  [b27032c2] LibCURL v0.6.4
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.12.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [a63ad114] Mmap v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.12.1
+  [de0858da] Printf v1.11.0
+  [9abbd945] Profile v1.11.0
+  [3fa0cd96] REPL v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization v1.11.0
+  [1a1011a3] SharedArrays v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.12.0
+  [f489334b] StyledStrings v1.11.0
+  [4607b0f0] SuiteSparse
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.3.1+2
+  [deac9b47] LibCURL_jll v8.15.0+0
+  [e37daf67] LibGit2_jll v1.9.0+0
+  [29816b5a] LibSSH2_jll v1.11.3+1
+  [14a3606d] MozillaCACerts_jll v2025.11.4
+  [4536629a] OpenBLAS_jll v0.3.29+0
+  [05823500] OpenLibm_jll v0.8.7+0
+  [458c3c95] OpenSSL_jll v3.5.6+0
+  [efcefdf7] PCRE2_jll v10.44.0+1
+  [bea87d4a] SuiteSparse_jll v7.8.3+2
+  [83775a58] Zlib_jll v1.3.1+2
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.64.0+1
+  [3f19e933] p7zip_jll v17.7.0+0
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear Quadratic Regulator</a><a class="docs-footer-nextpage" href="../the_lotka_volterra_optimal_experimental_design_problem/">Optimal Experimental Design »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Monday 7 September 2026 10:27">Monday 7 September 2026</span>. Using Julia version 1.12.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
