@@ -196,10 +196,12 @@ chain = Chain(stage1, linkage, stage2)
 # constraint ``J_2`` couples the two stage durations through a parameter constraint:
 # ``T_1 + T_2 \le t_P``.
 
-duration_constraint = (ps -> [
-    ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-        ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p
-]) => (lb = [-Inf], ub = [0.0])
+duration_constraint = (
+    ps -> [
+        ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
+            ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+    ]
+) => (lb = [-Inf], ub = [0.0])
 
 optprob = OptimizationProblem(
     chain, AutoForwardDiff(), Val(:ComponentArrays);
