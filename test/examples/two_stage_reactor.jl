@@ -167,10 +167,12 @@ end
 # Maximum amount of D is wanted, so the objective is minimised for -D_amount (state 7).
 # Constraint J2: the two stage durations must fit within the processing time, i.e.
 #   T1 + T2 <= t_P  (a parameter constraint coupling the two stages).
-duration_constraint = (ps -> [
-    ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-        ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p
-]) => (lb = [-Inf], ub = [0.0])
+duration_constraint = (
+    ps -> [
+        ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
+            ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+    ]
+) => (lb = [-Inf], ub = [0.0])
 
 # Constraint J1: c_D(t_P) >= c_D^w. A terminal constraint is just a path constraint
 # evaluated at the final value only, so it is imposed on the final stage at t = 1.
@@ -236,10 +238,12 @@ function make_reactor_op(AD)
         switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
     )
     chain_ad = Chain(stage1_ad, linkage_ad, stage2_ad)
-    duration_constraint_ad = (ps -> [
-        ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-            ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p
-    ]) => (lb = [-Inf], ub = [0.0])
+    duration_constraint_ad = (
+        ps -> [
+            ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
+                ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+        ]
+    ) => (lb = [-Inf], ub = [0.0])
     return OptimizationProblem(
         chain_ad, AD, Val(:ComponentArrays);
         loss = :(-u₇),

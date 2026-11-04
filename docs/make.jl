@@ -40,7 +40,7 @@ makedocs(
             "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
             "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
             "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
-            "Two-Stage Chemical Reactor" => "examples/optimal_control_of_a_two_stage_reactor_system.md"
+            "Two-Stage Chemical Reactor" => "examples/optimal_control_of_a_two_stage_reactor_system.md",
         ],
         "User Guide" => [
             "Shooting Formulation" => "shooting.md",
