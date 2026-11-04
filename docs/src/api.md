@@ -37,6 +37,22 @@ custom_initialization
 hybrid_initialization
 ```
 
+## Multi-stage transitions and linkages
+
+Chain multiple shooting stages with `Lux.Chain` and connect consecutive stages with
+`StageTransition` (substitution) or `StageLinkage` (a free interface state coupled by
+a residual constraint). See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md).
+
+```@docs
+StageTransition
+StageLinkage
+StageLinkage(::AbstractVector)
+StageLinkage(::AbstractMatrix, ::AbstractMatrix, ::AbstractVector)
+linkage_residual
+get_number_of_linkage_constraints
+Corleone.linkage_constraint_bounds
+```
+
 ## Trajectories
 
 Saved states and times are available as `trajectory.u` and `trajectory.t`, and
