@@ -1,5 +1,5 @@
 using Corleone
-using LuxCore, Random
+using Lux, Random
 using OrdinaryDiffEqTsit5
 using Optimization, OptimizationLBFGSB
 using ForwardDiff, ComponentArrays
@@ -26,20 +26,25 @@ truth = solve(
 observations = Array(truth)
 observations .+= 0.05 * randn(rng, size(observations))
 
-function neural_interaction(u, p)
-    weights_in = reshape(view(p, 1:10), 5, 2)
-    bias_hidden = view(p, 11:15)
-    weights_out = view(p, 16:20)
-    hidden = tanh.(weights_in * u .+ bias_hidden)
-    return (sum(weights_out .* hidden) + p[21])^2
-end
+network = Lux.Chain(
+    hidden = Lux.Dense(2 => 5, tanh),
+    interaction = Lux.Dense(5 => 1),
+)
+network_parameters, network_state = Lux.setup(rng, network)
 
-function hybrid_lotka(u, p, t)
-    interaction = neural_interaction(u, p)
-    return [u[1] - interaction, interaction - u[2]]
-end
+initial_network_parameters = ComponentArray{Float64}(network_parameters)
+initial_network_parameters .*= 0.1
+initial_network_parameters.interaction.bias .= 0.7
+p0, rebuild_network = pack(default_vectorizer(), initial_network_parameters)
 
-p0 = 0.1 .* randn(rng, 21)
+hybrid_lotka = let network = network, network_state = Lux.testmode(network_state),
+        rebuild_network = rebuild_network
+    function (u, p, t)
+        output, _ = Lux.apply(network, u, rebuild_network(p), network_state)
+        interaction = only(output)^2
+        return [u[1] - interaction, interaction - u[2]]
+    end
+end
 
 hybrid_problem = ODEProblem(
     hybrid_lotka, u0, tspan, p0;
@@ -49,11 +54,11 @@ hybrid_problem = ODEProblem(
 layer = ShootingLayer(
     hybrid_problem, Tsit5(),
     Tunable(
-        collect(1:21); kind = Val(:parameter),
+        collect(eachindex(p0)); kind = Val(:parameter),
         lowerbound = -3.0, upperbound = 3.0
     ) => nothing
 )
-ps, st = LuxCore.setup(rng, layer)
+ps, st = Lux.setup(rng, layer)
 
 function population_loss(trajectory)
     @assert trajectory.t ≈ observation_times
