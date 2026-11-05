@@ -68,10 +68,10 @@ makedocs(
             "Formulation" => "inverse/formulation.md",
             "Tutorials" => [
                 "Robertson DAE problem" => "examples/rober_dae_parameter_estimation.md",
-                "Multiple Shooting in parameter estimation" => "examples/multiple_shooting_parameter_estimation.md", 
+                "Multiple Shooting in parameter estimation" => "examples/multiple_shooting_parameter_estimation.md",
             ],
             "Numerics" => "inverse/numerics.md",
-            "API reference" => "inverse/api.md"
+            "API reference" => "inverse/api.md",
         ],
         "Optimal Control Benchmarks" => "benchmarks/index.md",
         "Automatic Differentiation" => [
