@@ -269,7 +269,10 @@ function _ic_positions(layer_child, t0)
     collection = layer_child.lookup.collection
     n = length(collection)
     sharedpos = get(collection, t0, nothing)
-    localpositions = [i for i in 1:n if !isequal(i, sharedpos)]
+    # Typed comprehension: on Julia 1.10 the untyped filter comprehension is inferred as
+    # eltype-unknown, which makes the returned `localpositions` vector abstract and
+    # pollutes the element types of everything built from it downstream.
+    localpositions = Int[i for i in 1:n if !isequal(i, sharedpos)]
     return sharedpos, localpositions
 end
 
@@ -402,8 +405,11 @@ _nt_rebuild(f::F, ::NamedTuple{names}) where {F, names} = NamedTuple{names}(f(na
 # (placed at `sharedpos`) and the interior values `lvals` (placed at `localpositions`).
 function _assemble_ic_vector(n::Int, sharedpos, localpositions, uval, lvals)
     return map(1:n) do i
+        # `i` is either the shared position or one of the local positions, so `findfirst`
+        # always succeeds; on Julia 1.10 the untyped `Union{Nothing, Int}` result would
+        # widen this map's element type to `Any`, so assert the concrete index type.
         (!isnothing(sharedpos) && i == sharedpos) ? uval :
-            lvals[findfirst(==(i), localpositions)]
+            lvals[findfirst(==(i), localpositions)::Int]
     end
 end
 

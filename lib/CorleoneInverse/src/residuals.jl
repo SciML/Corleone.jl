@@ -188,7 +188,10 @@ _traj_p(traj, t) = SymbolicIndexingInterface.parameter_values_at_time(traj, traj
 function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVector)
     obs = get_observed(pe)
     # `findfirst` (rather than `indexin`) keeps this branch free of array mutation, which
-    # reverse-mode AD (Zygote) cannot differentiate through.
+    # reverse-mode AD (Zygote) cannot differentiate through; a typed comprehension is also
+    # unusable since it lowers to an in-place `setindex!` loop. Residual element types are
+    # stabilized for Julia 1.10 (whose `EltypeUnknown` collect path infers this `map` as a
+    # `Union` of three vector types) in `_residual_eltype` instead.
     idx = map(t -> findfirst(isequal(t), traj.t), times)
     nT = eltype(first(traj.u))
     n_obs = _obs_length(
@@ -237,7 +240,7 @@ function _experiment_obs_residual(
     # times. `findfirst` keeps the mapping free of array mutation for reverse-mode AD.
     grid = exp.t
     Y = _model_values_oop(pe, traj, grid)
-    cols = map(ts -> map(t -> findfirst(isequal(t), grid), ts), exp.times)
+    cols = map(ts -> [findfirst(isequal(t), grid) for t in ts], exp.times)
     blocks = map(eachindex(exp.times)) do k
         σk = exp.σ isa AbstractVector ? exp.σ[k] : exp.σ
         _obs_residual_oop(exp.y[k], Y[k, cols[k]], σk)
@@ -271,6 +274,16 @@ end
 _layer_trajectories(traj) = (traj,)
 _layer_trajectories(trajs::Tuple) = trajs
 
+# Element type of a collected `[u0; p]` block. Collecting an all-empty iterator (e.g. no
+# tunable entries) is inferred as `Vector{Union{}}` on Julia 1.10 -- such a vector is never
+# populated at runtime and the empty case is caught by the caller -- but a bare `eltype`
+# would return `Type{Union{}}` and pollute the union of `_residual_eltype`. Map it back to
+# `Float64` so the element type stays a concrete type object.
+function _block_eltype(v::AbstractVector)
+    T = eltype(v)
+    return T === Union{} ? Float64 : T
+end
+
 # Element type of the residual vector. Taken from the (first experiment's) model parameters
 # so that manual AD through `residual` stays dual-safe, falling back to the initial-state
 # element type when the model has no trainable parameter block.
@@ -278,9 +291,9 @@ function _residual_eltype(pe::ParameterEstimationLayer, ps)
     layer = first(get_layer(pe))
     ps1 = _experiment_ps(pe, ps, 1)
     p = _shared_block(layer, ps1).p
-    isempty(p) || return eltype(p)
+    isempty(p) || return _block_eltype(p)
     u0 = _shared_block(layer, ps1).u0
-    isempty(u0) || return eltype(u0)
+    isempty(u0) || return _block_eltype(u0)
     return eltype(layer.problem.u0)
 end
 
