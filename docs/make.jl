@@ -21,7 +21,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED, CorleoneParameterEstimation, OptimalControlBenchmarks],
+    modules = [Corleone, CorleoneOED, CorleoneInverse, OptimalControlBenchmarks],
     format = Documenter.HTML(
         edit_link = "main",
         repolink = "https://github.com/SciML/Corleone.jl",

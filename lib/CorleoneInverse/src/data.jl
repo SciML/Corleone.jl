@@ -78,17 +78,28 @@ struct Experiment{
 end
 
 function Experiment(t::AbstractVector, y::AbstractVector; σ = nothing, u0 = nothing, controls = nothing)
-    @assert length(y) == length(t) "The number of observed values must match the number of time points."
+    length(y) == length(t) || throw(
+        ArgumentError("The number of observed values must match the number of time points.")
+    )
     return Experiment(t, reshape(y, :, length(t)), σ, u0, controls, nothing)
 end
 
 function Experiment(t::AbstractVector, y::AbstractMatrix; σ = nothing, u0 = nothing, controls = nothing)
-    @assert size(y, 2) == length(t) "The number of columns of `y` must match the number of time points."
+    size(y, 2) == length(t) || throw(
+        ArgumentError("The number of columns of `y` must match the number of time points.")
+    )
     if !isnothing(σ)
         if σ isa AbstractVector
-            @assert length(σ) == size(y, 1) "Per-component `σ` must match the number of observed components."
+            length(σ) == size(y, 1) || throw(
+                ArgumentError(
+                    "Per-component `σ` must match the number of observed components " *
+                        "(got $(length(σ)) for $(size(y, 1)) components)."
+                )
+            )
         elseif σ isa AbstractMatrix
-            @assert size(σ) == size(y) "`σ` must match the size of `y` when given as a matrix."
+            size(σ) == size(y) || throw(
+                ArgumentError("`σ` must match the size of `y` when given as a matrix.")
+            )
         end
     end
     return Experiment(t, y, σ, u0, controls, nothing)

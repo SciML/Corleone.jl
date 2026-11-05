@@ -71,7 +71,14 @@ Compute the least-squares residuals `res = (y_obs - y_model) ./ σ` (or unweight
 data has no prescribed noise scale `σ`) for the parameter values `ps` and the layer state
 `st`, writing them in-place into `res`. The residuals of each experiment are stacked
 column-wise over the observed components first, then over the time points, and the
-residuals of all experiments are concatenated in the order of the experiments.
+residuals of all experiments are concatenated in the order of the experiments. In the
+per-quantity layout (each quantity measured on its own time grid), the residuals of
+experiment `i` are stacked quantity by quantity: the residuals of quantity `k` over its own
+time grid, in the order of `exp.times`.
+
+The optional positional argument is forwarded to the layer evaluation;
+[`ParameterEstimationProblem`](@ref) passes the precomputed per-experiment segment grids
+here so they are not re-assembled on every call.
 
 This is the objective behind the `NonlinearLeastSquaresProblem` constructed by
 [`ParameterEstimationProblem`](@ref) and can be used directly with any
@@ -122,11 +129,18 @@ function residuals!(res::AbstractVector, pe::ParameterEstimationLayer, ps, st, a
 end
 
 # Residuals for the per-quantity form: for each quantity `k`, evaluate the observation map's
-# `k`-th component at `times[k]` and compare against the `k`-th value series.
+# `k`-th component at `times[k]` and compare against the `k`-th value series. The stored
+# `exp.t` is the sorted union of all per-quantity time vectors (computed at construction),
+# so the observation map is evaluated once over it and each quantity's columns are sliced
+# out of the shared `(n_q x n_grid)` matrix; calling `model_values` once per quantity would
+# re-run the time mapping O(n_q²) times.
 function _residuals_per_quantity!(res, pe, traj, exp)
+    grid = exp.t
+    Y = model_values(pe, traj, grid)
+    cols = [indexin(exp.times[k], grid) for k in eachindex(exp.times)]
     k0 = 0
     for k in eachindex(exp.times)
-        yk = model_values(pe, traj, exp.times[k])[k, :]
+        yk = view(Y, k, cols[k])
         chunk = view(res, (k0 + 1):(k0 + length(exp.y[k])))
         copyto!(chunk, exp.y[k] .- yk)
         k0 += length(exp.y[k])
@@ -135,9 +149,12 @@ function _residuals_per_quantity!(res, pe, traj, exp)
 end
 
 function _residuals_per_quantity!(res, pe, traj, exp, σ_per_quantity)
+    grid = exp.t
+    Y = model_values(pe, traj, grid)
+    cols = [indexin(exp.times[k], grid) for k in eachindex(exp.times)]
     k0 = 0
     for k in eachindex(exp.times)
-        yk = model_values(pe, traj, exp.times[k])[k, :]
+        yk = view(Y, k, cols[k])
         chunk = view(res, (k0 + 1):(k0 + length(exp.y[k])))
         σk = σ_per_quantity isa AbstractVector ? σ_per_quantity[k] : σ_per_quantity
         copyto!(chunk, (exp.y[k] .- yk) ./ σk)
@@ -199,18 +216,31 @@ function _model_values_oop(pe::ParameterEstimationLayer, traj, times::AbstractVe
     return reduce(hcat, cols)
 end
 
-# Functional residual for one experiment (shared-grid and per-quantity forms), without the
-# multiple-shooting continuity constraints.
-function _experiment_obs_residual(pe::ParameterEstimationLayer, traj, exp::Experiment)
-    if isnothing(exp.times)
-        Y = _model_values_oop(pe, traj, exp.t)
-        return _obs_residual_oop(exp.y, Y, exp.σ)
-    end
-    # Per-quantity form: quantity `k` is measured at `exp.times[k]`.
+# Functional residual for one experiment, without the multiple-shooting continuity
+# constraints. Dispatch on the observation layout (`times = nothing` -> shared-grid matrix
+# form, one time vector per quantity otherwise) instead of branching on the runtime value:
+# branching on `isnothing(exp.times)` would make inference also analyze the inactive branch,
+# whose calls have no method for the inactive layout (e.g. `map` over `nothing`) and infer
+# as `Any`, which would pollute the whole residual's inferred type.
+function _experiment_obs_residual(pe::ParameterEstimationLayer, traj, exp::Experiment{Nothing})
+    Y = _model_values_oop(pe, traj, exp.t)
+    return _obs_residual_oop(exp.y, Y, exp.σ)
+end
+
+function _experiment_obs_residual(
+        pe::ParameterEstimationLayer, traj, exp::Experiment{<:AbstractVector}
+    )
+    # Per-quantity form: quantity `k` is measured at `exp.times[k]`. The observation map is
+    # evaluated once over the stored union grid `exp.t` (each quantity's own grid is a subset
+    # of it) and each quantity's columns are gathered out of the shared `(n_q x n_grid)`
+    # matrix; evaluating the map once per quantity would re-run the time mapping O(n_q²)
+    # times. `findfirst` keeps the mapping free of array mutation for reverse-mode AD.
+    grid = exp.t
+    Y = _model_values_oop(pe, traj, grid)
+    cols = map(ts -> map(t -> findfirst(isequal(t), grid), ts), exp.times)
     blocks = map(eachindex(exp.times)) do k
-        yk = _model_values_oop(pe, traj, exp.times[k])[k, :]
         σk = exp.σ isa AbstractVector ? exp.σ[k] : exp.σ
-        _obs_residual_oop(exp.y[k], yk, σk)
+        _obs_residual_oop(exp.y[k], Y[k, cols[k]], σk)
     end
     return reduce(vcat, blocks)
 end
@@ -259,7 +289,7 @@ end
 ChainRulesCore.@non_differentiable _residual_eltype(::Any, ::Any)
 
 """
-    residual(pe, ps, st[, alg])
+    residual(pe, ps, st[, tstops])
 
 Return the vector of least-squares residuals as a new array (the out-of-place counterpart of
 [`residuals!`](@ref)). It uses only functional array operations, so -- unlike `residuals!` --
@@ -267,7 +297,10 @@ it can be differentiated with reverse-mode automatic differentiation. Single sho
 with both `Zygote.jl` and `ReverseDiff.jl`; multiple shooting works with `ReverseDiff.jl`
 (the root package's multiple-shooting trajectory assembly mutates, so it is not
 `Zygote`-differentiable). The residual layout is identical to `residuals!`: all observation
-residuals first, then the multiple-shooting continuity residuals.
+residuals first, then the multiple-shooting continuity residuals. The optional positional
+argument is forwarded to the layer evaluation; [`ParameterEstimationProblem`](@ref) passes
+the precomputed per-experiment segment grids here so they are not re-assembled on every
+call.
 """
 function residual(pe::ParameterEstimationLayer, ps, st, args...)
     out, _ = pe(nothing, ps, st, args...)

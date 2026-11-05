@@ -82,6 +82,16 @@ function ParameterEstimationLayer(layers::Tuple, data::ExperimentData; observed 
                 " Provide one shooting layer per experiment."
         )
     )
+    # All experiments share the same `[u0; p]` optimization variables, so every layer must
+    # agree on the parameter structure; a mismatch would otherwise surface much later as a
+    # cryptic indexing error in the residual evaluation.
+    pl = LuxCore.parameterlength(first(layers))
+    all(l -> LuxCore.parameterlength(l) == pl, layers) || throw(
+        ArgumentError(
+            "All shooting layers must share the same parameter structure " *
+                "(got lengths $(map(l -> LuxCore.parameterlength(l), layers)))."
+        )
+    )
     return ParameterEstimationLayer{typeof(layers), typeof(observed), typeof(data)}(
         layers, observed, data
     )
@@ -238,7 +248,12 @@ function ParameterEstimationLayer(
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
         c_i = _experiment_layer_controls(data, i, prob)
-        _pe_shooting_layer(prob_i, alg; controls = c_i, kwargs...)
+        # A prescribed per-experiment `u0` takes precedence over a user-supplied `u0`
+        # keyword: the kwarg (forwarded to the shooting-layer constructors as an extra
+        # problem remake) only applies to experiments without their own initial conditions.
+        _pe_shooting_layer(
+            prob_i, alg; controls = c_i, _kwargs_without_u0(kwargs, u0_i)...
+        )
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
@@ -263,11 +278,21 @@ function ParameterEstimationLayer(
         u0_i = initial_conditions(data, i)
         isnothing(u0_i) || (prob_i = remake(prob; u0 = u0_i))
         c_i = _experiment_layer_controls(data, i, prob)
-        base = _pe_shooting_layer(prob_i, alg; controls = c_i, kwargs...)
+        # As above: a prescribed per-experiment `u0` takes precedence over a user-supplied
+        # `u0` keyword, which only applies to experiments without their own initial conditions.
+        base = _pe_shooting_layer(
+            prob_i, alg; controls = c_i, _kwargs_without_u0(kwargs, u0_i)...
+        )
         Corleone.legacy_lift_states(base, shooting_points, SciMLBase.EnsembleSerial())
     end
     return ParameterEstimationLayer(layers, data; observed = observed)
 end
+
+# Drop a user-supplied `u0` keyword for experiments that prescribe their own initial
+# conditions, so the per-experiment `u0` is never silently overridden by the kwarg.
+_kwargs_without_u0(kwargs, u0_i) =
+    isnothing(u0_i) || !haskey(kwargs, :u0) ? kwargs :
+    (; (k => v for (k, v) in pairs(kwargs) if k != :u0)...)
 
 # Validate that every experiment is compatible with the problem the layers are built from:
 # prescribed initial conditions must match the state dimension, and either all experiments
@@ -432,7 +457,7 @@ function Base.show(io::IO, pe::ParameterEstimationLayer)
     )
     n_ctrl = count(e -> !isnothing(e.controls), exps)
     n_ctrl > 0 && print(io, " (", _count_label(n_ctrl, "experiment"), " with fixed controls)")
-    print(io, "\n  Tunable parameters: ", LuxCore.parameterlength(first(pe.layer)))
+    print(io, "\n  Tunable Lux parameters per experiment (model parameters, tunable initial\n  conditions, and control/shooting-state parameters): ", LuxCore.parameterlength(first(pe.layer)))
     if length(exps) > 1
         for (i, e) in enumerate(exps)
             print(io, "\n  [", i, "] ", _experiment_description(e))
@@ -475,13 +500,25 @@ end
 function (pe::ParameterEstimationLayer)(::Any, ps, st::Tuple, args...)
     layers = pe.layer
     data = pe.data
-    trajs = ntuple(n_experiments(data)) do i
+    n_exp = n_experiments(data)
+    # The per-experiment segment grids are constant for a given layer/state, but assembling
+    # them (`get_timestops` + sort/unique over the observation times) on every forward call
+    # is wasteful for the estimation problem, which evaluates the layer once per solver
+    # iteration. Callers may pass precomputed grids (one vector of time points per
+    # experiment) as the first positional argument; otherwise they are assembled per call.
+    tstops = length(args) == 1 && _precomputed_tstops(args[1], n_exp) ? args[1] :
+        ntuple(i -> _experiment_tstops(data, layers[i], st[i], i), n_exp)
+    trajs = ntuple(n_exp) do i
         ps_i = _experiment_ps(pe, ps, i)
-        tstops = _experiment_tstops(data, layers[i], st[i], i)
-        first(layers[i]((layers[i].problem, tstops), ps_i, st[i]))
+        first(layers[i]((layers[i].problem, tstops[i]), ps_i, st[i]))
     end
-    return (n_experiments(data) == 1 ? first(trajs) : trajs, st)
+    return (n_exp == 1 ? first(trajs) : trajs, st)
 end
+
+# Recognize a precomputed per-experiment segment-boundary grid (a tuple with one vector of
+# time points per experiment), as built by `ParameterEstimationProblem`.
+_precomputed_tstops(x, n::Int) =
+    x isa Tuple && length(x) == n && all(t -> t isa AbstractVector{<:Real}, x)
 
 # Segment boundary grid used to simulate experiment `i`: the layer's natural switching times
 # (control grids, shooting intervals, ...) extended with the experiment's observation times

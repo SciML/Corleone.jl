@@ -17,7 +17,7 @@
 # experiment has been *carried out in the real world*, we collect measurements and
 # estimate the model parameters. The designed control is then a **known, fixed input** of the
 # experiment -- it is *not* an optimization variable. [`CorleoneOED`](https://github.com/SciML/Corleone.jl)
-# produces that control, `CorleoneParameterEstimation` fits the parameters with it.
+# produces that control, `CorleoneInverse` fits the parameters with it.
 #
 # We use the canonical Lotka-Volterra fishing model: `p[1]` is the (piecewise-constant)
 # fishing control that *replaces* the prey growth parameter, and `p[2], p[3]` are the two
@@ -25,7 +25,7 @@
 
 # ## Setup
 
-using Corleone, CorleoneParameterEstimation
+using Corleone, CorleoneInverse
 using CorleoneOED
 using CairoMakie
 using LuxCore, Random
@@ -123,12 +123,12 @@ function simulate_species_times(cvals, noise_rng; σ = 0.02)
             controls = (1 => control,)
         )
     )
-    sim = CorleoneParameterEstimation.ParameterEstimationLayer(
+    sim = CorleoneInverse.ParameterEstimationLayer(
         prob_fish, Tsit5(), sim_data; observed = obs_fish
     )
     ps, st = LuxCore.setup(noise_rng, sim)
     sol, _ = sim(nothing, ps, st)
-    M = CorleoneParameterEstimation.model_values(sim, sol, measure_pts) # Prey at w1_t, predator at w2_t (each species measured at its own OED times).
+    M = CorleoneInverse.model_values(sim, sol, measure_pts) # Prey at w1_t, predator at w2_t (each species measured at its own OED times).
     prey = M[1, indexin(w1_t, measure_pts)] .+ σ .* randn(noise_rng, length(w1_t))
     predator = M[2, indexin(w2_t, measure_pts)] .+ σ .* randn(noise_rng, length(w2_t))
     return prey, predator
@@ -196,7 +196,7 @@ println(
     round(100 * (1 - est_control.std_errors[2] / est_free.std_errors[2]); digits = 1), "%"
 )
 
-# Finally we plot the controlled experiment. The `CorleoneCairoMakieExtension` recipe
+# Finally we plot the controlled experiment. The `CorleoneInverseCairoMakieExtension` recipe
 # does this in one call -- it reads the per-quantity observation times from the data and
 # overlays the fitted model trajectory (lines) with the noisy per-species observations
 # (points) at their own times.

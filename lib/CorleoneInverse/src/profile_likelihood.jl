@@ -132,8 +132,11 @@ end
 function _observation_rss(problem::ParameterEstimationProblem, xfull::AbstractVector)
     layer = problem.layer
     n_obs = n_observations(get_data(layer))
-    n_shoot = problem.n_shooting_constraints
-    r = similar(xfull, n_obs + n_shoot)
+    # The residual must be evaluated over the FULL layout (observations, then shooting
+    # continuity, then regularization rows); `problem.n_residuals` counts all of them.
+    # Allocating only the observation + shooting part would make `problem.residual` write
+    # the regularization block past the end of the buffer whenever a regularizer is active.
+    r = similar(xfull, problem.n_residuals)
     problem.residual(r, xfull, nothing)
     return sum(abs2, view(r, 1:n_obs))
 end
@@ -182,7 +185,7 @@ end
 # residual (rebuilding the full vector behind the scenes) so any NonlinearSolve
 # least-squares solver can be used.
 function _profile_problem(
-        problem::ParameterEstimationProblem, i::Int, θ, solver;
+        problem::ParameterEstimationProblem, i::Int, θ;
         x0red = nothing, kwargs...
     )
     xfull = vec(collect(problem.x0))
@@ -231,7 +234,7 @@ function _profile_rss_at(problem, i, θ, solver, x0red; kwargs...)
         end
         return rss, Float64[]
     end
-    redprob = _profile_problem(problem, i, θ, solver; x0red = x0red, kwargs...)
+    redprob = _profile_problem(problem, i, θ; x0red = x0red, kwargs...)
     sol = try
         solve(redprob, solver; kwargs...)
     catch
@@ -353,16 +356,29 @@ function profile_likelihood(
 end
 
 """
-    profile_likelihood(pe::ParameterEstimationLayer, sol; kwargs...)
+    profile_likelihood(pe::ParameterEstimationLayer, sol; transforms = nothing,
+                       regularization = nothing, shooting_scale = 1.0, kwargs...)
 
 Convenience variant that constructs the [`ParameterEstimationProblem`](@ref) from
 the layer `pe` (with default options) and calls [`profile_likelihood`](@ref). The `transforms`
 keyword attaches [`AbstractParameterTransform`](@ref)s to the shared `[u0; p]` block and must
 match the transforms the solution was computed with; when the problem is built explicitly it
-already carries them.
+already carries them. The `regularization` (with `regularization_reference` /
+`regularization_weights`) and `shooting_scale` keywords are forwarded to the problem
+construction and must likewise match the options the solution was computed with.
 """
-function profile_likelihood(pe::ParameterEstimationLayer, sol; transforms = nothing, kwargs...)
-    prob = ParameterEstimationProblem(pe; transforms = transforms)
+function profile_likelihood(
+        pe::ParameterEstimationLayer, sol;
+        transforms = nothing, regularization = nothing,
+        regularization_reference = nothing, regularization_weights = nothing,
+        shooting_scale::Real = 1.0, kwargs...,
+    )
+    prob = ParameterEstimationProblem(
+        pe; transforms = transforms, regularization = regularization,
+        regularization_reference = regularization_reference,
+        regularization_weights = regularization_weights,
+        shooting_scale = shooting_scale,
+    )
     return profile_likelihood(prob, sol; kwargs...)
 end
 

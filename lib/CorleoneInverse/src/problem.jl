@@ -706,17 +706,24 @@ function ParameterEstimationProblem(
         i -> _layer_shooting_constraints(get_layer(layer)[i], ps0s[i], st[i]), 1:n_exp
     )
     n_res = n_obs + n_shoot + n_reg
+    # The per-experiment segment-boundary grids (layer switching times extended with the
+    # observation times) are constant for a given layer/state, but the layer would
+    # re-assemble them on every forward call (i.e. every solver iteration). Compute them
+    # once here and pass them through to the layer evaluation in the residual closures.
+    tstops = ntuple(
+        i -> _experiment_tstops(get_data(layer), get_layer(layer)[i], st[i], i), n_exp
+    )
     # In-place residual: observation residuals, then (scaled) shooting residuals, then the
     # regularization residuals. `shooting_scale` only weights the shooting block.
     residual = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
             transforms = transforms, shooting_scale = Float64(shooting_scale),
-            reg = reg, pen = pen, n_reg = n_reg
+            reg = reg, pen = pen, n_reg = n_reg, tstops = tstops
         (res, x, p) -> begin
             # `residuals!` writes the observation block into `res[1:n_obs]` and the
             # multiple-shooting block into `res[n_obs+1 : n_obs+n_shoot]` of the full buffer;
             # the trailing regularization slot is filled below.
             ps = _unflatten(layer, ps0s, x, transforms)
-            residuals!(res, layer, ps, st)
+            residuals!(res, layer, ps, st, tstops)
             if shooting_scale != 1.0 && n_shoot > 0
                 @views res[(n_obs + 1):(n_obs + n_shoot)] .*= shooting_scale
             end
@@ -734,10 +741,10 @@ function ParameterEstimationProblem(
     # three blocks are built functionally so it stays `Zygote`/`ReverseDiff`-differentiable.
     residual_oop = let layer = layer, ps0s = ps0s, st = st, n_obs = n_obs, n_shoot = n_shoot,
             transforms = transforms, shooting_scale = Float64(shooting_scale),
-            reg = reg, pen = pen, n_reg = n_reg
+            reg = reg, pen = pen, n_reg = n_reg, tstops = tstops
         (x, p) -> begin
             ps = _unflatten(layer, ps0s, x, transforms)
-            r = CorleoneInverse.residual(layer, ps, st)
+            r = CorleoneInverse.residual(layer, ps, st, tstops)
             # Scale the shooting block (entries `n_obs+1 .. n_obs+n_shoot`).
             r = if shooting_scale == 1.0
                 r

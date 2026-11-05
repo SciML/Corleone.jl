@@ -138,7 +138,7 @@ end
     @test est.n_parameters == 1
     @test est.n_observations == n_observations(data)
     # RSS uses only the observation block, so it differs from the penalized norm.
-    @test est.residual_norm <= sum(abs2, sol.resid)
+    @test est.rss <= sum(abs2, sol.resid)
     @test isfinite(est.std_errors[1])
 
     # With regularization the covariance (MAP) is well-defined and finite even for a
@@ -169,4 +169,27 @@ end
         pe_ic;
         regularization = L2Regularizer(1.0, reference = [1.0, 1.0])
     )
+end
+
+@testset "Profile likelihood with an active regularizer" begin
+    # Regression test: `_observation_rss` must evaluate the residual over the FULL layout
+    # (observations + regularization rows); with a regularizer active it used to allocate a
+    # buffer that was too small and hit a `BoundsError`.
+    pe = ParameterEstimationLayer(prob, Tsit5(), data)
+    p0 = ParameterEstimationProblem(pe; regularization = L2Regularizer(1.0e-2))
+    sol = solve(
+        NonlinearSolve.NonlinearLeastSquaresProblem(p0), GaussNewton();
+        abstol = 1.0e-10, reltol = 1.0e-10
+    )
+    @test SciMLBase.successful_retcode(sol)
+    pl = profile_likelihood(
+        p0, sol; n_points = 9, span = 3.0, abstol = 1.0e-8, reltol = 1.0e-8
+    )
+    @test SciMLBase.successful_retcode(sol)
+    @test pl.confidence_intervals[1][1] < sol.u[1] < pl.confidence_intervals[1][2]
+
+    # The convenience layer-based method rebuilds a problem WITHOUT the regularizer; the
+    # residual-length check now rejects the mismatched solution instead of silently mixing
+    # statistics from two different problems.
+    @test_throws ArgumentError profile_likelihood(pe, sol)
 end

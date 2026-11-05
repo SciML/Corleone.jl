@@ -36,9 +36,9 @@ struct ParameterEstimate{T, V, M, C}
     std_errors::V
     "Estimated residual variance `σ̂²`"
     residual_variance::T
-    "Sum of squared (weighted) *observation* residuals at the optimum (multiple-shooting
-    continuity residuals are excluded)"
-    residual_norm::T
+    "Residual sum of squares (RSS) of the (weighted) *observation* residuals at the optimum
+    (multiple-shooting continuity residuals and regularization penalty residuals are excluded)"
+    rss::T
     "Degrees of freedom `n - p` (observation residuals minus estimated parameters)"
     degrees_of_freedom::Int
     "Confidence level used for `confidence_intervals`"
@@ -104,6 +104,21 @@ function estimate_parameters(
     layer = problem.layer
     x_full = vec(collect(sol.u))
     p_total = length(x_full)
+    # The solution must come from THIS problem: `sol.resid` is laid out exactly as
+    # `problem.residual` writes it, so a length mismatch means the solution was computed
+    # from a different problem (e.g. a convenience `estimate_parameters(pe, sol)` call on a
+    # problem rebuilt without the `regularization` / `shooting_scale` options the solve
+    # used). Reject that here instead of returning silently wrong statistics.
+    length(sol.resid) == problem.n_residuals || throw(
+        ArgumentError(
+            "The solution has $(length(sol.resid)) residual entries, but the problem " *
+                "expects $(problem.n_residuals); the solution was not computed from this " *
+                "problem. When the problem was built with non-default options (e.g. " *
+                "`regularization` or `shooting_scale`), build it explicitly and pass it to " *
+                "`estimate_parameters` / `profile_likelihood` instead of relying on the " *
+                "layer-based convenience methods."
+        )
+    )
     # Number of *model* parameters reported to the user. For a multiple-shooting layer the
     # flat vector also holds the local shooting initial conditions (nuisance variables), so
     # only the shared `[u0; p]` block is reported. `xφ` is in the internal (transformed)
@@ -298,20 +313,31 @@ function _correlation_from_cov(Σ, se)
 end
 
 """
-    estimate_parameters(pe::ParameterEstimationLayer, sol; α = 0.05, names = nothing)
+    estimate_parameters(pe::ParameterEstimationLayer, sol; α = 0.05, names = nothing,
+                        transforms = nothing, regularization = nothing, shooting_scale = 1.0)
 
 Convenience variant that constructs the [`ParameterEstimationProblem`](@ref) from
 `pe` (with default options) and calls [`estimate_parameters`](@ref). To control problem
-construction (e.g. a custom `x0` or `shooting_scale`), build the problem explicitly first.
+construction (e.g. a custom `x0`), build the problem explicitly first.
 
-The `transforms` keyword attaches [`AbstractParameterTransform`](@ref)s to the shared `[u0; p]`
-block; it must match the transforms the solution was computed with. When the problem is built
-explicitly this keyword is not needed, since the problem already carries them.
+The `transforms`, `regularization` (with `regularization_reference` /
+`regularization_weights`) and `shooting_scale` keywords are forwarded to the problem
+construction and must match the options the solution was computed with (a mismatch is
+rejected by the residual-length check in [`estimate_parameters`](@ref)). When the problem is
+built explicitly these keywords are not needed, since the problem already carries them.
 """
 function estimate_parameters(
-        pe::ParameterEstimationLayer, sol; α = 0.05, names = nothing, transforms = nothing
+        pe::ParameterEstimationLayer, sol;
+        α = 0.05, names = nothing, transforms = nothing,
+        regularization = nothing, regularization_reference = nothing,
+        regularization_weights = nothing, shooting_scale::Real = 1.0,
     )
-    prob = ParameterEstimationProblem(pe; transforms = transforms)
+    prob = ParameterEstimationProblem(
+        pe; transforms = transforms, regularization = regularization,
+        regularization_reference = regularization_reference,
+        regularization_weights = regularization_weights,
+        shooting_scale = shooting_scale,
+    )
     return estimate_parameters(prob, sol; α = α, names = names)
 end
 
