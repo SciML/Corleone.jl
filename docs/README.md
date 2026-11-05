@@ -28,7 +28,7 @@ Edit tutorials in their `examples/<name>/main.jl` sources, not the generated
 Markdown. Literate executes each tutorial once and Documenter includes its rendered
 output. Introductory guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone, CorleoneOED, and
+The manual documents the checked-out Corleone, CorleoneOED, CorleoneInverse and
 OptimalControlBenchmarks modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not

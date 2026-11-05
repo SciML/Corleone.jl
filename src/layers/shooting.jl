@@ -188,7 +188,10 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
 end
 
 get_du0(::Any, ::Any) = nothing
-get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
+# Some DAE integrators (e.g. `DFBDF`) do not populate the derivative history
+# (`sol.du === nothing`); fall back to the problem's stored `du0` and let the DAE
+# initialization algorithm recompute a consistent value for the new initial state.
+get_du0(::SciMLBase.AbstractDAEProblem, sol) = isnothing(sol.du) ? nothing : sol.du[end]
 
 function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
     du0 = get_du0(prob, sol)
