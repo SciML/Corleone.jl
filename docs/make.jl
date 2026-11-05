@@ -1,5 +1,6 @@
 using Documenter, Corleone
 import CorleoneOED
+import CorleoneInverse
 import OptimalControlBenchmarks
 
 realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
@@ -61,6 +62,16 @@ makedocs(
             "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
             "API Reference" => "oed/api.md",
             "References and Attribution" => "oed/references.md",
+        ],
+        "Inverse Problems" => [
+            "Overview" => "inverse/index.md",
+            "Formulation" => "inverse/formulation.md",
+            "Tutorials" => [
+                "Robertson DAE problem" => "examples/rober_dae_parameter_estimation.md",
+                "Multiple Shooting in parameter estimation" => "examples/multiple_shooting_parameter_estimation.md", 
+            ],
+            "Numerics" => "inverse/numerics.md",
+            "API reference" => "inverse/api.md"
         ],
         "Optimal Control Benchmarks" => "benchmarks/index.md",
         "Automatic Differentiation" => [

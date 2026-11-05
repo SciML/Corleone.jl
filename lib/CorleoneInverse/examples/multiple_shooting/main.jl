@@ -210,7 +210,7 @@ traj_default = fitted_parameters(pe_ms, sol_ms).trajectory
 
 # ## Retry with a higher penalty on the shooting conditions
 #
-# [`ParameterEstimationProblem`](@ref) accepts a `shooting_scale` keyword that
+# [`ParameterEstimationProblem`](@ref CorleoneInverse.ParameterEstimationProblem) accepts a `shooting_scale` keyword that
 # multiplies the appended shooting residuals, letting us weight the continuity constraints
 # relative to the data fit. If the optimal solution shows a large shooting residual, we
 # increase `shooting_scale` and re-solve -- a standard continuation on the constraint weight

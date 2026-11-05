@@ -34,7 +34,10 @@ function preprocess_script(content)
     content = replace(
         content, "TODAY" => string(Date(now())),
         "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
-            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)"
+            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)",
+        # Tutorial anchors referenced here live in the sublibrary's own tutorial tree,
+        # which the root site does not build; degrade the links to plain text.
+        "[OED-controlled example](@ref corleone_pe_lotka_oed_control)" => "the OED-controlled example"
     )
     content *= """
             # ## Appendix
@@ -111,6 +114,14 @@ tutorials = map(
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "compartmental_oed", "main.jl"),
             "compartmental_oed_problem",
         ),
+        (
+            joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "rober_dae", "main.jl"),
+            "rober_dae_parameter_estimation",
+        ),
+        (
+            joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "multiple_shooting", "main.jl"),
+            "multiple_shooting_parameter_estimation",
+        ),
     ]
 ) do (path, name)
     make_tutorial(path; name)
@@ -147,5 +158,27 @@ for page in ("index", "formulation", "designs", "numerics", "api", "references")
     write(
         joinpath(oed_output, "$page.md"),
         "```@meta\nCurrentModule = CorleoneOED\nEditURL = \"$edit_url\"\n```\n\n" * content
+    )
+end
+
+inverse_output = joinpath(@__DIR__, "src", "inverse")
+isdir(inverse_output) && rm(inverse_output; recursive = true)
+mkpath(inverse_output)
+# Tutorial anchors referenced by the sublibrary index live in its own tutorial tree,
+# which the root site does not build; degrade those links to plain text here.
+inverse_rewrites = (
+    "[plain Lotka–Volterra tutorial](@ref corleone_pe_lotka_plain)" => "plain Lotka–Volterra fit",
+    "[multi-experiment tutorial](@ref corleone_pe_lotka_multiexp)" => "multi-experiment fit",
+    "[fixed-control tutorial](@ref corleone_pe_lotka_oed_control)" => "fixed-control fit",
+    "[SIR tutorial](@ref corleone_pe_sir_multicity)" => "SIR example",
+    "[universal differential equation tutorial](@ref corleone_pe_ude)" => "universal differential equation example",
+)
+for page in ("index", "formulation", "numerics", "api")
+    source = joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "docs", "src", "$page.md")
+    content = replace(read(source, String), inverse_rewrites...)
+    edit_url = replace(relpath(source, inverse_output), '\\' => '/')
+    write(
+        joinpath(inverse_output, "$page.md"),
+        "```@meta\nCurrentModule = CorleoneInverse\nEditURL = \"$edit_url\"\n```\n\n" * content
     )
 end
