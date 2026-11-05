@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Multiple Shooting in parameter estimation · Corleone.jl</title><meta name="title" content="Multiple Shooting in parameter estimation · Corleone.jl"/><meta property="og:title" content="Multiple Shooting in parameter estimation · Corleone.jl"/><meta property="twitter:title" content="Multiple Shooting in parameter estimation · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><meta property="og:url" content="https://docs.sciml.ai/Corleone/stable/examples/multiple_shooting_parameter_estimation/"/><meta property="twitter:url" content="https://docs.sciml.ai/Corleone/stable/examples/multiple_shooting_parameter_estimation/"/><link rel="canonical" href="https://docs.sciml.ai/Corleone/stable/examples/multiple_shooting_parameter_estimation/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../tutorials/">Overview</a></li><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li></ul></li><li><span class="tocitem">User Guide</span><ul><li><a class="tocitem" href="../../shooting/">Shooting Formulation</a></li><li><a class="tocitem" href="../../trajectories/">Trajectories</a></li><li><a class="tocitem" href="../../initialization/">Initialization</a></li><li><a class="tocitem" href="../../optimization_contracts/">Optimization Contracts</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../parallel_shooting/">Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Symbolic Bookkeeping</a></li></ul></li><li><span class="tocitem">Optimal Experimental Design</span><ul><li><a class="tocitem" href="../../oed/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete Compartmental Design</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a></li></ul></li><li><a class="tocitem" href="../../oed/formulation/">Measurements and Information</a></li><li><a class="tocitem" href="../../oed/designs/">Constructing and Optimizing Designs</a></li><li><a class="tocitem" href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a></li><li><a class="tocitem" href="../../oed/api/">API Reference</a></li><li><a class="tocitem" href="../../oed/references/">References and Attribution</a></li></ul></li><li><span class="tocitem">Inverse Problems</span><ul><li><a class="tocitem" href="../../inverse/">Overview</a></li><li><a class="tocitem" href="../../inverse/formulation/">Formulation</a></li><li><input class="collapse-toggle" id="menuitem-5-3" type="checkbox" checked/><label class="tocitem" for="menuitem-5-3"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../rober_dae_parameter_estimation/">Robertson DAE problem</a></li><li class="is-active"><a class="tocitem" href>Multiple Shooting in parameter estimation</a><ul class="internal"><li><a class="tocitem" href="#corleone_pe_ms_lotka_oed"><span>Multiple-shooting parameter estimation with controls from the OED solve</span></a></li><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Model-dynamics-and-the-OED-designed-control"><span>Model dynamics and the OED-designed control</span></a></li><li><a class="tocitem" href="#Solve-the-optimal-experimental-design-problem"><span>Solve the optimal experimental design problem</span></a></li><li><a class="tocitem" href="#Simulate-the-designed-experiment"><span>Simulate the designed experiment</span></a></li><li><a class="tocitem" href="#Build-the-multiple-shooting-problem"><span>Build the multiple-shooting problem</span></a></li><li><a class="tocitem" href="#Fit-with-the-default-shooting-weight:-discontinuous-solution"><span>Fit with the default shooting weight: discontinuous solution</span></a></li><li><a class="tocitem" href="#Retry-with-a-higher-penalty-on-the-shooting-conditions"><span>Retry with a higher penalty on the shooting conditions</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../inverse/numerics/">Numerics</a></li><li><a class="tocitem" href="../../inverse/api/">API reference</a></li></ul></li><li><a class="tocitem" href="../../benchmarks/">Optimal Control Benchmarks</a></li><li><span class="tocitem">Automatic Differentiation</span><ul><li><a class="tocitem" href="../../automatic_differentiation/">Backend Guide</a></li><li><a class="tocitem" href="../../automatic_differentiation_history/">Historical Validation</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><a class="tocitem" href="../../legacy_constructors/">Deprecated Constructors</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Inverse Problems</a></li><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Multiple Shooting in parameter estimation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Multiple Shooting in parameter estimation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h2 id="corleone_pe_ms_lotka_oed"><a class="docs-heading-anchor" href="#corleone_pe_ms_lotka_oed">Multiple-shooting parameter estimation with controls from the OED solve</a><a id="corleone_pe_ms_lotka_oed-1"></a><a class="docs-heading-anchor-permalink" href="#corleone_pe_ms_lotka_oed" title="Permalink"></a></h2><p>This example combines two ingredients: a <strong>multiple-shooting</strong> layer and the <strong>fixed control</strong> produced by an optimal experimental design (OED) solve. The model is the Lotka-Volterra fishing model from the the OED-controlled example: a designed, time-varying fishing control is a <em>known fixed input</em> of the experiment and the two interaction parameters <code>p[2], p[3]</code> are the unknowns.</p><p>Instead of integrating the whole horizon in one forward pass (single shooting), the time interval is partitioned at a <em>shooting point</em> and a local state is estimated on each sub-interval together with the model parameters. <strong>Continuity (&quot;shooting&quot;) residuals</strong> are then <em>appended</em> to the least-squares problem to keep the reconstructed trajectory continuous across the partition.</p><p>The central point of this example is a <em>weighting</em> issue: the observations are residualized against their noise scale <code>σ</code> (so each is <code>O(1)</code> at the noise floor), but the appended shooting residuals are raw state differences and stay on the <strong>state scale</strong> – here <code>O(1)</code>, much larger than <code>σ = 0.02</code>. With a shooting point at <code>t = 6</code> the optimizer can therefore stall before it drives the continuity gap to zero, and the <em>default-weight</em> fit produces a visibly <strong>discontinuous</strong> ODE solution at the shooting point. A <em>higher penalty</em> on the shooting conditions (<code>shooting_scale</code>) is then needed to drive the gap to zero and obtain a (numerically) continuous solution.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Corleone, CorleoneInverse
+using CorleoneOED
+using CairoMakie
+using OrdinaryDiffEqTsit5
+using NonlinearSolve
+using Optimization, OptimizationMOI, Ipopt, ComponentArrays
+using LuxCore
+using StableRNGs
+using LinearAlgebra
+using Random
+using SymbolicIndexingInterface: parameter_values_at_time, parameter_index</code></pre><h2 id="Model-dynamics-and-the-OED-designed-control"><a class="docs-heading-anchor" href="#Model-dynamics-and-the-OED-designed-control">Model dynamics and the OED-designed control</a><a id="Model-dynamics-and-the-OED-designed-control-1"></a><a class="docs-heading-anchor-permalink" href="#Model-dynamics-and-the-OED-designed-control" title="Permalink"></a></h2><p>The fishing model: <code>p[1]</code> is the (piecewise-constant) fishing control that <em>replaces</em> the prey growth parameter, and <code>p[2], p[3]</code> are the two interaction parameters we want to estimate.</p><pre><code class="language-julia hljs">function fishing_lotka!(du, u, p, t)
+    du[1] = u[1] - p[2] * prod(u[1:2]) - 0.4 * p[1] * u[1]
+    du[2] = -u[2] + p[3] * prod(u[1:2]) - 0.2 * p[1] * u[2]
+    return
+end
+fish_tspan = (0.0, 12.0)
+fish_u0 = [0.5, 0.7]
+fish_p0 = [0.0, 1.0, 1.0]        # p[1] default = 0 (no fishing) unless the control acts
+fish_p_true = [1.0, 1.0]         # the two tunable parameters (p[2], p[3])
+prob_fish = ODEProblem(fishing_lotka!, fish_u0, fish_tspan, fish_p0)
+rng_f = StableRNG(7)
+
+fish_grid = collect(0.0:0.25:11.75)                    # control grid (piecewise-constant)
+measure_times = collect(0.0:0.25:11.75)                # candidate observation times
+obs_fish = (u, p, t) -&gt; u[1:2]                         # both species are measurable</code></pre><pre><code class="nohighlight hljs">#2 (generic function with 1 method)</code></pre><h2 id="Solve-the-optimal-experimental-design-problem"><a class="docs-heading-anchor" href="#Solve-the-optimal-experimental-design-problem">Solve the optimal experimental design problem</a><a id="Solve-the-optimal-experimental-design-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Solve-the-optimal-experimental-design-problem" title="Permalink"></a></h2><p>We wrap the model in a <code>CorleoneOED.OEDLayer</code> with the tunable parameters <code>params = [2, 3]</code>, the fishing control on index <code>1</code> and two sampling controls (one per measured component). Minimising the <code>DCriterion</code> yields the most informative fishing strategy.</p><pre><code class="language-julia hljs">control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) =&gt; fish_grid[2:end]
+measurements = (
+    ContinuousMeasurement(:w1, measure_times, (x, p, t) -&gt; x[1]),
+    ContinuousMeasurement(:w2, measure_times, (x, p, t) -&gt; x[2]),
+)
+oed = OEDLayer(prob_fish, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+ps_oed, st_oed = LuxCore.setup(Random.default_rng(), oed)
+
+model = CorleoneDynamicOptProblem(oed, DCriterion(); ps = ps_oed, st = st_oed, M = [4.0, 4.0])
+optprob = OptimizationProblem(model, AutoForwardDiff())
+uopt = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-8,
+    hessian_approximation = &quot;limited-memory&quot;, max_iter = 300
+)
+println(&quot;OED solve successful: &quot;, SciMLBase.successful_retcode(uopt))</code></pre><pre><code class="nohighlight hljs">This is Ipopt version 3.14.19, running with linear solver MUMPS 5.9.0.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:      288
+Number of nonzeros in Lagrangian Hessian.............:        0
+
+Total number of variables............................:      144
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:      144
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        2
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        2
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  7.1148876e-04 7.88e+00 1.16e-04   0.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  8.2911338e-02 0.00e+00 6.38e-02  -0.0 2.13e+00    -  3.23e-02 1.00e+00f  1
+   2  7.3673734e-02 0.00e+00 8.83e-03  -2.1 6.96e-02    -  9.51e-01 1.00e+00f  1
+   3  4.7843460e-02 0.00e+00 1.87e-02  -2.9 2.33e-01    -  9.15e-01 1.00e+00f  1
+   4  3.1556757e-02 0.00e+00 1.42e-02  -3.6 3.17e-01    -  1.00e+00 1.00e+00f  1
+   5  1.6504795e-02 0.00e+00 5.68e-03  -3.9 8.67e-01    -  9.96e-01 1.00e+00f  1
+   6  8.6281604e-03 0.00e+00 1.91e-03  -3.4 4.34e+00    -  1.00e+00 1.78e-01f  1
+   7  3.5284681e-03 0.00e+00 9.31e-04  -3.7 3.06e-01    -  9.38e-01 1.00e+00f  1
+   8  2.0421314e-03 0.00e+00 1.59e-04  -4.4 1.58e-01    -  9.90e-01 1.00e+00f  1
+   9  1.2358008e-03 0.00e+00 1.43e-04  -5.1 1.65e-01    -  9.75e-01 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  7.4603614e-04 0.00e+00 9.95e-05  -5.8 1.71e-01    -  9.99e-01 1.00e+00f  1
+  11  5.5368969e-04 0.00e+00 6.76e-05  -6.6 1.76e-01    -  1.00e+00 7.97e-01f  1
+  12  4.7202172e-04 0.00e+00 3.43e-05  -7.1 2.32e-01    -  1.00e+00 4.98e-01f  1
+  13  4.2103860e-04 0.00e+00 3.29e-05  -7.4 4.97e-01    -  1.00e+00 3.44e-01f  1
+  14  3.9595702e-04 0.00e+00 4.33e-05  -7.7 1.13e+00    -  1.00e+00 1.20e-01f  1
+  15  3.4970448e-04 0.00e+00 5.67e-05  -7.9 1.49e+00    -  1.00e+00 1.98e-01f  1
+  16  3.3344337e-04 0.00e+00 3.84e-05  -7.7 1.15e+00    -  1.00e+00 1.22e-01f  1
+  17  3.1572022e-04 0.00e+00 3.92e-05  -7.7 9.59e-01    -  1.00e+00 1.86e-01f  1
+  18  3.0062271e-04 0.00e+00 3.46e-05  -7.0 1.68e+00    -  1.00e+00 1.97e-01f  1
+  19  2.9178383e-04 0.00e+00 1.68e-05  -6.7 1.01e+00    -  1.00e+00 3.78e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  2.8662686e-04 0.00e+00 8.39e-06  -6.8 6.94e-01    -  9.99e-01 3.62e-01f  1
+  21  2.8142336e-04 0.00e+00 5.42e-06  -7.0 6.15e-01    -  1.00e+00 4.05e-01f  1
+  22  2.7501269e-04 0.00e+00 3.28e-06  -7.3 3.68e-01    -  9.98e-01 5.79e-01f  1
+  23  2.7092060e-04 0.00e+00 4.34e-06  -7.8 8.68e-01    -  1.00e+00 3.50e-01f  1
+  24  2.6736485e-04 0.00e+00 4.17e-06  -7.8 3.88e-01    -  9.98e-01 5.11e-01f  1
+  25  2.6466483e-04 0.00e+00 1.78e-06  -7.7 4.11e-01    -  1.00e+00 9.66e-01f  1
+  26  2.6339447e-04 0.00e+00 3.80e-07  -7.9 1.91e-01    -  9.98e-01 1.00e+00f  1
+  27  2.6261857e-04 0.00e+00 3.24e-07  -8.6 1.43e-01    -  1.00e+00 6.26e-01f  1
+  28  2.6187496e-04 0.00e+00 2.27e-07  -9.4 8.34e-02    -  1.00e+00 1.00e+00f  1
+  29  2.6181252e-04 0.00e+00 1.56e-07 -10.9 1.11e-02    -  1.00e+00 9.63e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  2.6180936e-04 0.00e+00 1.02e-07 -11.0 1.02e-03    -  1.00e+00 9.97e-01f  1
+  31  2.6180925e-04 0.00e+00 9.75e-09 -11.0 5.72e-03    -  1.00e+00 1.00e+00f  1
+
+Number of Iterations....: 31
+
+                                   (scaled)                 (unscaled)
+Objective...............:   2.6180924592765612e-04    2.6180924592765612e-04
+Dual infeasibility......:   9.7521004043650114e-09    9.7521004043650114e-09
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.1713314353208835e-11    1.1713314353208835e-11
+Overall NLP error.......:   9.7521004043650114e-09    9.7521004043650114e-09
+
+
+Number of objective function evaluations             = 32
+Number of objective gradient evaluations             = 32
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 32
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 32
+Number of Lagrangian Hessian evaluations             = 0
+Total seconds in IPOPT                               = 23.095
+
+EXIT: Optimal Solution Found.
+OED solve successful: true
+</code></pre><p>Read off the designed fishing control and the per-species OED-selected sampling times.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), ps_oed)
+optimal_ps = reconstruct(uopt.u)
+traj_oed, _ = oed(nothing, optimal_ps, st_oed)
+position = parameter_index(traj_oed, 1)
+control_at(t) = parameter_values_at_time(traj_oed, traj_oed, t)[position]
+edges = vcat(first(prob_fish.tspan), fish_grid[2:end], last(prob_fish.tspan))
+designed_control = control_at.((edges[1:(end - 1)] .+ edges[2:end]) ./ 2)
+w1 = [t for t in measure_times if CorleoneOED.weight_at(oed, traj_oed, :w1, t) &gt; 0.5]
+w2 = [t for t in measure_times if CorleoneOED.weight_at(oed, traj_oed, :w2, t) &gt; 0.5]
+measure_pts = sort(unique(vcat(w1, w2)))
+println(&quot;Fishing control starts at:   &quot;, round.(designed_control[1:5]; digits = 2), &quot; ...&quot;)
+println(&quot;Species-1 measurement times: &quot;, round.(w1; digits = 2))
+println(&quot;Species-2 measurement times: &quot;, round.(w2; digits = 2))</code></pre><pre><code class="nohighlight hljs">Fishing control starts at:   [1.0, 1.0, 1.0, 1.0, 0.0] ...
+Species-1 measurement times: [2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 10.75, 11.0, 11.25, 11.5, 11.75]
+Species-2 measurement times: [3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 10.75, 11.0, 11.25, 11.5, 11.75]
+</code></pre><h2 id="Simulate-the-designed-experiment"><a class="docs-heading-anchor" href="#Simulate-the-designed-experiment">Simulate the designed experiment</a><a id="Simulate-the-designed-experiment-1"></a><a class="docs-heading-anchor-permalink" href="#Simulate-the-designed-experiment" title="Permalink"></a></h2><p>We apply the designed fishing control and observe prey and predator <strong>only at their own OED-selected sampling times</strong> (<code>w1</code> and <code>w2</code>, which differ between the two species), adding Gaussian noise – the <em>per-quantity observation times</em> form of <code>Experiment</code>.</p><pre><code class="language-julia hljs">function simulate_species_times(cvals, noise_rng; σ = 0.02)
+    sim_data = ExperimentData(
+        Experiment(
+            [w1, w2], [zeros(length(w1)), zeros(length(w2))]; σ = 0.02, u0 = fish_u0,
+            controls = (
+                1 =&gt; Tunable(1; default = cvals, lowerbound = 0.0, upperbound = 1.0) =&gt;
+                    fish_grid[2:end],
+            )
+        )
+    )
+    sim = CorleoneInverse.ParameterEstimationLayer(
+        prob_fish, Tsit5(), sim_data; observed = obs_fish
+    )
+    ps, st = LuxCore.setup(noise_rng, sim)
+    sol, _ = sim(nothing, ps, st)
+    M = CorleoneInverse.model_values(sim, sol, measure_pts)
+    prey = M[1, indexin(w1, measure_pts)] .+ σ .* randn(noise_rng, length(w1))
+    predator = M[2, indexin(w2, measure_pts)] .+ σ .* randn(noise_rng, length(w2))
+    return prey, predator
+end
+
+prey_ctrl, pred_ctrl = simulate_species_times(designed_control, rng_f)
+data_control = ExperimentData(
+    Experiment(
+        [w1, w2], [prey_ctrl, pred_ctrl]; σ = 0.02, u0 = fish_u0,
+        controls = (
+            1 =&gt; Tunable(1; default = designed_control, lowerbound = 0.0, upperbound = 1.0) =&gt;
+                fish_grid[2:end],
+        )
+    )
+)</code></pre><pre><code class="nohighlight hljs">ExperimentData with 1 experiment and 32 observations (1 experiment with fixed controls)</code></pre><h2 id="Build-the-multiple-shooting-problem"><a class="docs-heading-anchor" href="#Build-the-multiple-shooting-problem">Build the multiple-shooting problem</a><a id="Build-the-multiple-shooting-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Build-the-multiple-shooting-problem" title="Permalink"></a></h2><p>We pass a <em>single</em> shooting point <code>sp = [6.0]</code>, which partitions the horizon into <code>(0, 6)</code> and <code>(6, 12)</code> and introduces a local state at <code>t = 6</code>. The designed fishing control still enters in exactly the same way – as a fixed annotation in <code>controls</code> that is <em>not</em> an optimization variable.</p><pre><code class="language-julia hljs">shooting_point = [6.0]
+pe_ms = ParameterEstimationLayer(prob_fish, Tsit5(), data_control, shooting_point; observed = obs_fish)</code></pre><pre><code class="nohighlight hljs">ParameterEstimationLayer with 1 experiment and 32 observations (1 experiment with fixed controls)
+  Tunable Lux parameters per experiment (model parameters, tunable initial
+  conditions, and control/shooting-state parameters): 52
+  2 quantities with per-quantity times, σ = 0.02, 1 fixed control, u0 = [0.5, 0.7]
+Underlying problem: ODEProblem with uType Vector{Float64} and tType Float64. In-place: true
+Non-trivial mass matrix: false
+timespan: (0.0, 12.0)
+u0: 2-element Vector{Float64}:
+ 0.5
+ 0.7</code></pre><p>The least-squares residual vector has two blocks: the <strong>front block</strong> holds the (weighted) <em>observation</em> residuals <span>$(y_{\\text{obs}} - y_{\\text{model}})/\\sigma$</span>, and the <strong>back block</strong> holds the <em>shooting</em> residuals appended to them – one continuity residual per matching state/parameter/control at each shooting boundary. With the fishing control <strong>fixed</strong> these are <code>2</code> state (prey, predator) plus <code>2</code> parameter (the estimable <code>p[2], p[3]</code>, since <code>p[1]</code> is the control slot) and <strong>0</strong> control matchings – a fixed control is a known input shared by both intervals, not a shooting unknown.</p><pre><code class="language-julia hljs">n_obs = n_observations(data_control)
+n_shoot = n_shooting_constraints(pe_ms)
+println(&quot;Observation residuals:      &quot;, n_obs)
+println(&quot;Appended shooting residuals:&quot;, n_shoot)
+println(&quot;Total residuals:            &quot;, n_obs + n_shoot)</code></pre><pre><code class="nohighlight hljs">Observation residuals:      32
+Appended shooting residuals:2
+Total residuals:            34
+</code></pre><h2 id="Fit-with-the-default-shooting-weight:-discontinuous-solution"><a class="docs-heading-anchor" href="#Fit-with-the-default-shooting-weight:-discontinuous-solution">Fit with the default shooting weight: discontinuous solution</a><a id="Fit-with-the-default-shooting-weight:-discontinuous-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Fit-with-the-default-shooting-weight:-discontinuous-solution" title="Permalink"></a></h2><p>The observations are residualized against their noise scale <code>σ</code> (so each is <code>O(1)</code> at the noise floor), but the appended shooting residuals are raw state differences on the <strong>state scale</strong> (here <code>O(1)</code>, much larger than <code>σ = 0.02</code>). With the default (unit) weight the optimizer can stall before it drives the continuity gap at <code>t = 6</code> to zero. We solve and <em>measure</em> the shooting residual left in the solution.</p><pre><code class="language-julia hljs">sol_ms = solve(
+    problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0])), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 500
+)
+est_ms = estimate_parameters(pe_ms, sol_ms)
+println(&quot;MS (default weight):  fitted p = &quot;, round.(est_ms.x; digits = 3), &quot;  true = &quot;, fish_p_true)
+println(&quot;MS (default weight):  std errors = &quot;, round.(est_ms.std_errors; digits = 5))</code></pre><pre><code class="nohighlight hljs">MS (default weight):  fitted p = [1.032, 0.986]  true = [1.0, 1.0]
+MS (default weight):  std errors = [0.00225, 0.00188]
+</code></pre><p>A helper to read off the raw (unweighted) shooting residuals from the flat solution vector: the last <code>n_shooting_constraints</code> entries of the residual vector.</p><pre><code class="language-julia hljs">function shooting_residual(pe, x)
+    cp = CorleoneInverse.ParameterEstimationProblem(pe)
+    ps = CorleoneInverse._unflatten(pe, cp.ps0s, x, cp.transforms)
+    r = CorleoneInverse.residual(pe, ps, cp.st)
+    return r[(n_observations(pe.data) + 1):end]
+end
+tic_ms = shooting_residual(pe_ms, sol_ms.u)
+println(
+    &quot;MS (default weight):  shooting residual = &quot;, round.(tic_ms; digits = 4),
+    &quot;  |x| = &quot;, round(norm(tic_ms); digits = 4)
+)</code></pre><pre><code class="nohighlight hljs">MS (default weight):  shooting residual = [0.3301, 0.6894]  |x| = 0.7644
+</code></pre><p>The shooting residual left at the optimum is on the <strong>state scale</strong> (a visible discontinuity at <code>t = 6</code>), because the shooting constraints are unweighted while the observations are weighted by <code>1/σ</code>. This is exactly the situation described in the introduction: the fit satisfies the data but leaves a discontinuous ODE solution.</p><p>We visualise this discontinuity by plotting the raw (unweighted) trajectory pieces on each sub-interval. The two sub-interval trajectories do <strong>not</strong> meet at <code>t = 6</code>:</p><pre><code class="language-julia hljs">traj_default = fitted_parameters(pe_ms, sol_ms).trajectory</code></pre><pre><code class="nohighlight hljs">Trajectory{}(ControlSymbolCache{}(SymbolicIndexingInterface.SymbolCache{Dict{Symbol, Int64}, Dict{Symbol, Int64}, Nothing, Symbol, Dict{Symbol, Float64}}(Dict(:u₁ =&gt; 1, :u₂ =&gt; 2), Dict(:p₃ =&gt; 3, :p₂ =&gt; 2, :p₁ =&gt; 1), nothing, :t, Dict(:p₂ =&gt; 1.0, :p₃ =&gt; 1.0, :u₁ =&gt; 0.5, :u₂ =&gt; 0.7, :p₁ =&gt; 0.0)), [:p₁], Symbol[], Dict{Any, Any}(:p₂ =&gt; (-Inf, Inf), :p₃ =&gt; (-Inf, Inf), :u₁ =&gt; (-Inf, Inf), :u₂ =&gt; (-Inf, Inf), :p₁ =&gt; (0.0, 1.0))), [[0.5, 0.7], [0.49234299971757495, 0.5858319101651303], [0.4980872626933791, 0.49019341014410306], [0.5153445301234063, 0.41134382736562686], [0.5431055583742053, 0.34710204354969704], [0.6406320223422469, 0.31262730988420795], [0.7613246927377991, 0.28922808488692775], [0.9089768640432438, 0.27655234101483683], [1.0872531998209964, 0.2752470774680912], [1.2987592025366996, 0.28741454677194], [1.5431816866586912, 0.3174774016700217], [1.8137280437421244, 0.373744176930672], [2.090773390697552, 0.4709683687498811], [2.332247789728364, 0.6333699982329825], [2.4653706226129013, 0.8936116527249864], [2.3997025441304616, 1.2735024720600858], [2.0920961708197803, 1.7329066811099103], [1.625842611227379, 2.1370752030676305], [1.1653458877003584, 2.3436048404769174], [0.8160450579982726, 2.3236498566809294], [0.5872884815606086, 2.146484730816091], [0.44732179107481407, 1.896160404661253], [0.36448961232618343, 1.6305661948690968], [0.29015359331467183, 1.3082309775327992], [0.24945442148999425, 1.0352471144780435], [0.5795532104020638, 1.7246568216592584], [0.44720216262444334, 1.4478380576156804], [0.37018551722699783, 1.1851955408729298], [0.3265629620191691, 0.9562007367874672], [0.30411154089524817, 0.7653360411412587], [0.2960973930775854, 0.610335853806355], [0.29881999633235384, 0.48643670025221564], [0.3102910535448224, 0.3883789115412865], [0.32953242765592067, 0.3112674547813501], [0.3801464810642942, 0.2600798534768809], [0.45864059253598355, 0.22451539286287386], [0.5577675875755712, 0.19808469389931133], [0.6822448948796332, 0.1796277575180054], [0.8376789561864186, 0.16858485485006802], [1.0304636095232496, 0.16513346128196205], [1.2673527670027527, 0.1705224200820272], [1.5542930608782881, 0.18780685170684466], [1.8935996231543049, 0.2234382678767447], [2.2774696878559517, 0.29069818367011707], [2.6738507450041085, 0.41680387342016234], [2.9997038174597273, 0.6548339157869371], [3.092205001599234, 1.0877205043405018], [2.762362959314638, 1.75966958852306], [2.0447060243828163, 2.490102946709794], [1.2949260707925503, 2.9168840701724674]], [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0], [Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], [0.3300987889120695, 0.6894097071812149], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[], Float64[]], [26], ShootingLayer{}(nothing, SciMLBase.ODEProblem{Vector{Float64}, Tuple{Float64, Float64}, true, Vector{Float64}, SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, typeof(Main.var&quot;##2366&quot;.fishing_lotka!), LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Nothing, Nothing, Nothing}, Base.Pairs{Symbol, Union{}, Nothing, @NamedTuple{}}, SciMLBase.StandardODEProblem}(SciMLBase.ODEFunction{true, SciMLBase.AutoSpecialize, typeof(Main.var&quot;##2366&quot;.fishing_lotka!), LinearAlgebra.UniformScaling{Bool}, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, typeof(SciMLBase.DEFAULT_OBSERVED), Nothing, Nothing, Nothing, Nothing}(Main.var&quot;##2366&quot;.fishing_lotka!, LinearAlgebra.UniformScaling{Bool}(true), nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, SciMLBase.DEFAULT_OBSERVED, nothing, nothing, nothing, nothing), [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0], Base.Pairs{Symbol, Union{}, Nothing, @NamedTuple{}}(), SciMLBase.StandardODEProblem()), OrdinaryDiffEqTsit5.Tsit5{typeof(OrdinaryDiffEqCore.trivial_limiter!), typeof(OrdinaryDiffEqCore.trivial_limiter!), FastBroadcast.Serial}(OrdinaryDiffEqCore.trivial_limiter!, OrdinaryDiffEqCore.trivial_limiter!, FastBroadcast.Serial()), SciMLBase.EnsembleSerial(), InitialConditions{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.5, 0.7]), (u₁ = InitialCondition{}(:u₁, LookUp{}(Dict(6.0 =&gt; 1), nothing), ParameterCollection{}(Corleone.var&quot;#88#89&quot;{Tuple{Float64, Float64}, Vector{Float64}, Float64}((-Inf, Inf), [6.0], 0.5), 1)), u₂ = InitialCondition{}(:u₂, LookUp{}(Dict(6.0 =&gt; 1), nothing), ParameterCollection{}(Corleone.var&quot;#88#89&quot;{Tuple{Float64, Float64}, Vector{Float64}, Float64}((-Inf, Inf), [6.0], 0.7), 1))), ([1], [2])), Parameter{}(nothing, SciMLStructures.ArrayRepack{Vector{Float64}}([0.0, 1.0, 1.0]), (p₁ = PiecewiseConstant{}(:p₁, LookUp{}([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], nothing), ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], Core.Box((0.0, 1.0)), Core.Box([0.9999987722675187, 0.9999983536871102, 0.9999974610058704, 0.9999945582470455, 5.5908395351619376e-5, 4.419515679127031e-6, 2.314016727637682e-6, 1.5806132413578884e-6, 1.2142326515065705e-6, 1.0207698733411028e-6, 9.124196545543186e-7, 8.170030060537247e-7, 6.928820935848248e-7, 5.224088538191068e-7, 3.6211703343770475e-7, 2.6785830205030174e-7, 2.4250659422138424e-7, 2.807637676463475e-7, 4.0342559146274993e-7, 7.05754121797396e-7, 1.6594024664006809e-6, 2.6064089941703475e-5, 0.9999970059008004, 0.9999981797311145, 0.9999984728077338, 0.999998546551947, 0.9999985056421429, 0.9999983668131457, 0.9999981025939856, 0.9999976186037585, 0.9999966124673607, 0.9999935659956648, 0.33700947515541263, 5.56873194465986e-6, 2.5403823489111442e-6, 1.5418599121439944e-6, 1.0519012241075224e-6, 7.656148529379185e-7, 5.815092180422763e-7, 4.563815036652994e-7, 3.690680085605929e-7, 3.085263020989402e-7, 2.692728013090279e-7, 2.515903026429183e-7, 2.6117519200586426e-7, 3.283257682524056e-7, 6.104990018915358e-7, 2.410334711191844e-6])), 48)), p₂ = PiecewiseConstant{}(:p₂, LookUp{}(nothing, nothing), (p₂ = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(1.0)), 1), p₃ = ParameterCollection{}(Corleone.var&quot;#173#174&quot;{Vector{Float64}}([0.0], Core.Box((-Inf, Inf)), Core.Box(1.0)), 1)))), ([1], [2, 3])), ControlSymbolCache{}(SymbolicIndexingInterface.SymbolCache{Dict{Symbol, Int64}, Dict{Symbol, Int64}, Nothing, Symbol, Dict{Symbol, Float64}}(Dict(:u₁ =&gt; 1, :u₂ =&gt; 2), Dict(:p₃ =&gt; 3, :p₂ =&gt; 2, :p₁ =&gt; 1), nothing, :t, Dict(:p₂ =&gt; 1.0, :p₃ =&gt; 1.0, :u₁ =&gt; 0.5, :u₂ =&gt; 0.7, :p₁ =&gt; 0.0)), [:p₁], Symbol[], Dict{Any, Any}(:p₂ =&gt; (-Inf, Inf), :p₃ =&gt; (-Inf, Inf), :u₁ =&gt; (-Inf, Inf), :u₂ =&gt; (-Inf, Inf), :p₁ =&gt; (0.0, 1.0)))), (initialcondition = (initialconditions = (u₁ = (lookup = NamedTuple(), parameter = (ps = [0.5795532104020638],)), u₂ = (lookup = NamedTuple(), parameter = (ps = [1.7246568216592584],))),), parameter = (parameters = (p₁ = (lookup = NamedTuple(), parameter = (ps = [0.9999987722675187, 0.9999983536871102, 0.9999974610058704, 0.9999945582470455, 5.5908395351619376e-5, 4.419515679127031e-6, 2.314016727637682e-6, 1.5806132413578884e-6, 1.2142326515065705e-6, 1.0207698733411028e-6, 9.124196545543186e-7, 8.170030060537247e-7, 6.928820935848248e-7, 5.224088538191068e-7, 3.6211703343770475e-7, 2.6785830205030174e-7, 2.4250659422138424e-7, 2.807637676463475e-7, 4.0342559146274993e-7, 7.05754121797396e-7, 1.6594024664006809e-6, 2.6064089941703475e-5, 0.9999970059008004, 0.9999981797311145, 0.9999984728077338, 0.999998546551947, 0.9999985056421429, 0.9999983668131457, 0.9999981025939856, 0.9999976186037585, 0.9999966124673607, 0.9999935659956648, 0.33700947515541263, 5.56873194465986e-6, 2.5403823489111442e-6, 1.5418599121439944e-6, 1.0519012241075224e-6, 7.656148529379185e-7, 5.815092180422763e-7, 4.563815036652994e-7, 3.690680085605929e-7, 3.085263020989402e-7, 2.692728013090279e-7, 2.515903026429183e-7, 2.6117519200586426e-7, 3.283257682524056e-7, 6.104990018915358e-7, 2.410334711191844e-6],)), p₂ = (lookup = NamedTuple(), parameter = (p₂ = (ps = [1.0318198369512228],), p₃ = (ps = [0.9855826628345324],)))),)), (initialcondition = (initialconditions = (u₁ = (lookup = (collection = Dict(6.0 =&gt; 1), inserted = Int64[], cache = nothing), parameter = NamedTuple(), active = false), u₂ = (lookup = (collection = Dict(6.0 =&gt; 1), inserted = Int64[], cache = nothing), parameter = NamedTuple(), active = false)), active = Bool[0, 0], permutation = [1, 2]), parameter = (parameters = (p₁ = (lookup = (collection = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75], inserted = Int64[], cache = nothing), parameter = NamedTuple()), p₂ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (p₂ = NamedTuple(), p₃ = NamedTuple()))), permutation = [1, 2, 3]), timestops = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0, 5.25, 5.5, 5.75, 6.0, 6.25, 6.5, 6.75, 7.0, 7.25, 7.5, 7.75, 8.0, 8.25, 8.5, 8.75, 9.0, 9.25, 9.5, 9.75, 10.0, 10.25, 10.5, 10.75, 11.0, 11.25, 11.5, 11.75, 12.0]))</code></pre><h2 id="Retry-with-a-higher-penalty-on-the-shooting-conditions"><a class="docs-heading-anchor" href="#Retry-with-a-higher-penalty-on-the-shooting-conditions">Retry with a higher penalty on the shooting conditions</a><a id="Retry-with-a-higher-penalty-on-the-shooting-conditions-1"></a><a class="docs-heading-anchor-permalink" href="#Retry-with-a-higher-penalty-on-the-shooting-conditions" title="Permalink"></a></h2><p><a href="../../inverse/api/#CorleoneInverse.ParameterEstimationProblem"><code>ParameterEstimationProblem</code></a> accepts a <code>shooting_scale</code> keyword that multiplies the appended shooting residuals, letting us weight the continuity constraints relative to the data fit. If the optimal solution shows a large shooting residual, we increase <code>shooting_scale</code> and re-solve – a standard continuation on the constraint weight (here <code>1000</code> drives the gap to <code>~1e-4</code>, negligible next to the <code>O(1)</code> state scale).</p><pre><code class="language-julia hljs">sol_ms2 = solve(
+    problem(pe_ms; x0 = vcat([1.3, 0.8], [1.0, 1.0]), shooting_scale = 1000), GaussNewton();
+    abstol = 1.0e-9, reltol = 1.0e-9, maxiters = 1000
+)
+est_ms2 = estimate_parameters(pe_ms, sol_ms2)
+tic_ms2 = shooting_residual(pe_ms, sol_ms2.u)
+println(&quot;MS (scaled x1000):   fitted p = &quot;, round.(est_ms2.x; digits = 3))
+println(
+    &quot;MS (scaled x1000):   shooting residual = &quot;, round.(tic_ms2; digits = 6),
+    &quot;  |x| = &quot;, round(norm(tic_ms2); digits = 6)
+)</code></pre><pre><code class="nohighlight hljs">MS (scaled x1000):   fitted p = [0.999, 1.001]
+MS (scaled x1000):   shooting residual = [-0.000273, 0.000128]  |x| = 0.000301
+</code></pre><p>Both solves recover the same parameters, but the <code>shooting_scale = 1000</code> solve drives the continuity residual to (near) zero, so the reconstructed multiple-shooting trajectory is (numerically) continuous across the shooting point.</p><pre><code class="language-julia hljs">result_ms = fitted_parameters(pe_ms, sol_ms2)
+f = CairoMakie.Figure()
+ax = CairoMakie.Axis(f[1, 1], xlabel = &quot;t&quot;, ylabel = &quot;population&quot;, title = &quot;Multiple-shooting fit with OED-designed fishing control&quot;)
+vlines!(ax, [6.0]; color = (:gray, 0.5), label = &quot;shooting point t = 6&quot;)
+lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 1); color = (:red, 0.4), linestyle = :dash, label = &quot;default weight (discontinuous)&quot;)
+lines!(ax, collect(traj_default.t), getindex.(traj_default.u, 2); color = (:red, 0.4), linestyle = :dash)
+plot!(ax, result_ms)
+axislegend(ax, position = :lt, nbanks = 2)
+f</code></pre><p><img src="../multiple_shooting_parameter_estimation-figure-1.png" alt="Trajectory plot for Multiple Shooting Parameter Estimation with controls"/></p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+  [13f3f980] CairoMakie v0.15.17
+  [b0b7db55] ComponentArrays v0.15.50
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [f6369f11] ForwardDiff v1.4.7
+  [b6b21f68] Ipopt v1.16.0
+  [98b081ad] Literate v2.21.0
+  [b2108857] Lux v1.31.5
+  [bb33d45b] LuxCore v1.5.4
+  [961ee093] ModelingToolkit v11.46.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [d147904a] OptimalControlBenchmarks v0.1.0 `../lib/OptimalControlBenchmarks`
+  [7f7a1694] Optimization v5.9.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [860ef19b] StableRNGs v1.1.0
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [ddb6d928] YAML v0.4.17
+  [2a0f44e3] Base64 v1.11.0
+  [9a3f8284] Random v1.11.0
+</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre><pre><code class="nohighlight hljs">Julia Version 1.13.3
+Commit 67ac47b9cd8 (2026-10-25 15:28 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+  [47edcb42] ADTypes v1.24.0
+  [14f7f29c] AMD v0.5.4
+  [a4c015fc] ANSIColoredPrinters v0.0.1
+  [621f4979] AbstractFFTs v1.5.0
+  [6e696c72] AbstractPlutoDingetjes v1.4.1
+  [1520ce14] AbstractTrees v0.4.5
+  [7d9f7c33] Accessors v0.1.46
+  [79e6a3ab] Adapt v4.8.0
+  [4f381ef7] AdaptiveArrayPools v0.3.12
+  [35492f91] AdaptivePredicates v1.2.0
+  [66dad0bd] AliasTables v1.1.3
+  [27a7e980] Animations v0.4.2
+  [ec485272] ArnoldiMethod v0.4.0
+  [4fba245c] ArrayInterface v7.30.2
+  [4c555306] ArrayLayouts v1.16.0
+  [a9b6321e] Atomix v1.7.0
+  [67c07d97] Automa v1.2.0
+  [13072b0f] AxisAlgorithms v1.1.0
+  [39de3d68] AxisArrays v0.4.8
+  [ab4f0b2a] BFloat16s v0.6.5
+  [aae01518] BandedMatrices v1.14.0
+  [198e06fe] BangBang v0.4.9
+  [18cc8868] BaseDirs v1.4.0
+  [2027ae74] BibInternal v0.4.0
+  [13533e5b] BibParser v0.3.0
+  [f1be7e48] Bibliography v0.4.0
+  [e2ed5e7c] Bijections v0.2.2
+  [b2a6c25c] BinaryHeaps v1.1.0
+  [caf10ac8] BipartiteGraphs v0.1.15
+  [8e7c35d0] BlockArrays v1.10.3
+  [70df07ce] BracketingNonlinearSolve v1.12.8
+⌅ [fa961155] CEnum v0.5.0
+  [2a0fbf3d] CPUSummary v0.2.7
+  [96374032] CRlibm v1.1.1
+  [159f3aea] Cairo v1.1.1
+  [13f3f980] CairoMakie v0.15.17
+  [d360d2e6] ChainRulesCore v1.26.8
+  [ae650224] ChunkSplitters v3.2.0
+  [523fee87] CodecBzip2 v0.8.5
+  [944b1d66] CodecZlib v0.7.9
+  [6b39b394] CodecZstd v0.8.7
+  [a2cac450] ColorBrewer v0.4.2
+  [35d6a980] ColorSchemes v3.32.0
+  [3da002f7] ColorTypes v0.12.5
+  [c3611d14] ColorVectorSpace v0.11.2
+  [5ae59095] Colors v0.13.4
+⌅ [861a8166] Combinatorics v1.0.2
+  [38540f10] CommonSolve v0.2.14
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [f70d9fcc] CommonWorldInvalidations v1.2.2
+  [34da2185] Compat v4.18.1
+  [b0b7db55] ComponentArrays v0.15.50
+  [b152e2b5] CompositeTypes v0.1.4
+  [a33af91c] CompositionsBase v0.1.2
+  [95dc2771] ComputePipeline v0.1.9
+  [2569d6c7] ConcreteStructs v0.2.8
+  [88cd18e8] ConsoleProgressMonitor v0.1.2
+  [187b0558] ConstructionBase v1.6.0
+  [d38c429a] Contour v0.6.3
+  [b7a15901] CoreMath v0.1.0
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [adafc99b] CpuId v0.3.3
+  [a8cc5b0e] Crayons v4.2.0
+  [9a962f9c] DataAPI v1.16.0
+  [864edb3b] DataStructures v0.19.6
+  [e2d170a0] DataValueInterfaces v1.0.0
+  [927a84f5] DelaunayTriangulation v1.7.0
+  [8bb1440f] DelimitedFiles v1.9.1
+  [2b5f629d] DiffEqBase v7.21.6
+  [459566f4] DiffEqCallbacks v4.19.6
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.16.0
+  [a0c0ee7d] DifferentiationInterface v0.7.21
+  [8d63f2c5] DispatchDoctor v0.4.29
+  [31c24e10] Distributions v0.25.134
+⌅ [ffbed154] DocStringExtensions v0.9.5
+  [e30172f5] Documenter v1.19.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [5b8099bc] DomainSets v0.8.3
+⌅ [7c1d4256] DynamicPolynomials v0.6.8
+  [4e289a0a] EnumX v1.0.7
+  [f151be2c] EnzymeCore v0.8.27
+  [429591f6] ExactPredicates v2.2.9
+  [e2ba6199] ExprTools v0.1.11
+  [21656369] ExpressionExplorer v1.1.6
+  [55351af7] ExproniconLite v0.10.16
+  [b86e33f2] FFTA v0.3.2
+  [7034ab61] FastBroadcast v1.5.1
+  [9aa1b823] FastClosures v0.3.2
+  [9ea80cae] FastInterpolations v0.4.20
+  [a4df4552] FastPower v1.5.1
+  [5789e2e9] FileIO v1.20.0
+  [8fc22ac5] FilePaths v0.9.0
+  [48062228] FilePathsBase v0.9.24
+  [1a297f60] FillArrays v1.18.2
+  [64ca27bc] FindFirstFunctions v3.4.1
+  [6a86dc24] FiniteDiff v2.33.0
+⌅ [53c48c17] FixedPointNumbers v0.8.6
+  [1fa38f19] Format v1.3.7
+  [f6369f11] ForwardDiff v1.4.7
+  [b38be410] FreeType v4.1.1
+  [663a7486] FreeTypeAbstraction v0.10.8
+  [a85aefff] FunctionMaps v0.1.2
+  [069b7b12] FunctionWrappers v1.1.3
+  [77dc65aa] FunctionWrappersWrappers v1.13.0
+  [d9f16b24] Functors v0.5.4
+  [46192b85] GPUArraysCore v0.2.2
+⌃ [a0844989] Gamma v1.1.0
+  [5c1252a2] GeometryBasics v0.5.13
+  [d7ba0133] Git v1.5.0
+  [a2bd30eb] Graphics v1.1.3
+  [86223c79] Graphs v1.15.0
+  [3955a311] GridLayoutBase v0.11.3
+  [076d061b] HashArrayMappedTries v0.2.0
+  [5880b2e8] HelpPlots v1.1.1
+  [34004b35] HypergeometricFunctions v0.3.31
+  [b5f81e59] IOCapture v1.0.0
+  [615f187c] IfElse v0.1.1
+  [2803e5a7] ImageAxes v0.6.12
+  [c817782e] ImageBase v0.1.7
+  [a09fc81d] ImageCore v0.10.5
+  [82e4d734] ImageIO v0.6.10
+  [bc367c6b] ImageMetadata v0.9.10
+  [3263718b] ImplicitDiscreteSolve v2.3.0
+  [9b13fd28] IndirectArrays v1.0.0
+  [d25df0c9] Inflate v0.1.5
+  [22cec73e] InitialValues v0.3.1
+  [18e54dd8] IntegerMathUtils v0.1.4
+  [a98d9a8b] Interpolations v0.16.3
+  [d1acc4aa] IntervalArithmetic v1.0.12
+  [8197267c] IntervalSets v0.7.15
+  [3587e190] InverseFunctions v0.1.18
+  [b6b21f68] Ipopt v1.16.0
+  [92d709cd] IrrationalConstants v0.2.7
+  [f1662d9f] Isoband v0.1.1
+  [c8e1da08] IterTools v1.11.0
+  [82899510] IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] JLLWrappers v1.8.0
+  [682c06a0] JSON v1.13.4
+  [7d188eb4] JSONSchema v1.6.0
+  [ae98c720] Jieko v0.2.1
+  [b835a17e] JpegTurbo v0.1.6
+  [ccbc3e58] JumpProcesses v10.1.0
+⌃ [63c18a36] KernelAbstractions v0.9.45
+  [5ab0869b] KernelDensity v0.6.13
+  [ba0b0d4f] Krylov v0.10.12
+  [5be7bae1] LBFGSB v0.4.1
+  [2faa5264] LHLFactorization v2.2.2
+  [929cbde3] LLVM v10.4.3
+  [b964fa9f] LaTeXStrings v1.4.1
+  [0e77f7df] LazilyInitializedFields v1.3.0
+  [8cdb02fc] LazyModules v0.3.1
+  [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
+  [87fe0de2] LineSearch v0.1.20
+  [7ed4a6bd] LinearSolve v5.18.3
+  [98b081ad] Literate v2.21.0
+⌅ [2ab3a3ac] LogExpFunctions v0.3.29
+  [e6f89c97] LoggingExtras v1.2.0
+  [b2108857] Lux v1.31.5
+  [bb33d45b] LuxCore v1.5.4
+  [82251201] LuxLib v1.15.10
+  [7e8f7934] MLDataDevices v1.18.0
+  [1914dd2f] MacroTools v0.5.16
+  [ee78f7c6] Makie v0.24.17
+  [dbb5928d] MappedArrays v0.4.3
+  [d0879d2d] MarkdownAST v0.1.3
+  [b8f27783] MathOptInterface v1.54.0
+  [0a4f8689] MathTeXEngine v0.6.9
+  [bb5d69b7] MaybeInplace v0.1.8
+  [e1d29d7a] Missings v1.2.1
+  [961ee093] ModelingToolkit v11.46.1
+  [7771a370] ModelingToolkitBase v1.79.1
+  [6bb917b9] ModelingToolkitTearing v1.20.9
+  [e94cdb99] MosaicViews v0.3.4
+  [2e0e35c7] Moshi v0.3.13
+  [46d2c3a1] MuladdMacro v0.2.7
+⌅ [102ac46a] MultivariatePolynomials v0.5.20
+  [d8a4904e] MutableArithmetics v1.9.3
+  [872c559c] NNlib v0.9.58
+  [77ba4419] NaNMath v1.1.5
+  [f09324ee] Netpbm v1.1.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [be0214bd] NonlinearSolveBase v2.55.1
+  [5959db7a] NonlinearSolveFirstOrder v2.10.0
+  [9a2c21bd] NonlinearSolveQuasiNewton v1.15.3
+  [26075421] NonlinearSolveSpectralMethods v1.8.3
+  [510215fc] Observables v0.5.5
+  [6fe1bfb0] OffsetArrays v1.18.0
+  [67456a42] OhMyThreads v0.8.9
+  [52e1d378] OpenEXR v0.3.3
+  [d147904a] OptimalControlBenchmarks v0.1.0 `../lib/OptimalControlBenchmarks`
+  [3bd65402] Optimisers v0.4.11
+  [7f7a1694] Optimization v5.9.1
+  [bca83a33] OptimizationBase v5.10.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [bac558e1] OrderedCollections v2.0.3
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [bbf590c4] OrdinaryDiffEqCore v4.19.1
+  [4302a76b] OrdinaryDiffEqDifferentiation v3.12.5
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [2d112036] OrdinaryDiffEqSDIRK v2.9.8
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [90014a1f] PDMats v0.11.41
+  [f57f5aa1] PNGFiles v0.4.5
+  [19eb6ba3] Packing v0.5.1
+  [5432bcbf] PaddedViews v0.5.12
+  [69de0a69] Parsers v3.0.6
+  [eebad327] PkgVersion v0.3.3
+  [995b91a9] PlotUtils v1.5.1
+⌃ [e409e4f3] PoissonRandom v0.4.13
+  [647866c9] PolygonOps v0.1.2
+  [d236fae5] PreallocationTools v1.7.1
+  [aea7be01] PrecompileTools v1.3.4
+  [21216c6a] Preferences v1.6.1
+  [08abe8d2] PrettyTables v3.5.1
+  [27ebfcd6] Primes v0.5.7
+  [33c8b6b6] ProgressLogging v0.1.6
+  [92933f4c] ProgressMeter v1.13.0
+  [43287f4e] PtrArrays v1.4.0
+  [0c0d3e7f] PureKLU v1.6.0
+  [4b34888f] QOI v1.0.2
+  [1fd47b50] QuadGK v2.11.3
+  [b3c3ace0] RangeArrays v0.3.2
+  [c84ed2f1] Ratios v0.4.5
+  [a3311ec8] ReactantCore v0.1.26
+  [988b38a3] ReadOnlyArrays v0.2.0
+  [795d4caa] ReadOnlyDicts v1.0.1
+  [3cdcf5f2] RecipesBase v1.4.0
+  [731186ca] RecursiveArrayTools v4.5.6
+  [189a3867] Reexport v1.2.2
+  [2792f1a3] RegistryInstances v0.1.0
+  [05181044] RelocatableFolders v1.0.1
+  [ae029012] Requires v1.3.1
+  [9fe22ead] RespecializeParams v1.3.0
+  [79098fc4] Rmath v0.9.0
+  [f2b01f46] Roots v3.0.13
+  [5eaf0fd0] RoundingEmulator v0.2.1
+  [7e49a35a] RuntimeGeneratedFunctions v0.5.27
+  [9dfe8606] SCCNonlinearSolve v1.16.0
+  [fdea26ae] SIMD v3.8.2
+  [0bca4576] SciMLBase v3.58.0
+  [19f34311] SciMLJacobianOperators v0.1.20
+  [a6db7da4] SciMLLogging v2.1.0
+  [c0aeaf25] SciMLOperators v1.30.4
+  [431bcebd] SciMLPublic v1.3.0
+  [53ae85a6] SciMLStructures v1.10.6
+  [7e506255] ScopedValues v1.6.2
+  [6c6a2e73] Scratch v1.3.0
+  [efcf1570] Setfield v1.2.0
+  [65257c39] ShaderAbstractions v0.5.1
+  [73760f76] SignedDistanceFields v0.4.1
+  [727e6d20] SimpleNonlinearSolve v2.14.6
+  [699a6c99] SimpleTraits v0.9.6
+  [45858cf5] Sixel v0.1.6
+  [ed01d8cd] Sobol v1.5.0
+  [a2af1166] SortingAlgorithms v1.2.3
+  [a57abbd0] SparseColumnPivotedQR v2.1.8
+  [9f842d2f] SparseConnectivityTracer v1.2.4
+  [0a514795] SparseMatrixColorings v0.4.29
+  [276daf66] SpecialFunctions v2.9.1
+  [860ef19b] StableRNGs v1.1.0
+  [91464d47] StableTasks v0.1.7
+  [cae243ae] StackViews v0.1.2
+⌅ [0c0c59c1] StarAlgebras v0.3.1
+  [64909d44] StateSelection v1.11.1
+  [aedffcd0] Static v1.4.6
+  [0d7ed370] StaticArrayInterface v1.10.0
+  [90137ffa] StaticArrays v1.9.24
+  [1e83bf80] StaticArraysCore v1.4.4
+  [10745b16] Statistics v1.11.5
+  [82ae8749] StatsAPI v1.8.0
+  [2913bbd2] StatsBase v0.34.13
+⌃ [4c63d2b9] StatsFuns v1.5.3
+  [69024149] StringEncodings v0.3.7
+  [892a3eda] StringManipulation v0.6.1
+  [09ab397b] StructArrays v0.7.4
+  [ec057cc2] StructUtils v2.12.0
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [19f23fe9] SymbolicLimits v1.2.2
+  [d1185830] SymbolicUtils v4.55.0
+  [0c5d862f] Symbolics v7.48.0
+  [3783bdb8] TableTraits v1.0.1
+  [bd369af6] Tables v1.14.0
+  [ed4db957] TaskLocalValues v0.1.3
+  [62fd8b95] TensorCore v0.1.1
+  [8ea1fca8] TermInterface v2.0.1
+  [5d786b92] TerminalLoggers v0.1.8
+  [1c621080] TestItems v1.1.0
+  [731e570b] TiffImages v0.11.9
+  [a759f4b9] TimerOutputs v1.2.2
+  [3bb67fe8] TranscodingStreams v0.11.3
+  [981d1d27] TriplotBase v0.1.0
+  [781d530d] TruncatedStacktraces v1.4.0
+  [5c2747f8] URIs v1.7.3
+  [3a884ed6] UnPack v1.0.2
+  [1cfade01] UnicodeFun v0.4.1
+  [1986cc42] Unitful v1.29.0
+  [013be700] UnsafeAtomics v0.4.0
+  [d30d5f5c] WeakCacheSets v0.1.0
+  [e3aaa7dc] WebP v0.1.3
+  [d49dbf32] WeightInitializers v1.3.5
+  [efce3f68] WoodburyMatrices v1.1.0
+  [ddb6d928] YAML v0.4.17
+  [ae81ac8f] ASL_jll v0.1.5+0
+  [6e34b625] Bzip2_jll v1.0.9+0
+  [4e9b3aee] CRlibm_jll v1.0.1+0
+  [83423d85] Cairo_jll v1.18.8+1
+  [a38c48d9] CoreMath_jll v0.1.0+0
+⌅ [5ae413db] EarCut_jll v2.2.4+0
+  [2e619515] Expat_jll v2.10.0+0
+  [b22a6f82] FFMPEG_jll v9.0.2+0
+  [a3f928ae] Fontconfig_jll v2.18.3+0
+⌅ [d7e528f0] FreeType2_jll v2.14.3+1
+  [559328eb] FriBidi_jll v1.0.19+0
+⌅ [b0724c58] GettextRuntime_jll v0.22.4+0
+  [59f7168a] Giflib_jll v6.1.3+0
+  [020c3dae] Git_LFS_jll v3.8.1+0
+  [f8c6e375] Git_jll v2.56.0+0
+  [7746bdde] Glib_jll v2.90.1+0
+  [3b182d85] Graphite2_jll v1.3.16+0
+  [2e76f6c2] HarfBuzz_jll v100.15001.0+0
+  [e33a78d0] Hwloc_jll v2.15.0+0
+  [905a6f67] Imath_jll v3.2.2+0
+  [1d5cc7b8] IntelOpenMP_jll v2025.2.0+0
+⌅ [9cc047cb] Ipopt_jll v300.1400.1902+0
+  [aacddb02] JpegTurbo_jll v3.2.1+0
+  [c1c5ebd0] LAME_jll v3.100.3+0
+  [88015f11] LERC_jll v4.3.0+0
+  [dad2f222] LLVMExtra_jll v0.0.56+0
+  [1d63c593] LLVMOpenMP_jll v23.1.1+0
+  [81d17ec3] L_BFGS_B_jll v3.0.1+0
+⌅ [e9f186c6] Libffi_jll v3.4.7+0
+  [7e76a0d4] Libglvnd_jll v1.7.1+1
+  [94ce4f54] Libiconv_jll v1.18.0+0
+  [4b2f31a3] Libmount_jll v2.42.4+0
+  [89763e89] Libtiff_jll v4.7.3+0
+  [38a345b3] Libuuid_jll v2.42.4+0
+  [d00139f3] METIS_jll v5.1.4+0
+  [856f044c] MKL_jll v2025.2.0+0
+  [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [e7412a2a] Ogg_jll v1.3.6+0
+  [656ef2d0] OpenBLAS32_jll v0.3.34+1
+  [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
+  [18a262bb] OpenEXR_jll v3.5.3+0
+⌅ [95196869] OpenJPH_jll v0.32.0+0
+  [9bd350c2] OpenSSH_jll v10.6.1+0
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [91d4177d] Opus_jll v1.6.1+0
+  [36c8627f] Pango_jll v1.58.2+0
+  [30392449] Pixman_jll v0.46.4+0
+  [f50d1b31] Rmath_jll v0.5.2+0
+  [319450e9] SPRAL_jll v2025.9.18+1
+  [02c8fc9c] XML2_jll v2.15.4+0
+  [ffd25f8a] XZ_jll v5.8.4+0
+  [4f6342f7] Xorg_libX11_jll v1.8.14+0
+  [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
+  [a3789734] Xorg_libXdmcp_jll v1.1.6+0
+  [1082639a] Xorg_libXext_jll v1.3.8+0
+  [d091e8ba] Xorg_libXfixes_jll v6.0.2+0
+  [ea2f1a96] Xorg_libXrender_jll v0.9.13+0
+  [a65dc6b1] Xorg_libpciaccess_jll v0.19.0+0
+  [c7cfdc94] Xorg_libxcb_jll v1.17.1+0
+  [c5fb5394] Xorg_xtrans_jll v1.6.0+0
+  [9a68df92] isoband_jll v0.2.3+0
+  [a4ae2306] libaom_jll v3.15.3+0
+  [0ac62f75] libass_jll v0.17.5+0
+  [46979653] libdeflate_jll v1.26.0+1
+  [8e53e030] libdrm_jll v2.4.134+0
+⌅ [f638f0a6] libfdk_aac_jll v2.0.4+0
+  [b53b4c65] libpng_jll v1.6.59+1
+  [075b6546] libsixel_jll v1.80.702+0
+  [9a156e7d] libva_jll v2.24.1+0
+  [f27f6e37] libvorbis_jll v1.3.8+0
+  [c5f90fcd] libwebp_jll v1.6.1+0
+  [1317d2d5] oneTBB_jll v2023.1.0+0
+⌅ [1270edf5] x264_jll v10164.0.1+0
+⌅ [dfaa095f] x265_jll v4.1.0+0
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [8bf52ea8] CRC32c v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [9fa8497b] Future v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] LazyArtifacts v1.11.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [a63ad114] Mmap v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [3fa0cd96] REPL v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [1a1011a3] SharedArrays v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [4607b0f0] SuiteSparse
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [05823500] OpenLibm_jll v0.8.7+0
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rober_dae_parameter_estimation/">« Robertson DAE problem</a><a class="docs-footer-nextpage" href="../../inverse/numerics/">Numerics »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 13:10">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
