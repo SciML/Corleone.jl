@@ -36,7 +36,7 @@ local_information = map(values(multi.experiments), values(trajectories)) do laye
     fisher_information(layer, trajectory; add_initial = false)
 end
 @assert F ≈ sum(local_information) # both experiments use the same full coordinates
-(; termination = result.retcode, objective = result.objective, budgets = optimal_budgets)</code></pre><pre><code class="nohighlight hljs">(termination = SciMLBase.ReturnCode.Success, objective = 0.01850065226047913, budgets = [3.9999997430703056, 3.9999997576870916, 3.9999997423509277, 3.9999997588771277])</code></pre><p>The first experiment&#39;s physical populations, fishing (<code>p₁</code>), and densities (<code>w1</code>, <code>w2</code>). Exclude augmented sensitivity/information states from these plots.</p><pre><code class="language-julia hljs">augmented_states = filter(variable_symbols(trajectories.experiment_1)) do symbol
+(; termination = result.retcode, objective = result.objective, budgets = optimal_budgets)</code></pre><pre><code class="nohighlight hljs">(termination = SciMLBase.ReturnCode.Success, objective = 0.018521784988108227, budgets = [3.999544628695348, 3.999566506413523, 3.9995449237102507, 3.9995660130511967])</code></pre><p>The first experiment&#39;s physical populations, fishing (<code>p₁</code>), and densities (<code>w1</code>, <code>w2</code>). Exclude augmented sensitivity/information states from these plots.</p><pre><code class="language-julia hljs">augmented_states = filter(variable_symbols(trajectories.experiment_1)) do symbol
     variable_index(trajectories.experiment_1, symbol) &gt; length(problem.u0)
 end
 trajectoryplot(trajectories.experiment_1; skips = augmented_states, state_string = &quot;Population&quot;)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-figure-1.png" alt="Trajectory plot for Joint Lotka–Volterra experiments"/></p><p>The second experiment&#39;s populations and independent schedules. Access experiments by name: iterating a ComponentArray would yield its numerical entries instead.</p><pre><code class="language-julia hljs">trajectoryplot(trajectories.experiment_2; skips = augmented_states, state_string = &quot;Population&quot;)</code></pre><p><img src="../the_lotka_volterra_multiexperiment_problem-figure-2.png" alt="Trajectory plot for Joint Lotka–Volterra experiments"/></p><h2 id="Carry-information-into-another-design"><a class="docs-heading-anchor" href="#Carry-information-into-another-design">Carry information into another design</a><a id="Carry-information-into-another-design-1"></a><a class="docs-heading-anchor-permalink" href="#Carry-information-into-another-design" title="Permalink"></a></h2><p>A global prior is added once, rather than once per experiment. Here an identity prior is an illustrative input, not a statistical calibration recommendation.</p><pre><code class="language-julia hljs">prior_state = merge(st, (; F_init = Matrix{Float64}(I, 2, 2)))
@@ -45,8 +45,8 @@ F_with_prior, _ = fisher_information(multi, nothing, optimal_ps, prior_state)
 next_st = update_fim(multi, [(; ps = optimal_ps, st)], prior_state)
 @assert next_st.F_init ≈ prior_state.F_init + F
 next_st.F_init</code></pre><pre><code class="nohighlight hljs">2×2 Matrix{Float64}:
- 78.6458   11.3292
- 11.3292  184.324</code></pre><h2 id="Different-estimated-parameter-subsets"><a class="docs-heading-anchor" href="#Different-estimated-parameter-subsets">Different estimated parameter subsets</a><a id="Different-estimated-parameter-subsets-1"></a><a class="docs-heading-anchor-permalink" href="#Different-estimated-parameter-subsets" title="Permalink"></a></h2><p>Experiments may target different subsets. Indices must refer to the same physical quantities in both models. Each local matrix is embedded before summation; missing parameter directions contribute zero information.</p><pre><code class="language-julia hljs">first_design = OEDLayer(problem, Tsit5(), control; params = [2], measurements, controls = [1])
+ 78.5749   11.3169
+ 11.3169  184.018</code></pre><h2 id="Different-estimated-parameter-subsets"><a class="docs-heading-anchor" href="#Different-estimated-parameter-subsets">Different estimated parameter subsets</a><a id="Different-estimated-parameter-subsets-1"></a><a class="docs-heading-anchor-permalink" href="#Different-estimated-parameter-subsets" title="Permalink"></a></h2><p>Experiments may target different subsets. Indices must refer to the same physical quantities in both models. Each local matrix is embedded before summation; missing parameter directions contribute zero information.</p><pre><code class="language-julia hljs">first_design = OEDLayer(problem, Tsit5(), control; params = [2], measurements, controls = [1])
 second_design = OEDLayer(problem, Tsit5(), control; params = [3], measurements, controls = [1])
 split_design = MultiExperimentLayer((first_design, second_design))
 split_ps, split_st = LuxCore.setup(Xoshiro(2), split_design)
@@ -54,10 +54,10 @@ split_problem = OptimizationProblem(
     split_design, ACriterion();
     ps = split_ps, st = split_st, M = fill(4.0, 4)
 );</code></pre><p>This last problem is prepared but not solved. Each experiment contributes one parameter direction; missing directions are zero-filled during embedding. SVD reductions use the approximation described in <a href="../../oed/numerics/#oed_svd">the reduction guide</a>.</p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [e30172f5] Documenter v1.19.0
@@ -89,13 +89,16 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 192 × AMD EPYC 9455 48-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+Environment:
+  JULIA_CPU_THREADS = 4
+  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -156,7 +159,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [adafc99b] CpuId v0.3.3
@@ -529,4 +532,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../compartmental_oed_problem/">« Discrete Compartmental Design</a><a class="docs-footer-nextpage" href="../../oed/formulation/">Measurements and Information »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 13:10">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../compartmental_oed_problem/">« Discrete Compartmental Design</a><a class="docs-footer-nextpage" href="../../oed/formulation/">Measurements and Information »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 16:39">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

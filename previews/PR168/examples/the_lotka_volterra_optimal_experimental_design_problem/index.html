@@ -42,15 +42,15 @@ optimal_budgets = sampling_sums(oed, optimal_trajectory)
 @assert isposdef(Symmetric(optimal_F))
 @assert all(optimal_budgets .&lt;= 4.0 + 1.0e-5)
 @assert isapprox(result.objective, ACriterion()(optimal_F); rtol = 1.0e-5)
-(; termination = result.retcode, objective = result.objective, budgets = optimal_budgets)</code></pre><pre><code class="nohighlight hljs">(termination = SciMLBase.ReturnCode.Success, objective = 0.03700127612160299, budgets = [4.000000024466904, 4.0000000250672745])</code></pre><p>Reconstruct from the current result vector and solve again: the old trajectory&#39;s saved states do not change when parameter containers change.</p><pre><code class="language-julia hljs">trajectoryplot(optimal_trajectory; skips = augmented_states, state_string = &quot;Population&quot;)</code></pre><p><img src="../the_lotka_volterra_optimal_experimental_design_problem-figure-2.png" alt="Trajectory plot for Lotka–Volterra optimal experimental design"/></p><p>Optimized populations and schedules. Densities may be fractional: this is a continuous relaxation, not a binary sampling certificate or global-optimum proof.</p><h2 id="Carry-information-into-another-experiment"><a class="docs-heading-anchor" href="#Carry-information-into-another-experiment">Carry information into another experiment</a><a id="Carry-information-into-another-experiment-1"></a><a class="docs-heading-anchor-permalink" href="#Carry-information-into-another-experiment" title="Permalink"></a></h2><p>Re-evaluate the completed experiment with its own parameter/state tree and add its information to the prior. Existing priors are not counted a second time.</p><pre><code class="language-julia hljs">next_st = update_fim(oed, [(; ps = optimal_ps, st)], st)
+(; termination = result.retcode, objective = result.objective, budgets = optimal_budgets)</code></pre><pre><code class="nohighlight hljs">(termination = SciMLBase.ReturnCode.Success, objective = 0.03700127612160463, budgets = [4.000000024466904, 4.000000025067273])</code></pre><p>Reconstruct from the current result vector and solve again: the old trajectory&#39;s saved states do not change when parameter containers change.</p><pre><code class="language-julia hljs">trajectoryplot(optimal_trajectory; skips = augmented_states, state_string = &quot;Population&quot;)</code></pre><p><img src="../the_lotka_volterra_optimal_experimental_design_problem-figure-2.png" alt="Trajectory plot for Lotka–Volterra optimal experimental design"/></p><p>Optimized populations and schedules. Densities may be fractional: this is a continuous relaxation, not a binary sampling certificate or global-optimum proof.</p><h2 id="Carry-information-into-another-experiment"><a class="docs-heading-anchor" href="#Carry-information-into-another-experiment">Carry information into another experiment</a><a id="Carry-information-into-another-experiment-1"></a><a class="docs-heading-anchor-permalink" href="#Carry-information-into-another-experiment" title="Permalink"></a></h2><p>Re-evaluate the completed experiment with its own parameter/state tree and add its information to the prior. Existing priors are not counted a second time.</p><pre><code class="language-julia hljs">next_st = update_fim(oed, [(; ps = optimal_ps, st)], st)
 @assert next_st.F_init ≈ optimal_F
 next_st.F_init</code></pre><pre><code class="nohighlight hljs">2×2 Matrix{Float64}:
  38.8203    5.66788
   5.66788  91.6797</code></pre><p>Prepare the next design using <code>ps=optimal_ps, st=next_st</code>.</p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [e30172f5] Documenter v1.19.0
@@ -82,13 +82,16 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  CPU: 192 × AMD EPYC 9455 48-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+Environment:
+  JULIA_CPU_THREADS = 4
+  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -149,7 +152,7 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [187b0558] ConstructionBase v1.6.0
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.0.0 `~/_work/Corleone.jl/Corleone.jl`
   [2feaeeb8] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
   [adafc99b] CpuId v0.3.3
@@ -522,4 +525,4 @@ Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.3+0
 Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
-</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../oed/">« Overview</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete Compartmental Design »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 13:10">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../oed/">« Overview</a><a class="docs-footer-nextpage" href="../compartmental_oed_problem/">Discrete Compartmental Design »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 5 November 2026 16:39">Thursday 5 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
