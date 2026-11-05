@@ -1,4 +1,4 @@
-# [Shooting formulation](@id shooting_formulation)
+# [Constructing shooting problems](@id shooting_formulation)
 
 A shooting method replaces a continuous dynamic optimization problem with an
 optimization over parameter values and, optionally, intermediate state values.
@@ -18,24 +18,15 @@ Here ``x`` denotes the numerical state. The parameter vector ``p`` includes any
 control inputs. Julia's ODE interface conventionally calls the state argument
 `u`; `trajectory.u` therefore stores samples of ``x``, not just control inputs.
 
-For parameter ``j``, switching times ``b_{j,1}<\cdots<b_{j,m_j}`` define
-``m_j+1`` piecewise-constant values. At a switching time, the value on the
-**right** is active. Different parameters may have different grids. Equal grids
-share a lookup, while each variable retains its own vector of scalar values.
-See [initialization](initialization.md) for annotation shapes and defaults.
+Construct an `ODEProblem`, choose a solver, and pass `annotation => grid` pairs to
+[`ShootingLayer`](@ref), as in [Getting Started](getting_started.md). Parameter
+switches split the integration without resetting states. The
+[scheduling guide](scheduling.md) defines interval values, defaults, and storage.
 
-The integration grid is the sorted union of the problem endpoints, parameter
-switches, and scheduled state resets inside the time span. Additional expression
-evaluation times can also split the integration. Write this grid as
-
-```math
-t_0=\tau_0<\tau_1<\cdots<\tau_N=t_f.
-```
-
-`LuxCore.setup` caches the layer's grid in `st.timestops`. The forward call reuses
-it. After changing schedules, refresh the cache explicitly; see
-[parallel shooting](parallel_shooting.md). Changing a grid's size may also require
-new parameter buffers and a newly prepared optimization model.
+The integration grid is the sorted union of problem endpoints, parameter switches,
+and state resets within the span. Prepared expressions may add evaluation times.
+Write it as ``t_0=\tau_0<\cdots<\tau_N=t_f``. Setup caches it in `st.timestops`;
+see [schedule changes](scheduling.md#Defaults-and-schedule-changes) before modifying grids.
 
 ## Single and multiple shooting
 
@@ -67,9 +58,7 @@ components.
 
 [`shooting_constraints`](@ref) flattens state residuals in chronological order,
 then state-index order. [`get_number_of_shooting_constraints`](@ref) counts them
-from the cached schedules without solving. See
-[optimization contracts](optimization_contracts.md) for the complete ordering,
-including parameter residuals.
+from the cached schedules without solving. Parameter residuals follow, as defined below.
 
 ## Shared parameters and inserted intervals
 
@@ -85,9 +74,9 @@ the matching residual is
 d_{j,\ell}=p_{j,\ell}-p_{j,\ell-1}.
 ```
 
-These residuals follow the state residuals in the optimizer constraint vector.
-Original parameter switches are unconstrained; fixed parameters do not acquire
-matching residuals. The layer computes these differences on demand from `ps` and
+These residuals follow state residuals, in canonical parameter order and then
+increasing inserted interval index. Original parameter switches are unconstrained;
+fixed parameters do not acquire matching residuals. The layer computes these differences on demand from `ps` and
 `st`, rather than storing them in `trajectory.residuals`.
 
 ## Integral costs and quadrature states

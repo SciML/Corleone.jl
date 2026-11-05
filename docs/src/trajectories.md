@@ -67,10 +67,7 @@ The last query is from SymbolicIndexingInterface. Parameters are piecewise
 constant and right-continuous, and their history grid can differ from the state
 sample grid. Do not combine the two histories by assuming matching column indices.
 
-Timed numerical expressions such as `:(u₁(1.0))` select the post-reset state by
-default. A callback can inspect either saved side explicitly. Bare signal names
-inside expressions denote their full series on the saved grid; a plain Symbol
-objective selector denotes the terminal value. See
+For timed expressions, terminal selectors, and full-series expressions, see
 [expression evaluation](optimization_contracts.md#Timed-Julia-expressions).
 
 Internal solver saving options, including `saveat`, can add state samples.

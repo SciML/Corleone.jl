@@ -1,5 +1,6 @@
-using CorleoneOED, Documenter, Literate
+using CorleoneOED, Documenter, Literate, YAML
 using Base64: base64decode
+include("tutorial_source.jl")
 
 realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..", "..", "..")) ||
@@ -33,6 +34,7 @@ for (name, alt) in (
     Literate.markdown(
         joinpath(@__DIR__, "..", "examples", name, "main.jl"), output;
         name, execute = true, flavor = Literate.DocumenterFlavor(),
+        preprocess = tutorial_source,
         image_formats = [(MIME("image/png"), ".png")],
         postprocess = content -> tutorial_figures(content, output, name, alt),
     )
@@ -45,13 +47,13 @@ makedocs(;
     modules = [CorleoneOED],
     format = Documenter.HTML(edit_link = "main"),
     pages = [
-        "Overview and quick start" => "index.md",
+        "Overview" => "index.md",
         "Tutorials" => [
             "Continuous Lotka–Volterra design" => "tutorials/lotka_oed.md",
             "Multiple experiments" => "tutorials/lotka_multiexperiments.md",
             "Discrete compartmental design" => "tutorials/compartmental_oed.md",
         ],
-        "User guide" => [
+        "Manual" => [
             "Measurements and information" => "formulation.md",
             "Constructing and optimizing designs" => "designs.md",
             "Reduction, AD, and numerical scope" => "numerics.md",
