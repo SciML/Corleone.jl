@@ -1,13 +1,9 @@
 using Documenter, Corleone
 import CorleoneOED
-import OptimalControlBenchmarks
 
 realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) ||
     error("Develop this checkout in the documentation environment before building; see docs/README.md.")
-realpath(pkgdir(OptimalControlBenchmarks)) ==
-    realpath(joinpath(@__DIR__, "..", "lib", "OptimalControlBenchmarks")) ||
-    error("Develop OptimalControlBenchmarks from this checkout; see docs/README.md.")
 
 using DocumenterCitations
 using DocumenterInterLinks
@@ -32,7 +28,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED, OptimalControlBenchmarks],
+    modules = [Corleone, CorleoneOED],
     format = Material3(
         theme = :ocean_depth,
         dark_mode = :toggle,
@@ -79,18 +75,12 @@ makedocs(
         ],
         "Sublibraries" => [
             "Overview" => "sublibraries.md",
-            "CorleoneOED" => [
-                "Overview" => "oed/index.md",
-                "Measurements and Information" => "oed/formulation.md",
-                "Constructing and Optimizing Designs" => "oed/designs.md",
-                "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
-                "API Reference" => "oed/api.md",
-                "References and Attribution" => "oed/references.md",
-            ],
-            "OptimalControlBenchmarks" => [
-                "Overview" => "benchmarks/index.md",
-                "Problem Catalog" => "benchmarks/problems.md",
-            ],
+            "CorleoneOED" => "oed/index.md",
+            "Measurements and Information" => "oed/formulation.md",
+            "Constructing and Optimizing Designs" => "oed/designs.md",
+            "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
+            "API Reference" => "oed/api.md",
+            "References and Attribution" => "oed/references.md",
         ],
         "References" => "references.md",
         "API Reference" => "api.md",

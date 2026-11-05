@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/OptimalControlBenchmarks")]); Pkg.instantiate()'
+julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED")]); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
@@ -21,9 +21,9 @@ root. Watch the authoritative sources and skip generated copies to avoid rebuild
 julia --project=docs -e '
 using LiveServer
 servedocs(
-    skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/benchmarks"],
+    skip_dirs = ["docs/src/examples", "docs/src/oed"],
     include_dirs = ["examples", "lib/CorleoneOED/examples",
-        "lib/CorleoneOED/docs/src", "lib/OptimalControlBenchmarks/docs/src"],
+        "lib/CorleoneOED/docs/src"],
 )
 '
 ```
@@ -39,9 +39,9 @@ internal cross-references. External URL checks can be enabled with
 `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 
 On GitHub pull requests, the build uses Documenter's `draft=true` mode unless
-the PR changes a tutorial under `examples/` or `lib/CorleoneOED/examples/`, the
-benchmark tutorial page, or `docs/process_tutorials.jl`. This compares the PR
-merge commit with its first parent, fetching that parent for shallow checkouts.
+the PR changes `examples/`, `lib/CorleoneOED/examples/`, or
+`docs/process_tutorials.jl`. This compares the PR merge commit with its first
+parent, fetching that parent for shallow checkouts.
 Draft builds generate tutorial Markdown without executing Literate code; outputs
 and plots are omitted. Builds on `main`, tags, and local builds always execute
 the full documentation. If change detection fails, a full build runs.
@@ -60,7 +60,8 @@ each MaterialDocs output page, keeping tutorial plots visible in local and deplo
 DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
 inside a `@raw html` block; its stylesheet is added automatically.
 Navigation separates Getting Started, complete tutorials, a task-based Manual,
-sublibraries, and the docstring API reference. Scheduling and sparse derivative
+sublibraries, and the docstring API reference. CorleoneOED and its guides appear
+directly under Sublibraries. Scheduling and sparse derivative
 preparation have separate guides. Historical validation and deprecated constructors
 retain their URLs but are hidden from the main navigation and linked from relevant pages.
 
@@ -76,17 +77,11 @@ Markdown. DemoCards stages the authoritative scripts and executes each tutorial
 once through Literate; Documenter includes its rendered output. Introductory
 guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone, CorleoneOED, and
-OptimalControlBenchmarks modules. OED tutorials
+The manual documents the checked-out Corleone and CorleoneOED modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
 `docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
 duplicates. The root site retains main's established OED tutorial URLs.
-
-The Optimal Control Benchmarks section is generated from
-`lib/OptimalControlBenchmarks/docs/src/index.md` and documents the checked-out
-OptimalControlBenchmarks module. Edit that source rather than
-`docs/src/benchmarks/`. Its LQR example executes during the documentation build.
 
 The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local

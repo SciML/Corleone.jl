@@ -41,10 +41,6 @@ features:
     title: Parallel shooting
     details: Evaluate independent shooting segments concurrently while retaining continuity constraints.
     link: /parallel_shooting/
-  - icon: 📊
-    title: Benchmark problems
-    details: Prepare, solve, and time optimal control problems with OptimalControlBenchmarks.
-    link: /benchmarks/index/
 ---
 ```
 
@@ -58,4 +54,4 @@ objectives and constraints.
 Start with [Getting Started](getting_started.md), follow a [worked tutorial](gallery/index.md),
 or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md)
 covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental
-design; [OptimalControlBenchmarks](benchmarks/index.md) provides test problems.
+design.

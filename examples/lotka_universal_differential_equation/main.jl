@@ -17,10 +17,10 @@
 # ## Setup
 # Run `julia examples/install_deps.jl` once, then execute this script with
 # `julia --project=examples examples/lotka_universal_differential_equation/main.jl`.
-# The network below uses ordinary array operations, so LuxCore is sufficient;
-# no additional neural-network package is needed.
+# Lux defines the network and its explicit parameter/state interface. Corleone
+# makes the ODE parameters tunable, and ComponentArrays connects the two layouts.
 using Corleone
-using LuxCore, Random
+using Lux, Random
 using OrdinaryDiffEqTsit5
 using Optimization, OptimizationLBFGSB
 using ForwardDiff, ComponentArrays
@@ -28,9 +28,9 @@ using CairoMakie
 Makie.inline!()
 
 # ## Synthetic observations
-# Generate noiseless observations of both populations. Only this data-generation
-# model knows that the interaction is `x * y`. The training model never uses that
-# formula. We fix the initial populations and the linear growth and decay rates.
+# Generate trajectories of both populations and add Gaussian observation noise
+# with standard deviation 0.05. The data-generation model uses the interaction
+# `x * y`. We fix the initial populations and the linear growth and decay rates.
 function true_lotka(u, p, t)
     x, y = u
     interaction = x * y
@@ -63,20 +63,29 @@ observations .+= 0.05 * randn(rng, size(observations))
 # This sign structure shares mechanistic information between the two equations.
 # It does not enforce positive populations: the network need not vanish on the
 # axes. Training and interpretation below are restricted to the observed orbit.
-function neural_interaction(u, p)
-    weights_in = reshape(view(p, 1:10), 5, 2)
-    bias_hidden = view(p, 11:15)
-    weights_out = view(p, 16:20)
-    hidden = tanh.(weights_in * u .+ bias_hidden)
-    return (sum(weights_out .* hidden) + p[21])^2
-end
+network = Lux.Chain(
+    hidden = Lux.Dense(2 => 5, tanh),
+    interaction = Lux.Dense(5 => 1),
+)
+network_parameters, network_state = Lux.setup(rng, network)
 
-function hybrid_lotka(u, p, t)
-    interaction = neural_interaction(u, p)
-    return [u[1] - interaction, interaction - u[2]]
-end
+# Start with small Float64 weights and a positive output bias. `pack` supplies a
+# flat ODE parameter vector and a constructor that restores Lux's named layers.
+initial_network_parameters = ComponentArray{Float64}(network_parameters)
+initial_network_parameters .*= 0.1
+initial_network_parameters.interaction.bias .= 0.7
+p0, rebuild_network = pack(default_vectorizer(), initial_network_parameters)
 
-p0 = 0.1 .* randn(rng, 21)
+# Use fixed test-mode state for these stateless Dense layers during integration,
+# and reconstruct the current weights at each right-hand-side call.
+hybrid_lotka = let network = network, network_state = Lux.testmode(network_state),
+        rebuild_network = rebuild_network
+    function (u, p, t)
+        output, _ = Lux.apply(network, u, rebuild_network(p), network_state)
+        interaction = only(output)^2
+        return [u[1] - interaction, interaction - u[2]]
+    end
+end
 
 hybrid_problem = ODEProblem(
     hybrid_lotka, u0, tspan, p0;
@@ -89,11 +98,11 @@ hybrid_problem = ODEProblem(
 layer = ShootingLayer(
     hybrid_problem, Tsit5(),
     Tunable(
-        collect(1:21); kind = Val(:parameter),
+        collect(eachindex(p0)); kind = Val(:parameter),
         lowerbound = -3.0, upperbound = 3.0
     ) => nothing
 )
-ps, st = LuxCore.setup(rng, layer)
+ps, st = Lux.setup(rng, layer)
 
 # ## Fit the population trajectories
 # `saveat` fixes the observation grid; no interior resets are introduced. Compare
