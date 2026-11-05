@@ -32,4 +32,4 @@ OptimalControlBenchmarks = {path = "../lib/OptimalControlBenchmarks"}
 [compat]
 Corleone = "2"
 CorleoneOED = "2"
-OptimalControlBenchmarks = "2"
+OptimalControlBenchmarks = "0.1"
