@@ -69,6 +69,9 @@ include("deprecation/single_shooting.jl")
 include("multiple_shooting.jl")
 export ControlParameter, SingleShootingLayer, MultipleShootingLayer
 
+include("multistage.jl")
+export StageTransition, StageLinkage, linkage_residual, get_number_of_linkage_constraints
+
 include("precompile.jl")
 
 end

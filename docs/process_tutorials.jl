@@ -102,6 +102,7 @@ tutorials = map(
         (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), nothing),
         (
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
             "the_lotka_volterra_optimal_experimental_design_problem",

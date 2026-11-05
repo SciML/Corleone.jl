@@ -152,6 +152,9 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ShootingLayer)
 end
 
 (x::ShootingLayer)(::Any, ps, st) = x(x.problem, ps, st)
+# Feeding a state vector starts a stage from an explicit initial condition (used by
+# multistage chains to hand off the previous stage's final state).
+(x::ShootingLayer)(u0::AbstractVector, ps, st) = x(remake(x.problem; u0 = u0), ps, st)
 
 @inline function (x::ShootingLayer)(prob::SciMLBase.AbstractSciMLProblem, ps, st::NamedTuple)
     return x((prob, st.timestops), ps, st)
@@ -178,7 +181,7 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     # Put the effective inputs in the problem before solve dispatch so scalar-type
     # changes (e.g. Float64 to Dual) retain an inferable solution type.
     segment = remake(prob; u0 = u0, p = p, tspan = (t0, tinf))
-    sol = solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true)
+    sol = pad_failed_segment!(solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true), t0, tinf)
     next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     # Parameters can first introduce AD scalars in the solve, after the initial
     # (possibly empty) residual vector has already been constructed.
@@ -201,6 +204,18 @@ end
 # Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
 internal_solve_with_du0(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
 internal_solve_with_du0(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+
+# A failed segment (e.g. DAE initialization failure) may save only its initial point.
+# Repeat that point at the segment end so the assembled trajectory keeps the prepared
+# time grid; the optimizer then sees a removable infeasibility instead of a compiled
+# expression indexing past the end of a short trajectory.
+function pad_failed_segment!(sol, t0, t1)
+    if !SciMLBase.successful_retcode(sol) && length(sol.t) == 1 && sol.t isa Vector
+        push!(sol.t, t1)
+        push!(sol.u, last(sol.u))
+    end
+    return sol
+end
 
 
 function mkbuffer(::T, vec::AbstractArray) where {T}
@@ -234,7 +249,8 @@ terminal_state(sol::AbstractArray) = sol[:, end]
     @inbounds for i in Base.OneTo(length(tstops) - 1)
         (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
-        sols[i + 1] = internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1]))
+        solution = pad_failed_segment!(internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1])), tstops[i], tstops[i + 1])
+        sols[i + 1] = solution
         st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
