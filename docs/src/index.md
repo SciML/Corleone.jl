@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: Corleone.jl
-  text: Differentiable dynamic optimization
-  tagline: Build optimal control and experimental design problems with SciML solvers and Lux models.
+  text: Modular shooting for dynamic optimization and scientific machine learning
+  tagline: Build dynamic optimization problems with SciML solvers and Lux models.
   image:
     src: /logo.png
     alt: Corleone.jl lion logo
@@ -46,12 +46,6 @@ features:
 
 ## Differentiable shooting for dynamic optimization
 
-Corleone turns differential-equation solves into Lux shooting layers for optimal
-control and experimental design. Use it to optimize piecewise-constant controls,
-model parameters, or shooting states with SciML solvers and trajectory-based
-objectives and constraints.
+Corleone turns differential-equation solves into Lux shooting layers for optimal control and experimental design. Use it to optimize piecewise-constant controls, model parameters, or shooting states with SciML solvers and trajectory-based objectives and constraints.
 
-Start with [Getting Started](getting_started.md), follow a [worked tutorial](gallery/index.md),
-or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md)
-covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental
-design.
+Start with [Getting Started](getting_started.md), follow a [worked tutorial](gallery/index.md), or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md) covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental design.
