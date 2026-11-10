@@ -39,9 +39,11 @@ hybrid_initialization
 
 ## Multi-stage transitions and linkages
 
-Chain multiple shooting stages with `Lux.Chain` and connect consecutive stages with
+Chain multiple shooting stages with `Stages` and connect consecutive stages with
 `StageTransition` (substitution) or `StageLinkage` (a free interface state coupled by
-a residual constraint). See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md).
+a residual constraint). Each layer is stored under the key `stage_i` following the
+layer order. See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md)
+and the [multistage Lotka-Volterra tutorial](examples/a_multistage_lotka_volterra_problem_with_a_third_species.md).
 
 ```@docs
 StageTransition
@@ -51,6 +53,7 @@ StageLinkage(::AbstractMatrix, ::AbstractMatrix, ::AbstractVector)
 linkage_residual
 get_number_of_linkage_constraints
 Corleone.linkage_constraint_bounds
+Stages
 ```
 
 ## Trajectories
