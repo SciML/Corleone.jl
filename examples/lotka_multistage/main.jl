@@ -100,10 +100,12 @@ stage2 = ShootingLayer(prob2, Tsit5(), control(T2)...; controls = [2], quadratur
 # At ``t = 12`` the populations and the accumulated cost are carried over and the
 # third species is introduced with population ``\eta = 0.5``.
 
-transition = StageTransition((traj, _) -> begin
-    xf = last(traj.u)
-    [xf[1], xf[2], ETA, xf[3]]
-end)
+transition = StageTransition(
+    (traj, _) -> begin
+        xf = last(traj.u)
+        [xf[1], xf[2], ETA, xf[3]]
+    end
+)
 stages = Stages(stage1, transition, stage2)
 
 # ## The Optimization Problem
