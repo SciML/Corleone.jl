@@ -12,7 +12,7 @@ Pkg.develop(
 # ModelingToolkit examples use their separately managed symbolic dependencies.
 dependencies = [
     "OrdinaryDiffEqTsit5", "SciMLSensitivity", "Optimization", "OptimizationLBFGSB",
-    "OptimizationMOI", "Ipopt", "LuxCore", "ForwardDiff", "Random",
+    "OptimizationMOI", "Ipopt", "Lux", "LuxCore", "ForwardDiff", "Random",
     "SymbolicIndexingInterface", "ComponentArrays", "CairoMakie", "CSV",
     "DataFrames", "UnPack",
 ]

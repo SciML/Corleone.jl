@@ -6,11 +6,9 @@ particular gradient configuration works.
 
 ## Maintained coverage
 
-The `Differentiation` test group compares full-solver gradients with an analytic
-reference at two inputs. Its losses include saved states and continuity residuals.
-Inputs include shared parameters, free global initial values, interior shooting
-values, and numerical values held in Lux state. The `Distributed` group separately
-compares two-worker ForwardDiff gradients with serial results and finite differences.
+The test suite checks the following configurations through full ODE solves,
+including saved-state and continuity losses. See the [validation sources](#Validation-sources)
+for reproduction instructions.
 
 | Backend | Serial ODE solves | Threaded layer | Distributed layer |
 |---|---|---|---|
@@ -36,22 +34,26 @@ ForwardDiff works through the regular layer call with the tested default solver
 configuration. Reconstruct structured parameters from the **current** optimizer
 vector inside the differentiated function:
 
-```julia
-using ComponentArrays, ForwardDiff
+```@example forwarddiff
+using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, ComponentArrays, ForwardDiff
 
+problem = ODEProblem((x, p, t) -> [p[1] * x[1]], [1.0], (0.0, 2.0), [-1.0];
+    abstol = 1e-10, reltol = 1e-10)
+layer = ShootingLayer(problem, Tsit5())
+ps, st = LuxCore.setup(MersenneTwister(42), layer)
 q0, reconstruct = pack(default_vectorizer(), ps)
 loss(q) = begin
     trajectory, _ = layer(nothing, reconstruct(q), st)
     last(trajectory.u)[1]^2 + sum(abs2, shooting_constraints(trajectory))
 end
 gradient = ForwardDiff.gradient(loss, q0)
+@assert isapprox(only(gradient), 4exp(-4); rtol = 1e-7) # hide
+gradient
 ```
 
-This fragment assumes an initialized `layer`, `ps`, and `st`; the
-[optimization guide](optimization_contracts.md) explains the packing interface.
-Fixed initial states are promoted internally when later tunable values introduce
-AD scalar types. Caller-side initial-state promotion is not required by the
-maintained tests.
+Fixed initial states are promoted internally when tunable values introduce AD
+scalar types. See the [optimization guide](optimization_contracts.md) for packing
+and reconstruction in optimizer callbacks.
 
 ### ReverseDiff
 
@@ -61,8 +63,9 @@ pass-through sensitivities. For an in-place right-hand side `rhs!`:
 ```julia
 using SciMLBase, SciMLSensitivity, ReverseDiff
 
+rhs!(dx, x, p, t) = (dx[1] = p[1] * x[1]; nothing)
 f = ODEFunction{true, SciMLBase.FullSpecialize}(rhs!)
-problem = ODEProblem(f, u0, tspan, p;
+problem = ODEProblem(f, [1.0], (0.0, 2.0), [-1.0];
     sensealg = SciMLSensitivity.SensitivityADPassThrough(),
     abstol = 1e-10, reltol = 1e-10)
 ```
@@ -118,24 +121,9 @@ model functions on every worker. Anonymous objective closures can change type
 through serialization and produce ForwardDiff tag-ordering errors. Distributed
 reverse AD is not established by those forward-mode checks.
 
-## Reproducing checks and measurements
+## Validation sources
 
-From the repository root:
-
-```sh
-JULIA_NUM_THREADS=2 GROUP=Core julia --project=. -e 'using Pkg; Pkg.test()'
-JULIA_NUM_THREADS=2 GROUP=Differentiation julia --project=. -e 'using Pkg; Pkg.test()'
-GROUP=Distributed julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-`test/README.md` describes each group's environment and scope. The Core group
-also checks trajectory construction, parameter reconstruction, resets, and
-constraint derivatives. Run checks after changing these paths; old benchmark
-results do not replace regression coverage.
-
-`benchmark/shooting_ad.jl` measures forward loss calls and prepared gradients in
-isolated backend processes. Its arguments include diagnostic configurations that
-are expected to fail. See `benchmark/README.md` for dependencies, tolerances,
-finite-difference checks, and the distinction between first-use and warmed costs.
-The [validation archive](automatic_differentiation_history.md) preserves dated
-measurements and numerical investigations; it is not a live performance ranking.
+See `test/README.md` for maintained test groups and the
+[validation archive](automatic_differentiation_history.md#Reproducing-checks-and-measurements)
+for reproduction commands and dated measurements. Benchmark results do not extend
+the support matrix above.

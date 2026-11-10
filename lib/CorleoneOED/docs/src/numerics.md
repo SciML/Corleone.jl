@@ -112,21 +112,11 @@ differences or analytic formulas. The tutorials use `AutoForwardDiff()` with the
 shared SciMLBase bridge and Tsit5. ForwardDiff is also used during nominal SVD
 construction. DAE forward regressions do not establish outer DAE-gradient support.
 
-For an initialized `design`, `ps`, and `st` with nonsingular information, an
-explicit forward-mode calculation uses the current vector and supplied state:
-
-```julia
-using ComponentArrays, ForwardDiff
-q0, reconstruct = pack(default_vectorizer(), ps)
-objective(q, state) = ACriterion()(first(
-    fisher_information(design, nothing, reconstruct(q), state)))
-gradient = ForwardDiff.gradient(q -> objective(q, st), q0)
-```
-
-This fragment requires the initialized design from a tutorial. It does not
-differentiate grid times or the SVD selection. A different supplied state, including
-its current prior, is evaluated by `objective(q, state)` rather than captured as
-numerical information during preparation.
+Use the [design tutorials](@ref lotka_oed) for initialized examples with nonsingular
+information. Differentiate
+the criterion through `fisher_information` with parameters reconstructed from the
+current optimizer vector and the current state, including its prior. Grids and
+SVD selection remain fixed.
 
 The root package's maintained ReverseDiff and Zygote configurations are described
 in its [AD guide](https://github.com/SciML/Corleone.jl/blob/main/docs/src/automatic_differentiation.md).

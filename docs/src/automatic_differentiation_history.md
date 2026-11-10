@@ -273,7 +273,8 @@ scalar-packing implementation passes both cases without caller-side promotion.
 Pass-through retains the full solution interface, but current tracked-array
 storage compatibility must also be checked; see the current validation above.
 For the relevant upstream conversion, see the
-[DiffEqBase 7.21.4 ReverseDiff extension](https://github.com/SciML/DiffEqBase.jl/blob/v7.21.4/ext/DiffEqBaseReverseDiffExt.jl).
+[upstream ReverseDiff extension](https://github.com/SciML/DiffEqBase.jl/blob/master/ext/DiffEqBaseReverseDiffExt.jl).
+The historical check used DiffEqBase 7.21.4; this link tracks the upstream source.
 
 ### Zygote
 
@@ -472,3 +473,46 @@ Set `CORLEONE_AD_SHARED_GRIDS=true` when running `benchmark/shooting_ad.jl` to
 repeat the shared-control cases. The correctness audit used one benchmark sample
 per case and ran backend processes concurrently; its timings are not a performance
 comparison. The compatibility statements above apply to the tested configurations.
+
+
+## Initial forward measurements
+
+On 24 October 2026, Julia 1.12.7 with four threads, the benchmark above measured
+the following medians over 500 warmed calls per case (`evals=1`). Both cases use
+one state, 120 integration segments and 12 independent blocks. The expensive
+right-hand side adds a sum of 256 sine terms. Compilation and construction are
+excluded; no AD backend was loaded in the benchmark process.
+
+| Workload | Serial | Four threads | Speedup |
+|---|---:|---:|---:|
+| Cheap right-hand side | 276.6 µs | 153.2 µs | 1.81× |
+| Expensive right-hand side | 6.576 ms | 1.808 ms | 3.64× |
+
+Both workloads allocated 638,216 bytes in 12,102 allocations serially and 687,408
+bytes in 12,615 allocations with threads. These are illustrative workloads, not
+a performance guarantee for a different model or reset schedule.
+
+The benchmark source is `benchmark/shooting_parallel.jl`.
+
+
+## Reproducing checks and measurements
+
+From the repository root:
+
+```sh
+JULIA_NUM_THREADS=2 GROUP=Core julia --project=. -e 'using Pkg; Pkg.test()'
+JULIA_NUM_THREADS=2 GROUP=Differentiation julia --project=. -e 'using Pkg; Pkg.test()'
+GROUP=Distributed julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+`test/README.md` describes each group's environment and scope. The Core group
+also checks trajectory construction, parameter reconstruction, resets, and
+constraint derivatives. Run checks after changing these paths; old benchmark
+results do not replace regression coverage.
+
+`benchmark/shooting_ad.jl` measures forward loss calls and prepared gradients in
+isolated backend processes. Its arguments include diagnostic configurations that
+are expected to fail. See `benchmark/README.md` for dependencies, tolerances,
+finite-difference checks, and the distinction between first-use and warmed costs.
+The [validation archive](automatic_differentiation_history.md) preserves dated
+measurements and numerical investigations; it is not a live performance ranking.

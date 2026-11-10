@@ -1,9 +1,14 @@
-#src ---
-#src title: Lotka–Volterra optimal experimental design
-#src description: Jointly optimize fishing and continuous measurement schedules.
-#src ---
+# ---
+# title: Lotka–Volterra optimal experimental design
+# description: Jointly optimize fishing and continuous measurement schedules.
+# id: lotka_oed
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Lotka–Volterra OED](@id lotka_oed)
+# Prerequisites: constructing a Corleone shooting layer and the
+# [measurement and information conventions](@ref oed_formulation).
 # We design an experiment to estimate the two interaction coefficients of a
 # Lotka–Volterra model. Fishing is a physical control; two measurement densities
 # select when to observe each population. This follows the
