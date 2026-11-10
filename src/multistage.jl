@@ -273,9 +273,11 @@ end
 
 function _multistage_bounds(operation, stages::Stages, ps, st)
     names = _multistage_keys(stages)
-    return NamedTuple{names}(ntuple(length(stages.layers)) do i
-        return operation(stages.layers[i], getproperty(ps, names[i]), isnothing(st) ? nothing : getproperty(st, names[i]))
-    end)
+    return NamedTuple{names}(
+        ntuple(length(stages.layers)) do i
+            return operation(stages.layers[i], getproperty(ps, names[i]), isnothing(st) ? nothing : getproperty(st, names[i]))
+        end
+    )
 end
 
 """
