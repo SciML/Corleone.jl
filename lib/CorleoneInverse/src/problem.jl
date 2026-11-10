@@ -21,6 +21,24 @@ function prepare(layer, experiments, ps, st, vectorize)
     return (; experiments, states, q0, reconstruct, predict)
 end
 
+# Experiment layers own their local Lux trees; normal container traversal handles
+# bounds, transforms, and priors without a second metadata/source-plan tree.
+function experiment_data(layer::Experiments)
+    data = map(experiment -> experiment.observations, layer.experiments)
+    all(experiment -> experiment isa Experiment, data) ||
+        throw(ArgumentError("Every experiment layer must provide observations for estimation."))
+    return data
+end
+
+function prepare(layer::ShootingLayer, container::Experiments, ps, st, vectorize)
+    experiments = experiment_data(container)
+    weighted = reduce(vcat, map(collect ∘ is_weighted, values(experiments)))
+    all(weighted) || !any(weighted) || throw(ArgumentError("Either all observations or none must specify a noise scale σ."))
+    q0, reconstruct = pack(vectorize, ps)
+    predict = q -> NamedTuple{keys(container.experiments)}(Tuple(first(layer(container, reconstruct(q), st))))
+    return (; experiments, states = (container, st), q0, reconstruct, predict)
+end
+
 matching(trajectories) = reduce(vcat, map(shooting_constraints, values(trajectories)))
 n_matching(layer, ps, states) = sum(state -> get_number_of_shooting_constraints(layer, ps, state), values(states))
 
@@ -42,7 +60,8 @@ prior_residual(prior, transform, x) = throw(
 $(SIGNATURES)
 
 Build a `NonlinearLeastSquaresProblem` fitting the tunable parameters of `layer` to
-`experiments` (an [`Experiment`](@ref), tuple or NamedTuple), starting from `ps`
+`experiments` (an [`Experiments`](@ref) container, observation [`Experiment`](@ref),
+tuple or NamedTuple), starting from `ps`
 with base state `st`. The unknowns are the packed Lux parameters, in the internal
 coordinates of any annotation transforms. Normal priors on untransformed parameters
 add the residuals `(θ - μ) / σ`. Bounds are not passed; use annotation transforms, or
@@ -50,14 +69,15 @@ add the residuals `(θ - μ) / σ`. Bounds are not passed; use annotation transf
 keywords are forwarded to the problem.
 """
 function SciMLBase.NonlinearLeastSquaresProblem(
-        layer::ShootingLayer, experiments::Experiments, ps, st; vectorize = default_vectorizer(), kwargs...
+        layer::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, ps, st; vectorize = default_vectorizer(), kwargs...
     )
+    owner = experiments isa Experiments ? experiments : layer
     (; experiments, states, q0, reconstruct, predict) = prepare(layer, experiments, ps, st, vectorize)
     n_matching(layer, ps, states) == 0 ||
         throw(ArgumentError("Multiple shooting requires matching constraints; use OptimizationProblem."))
-    n_prior = length(prior_residuals(layer, ps))
-    f = let layer = layer, experiments = experiments, predict = predict, reconstruct = reconstruct
-        (q, _) -> vcat(residual(experiments, predict(q)), prior_residuals(layer, reconstruct(q)))
+    n_prior = length(prior_residuals(owner, ps))
+    f = let owner = owner, experiments = experiments, predict = predict, reconstruct = reconstruct
+        (q, _) -> vcat(residual(experiments, predict(q)), prior_residuals(owner, reconstruct(q)))
     end
     resid_prototype = zeros(eltype(q0), n_observations(experiments) + n_prior)
     return SciMLBase.NonlinearLeastSquaresProblem(
@@ -74,14 +94,15 @@ constraints. Keywords follow `NonlinearLeastSquaresProblem`; remaining keywords 
 forwarded to the problem.
 """
 function SciMLBase.OptimizationProblem(
-        layer::ShootingLayer, experiments::Experiments, ps, st, ad::AbstractADType;
+        layer::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, ps, st, ad::AbstractADType;
         vectorize = default_vectorizer(), kwargs...
     )
+    owner = experiments isa Experiments ? experiments : layer
     (; experiments, states, q0, reconstruct, predict) = prepare(layer, experiments, ps, st, vectorize)
-    lower, upper = get_bounds(layer, ps, st)
+    lower, upper = get_bounds(owner, ps, st)
     lb, ub = first(pack(vectorize, lower)), first(pack(vectorize, upper))
-    objective = let layer = layer, experiments = experiments, predict = predict, reconstruct = reconstruct
-        (q, _) -> sum(abs2, residual(experiments, predict(q))) / 2 - log_prior(layer, reconstruct(q))
+    objective = let owner = owner, experiments = experiments, predict = predict, reconstruct = reconstruct
+        (q, _) -> sum(abs2, residual(experiments, predict(q))) / 2 - log_prior(owner, reconstruct(q))
     end
     n = n_matching(layer, ps, states)
     cons = n == 0 ? nothing : let predict = predict
@@ -91,3 +112,5 @@ function SciMLBase.OptimizationProblem(
     lcons, ucons = n == 0 ? (nothing, nothing) : (zeros(n), zeros(n))
     return SciMLBase.OptimizationProblem(f, q0; lb, ub, lcons, ucons, kwargs...)
 end
+
+n_matching(layer, ps, states::Tuple{<:Experiments, Any}) = get_number_of_shooting_constraints(states[1], ps, states[2])

@@ -15,7 +15,10 @@ parameter_collections(layer::LuxCore.AbstractLuxWrapperLayer{field}, ps) where {
     parameter_collections(getfield(layer, field), ps)
 parameter_collections(layer::LuxCore.AbstractLuxContainerLayer{fields}, ps) where {fields} =
     child_collections(map(name -> getfield(layer, name), fields), ps, fields)
-parameter_collections(layers::NamedTuple, ps) = child_collections(values(layers), ps, keys(layers))
+function parameter_collections(layers::NamedTuple, ps)
+    names = optimization_parameter_names(ps, keys(layers))
+    return child_collections(map(name -> layers[name], names), ps, names)
+end
 
 function child_collections(layers, ps, names)
     children = map((layer, name) -> parameter_collections(layer, getproperty(ps, name)), layers, names)

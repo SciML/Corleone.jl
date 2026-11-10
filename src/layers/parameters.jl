@@ -77,11 +77,11 @@ apply_scalar_collections(layer::LuxCore.AbstractLuxLayer, index, ps, st) = LuxCo
 end
 
 # Construction metadata. Every numerical leaf still owns a scalar-valued vector.
-function group_scalar_collections(entries)
+function group_scalar_collections(entries; separate = ())
     groups = Vector{eltype(entries)}[]
     for entry in entries
-        position = isnothing(entry.parameter) ? nothing : findfirst(groups) do group
-                !isnothing(first(group).parameter) && isequal(first(group).grid, entry.grid)
+        position = entry.index in separate || isnothing(entry.parameter) ? nothing : findfirst(groups) do group
+                first(group).index ∉ separate && !isnothing(first(group).parameter) && isequal(first(group).grid, entry.grid)
         end
         isnothing(position) ? push!(groups, [entry]) : push!(groups[position], entry)
     end

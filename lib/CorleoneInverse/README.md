@@ -21,3 +21,11 @@ ParameterEstimate(layer, experiment, sol.u, ps, st)
 
 Use `OptimizationProblem(layer, experiments, ps, st, ad)` for bounds, general priors,
 and multiple shooting. See the [manual](docs/src/index.md) and the [API reference](docs/src/api.md).
+
+`Experiments(problem, shared_annotations...; experiments=(name=(annotations=(...),
+observations=data), ...))` defines shared and individual ordinary parameters,
+controls, and initial variables without a solver. Lux setup initializes each owned
+value once; calling the container returns merged `(ps, st)` tuples. Execute with
+`shooting(experiments, ps, st)` for a vector of trajectories and updated state, or
+fit with `NonlinearLeastSquaresProblem(shooting, experiments, ps, st)`. See
+[`examples/experiment_layers/main.jl`](examples/experiment_layers/main.jl).

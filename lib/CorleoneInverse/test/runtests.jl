@@ -12,6 +12,9 @@ const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SU
 withenv("GROUP" => GROUP) do
     run_tests(;
         core = function ()
+            @safetestset "Experiment layers" begin
+                include("core/experiment_layers.jl")
+            end
             @safetestset "Linear regression" begin
                 include("core/linear_regression.jl")
             end

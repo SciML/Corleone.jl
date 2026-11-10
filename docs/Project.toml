@@ -1,4 +1,6 @@
 [deps]
+NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
+TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
@@ -39,6 +41,8 @@ CorleoneInverse = {path = "../lib/CorleoneInverse"}
 CorleoneOED = {path = "../lib/CorleoneOED"}
 
 [compat]
+NonlinearSolve = "4"
+TransformVariables = "0.8"
 Corleone = "2"
 CorleoneInverse = "0.1"
 CorleoneOED = "2"

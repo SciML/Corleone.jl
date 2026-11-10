@@ -26,6 +26,15 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
+            @safetestset "Generated experiment differentiation" begin
+                include("core/experiment_generated_ad.jl")
+            end
+            @safetestset "Experiment inference" begin
+                include("core/experiment_inference.jl")
+            end
+            @safetestset "Experiment layers" begin
+                include("core/experiment_layers.jl")
+            end
             @safetestset "Annotations" begin
                 include("core/annotations.jl")
             end

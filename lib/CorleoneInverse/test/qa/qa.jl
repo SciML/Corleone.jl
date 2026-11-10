@@ -16,7 +16,7 @@ const CORLEONE_REEXPORTS = (
     :forward_initialization, :linear_initialization, :random_initialization,
     :constant_initialization, :custom_initialization, :hybrid_initialization,
     :trajectoryplot, :trajectoryplot!, :log_prior,
-    :BoundedTransform, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
+    :BoundedTransform, :Experiments, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
 )
 run_qa(
     CorleoneInverse;
@@ -27,7 +27,7 @@ run_qa(
         # Established AD and symbolic indexing APIs that are not declared public.
         all_qualified_accesses_are_public = (; ignore = (:jacobian, :hessian)),
         # Corleone's parameter-collection hooks for transforms and priors.
-        all_explicit_imports_are_public = (; ignore = (:Experiments, :as_experiments, :is_weighted, :natural_values, :parameter_collections)),
+        all_explicit_imports_are_public = (; ignore = (:ObservationExperiments, :as_experiments, :is_weighted, :natural_values, :parameter_collections)),
     ),
     api_docs_kwargs = (; docs_src = joinpath(@__DIR__, "..", "..", "docs", "src")),
     reexports_allow = CORLEONE_REEXPORTS,

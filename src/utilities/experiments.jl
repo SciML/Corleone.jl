@@ -131,10 +131,10 @@ ChainRulesCore.@non_differentiable state_index(::Any, ::Any)
 ChainRulesCore.@non_differentiable sample_indices(::Any, ::Any)
 
 "One experiment, or a tuple or NamedTuple of experiments."
-const Experiments = Union{Experiment, Tuple{Vararg{Experiment}}, NamedTuple{<:Any, <:Tuple{Vararg{Experiment}}}}
+const ObservationExperiments = Union{Experiment, Tuple{Vararg{Experiment}}, NamedTuple{<:Any, <:Tuple{Vararg{Experiment}}}}
 
 as_experiments(experiment::Experiment) = (experiment,)
-as_experiments(experiments::Experiments) = experiments
+as_experiments(experiments::ObservationExperiments) = experiments
 
 """
 $(SIGNATURES)

@@ -38,15 +38,16 @@ natural coordinates of the annotation transforms: the covariance with the delta
 method, the intervals by mapping their internal endpoints.
 """
 function ParameterEstimate(
-        layer::ShootingLayer, experiments::Experiments, q::AbstractVector, ps, st;
+        layer::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, q::AbstractVector, ps, st;
         α::Real = 0.05, vectorize = default_vectorizer()
     )
     0 < α < 1 || throw(ArgumentError("α must lie in (0, 1)."))
+    owner = experiments isa Experiments ? experiments : layer
     (; experiments, states, reconstruct, predict) = prepare(layer, experiments, ps, st, vectorize)
-    natural = x -> natural_vector(layer, reconstruct(x))
+    natural = x -> natural_vector(owner, reconstruct(x))
     r = residual(experiments, predict(q))
     J = ForwardDiff.jacobian(x -> residual(experiments, predict(x)), q)
-    H = ForwardDiff.hessian(x -> -log_prior(layer, reconstruct(x)), q)
+    H = ForwardDiff.hessian(x -> -log_prior(owner, reconstruct(x)), q)
     Z = n_matching(layer, ps, states) == 0 ? Matrix(I, length(q), length(q)) :
         nullspace(ForwardDiff.jacobian(x -> matching(predict(x)), q))
     rss = sum(abs2, r)

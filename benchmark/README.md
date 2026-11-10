@@ -3,6 +3,10 @@
 Use a separate Julia environment with this checkout developed as `Corleone`.
 Benchmarks do not install dependencies or change the package environment.
 
+- `experiment_layers.jl`: preassembled direct versus ShootingLayer/Experiments execution,
+  native/ComponentArray execution, and Lux setup for one and 24 local variables/controls.
+  Requires BenchmarkTools, Corleone, LuxCore, Random, ComponentArrays,
+  OrdinaryDiffEqTsit5, and LinearAlgebra. See [results](results/2026-11-10-generated-experiments.md).
 - `bounded_transforms.jl`: warmed identity/transformed lookups, array setup,
   annotation/layer construction, Lux setup, bounds, priors, and a small ODE solve.
   Reports median nanoseconds, allocated bytes, and allocation counts over 500

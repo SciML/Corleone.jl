@@ -122,13 +122,16 @@ cached grid after changing schedules, use
 `merge(st, (; timestops = get_timestops(layer, nothing, st)))`. Forward evaluation
 uses `st.timestops` directly rather than invoking this function.
 """
-function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
+get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan)) =
+    shooting_timestops(layer.initialcondition, layer.parameter, layer.problem, st, T)
+
+function shooting_timestops(initialcondition, parameter, problem, st, T)
     tstops = vcat(
-        collect(T, layer.problem.tspan),
-        get_timestops(layer.initialcondition, nothing, st.initialcondition, T),
-        get_timestops(layer.parameter, nothing, st.parameter, T)
+        collect(T, problem.tspan),
+        get_timestops(initialcondition, nothing, st.initialcondition, T),
+        get_timestops(parameter, nothing, st.parameter, T)
     )
-    filter!(t -> first(layer.problem.tspan) <= t <= last(layer.problem.tspan), tstops)
+    filter!(t -> first(problem.tspan) <= t <= last(problem.tspan), tstops)
     sort!(tstops)
     return unique!(tstops)
 end
@@ -388,18 +391,21 @@ The count uses scheduling metadata in Lux state; `ps` may be `nothing`. Refresh
 `st.timestops` after changing schedules, then recompute this count before allocating
 optimizer constraint buffers. This discrete metadata calculation is not differentiated.
 """
-function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
+get_number_of_shooting_constraints(layer::ShootingLayer, ps, st) =
+    shooting_constraint_count(layer.initialcondition, layer.parameter, layer.problem, st)
+
+function shooting_constraint_count(initialcondition, parameter, problem, st)
     n = 0
-    for name in keys(layer.initialcondition.initialconditions)
-        ic = layer.initialcondition.initialconditions[name]
+    for name in keys(initialcondition.initialconditions)
+        ic = initialcondition.initialconditions[name]
         ic isa InitialCondition || continue
         state = st.initialcondition.initialconditions[name]
         for i in firstindex(st.timestops):(lastindex(st.timestops) - 1)
-            st.timestops[i] == first(layer.problem.tspan) && continue
+            st.timestops[i] == first(problem.tspan) && continue
             n += resets_variable(ic, state, st.timestops[i]) * number_of_tunable_collections(ic.parameter)
         end
     end
-    return n + number_of_parameter_constraints(layer.parameter, st.parameter)
+    return n + number_of_parameter_constraints(parameter, st.parameter)
 end
 
 ChainRulesCore.@non_differentiable get_number_of_shooting_constraints(layer, ps, st)
