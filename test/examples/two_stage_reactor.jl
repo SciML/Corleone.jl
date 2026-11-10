@@ -1,7 +1,6 @@
 using Corleone
 using ComponentArrays
 using Ipopt
-using Lux
 using LuxCore
 using Optimization
 using OptimizationMOI
@@ -117,7 +116,7 @@ end
 linkage = StageLinkage(
     switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
 )
-chain = Chain(stage1, linkage, stage2)
+chain = Stages(stage1, linkage, stage2)
 
 # Structure of the composed problem: 1 duration + 5 temperature controls for stage 1,
 # 1 interface state + 1 volume parameter for the linkage, 1 duration for stage 2.
@@ -125,14 +124,14 @@ ps, st = LuxCore.setup(Random.default_rng(), chain)
 
 # --- Type stability ---------------------------------------------------------------
 
-@testset "multistage chain API" begin
+@testset "multistage stages API" begin
     # The new recursive bounds/collection API is not fully inferred, so these assertions
     # check the returned *kind* of container rather than exact return types.
     @test LuxCore.parameterlength(stage1) isa Int
     @test LuxCore.parameterlength(stage2) isa Int
     @test LuxCore.parameterlength(linkage) isa Int
-    @test Corleone.get_bounds(stage1, ps.layer_1, st.layer_1) isa Tuple
-    @test Corleone.get_bounds(stage2, ps.layer_3, st.layer_3) isa Tuple
+    @test Corleone.get_bounds(stage1, ps.stage_1, st.stage_1) isa Tuple
+    @test Corleone.get_bounds(stage2, ps.stage_3, st.stage_3) isa Tuple
     @test Corleone.get_bounds(chain, ps, st) isa Tuple
     @test Corleone._multistage_stages(chain) isa Vector
     @test Corleone._multistage_forward(chain, ps, st) isa Tuple
@@ -148,29 +147,29 @@ lb, ub = Corleone.get_bounds(chain, ps, st)
 p = ComponentArray(ps)
 @test length(ComponentArray(lb)) == length(p)
 @test length(ComponentArray(ub)) == length(p)
-@test ComponentArray(lb).layer_2.θ == [0.0]
-@test ComponentArray(ub).layer_2.θ == [0.1]
+@test ComponentArray(lb).stage_2.θ == [0.0]
+@test ComponentArray(ub).stage_2.θ == [0.1]
 @test Corleone.get_number_of_shooting_constraints(chain, ps, st) == 0
 @test Corleone.get_number_of_linkage_constraints(chain) == 8
 
 # The linkage applies the mixing relations: dilution by V1/V2 and addition of B.
-A, B, C, D, E, F, D_amount, V2 = last((stage1(nothing, ps.layer_1, st.layer_1))[1].u)
-expec = let S = ps.layer_2.θ[1], V2n = V1 + S
+A, B, C, D, E, F, D_amount, V2 = last((stage1(nothing, ps.stage_1, st.stage_1))[1].u)
+expec = let S = ps.stage_2.θ[1], V2n = V1 + S
     [
         V1 * A / V2n, (V1 * B + S * c_b_s) / V2n, V1 * C / V2n, V1 * D / V2n,
         V1 * E / V2n, V1 * F / V2n, V1 * D, V2n,
     ]
 end
-@test Corleone.linkage_residual(linkage, ps.layer_2, (stage1(nothing, ps.layer_1, st.layer_1))[1]) ≈
-    ps.layer_2.u0 - expec
+@test Corleone.linkage_residual(linkage, ps.stage_2, (stage1(nothing, ps.stage_1, st.stage_1))[1]) ≈
+    ps.stage_2.u0 - expec
 
 # Maximum amount of D is wanted, so the objective is minimised for -D_amount (state 7).
 # Constraint J2: the two stage durations must fit within the processing time, i.e.
 #   T1 + T2 <= t_P  (a parameter constraint coupling the two stages).
 duration_constraint = (
     ps -> [
-        ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-            ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+        ps.stage_1.parameter.parameters.p₁.parameter.ps[1] +
+            ps.stage_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
     ]
 ) => (lb = [-Inf], ub = [0.0])
 
@@ -199,12 +198,12 @@ sol = solve(
 p_opt = sol.u .+ zero(p)
 
 # Constraint J2 is active: T1 + T2 = t_P.
-@test p_opt.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-    p_opt.layer_3.parameter.parameters.p₁.parameter.ps[1] ≈ t_p atol = 1.0e-6
+@test p_opt.stage_1.parameter.parameters.p₁.parameter.ps[1] +
+    p_opt.stage_3.parameter.parameters.p₁.parameter.ps[1] ≈ t_p atol = 1.0e-6
 # Switching time ts = T1 ≈ 106 min (paper: 106.04) and added volume S ≈ 0.070 m^3
 # (paper: 0.0702).
-@test isapprox(p_opt.layer_1.parameter.parameters.p₁.parameter.ps[1], 105.98, atol = 1.0e-2)
-@test isapprox(p_opt.layer_2.θ[1], 0.0701, atol = 1.0e-3)
+@test isapprox(p_opt.stage_1.parameter.parameters.p₁.parameter.ps[1], 105.98, atol = 1.0e-2)
+@test isapprox(p_opt.stage_2.θ[1], 0.0701, atol = 1.0e-3)
 
 # Constraint J1 is active: c_D(t_P) = 150 mol/m^3 and J0 = V2 * c_D(t_P).
 traj, _ = chain(nothing, p_opt, st)
@@ -212,7 +211,7 @@ u_end = last(traj.u)
 @test isapprox(u_end[4], c_d_w, atol = 1.0e-3)
 @test isapprox(u_end[7], u_end[4] * u_end[8], atol = 1.0e-6)
 @test isapprox(u_end[7], -sol.objective, atol = 1.0e-6)
-@test -sol.objective ≈ c_d_w * (V1 + p_opt.layer_2.θ[1]) atol = 1.0e-3
+@test -sol.objective ≈ c_d_w * (V1 + p_opt.stage_2.θ[1]) atol = 1.0e-3
 
 # --- AD engine compatibility ------------------------------------------------------
 # ForwardDiff and Zygote are the currently supported differentiation backends for the
@@ -237,11 +236,11 @@ function make_reactor_op(AD)
     linkage_ad = StageLinkage(
         switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
     )
-    chain_ad = Chain(stage1_ad, linkage_ad, stage2_ad)
+    chain_ad = Stages(stage1_ad, linkage_ad, stage2_ad)
     duration_constraint_ad = (
         ps -> [
-            ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-                ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+            ps.stage_1.parameter.parameters.p₁.parameter.ps[1] +
+                ps.stage_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
         ]
     ) => (lb = [-Inf], ub = [0.0])
     return OptimizationProblem(

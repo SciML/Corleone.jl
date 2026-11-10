@@ -41,7 +41,6 @@
 # ## Setup
 
 using Corleone
-using Lux
 using LuxCore
 using Random
 using OrdinaryDiffEqTsit5
@@ -186,7 +185,7 @@ end
 linkage = StageLinkage(
     switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
 )
-chain = Chain(stage1, linkage, stage2)
+stages = Stages(stage1, linkage, stage2)
 
 # ## The Optimization Problem
 
@@ -198,13 +197,13 @@ chain = Chain(stage1, linkage, stage2)
 
 duration_constraint = (
     ps -> [
-        ps.layer_1.parameter.parameters.p₁.parameter.ps[1] +
-            ps.layer_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+        ps.stage_1.parameter.parameters.p₁.parameter.ps[1] +
+            ps.stage_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
     ]
 ) => (lb = [-Inf], ub = [0.0])
 
 optprob = OptimizationProblem(
-    chain, AutoForwardDiff(), Val(:ComponentArrays);
+    stages, AutoForwardDiff(), Val(:ComponentArrays);
     loss = :(-u₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
     constraints = (
         (:u₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
@@ -226,13 +225,13 @@ uopt = solve(
 # all match the paper (``J_0 = 25.54``, ``t_s = 106.04``, ``S = 0.0702`` for ``P = 6``).
 # The final concentration constraint ``c_D(t_P) = 150\,\mathrm{mol\,m^{-3}}`` is active.
 
-ps, st = LuxCore.setup(Random.default_rng(), chain)
+ps, st = LuxCore.setup(Random.default_rng(), stages)
 ps_opt = uopt + zero(ComponentArray(ps))
 
 println("J0 = V2*c_D(t_P) = ", -uopt.objective)
-println("t_s = T1 = ", ps_opt.layer_1.parameter.parameters.p₁.parameter.ps[1], " min,  T2 = ", ps_opt.layer_3.parameter.parameters.p₁.parameter.ps[1], " min")
-println("S = ", ps_opt.layer_2.θ[1], " m^3")
-println("c_D(t_P) = ", last((chain(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
+println("t_s = T1 = ", ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1], " min,  T2 = ", ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1], " min")
+println("S = ", ps_opt.stage_2.θ[1], " m^3")
+println("c_D(t_P) = ", last((stages(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
 
 # ### Simulating and plotting
 
@@ -249,13 +248,13 @@ stage2 = ShootingLayer(
     Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) => nothing,
 )
 
-chain = Chain(stage1, linkage, stage2)
-traj, _ = chain(nothing, ps_opt, st)
-traj_stage1, _ = stage1(nothing, ps_opt.layer_1, st.layer_1)
+stages = Stages(stage1, linkage, stage2)
+traj, _ = stages(nothing, ps_opt, st)
+traj_stage1, _ = stage1(nothing, ps_opt.stage_1, st.stage_1)
 
 # Map the normalized time of each stage back to physical time.
-T1 = ps_opt.layer_1.parameter.parameters.p₁.parameter.ps[1]
-T2 = ps_opt.layer_3.parameter.parameters.p₁.parameter.ps[1]
+T1 = ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1]
+T2 = ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1]
 t1p = T1 .* traj_stage1.t
 t2p = T1 .+ T2 .* traj.t
 u1 = reduce(hcat, traj_stage1.u)
@@ -263,7 +262,7 @@ u2 = reduce(hcat, traj.u)
 
 # The temperature control is piecewise constant on `grid`; resample it on the dense
 # normalized trajectory time so it can be drawn as a stair plot.
-temp_series = Vector(ps_opt.layer_1.parameter.parameters.p₂.parameter.ps)
+temp_series = Vector(ps_opt.stage_1.parameter.parameters.p₂.parameter.ps)
 temperature = temp_series[clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))]
 
 function plot_reactor(u1, t1p, u2, t2p, temperature)

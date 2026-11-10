@@ -3,7 +3,6 @@ using ComponentArrays
 using ForwardDiff
 using Ipopt
 using LinearAlgebra
-using Lux
 using LuxCore
 using OrdinaryDiffEqTsit5
 using Optimization
@@ -43,17 +42,17 @@ _multi_shooting_layer(prob) = ShootingLayer(prob, Tsit5(), Tunable(1; kind = Val
     stage1 = ShootingLayer(prob1, Tsit5())
     stage2 = ShootingLayer(prob2, Tsit5())
     linkage = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
-    chain = Chain(stage1, linkage, stage2)
+    chain = Stages(stage1, linkage, stage2)
 
     ps, st = LuxCore.setup(rng, chain)
 
     # The linkage owns a tunable interface state; the θ block is empty for identities.
-    @test ps.layer_2.u0 == [1.0]
-    @test isempty(ps.layer_2.θ)
+    @test ps.stage_2.u0 == [1.0]
+    @test isempty(ps.stage_2.θ)
     @test Corleone.get_number_of_linkage_constraints(chain) == 1
     lb, ub = Corleone.get_bounds(chain, ps, st)
-    @test lb.layer_2.u0 == [0.5]
-    @test ub.layer_2.u0 == [2.0]
+    @test lb.stage_2.u0 == [0.5]
+    @test ub.stage_2.u0 == [2.0]
 
     # Default residual bounds are an exact linkage.
     dynprob = Corleone.CorleoneDynamicOptProblem(chain, :u₁; ps, st)
@@ -64,14 +63,14 @@ _multi_shooting_layer(prob) = ShootingLayer(prob, Tsit5(), Tunable(1; kind = Val
     res = fill(NaN, 1)
     Corleone.optimization_constraints!(res, dynprob, ps, st)
     @test all(isfinite, res)
-    xf = last(stage1(nothing, ps.layer_1, st.layer_1)[1].u)
+    xf = last(stage1(nothing, ps.stage_1, st.stage_1)[1].u)
     @test res[1] ≈ 1.0 - xf[1]
 
     # The next stage starts at the linkage's interface state, independent of stage 1.
     ps_shift = deepcopy(ps)
-    ps_shift.layer_2.u0 .= 1.5
+    ps_shift.stage_2.u0 .= 1.5
     traj, _ = chain(nothing, ps_shift, st)
-    sim2, _ = stage2([1.5], ps_shift.layer_3, st.layer_3)
+    sim2, _ = stage2([1.5], ps_shift.stage_3, st.stage_3)
     @test last(traj.u) ≈ last(sim2.u)
 end
 
@@ -87,15 +86,15 @@ end
         bounds_u0 = ([0.5], [2.0]), bounds_θ = ([-1.0], [1.0]),
         bounds = ([-0.1], [0.1]),
     )
-    chain = Chain(stage1, linkage, stage2)
+    chain = Stages(stage1, linkage, stage2)
     ps, st = LuxCore.setup(rng, chain)
 
-    @test ps.layer_2.u0 == [1.0]
-    @test ps.layer_2.θ == [0.0]
+    @test ps.stage_2.u0 == [1.0]
+    @test ps.stage_2.θ == [0.0]
     @test Corleone.get_number_of_linkage_constraints(chain) == 1
     lb, ub = Corleone.get_bounds(chain, ps, st)
-    @test lb.layer_2.θ == [-1.0]
-    @test ub.layer_2.θ == [1.0]
+    @test lb.stage_2.θ == [-1.0]
+    @test ub.stage_2.θ == [1.0]
 
     dynprob = Corleone.CorleoneDynamicOptProblem(chain, :u₁; ps, st)
     @test dynprob.lcons == [-0.1]
@@ -103,7 +102,7 @@ end
 
     res = fill(NaN, 1)
     Corleone.optimization_constraints!(res, dynprob, ps, st)
-    xf = last(stage1(nothing, ps.layer_1, st.layer_1)[1].u)
+    xf = last(stage1(nothing, ps.stage_1, st.stage_1)[1].u)
     @test res[1] ≈ 1.0 - (xf[1] + 0.0)
 end
 
@@ -115,16 +114,16 @@ end
     linkage = StageLinkage(
         dil; u0 = [1.0], θ = [0.0], bounds_θ = ([0.0], [1.0]), bounds_u0 = ([0.0], [2.0])
     )
-    chain = Chain(stage1, linkage, stage2)
+    chain = Stages(stage1, linkage, stage2)
     ps, st = LuxCore.setup(rng, chain)
 
-    xf = last(stage1(nothing, ps.layer_1, st.layer_1)[1].u)
-    @test Corleone.linkage_residual(linkage, ps.layer_2, stage1(nothing, ps.layer_1, st.layer_1)[1])[1] ≈
+    xf = last(stage1(nothing, ps.stage_1, st.stage_1)[1].u)
+    @test Corleone.linkage_residual(linkage, ps.stage_2, stage1(nothing, ps.stage_1, st.stage_1)[1])[1] ≈
         1.0 - xf[1]
 
     ps_shift = deepcopy(ps)
-    ps_shift.layer_2.θ .= 1.0
-    r = Corleone.linkage_residual(linkage, ps_shift.layer_2, stage1(nothing, ps.layer_1, st.layer_1)[1])
+    ps_shift.stage_2.θ .= 1.0
+    r = Corleone.linkage_residual(linkage, ps_shift.stage_2, stage1(nothing, ps.stage_1, st.stage_1)[1])
     @test r[1] ≈ 1.0 - xf[1] / 2.0
 end
 
@@ -151,7 +150,7 @@ end
     stage1 = ShootingLayer(prob1, Tsit5())
     ms2 = _multi_shooting_layer(prob2)
     linkage = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
-    chain = Chain(stage1, linkage, ms2)
+    chain = Stages(stage1, linkage, ms2)
     ps, st = LuxCore.setup(rng, chain)
 
     n_shoot = Corleone.get_number_of_shooting_constraints(chain, ps, st)
@@ -169,17 +168,17 @@ end
     # Moving the interface state moves the linkage residual and the matching residual of
     # the multiple-shooting stage together (both start from the interface state).
     ps_shift = deepcopy(ps)
-    ps_shift.layer_2.u0 .= 1.5
+    ps_shift.stage_2.u0 .= 1.5
     res_shift = fill(NaN, length(dynprob.lcons))
     Corleone.optimization_constraints!(res_shift, dynprob, ps_shift, st)
-    @test res_shift[end] ≈ 1.5 - last(stage1(nothing, ps.layer_1, st.layer_1)[1].u)[1]
+    @test res_shift[end] ≈ 1.5 - last(stage1(nothing, ps.stage_1, st.stage_1)[1].u)[1]
 end
 
 @testset "Per-stage objective accumulation" begin
     stage1 = ShootingLayer(prob1, Tsit5())
     stage2 = ShootingLayer(prob2, Tsit5())
     linkage = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
-    chain = Chain(stage1, linkage, stage2)
+    chain = Stages(stage1, linkage, stage2)
     ps, st = LuxCore.setup(rng, chain)
 
     # A bare symbol still targets the final stage.
@@ -202,7 +201,7 @@ end
     stage3 = ShootingLayer(prob2, Tsit5())
     link12 = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
     link23 = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
-    chain = Chain(stage1, link12, ms2, link23, stage3)
+    chain = Stages(stage1, link12, ms2, link23, stage3)
     ps, st = LuxCore.setup(rng, chain)
 
     # Path constraints are ordered by stage; each stage only couples to the previous one.
@@ -257,7 +256,7 @@ function _struct_derivs(middle)
         Tunable(1; kind = Val(:parameter), lowerbound = -10.0, upperbound = 10.0) => nothing,
         Tunable(2; kind = Val(:parameter), lowerbound = -10.0, upperbound = 10.0) => nothing,
     )
-    chain = Chain(stage1, middle, stage2)
+    chain = Stages(stage1, middle, stage2)
     optprob = OptimizationProblem(
         chain, AutoForwardDiff(), Val(:ComponentArrays);
         loss = ((:u₁, 2), (:u₂, 2)), constraints = _struct_cons,
@@ -309,7 +308,7 @@ function make_linkage_op(AD)
     stage1 = ShootingLayer(p1, Tsit5(), Tunable(1; kind = Val(:parameter), lowerbound = 0.01, upperbound = 0.2) => nothing)
     stage2 = ShootingLayer(p2, Tsit5(), Tunable(1; kind = Val(:parameter), lowerbound = 0.01, upperbound = 0.2) => nothing)
     linkage = StageLinkage([1.0]; bounds_u0 = ([0.5], [2.0]))
-    chain = Chain(stage1, linkage, stage2)
+    chain = Stages(stage1, linkage, stage2)
     return OptimizationProblem(
         chain, AD, Val(:ComponentArrays);
         loss = ((:u₁, 1), (:u₁, 2)),

@@ -110,7 +110,8 @@ else
             "Differentiation" => (;
                 env = joinpath(@__DIR__, "differentiation"),
                 body = function ()
-                    return @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                    @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                    return @safetestset "Failed-segment pad differentiation" include("differentiation/pad.jl")
                 end,
             ),
             "Plotting" => (;

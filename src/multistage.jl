@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 A lightweight Lux layer that connects consecutive optimal-control stages inside a
-`Lux.Chain`. It receives the `Trajectory` produced by the preceding
+`Stages` container. It receives the `Trajectory` produced by the preceding
 `ShootingLayer` and returns the initial state vector of the subsequent stage. The
 mapping is encoded in the callable `f`, i.e.
 
@@ -161,74 +161,162 @@ preceding phase's trajectory.
 function linkage_residual(linkage::StageLinkage, ps, prev_traj)
     return ps.u0 .- linkage.f(last(prev_traj.u), ps.θ)
 end
+"""
+$(TYPEDEF)
+
+A sequence of optimal-control stages with optional [`StageTransition`](@ref) and
+[`StageLinkage`](@ref) connectors. `Stages` composes multiple [`ShootingLayer`](@ref)s
+without pulling `Lux.Chain` into the optimization problem: it mirrors the chain's
+per-stage parameter/state bookkeeping, forwards inputs through the stages in application
+order, and dispatches [`CorleoneDynamicOptProblem`](@ref) construction.
+
+Build one by listing the stages in application order, e.g.
+
+```julia
+Stages(stage1, StageTransition((traj, p) -> last(traj.u)), stage2)
+```
+
+Parameters and states are initialized with `LuxCore.setup` into trees keyed
+`stage_1, stage_2, ...` following the layer order. Calling the container
+`stages(nothing, ps, st)` runs the whole sequence once and returns the final output with
+the final state, like a chain would.
+
+# Fields
+$(FIELDS)
+"""
+struct Stages{T}
+    "The stages and connectors in application order"
+    layers::T
+end
+
+Stages(layers...) = Stages(layers)
+Stages(layers::AbstractVector) = Stages(Tuple(layers))
+
+# Stage parameter/state keys follow the layer order.
+_multistage_keys(stages::Stages) = _multistage_keys(length(stages.layers))
+_multistage_keys(n::Int) = ntuple(i -> Symbol(:stage_, i), n)
+
+LuxCore.initialparameters(rng::Random.AbstractRNG, stages::Stages) =
+    NamedTuple{_multistage_keys(stages)}(map(layer -> LuxCore.initialparameters(rng, layer), stages.layers))
+LuxCore.initialstates(rng::Random.AbstractRNG, stages::Stages) =
+    NamedTuple{_multistage_keys(stages)}(map(layer -> LuxCore.initialstates(rng, layer), stages.layers))
+LuxCore.parameterlength(stages::Stages) = sum(LuxCore.parameterlength, stages.layers; init = 0)
+
+function Base.show(io::IO, stages::Stages)
+    print(io, "Stages(")
+    join(io, stages.layers, ", ")
+    return print(io, ")")
+end
+
+@inline function (stages::Stages)(inp, ps, st)
+    return _multistage_call(stages.layers, 1, _multistage_keys(stages), ps, st, inp)
+end
+
+@inline _multistage_call(layers::Tuple{}, i, names, ps, st, inp) = (inp, st)
+@inline function _multistage_call(layers::Tuple, i, names, ps, st, inp)
+    outp, next_st = first(layers)(inp, getproperty(ps, names[i]), getproperty(st, names[i]))
+    return _multistage_call(Base.tail(layers), i + 1, names, ps, st, outp)
+end
 
 """
-    get_number_of_linkage_constraints(layer)
+$(SIGNATURES)
 
-Return the total number of linkage constraints contributed by `layer` (one per component
+Collect the `ShootingLayer`s contained in `stages` in application order.
+"""
+function _multistage_stages(stages::Stages)
+    return [layer for layer in stages.layers if layer isa ShootingLayer]
+end
+
+"""
+$(SIGNATURES)
+
+Run the whole sequence of shooting stages and `StageTransition`s/`StageLinkage`s forward
+once, threading the state through the transitions, and return an immutable tuple of the
+`Trajectory` of every shooting stage in application order together with the linkage
+residuals. This mirrors `stages(nothing, ps, st)` while additionally capturing the
+intermediate trajectories so that per-stage path constraints can be evaluated.
+"""
+function _multistage_forward(stages::Stages, ps, st)
+    return _multistage_forward(stages.layers, 1, _multistage_keys(stages), ps, st, nothing, (), ())
+end
+
+@inline _multistage_forward(layers::Tuple{}, i, names, ps, st, inp, trajs, resids) = (trajs, resids)
+@inline function _multistage_forward(layers::Tuple, i, names, ps, st, inp, trajs, resids)
+    layer = first(layers)
+    sub_ps = getproperty(ps, names[i])
+    sub_st = getproperty(st, names[i])
+    if layer isa ShootingLayer
+        traj, _ = layer(inp, sub_ps, sub_st)
+        return _multistage_forward(Base.tail(layers), i + 1, names, ps, st, traj, (trajs..., traj), resids)
+    elseif layer isa StageLinkage
+        r = linkage_residual(layer, sub_ps, inp)
+        outp, _ = layer(inp, sub_ps, sub_st)
+        return _multistage_forward(Base.tail(layers), i + 1, names, ps, st, outp, trajs, (resids..., r))
+    else
+        # StageTransition or any other mapping: previous state -> next initial state.
+        outp, _ = layer(inp, sub_ps, sub_st)
+        return _multistage_forward(Base.tail(layers), i + 1, names, ps, st, outp, trajs, resids)
+    end
+end
+
+function get_bounds(stages::Stages, ps, st = nothing)
+    return get_lower_bound(stages, ps, st), get_upper_bound(stages, ps, st)
+end
+
+# v2 recursive bounds API: return trees mirroring `initialparameters`.
+function get_lower_bound(stages::Stages, ps, st = nothing)
+    return _multistage_bounds(get_lower_bound, stages, ps, st)
+end
+function get_upper_bound(stages::Stages, ps, st = nothing)
+    return _multistage_bounds(get_upper_bound, stages, ps, st)
+end
+
+function _multistage_bounds(operation, stages::Stages, ps, st)
+    names = _multistage_keys(stages)
+    return NamedTuple{names}(ntuple(length(stages.layers)) do i
+        return operation(stages.layers[i], getproperty(ps, names[i]), isnothing(st) ? nothing : getproperty(st, names[i]))
+    end)
+end
+
+"""
+    get_number_of_linkage_constraints(stages)
+
+Return the total number of linkage constraints contributed by `stages` (one per component
 of every `StageLinkage`'s interface state).
 """
 get_number_of_linkage_constraints(::Any) = 0
 get_number_of_linkage_constraints(linkage::StageLinkage) = length(linkage.u0)
-function get_number_of_linkage_constraints(layer::LuxCore.AbstractLuxWrapperLayer{:layers})
-    return sum(name -> get_number_of_linkage_constraints(getproperty(layer.layers, name)), keys(layer.layers); init = 0)
-end
+get_number_of_linkage_constraints(stages::Stages) =
+    sum(layer -> get_number_of_linkage_constraints(layer), stages.layers; init = 0)
 
 """
-    linkage_constraint_bounds(layer)
+    linkage_constraint_bounds(stages)
 
-Collect the lower and upper linkage-residual bounds of all `StageLinkage`s in `layer`, in
+Collect the lower and upper linkage-residual bounds of all `StageLinkage`s in `stages`, in
 application order.
 """
 linkage_constraint_bounds(::Any) = (Float64[], Float64[])
 linkage_constraint_bounds(linkage::StageLinkage) = (collect(first(linkage.bounds)), collect(last(linkage.bounds)))
-function linkage_constraint_bounds(layer::LuxCore.AbstractLuxWrapperLayer{:layers})
-    parts = map(name -> linkage_constraint_bounds(getproperty(layer.layers, name)), keys(layer.layers))
+function linkage_constraint_bounds(stages::Stages)
+    parts = map(layer -> linkage_constraint_bounds(layer), stages.layers)
     lb = reduce(vcat, map(first, parts); init = Float64[])
     ub = reduce(vcat, map(last, parts); init = Float64[])
     return (lb, ub)
 end
 
-"""
-$(SIGNATURES)
+# Neither a transition nor a linkage contributes shooting constraints.
+get_number_of_shooting_constraints(::StageTransition, ps = nothing, st = nothing) = 0
+get_number_of_shooting_constraints(::StageLinkage, ps = nothing, st = nothing) = 0
 
-Collect the `ShootingLayer`s contained in `layer` in application order.
-"""
-function _multistage_stages(layer)
-    return [sub for sub in values(layer.layers) if sub isa ShootingLayer]
-end
-
-"""
-$(SIGNATURES)
-
-Run the whole `Lux.Chain` of shooting layers and `StageTransition`s/`StageLinkage`s
-forward once, threading the state through the transitions, and return an immutable tuple
-of the `Trajectory` of every shooting stage in application order together with the
-linkage residuals. This mirrors `layer(nothing, ps, st)` while additionally capturing the
-intermediate trajectories so that per-stage path constraints can be evaluated.
-"""
-function _multistage_forward(layer, ps, st)
-    names = keys(layer.layers)
-    return _multistage_forward(names, 1, layer, ps, st, nothing, (), ())
-end
-
-@inline function _multistage_forward(names, i, layer, ps, st, inp, trajs, resids)
-    i > length(names) && return (trajs, resids)
-    name = names[i]
-    sub = getproperty(layer.layers, name)
-    sub_ps = getproperty(ps, name)
-    sub_st = getproperty(st, name)
-    if sub isa ShootingLayer
-        traj, _ = sub(inp, sub_ps, sub_st)
-        return _multistage_forward(names, i + 1, layer, ps, st, traj, (trajs..., traj), resids)
-    elseif sub isa StageLinkage
-        r = linkage_residual(sub, sub_ps, inp)
-        outp, _ = sub(inp, sub_ps, sub_st)
-        return _multistage_forward(names, i + 1, layer, ps, st, outp, trajs, (resids..., r))
-    else
-        # StageTransition or any other mapping: previous state -> next initial state.
-        outp, _ = sub(inp, sub_ps, sub_st)
-        return _multistage_forward(names, i + 1, layer, ps, st, outp, trajs, resids)
+# Sum the shooting constraints of every shooting stage in a multistage container.
+function get_number_of_shooting_constraints(stages::Stages, ps, st = nothing)
+    names = _multistage_keys(stages)
+    return sum(eachindex(stages.layers); init = 0) do i
+        get_number_of_shooting_constraints(
+            stages.layers[i],
+            getproperty(ps, names[i]),
+            isnothing(st) ? nothing : getproperty(st, names[i]),
+        )
     end
 end
 
@@ -273,17 +361,17 @@ _multistage_terminal(expr, traj) = last(expr(traj))
 """
 $(SIGNATURES)
 
-Build a dynamic optimization problem from a `Lux.Chain` of shooting layers joined by
-`StageTransition`/`StageLinkage` layers. The objective is a sum of per-stage terms and
+Build a dynamic optimization problem from a `Stages` container of shooting layers joined
+by `StageTransition`/`StageLinkage` layers. The objective is a sum of per-stage terms and
 path constraints may target any stage.
 
 # Keyword arguments
 - `parameter_constraints`: a `Pair` of a function `ps -> AbstractVector` and a
-  `NamedTuple` with fields `lb` and `ub`, constraining the whole chain's parameters.
-- `rng`: the random number generator used to initialize the layers.
+  `NamedTuple` with fields `lb` and `ub`, constraining the whole container's parameters.
+- `rng`: the random number generator used to initialize the stages.
 """
 function CorleoneDynamicOptProblem(
-        layer::LuxCore.AbstractLuxWrapperLayer{:layers},
+        stages::Stages,
         loss, constraints...;
         rng::Random.AbstractRNG = Random.default_rng(),
         ps = nothing, st = nothing,
@@ -293,11 +381,11 @@ function CorleoneDynamicOptProblem(
     )
     isnothing(ps) == isnothing(st) || throw(ArgumentError("Supply initialized ps and st together."))
     if isnothing(ps)
-        ps, st = LuxCore.setup(rng, layer)
+        ps, st = LuxCore.setup(rng, stages)
     end
-    stages = _multistage_stages(layer)
-    n_stages = length(stages)
-    n_stages > 0 || throw(ArgumentError("The provided layer does not contain a ShootingLayer."))
+    stage_list = _multistage_stages(stages)
+    n_stages = length(stage_list)
+    n_stages > 0 || throw(ArgumentError("The provided container does not contain a ShootingLayer."))
 
     # Objective is a sum of per-stage terms. Each term is either a bare
     # `Symbol`/`Expr` (applied to the final stage) or a tuple `(expr, k)`.
@@ -318,21 +406,21 @@ function CorleoneDynamicOptProblem(
         expr isa Union{Symbol, Expr} && append!(get!(requested, k, Real[]), specs.t)
     end
     if !isempty(requested)
-        names = [name for (name, sub) in pairs(layer.layers) if sub isa ShootingLayer]
+        names = [name for (name, layer) in zip(_multistage_keys(stages), stages.layers) if layer isa ShootingLayer]
         for (k, ts) in requested
             sub_st = getproperty(st, names[k])
-            grid = expression_evaluation_grid(stages[k], sub_st, Dict{Symbol, Vector{Real}}(:expr => ts))
+            grid = expression_evaluation_grid(stage_list[k], sub_st, Dict{Symbol, Vector{Real}}(:expr => ts))
             st = merge(st, NamedTuple{(names[k],)}((merge(sub_st, (; timestops = grid)),)))
         end
     end
 
-    trajs, _ = _multistage_forward(layer, ps, st)
+    trajs, _ = _multistage_forward(stages, ps, st)
 
     getters = Any[]
     for term in loss_terms
         expr, k = term isa Tuple ? term : (term, n_stages)
-        1 <= k <= n_stages || throw(ArgumentError("Objective stage index $k out of range (chain has $n_stages shooting stages)."))
-        stage = stages[k]
+        1 <= k <= n_stages || throw(ArgumentError("Objective stage index $k out of range (container has $n_stages shooting stages)."))
+        stage = stage_list[k]
         traj = trajs[k]
         if expr isa Expr
             f = _compile_at_times(expr, (1.0,), expression_symbol_indices(stage), optimization_times(traj), eval_module, evaluator)
@@ -363,8 +451,8 @@ function CorleoneDynamicOptProblem(
     for constraint in constraints
         key, specs = constraint
         expr, k = key isa Tuple ? key : (key, n_stages)
-        1 <= k <= n_stages || throw(ArgumentError("Constraint stage index $k out of range (chain has $n_stages shooting stages)."))
-        stage = stages[k]
+        1 <= k <= n_stages || throw(ArgumentError("Constraint stage index $k out of range (container has $n_stages shooting stages)."))
+        stage = stage_list[k]
         traj = trajs[k]
         ts = collect(specs.t)
         if expr isa Union{Symbol, Expr}
@@ -387,7 +475,7 @@ function CorleoneDynamicOptProblem(
     end
 
     n_shoot = sum(length(shooting_constraints(traj)) for traj in trajs; init = 0)
-    link_lb, link_ub = linkage_constraint_bounds(layer)
+    link_lb, link_ub = linkage_constraint_bounds(stages)
     n_link = length(link_lb)
 
     param_fun = nothing
@@ -404,14 +492,14 @@ function CorleoneDynamicOptProblem(
     ucons = vcat(path_ub, zeros(n_shoot), link_ub, param_ub)
     meta = (; path = tuple(path_cons...), param_fun)
     return CorleoneDynamicOptProblem(
-        Val(:Prepared), layer, objective, meta, ps, st,
+        Val(:Prepared), stages, objective, meta, ps, st,
         Dict{Symbol, Vector{Real}}(), nothing, nothing, Float64[],
         lcons, ucons, n_shoot
     )
 end
 
 function optimization_objective(
-        prob::CorleoneDynamicOptProblem{<:LuxCore.AbstractLuxWrapperLayer{:layers}},
+        prob::CorleoneDynamicOptProblem{<:Stages},
         ps = prob.ps, st = prob.st
     )
     trajs, _ = _multistage_forward(prob.layer, ps, st)
@@ -429,7 +517,7 @@ function _path_series(f, traj, tidx, series)
 end
 
 function optimization_constraints(
-        prob::CorleoneDynamicOptProblem{<:LuxCore.AbstractLuxWrapperLayer{:layers}},
+        prob::CorleoneDynamicOptProblem{<:Stages},
         ps = prob.ps, st = prob.st
     )
     trajs, resids = _multistage_forward(prob.layer, ps, st)
@@ -448,7 +536,7 @@ Write the multistage constraints into `res` in declaration order: per-stage path
 constraints, shooting equalities, linkage residuals, then parameter constraints.
 """
 function optimization_constraints!(
-        res, prob::CorleoneDynamicOptProblem{<:LuxCore.AbstractLuxWrapperLayer{:layers}},
+        res, prob::CorleoneDynamicOptProblem{<:Stages},
         ps = prob.ps, st = prob.st
     )
     length(res) == length(prob.lcons) || throw(DimensionMismatch("Expected $(length(prob.lcons)) constraint entries, got $(length(res))."))
@@ -494,37 +582,20 @@ function optimization_constraints!(
     return res
 end
 
-# Neither a transition nor a linkage contributes shooting constraints.
-get_number_of_shooting_constraints(::StageTransition, ps = nothing, st = nothing) = 0
-get_number_of_shooting_constraints(::StageLinkage, ps = nothing, st = nothing) = 0
-
-# Sum the shooting constraints of every shooting stage in a multistage `Chain`.
-function get_number_of_shooting_constraints(
-        layer::LuxCore.AbstractLuxWrapperLayer{:layers}, ps, st = nothing
-    )
-    names = keys(layer.layers)
-    return sum(
-        name -> get_number_of_shooting_constraints(
-            getproperty(layer.layers, name), getproperty(ps, name), isnothing(st) ? nothing : getproperty(st, name)
-        ),
-        names; init = 0,
-    )
-end
-
 """
 $(SIGNATURES)
 
 Construct a `CorleoneDynamicOptProblem` and its `OptimizationProblem` facade for a
-multistage `Lux.Chain`, accepting the multistage `loss` and per-stage `constraints`.
+`Stages` container, accepting the multistage `loss` and per-stage `constraints`.
 """
 function SciMLBase.OptimizationProblem(
-        layer::LuxCore.AbstractLuxWrapperLayer{:layers},
+        stages::Stages,
         ad::SciMLBase.ADTypes.AbstractADType, vectorizer;
         loss, constraints = (), parameter_constraints = nothing,
         rng::Random.AbstractRNG = Random.default_rng(), kwargs...
     )
     problem = CorleoneDynamicOptProblem(
-        layer, loss, constraints...; rng, parameter_constraints
+        stages, loss, constraints...; rng, parameter_constraints
     )
     return SciMLBase.OptimizationProblem(problem, ad; vectorize = vectorizer, kwargs...)
 end
