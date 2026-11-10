@@ -1,17 +1,15 @@
-#src ---
-#src title: The Linear Quadratic Regulator
-#src description: Control a linear system with a tracking cost and a control penalty
-#src tags:
-#src   - Beginner
-#src   - Optimal Control
-#src   - Linear System
-#src icon: 🌊
-#src ---
+# ---
+# title: The Linear Quadratic Regulator
+# description: Control a linear system with a tracking cost and a control penalty
+# id: linear_quad_reg
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Linear Quadratic Regulator](@id linear_quad_reg)
-
-# We control two linear states with a shared input. The cost penalizes the first
-# state's deviation from three and the control effort:
+# Minimize a tracking cost for two linear states with one shared input.
+# Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.
+# The cost penalizes the first state's deviation from three and the control effort:
 
 # ```math
 # \begin{aligned}
@@ -23,16 +21,7 @@
 
 # ## Setup
 
-# Use Corleone to define the shooting layer and optimization model.
 using Corleone
-
-# The other packages provide:
-
-# - Layer initialization: `LuxCore` and `Random`
-# - ODE integration: `OrdinaryDiffEqTsit5`
-# - Optimization: `Optimization`, `OptimizationLBFGSB`, and `ComponentArrays`
-# - Objective gradients: `ForwardDiff`
-# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random
@@ -92,6 +81,7 @@ dynprob = CorleoneDynamicOptProblem(
 )
 
 # OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
+# Solve it with [`OptimizationLBFGSB.LBFGSB`](@extref Optimization).
 opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
 usol = solve(opt, OptimizationLBFGSB.LBFGSB());
 @assert successful_retcode(usol)

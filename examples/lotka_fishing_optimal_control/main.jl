@@ -1,27 +1,20 @@
-#src ---
-#src title: The Lotka Volterra Fishing Problem
-#src description: Optimize fishing intensity in a predator-prey model
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
-#src icon: 🎣
-#src ---
+# ---
+# title: The Lotka Volterra Fishing Problem
+# description: Optimize fishing intensity in a predator-prey model
+# id: lotka_fishing
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Lotka–Volterra Fishing Problem](@id lotka_fishing)
+# Optimize bounded fishing intensity, then add multiple shooting and continuity
+# constraints. Prerequisites: the [LQR tutorial](@ref linear_quad_reg) and the
+# [shooting formulation](@ref shooting_formulation).
 # This example is based on the [Lotka-Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 
 # ## [Setup](@id lotka_oc_setup)
 
-# Use Corleone to define the shooting layers and optimization models.
 using Corleone
-
-# The other packages provide:
-
-# - Layer initialization: `LuxCore` and `Random`
-# - ODE integration: `OrdinaryDiffEqTsit5`
-# - Optimization: `Optimization`, `OptimizationMOI`, `Ipopt`, and `ComponentArrays`
-# - Objective and constraint gradients: `ForwardDiff`
-# - Plotting: `CairoMakie`
 
 using LuxCore
 using Random

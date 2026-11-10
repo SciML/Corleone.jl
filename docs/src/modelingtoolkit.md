@@ -10,9 +10,9 @@ a scalar input and three constant coefficients under terminal state equalities.
 Load ModelingToolkit to construct a `CorleoneDynamicOptProblem` from an uncompiled
 `System`, its initial values, and control schedules:
 
-```julia
+```@example modelingtoolkit_guide
 using Corleone, ModelingToolkit, OrdinaryDiffEqTsit5
-using ComponentArrays, Optimization
+using ComponentArrays, Optimization, ForwardDiff
 using ModelingToolkit: t_nounits as t, D_nounits as D
 
 @variables x(..) = 1.0 [tunable = false]
@@ -51,7 +51,7 @@ schedules; fixed parameters are represented by `Constant` annotations.
 ## Control schedules
 
 Controls remain parameters. A grid beginning at `tspan[1]` describes interval
-starts, preserving the old MTK calling convention. That first point is removed
+starts, using interval-start notation. That first point is removed
 before constructing the native switching grid. Grids containing only interior
 switches are also accepted. Bounds come from symbol metadata; parameters marked
 `tunable = false` are fixed, except for explicitly selected controls.
@@ -85,9 +85,8 @@ method. Controls and physical parameters remain shared between segments.
     `tunable = false`. That metadata fixes the global initial value; it does not
     disable interior shooting variables or their bounds. With no free initial
     value or lifted states, state metadata adds no optimizer variable bounds.
-    Add explicit sampled constraints when state limits must also be checked away
-    from shooting nodes. Neither those samples nor shooting bounds certify a
-    continuous path constraint between samples.
+    To check limits away from shooting nodes, add
+    [sampled constraints](optimization_contracts.md).
 
 ## Array parameters and expression evaluation
 
