@@ -44,18 +44,20 @@ end
 $(SIGNATURES)
 
 Construct reset values for one state variable on `timegrid`. `default` is a scalar,
-vector, or count/timepoint initializer as described by [`Tunable`](@ref). Times must
-be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
+vector, or count/timepoint initializer as described by [`Tunable`](@ref), as are the
+optional `transform` and `prior`. Times must be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
 cache. Output length and `bounds` are checked during Lux setup.
 """
 function InitialCondition(
         timegrid::AbstractVector{<:Real}, default;
-        name = nothing, cache = nothing, bounds = (-Inf, Inf)
+        name = nothing, cache = nothing, bounds = (-Inf, Inf), transform = nothing, prior = nothing
     )
     allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
     lookup = LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache)
+    transform = annotation_transform(transform, bounds...)
+    bounds = get_bounds(transform)
     initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, bounds)
-    return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid)))
+    return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid), transform, prior))
 end
 
 function InitialCondition(::Nothing, default; kwargs...)
@@ -175,7 +177,8 @@ function InitialConditions(
         initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, bounds)
         return (;
             index = i, name = Symbol(sym), grid,
-            parameter = ParameterCollection(initialize, length(grid)), fixed = !is_tunable(annotation),
+            parameter = ParameterCollection(initialize, length(grid), get_transform(annotation), get_prior(annotation)),
+            fixed = !is_tunable(annotation),
         )
     end
     groups = group_scalar_collections(entries)

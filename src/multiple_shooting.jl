@@ -57,7 +57,7 @@ function legacy_lift_states(layer, times, ensemblealg)
                     existing = child.init_parameters(rng, child.out_dims)
                     return [haskey(original, t) ? existing[original[t]] : fallback for t in grid]
                 end
-                name => ParameterCollection(initialize, length(grid))
+                name => ParameterCollection(initialize, length(grid), child.transform, child.prior)
             end |> NamedTuple
             return InitialCondition(grid, parameter; name = ic.name)
         end
@@ -74,7 +74,10 @@ function legacy_lift_states(layer, times, ensemblealg)
             existing = ic.parameter.init_parameters(rng, ic.parameter.out_dims)
             return [haskey(original, t) ? existing[original[t]] : fallback for t in times]
         end
-        return InitialCondition(grid, initialize; name = ic.name, bounds)
+        return InitialCondition(
+            grid, initialize; name = ic.name, bounds,
+            transform = ic.parameter.transform, prior = ic.parameter.prior
+        )
     end
     initialcondition = InitialConditions(
         layer.initialcondition.name, layer.initialcondition.repack,

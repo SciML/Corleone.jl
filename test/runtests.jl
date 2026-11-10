@@ -32,6 +32,9 @@ else
             @safetestset "Annotation initialization" begin
                 include("core/annotation_initialization.jl")
             end
+            @safetestset "Parameter transforms and priors" begin
+                include("core/transforms_priors.jl")
+            end
             @safetestset "Shared-grid collections" begin
                 include("core/shared_grid_collections.jl")
             end
@@ -82,6 +85,9 @@ else
             end
             @safetestset "Legacy single-shooting constructor" begin
                 include("core/legacy_single_shooting.jl")
+            end
+            @safetestset "Experiments" begin
+                include("core/experiments.jl")
             end
             @safetestset "Trajectory" begin
                 include("core/trajectory.jl")

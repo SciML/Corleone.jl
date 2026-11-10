@@ -361,13 +361,14 @@ function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select,
             inner = NamedTuple{inner_names}(
                 map(inner_names) do variable
                     sym = only(filter(sym -> Symbol(sym) == variable, symbols))
-                    parameter_bound_tree(template[name].parameter[variable], select(get_bounds(cache, sym)))
+                    bounds = internal_bounds(collection_transform(child.parameter[variable]), get_bounds(cache, sym))
+                    parameter_bound_tree(template[name].parameter[variable], select(bounds))
                 end
             )
             return merge(template[name], (; parameter = inner))
         end
         sym = only(filter(sym -> Symbol(sym) == name, symbols))
-        parameter_bound_tree(template[name], select(get_bounds(cache, sym)))
+        parameter_bound_tree(template[name], select(internal_bounds(collection_transform(child), get_bounds(cache, sym))))
     end
     return NamedTuple{names}(fields)
 end

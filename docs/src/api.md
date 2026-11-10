@@ -1,4 +1,4 @@
-# API Reference
+# [API Reference](@id core_api)
 
 For workflows, use the [Manual](shooting.md). This page includes docstrings for
 exported APIs and supporting layer types.
@@ -16,6 +16,22 @@ Tunable
 Constant
 Annotations
 ```
+
+Annotations accept a `transform` (load TransformVariables) and a univariate `prior`
+(load Distributions). Transformed values are stored in internal coordinates in the
+Lux parameters; layer outputs and defaults stay natural. Without an explicit
+transform, `BoundedTransform` stores the bounds and uses identity coordinates.
+Explicit TransformVariables transforms replace it and use unbounded optimizer
+coordinates; bound keywords do not add constraints to those transforms.
+
+```@docs
+BoundedTransform
+log_prior
+Corleone.parameter_collections
+```
+
+See [Initializing shooting variables](initialization.md) for scalar, vector, and
+count/timepoint callback defaults and helpers for existing parameter buffers.
 
 ```@docs
 forward_initialization
@@ -51,6 +67,21 @@ Trajectory
 Trajectory(::Any, ::Any, ::Any, ::AbstractVector, ::Any)
 trajectoryplot
 trajectoryplot!
+```
+
+## Experiments
+
+Observations and experiments belong to Corleone and can be used independently of
+CorleoneInverse. Prepare the observation grid with `experiment_state`, predict with
+`layer(experiment, ps, st)`, and compare predictions with `residual`.
+
+```@docs
+Observation
+Experiment
+experiment_state
+(::ShootingLayer)(::Experiment, ::Any, ::Any)
+residual
+n_observations
 ```
 
 ## Symbolic bookkeeping

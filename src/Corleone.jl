@@ -54,6 +54,11 @@ include("utilities/Utilities.jl")
 include("layers/Layers.jl")
 export ShootingLayer
 
+include("utilities/parameter_collections.jl")
+
+include("utilities/experiments.jl")
+export Observation, Experiment, experiment_state, residual, n_observations
+
 export get_bounds, get_lower_bound, get_upper_bound, get_number_of_shooting_constraints
 export shooting_constraints, shooting_constraints!, add_parameter_segments!
 export Stages

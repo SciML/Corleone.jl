@@ -3,6 +3,11 @@
 Use a separate Julia environment with this checkout developed as `Corleone`.
 Benchmarks do not install dependencies or change the package environment.
 
+- `bounded_transforms.jl`: warmed identity/transformed lookups, array setup,
+  annotation/layer construction, Lux setup, bounds, priors, and a small ODE solve.
+  Reports median nanoseconds, allocated bytes, and allocation counts over 500
+  samples, plus layer storage sizes on stderr. Requires BenchmarkTools, LuxCore,
+  Random, LinearAlgebra, OrdinaryDiffEqTsit5, TransformVariables, and Distributions.
 - `shared_grids.jl`: warmed reset, parameter lookup, and native/ComponentArray
   forward timings for 24 variables sharing 19 switching/reset times. Run against
   each checkout with BenchmarkTools, ComponentArrays, and OrdinaryDiffEqTsit5.

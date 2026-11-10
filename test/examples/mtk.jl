@@ -44,7 +44,7 @@ end
     @test state.index == variable_index(compiled, state.sym)
     parameter = only(filter(annotation -> isequal(annotation.sym, ModelingToolkit.Symbolics.unwrap(a)), annotations.parameters))
     @test parameter.default == 2.5
-    @test (parameter.lowerbound, parameter.upperbound) == (1.0, 3.0)
+    @test Corleone.get_bounds(parameter) == (1.0, 3.0)
     @test Corleone.is_tunable(parameter)
     @test parameter.kind == Val(:parameter)
     fixed = only(filter(annotation -> isequal(annotation.sym, ModelingToolkit.Symbolics.unwrap(b)), annotations.parameters))
@@ -159,7 +159,7 @@ end
     for i in 1:2
         annotation = only(filter(a -> isequal(a.sym, ModelingToolkit.Symbolics.unwrap(array_parameter[i])), annotations.parameters))
         @test annotation.default == Float64(i)
-        @test (annotation.lowerbound, annotation.upperbound) == (0.5, 3.0)
+        @test Corleone.get_bounds(annotation) == (0.5, 3.0)
         @test Corleone.is_tunable(annotation)
         fixed = only(filter(a -> isequal(a.sym, ModelingToolkit.Symbolics.unwrap(array_fixed[i])), annotations.parameters))
         @test !Corleone.is_tunable(fixed)

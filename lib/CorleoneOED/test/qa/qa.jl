@@ -16,7 +16,8 @@ const CORLEONE_REEXPORTS = (
     :constraint_jacobian_sparsity, :lagrangian_hessian_sparsity,
     :forward_initialization, :linear_initialization, :random_initialization,
     :constant_initialization, :custom_initialization, :hybrid_initialization,
-    :trajectoryplot, :trajectoryplot!,
+    :trajectoryplot, :trajectoryplot!, :log_prior,
+    :BoundedTransform, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
 )
 const SYMBOLICS_REEXPORTS = (
     Symbol("@acrule"), Symbol("@arrayop"), Symbol("@derivative_rule"), Symbol("@makearray"),

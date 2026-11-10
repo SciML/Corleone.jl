@@ -79,7 +79,7 @@ function Corleone.CorleoneDynamicOptProblem(
         lift_states = !isempty(resets)
     )
     bounds = Dict(
-        annotation.sym => (annotation.lowerbound, annotation.upperbound)
+        annotation.sym => Corleone.get_bounds(annotation)
             for collection in values(annotations) for annotation in collection
     )
     definitions = Pair[]

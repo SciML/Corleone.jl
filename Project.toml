@@ -1,6 +1,6 @@
 name = "Corleone"
 uuid = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Carl Julius Martensen <carl.martensen@ovgu.de>", "Christoph Plate <christoph.plate@ovgu.de>", "and contributors"]
 
 [deps]
@@ -29,6 +29,8 @@ ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [extensions]
 CorleoneOptimizationBaseExtension = "OptimizationBase"
@@ -38,8 +40,12 @@ CorleoneComponentArraysExtension = "ComponentArrays"
 CorleoneZygoteExtension = "Zygote"
 CorleoneMakieExtension = "Makie"
 CorleoneModelingToolkitExtension = "ModelingToolkit"
+CorleoneDistributionsExtension = "Distributions"
+CorleoneTransformVariablesExtension = "TransformVariables"
 
 [compat]
+Distributions = "0.25"
+TransformVariables = "0.8"
 OptimizationBase = "5.5.3"
 SparseArrays = "1"
 DifferentiationInterface = "0.7"
@@ -76,6 +82,8 @@ Zygote = "0.7.13"
 julia = "1.10"
 
 [extras]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -92,4 +100,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["DiffEqBase", "ForwardDiff", "ComponentArrays", "RuntimeGeneratedFunctions", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]
+test = ["Distributions", "TransformVariables", "DiffEqBase", "ForwardDiff", "ComponentArrays", "RuntimeGeneratedFunctions", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]

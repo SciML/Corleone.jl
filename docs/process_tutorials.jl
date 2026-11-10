@@ -230,3 +230,15 @@ for page in ("index", "formulation", "designs", "numerics", "api", "references")
         "```@meta\nCurrentModule = CorleoneOED\nEditURL = \"$edit_url\"\n```\n\n" * content
     )
 end
+
+inverse_output = joinpath(@__DIR__, "src", "inverse")
+isdir(inverse_output) && rm(inverse_output; recursive = true)
+mkpath(inverse_output)
+for page in ("index", "api")
+    source = joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "docs", "src", "$page.md")
+    edit_url = replace(relpath(source, inverse_output), '\\' => '/')
+    write(
+        joinpath(inverse_output, "$page.md"),
+        "```@meta\nCurrentModule = CorleoneInverse\nEditURL = \"$edit_url\"\n```\n\n" * read(source, String)
+    )
+end

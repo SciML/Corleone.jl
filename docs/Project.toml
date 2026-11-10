@@ -3,6 +3,7 @@ Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
 Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+CorleoneInverse = "f6133253-78ce-497c-b6b6-fe2141d0b67d"
 CorleoneOED = "6590a4b1-d036-41fe-a5b4-03a980244101"
 DemoCards = "311a05b2-6137-4a5a-b473-18580a3d38b5"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
@@ -34,10 +35,12 @@ YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [sources]
 Corleone = {path = ".."}
+CorleoneInverse = {path = "../lib/CorleoneInverse"}
 CorleoneOED = {path = "../lib/CorleoneOED"}
 
 [compat]
 Corleone = "2"
+CorleoneInverse = "0.1"
 CorleoneOED = "2"
 DemoCards = "0.5"
 DocumenterCitations = "1.5"

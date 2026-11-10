@@ -1,8 +1,10 @@
 using Documenter, Corleone
 import CorleoneOED
+import CorleoneInverse
 
 realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
-    realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) ||
+    realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) &&
+    realpath(pkgdir(CorleoneInverse)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneInverse")) ||
     error("Develop this checkout in the documentation environment before building; see docs/README.md.")
 
 using DocumenterCitations
@@ -28,7 +30,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED],
+    modules = [Corleone, CorleoneOED, CorleoneInverse],
     # Tutorial HTML exceeds Documenter's default 200 KiB cap (two-stage reactor
     # example embeds base64 plots); keep the plain HTML format and raise the cap.
     format = Documenter.HTML(size_threshold = 1_500_000),
@@ -85,6 +87,10 @@ makedocs(
             "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
             "API Reference" => "oed/api.md",
             "References and Attribution" => "oed/references.md",
+            "CorleoneInverse" => [
+                "Parameter Estimation" => "inverse/index.md",
+                "API Reference" => "inverse/api.md",
+            ],
         ],
         "References" => "references.md",
         "API Reference" => "api.md",
