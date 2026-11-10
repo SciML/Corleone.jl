@@ -74,7 +74,7 @@ const U0 = [0.5, 0.7, 0.0]
 # already reproduces the optimal value to within ``1.5\times 10^{-3}``.
 
 const N = 9
-const PATTERN = [isodd(i) ? 0 : 1 for i=1:N]
+const PATTERN = [isodd(i) ? 0 : 1 for i in 1:N]
 
 # Each stage is a separate shooting layer on ``\tau \in [0, 1]`` with its own duration as the
 # only tunable parameter. The ODE tolerances are kept tight: the objective is the integral of a

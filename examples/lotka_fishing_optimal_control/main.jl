@@ -100,6 +100,54 @@ optimized_parameters = reconstruct(uopt.u)
 optsol, _ = layer(nothing, optimized_parameters, opt.p)
 trajectoryplot(optsol)
 
+# ## Sum Up Rounding
+
+# The relaxed control is not admissible for the underlying mixed-integer problem,
+# in which the fishing intensity is binary. Sum Up Rounding (SUR) reconstructs a
+# binary control from the relaxed one: on each control interval ``i`` the binary
+# value ``p_i`` is chosen such that the integral of the deviation
+# ``\int_0^{t} (v - w)\,d\tau`` stays within ``0.5\,\Delta t`` at all times
+# (Sager, Bock & Diehl, *Solving mixed-integer control problems by Sum Up
+# Rounding*). With ``q_i`` the relaxed value and the accumulator
+# ``a_i = \sum_{k<i} (q_k - p_k)\Delta t``, the recursion reads
+#
+# ```math
+# p_i = \begin{cases} 1 & \text{if } a_i + q_i\,\Delta t \ge 0.5\,\Delta t,\\ 0 & \text{else.}\end{cases}
+# ```
+
+v_relaxed = optsol[:p₂]
+Δt = 12.0 / length(v_relaxed)
+
+function sum_up_rounding(v, Δt)
+    binary = zeros(length(v))
+    accumulator = 0.0
+    max_deviation = 0.0
+    for (i, q) in enumerate(v)
+        if accumulator + q * Δt >= 0.5 * Δt
+            binary[i] = 1.0
+            accumulator += (q - 1.0) * Δt
+        else
+            accumulator += q * Δt
+        end
+        max_deviation = max(max_deviation, abs(accumulator))
+    end
+    return binary, max_deviation
+end
+v_binary, max_deviation = sum_up_rounding(v_relaxed, Δt)
+
+# Simulate with the fixed binary control: keep all other parameters (interaction
+# rates) and replace the control values. The bound of theorem 3.1 guarantees that
+# the binary trajectory stays close to the relaxed one; the objective increases
+# only moderately compared to the relaxed optimum.
+binary_parameters = copy(optimized_parameters)
+binary_parameters.parameter.parameters.p₂.parameter.ps .= v_binary
+binsol, _ = layer(nothing, binary_parameters, opt.p)
+trajectoryplot(binsol)
+
+println("relaxed objective: ", uopt.objective)
+println("binary objective: ", last(binsol.u)[3])
+println("maximum integral control deviation: ", max_deviation, " <= 0.5*Δt = ", 0.5 * Δt)
+
 # ## Multiple Shooting
 
 # Lift all three states at interior shooting points. Matching constraints enforce

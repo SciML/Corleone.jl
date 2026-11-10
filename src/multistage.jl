@@ -187,6 +187,10 @@ $(FIELDS)
 struct Stages{T}
     "The stages and connectors in application order"
     layers::T
+
+    # Restricting construction to a Tuple makes the splat constructor below apply to
+    # single-layer calls as well (the default constructor would otherwise win).
+    Stages(layers::Tuple) = new{typeof(layers)}(layers)
 end
 
 Stages(layers...) = Stages(layers)
