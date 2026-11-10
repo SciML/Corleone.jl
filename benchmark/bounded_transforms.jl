@@ -7,9 +7,9 @@ using Distributions: Normal
 
 function report(label, f)
     f()
-    trial = @benchmark $f() samples=500 seconds=0.6
+    trial = @benchmark $f() samples = 500 seconds = 0.6
     result = median(trial)
-    println(label, ',', result.time, ',', result.memory, ',', result.allocs)
+    return println(label, ',', result.time, ',', result.memory, ',', result.allocs)
 end
 function bench()
     rng = Xoshiro(1)
@@ -41,6 +41,7 @@ function bench()
         report(label * "_prior", () -> log_prior(layer, ps))
         report(label * "_shooting", () -> layer(nothing, ps, st))
     end
+    return
 end
 println(stderr, "ENV,julia=", VERSION, ",threads=", Threads.nthreads(), ",blas_threads=", BLAS.get_num_threads(), ",cpu=", first(Sys.cpu_info()).model)
 println("case,median_ns,bytes,allocations")

@@ -26,10 +26,11 @@ $(SIGNATURES)
 Construct an [`Observation`](@ref) from `selector => (t, y)` or `selector => (t, y, σ)`.
 """
 function Observation((selector, data)::Pair)
+    length(data) in (2, 3) || throw(ArgumentError("Observation data must contain (t, y) or (t, y, σ)."))
     t, y, σ = length(data) == 2 ? (data..., nothing) : data
     length(t) == length(y) || throw(DimensionMismatch("Expected $(length(t)) values for $selector, got $(length(y))."))
     issorted(t) && allunique(t) || throw(ArgumentError("Observation times of $selector must be sorted and unique."))
-    isnothing(σ) || all(>(0), σ) || throw(ArgumentError("Noise scales of $selector must be positive."))
+    isnothing(σ) || (σ isa Real ? σ > 0 : all(>(0), σ)) || throw(ArgumentError("Noise scales of $selector must be positive."))
     isnothing(σ) || σ isa Real || length(σ) == length(y) ||
         throw(DimensionMismatch("Noise scales of $selector must be scalar or match its values."))
     return Observation(selector, collect(t), collect(float.(y)), σ)

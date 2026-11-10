@@ -37,12 +37,12 @@ est = ParameterEstimate(layer, experiments, sol.u, ps, st)
     @test length(est.x) == 2
 end
 
-    positive = ShootingLayer(
-        problem, Tsit5(),
-        Tunable(1; kind = Val(:parameter), default = 1.2, transform = asℝ₊) => nothing,
-        Corleone.Constant(2; kind = Val(:parameter)) => nothing,
-        Tunable(3; kind = Val(:parameter), default = 2.5, transform = asℝ₊) => nothing
-    )
+positive = ShootingLayer(
+    problem, Tsit5(),
+    Tunable(1; kind = Val(:parameter), default = 1.2, transform = asℝ₊) => nothing,
+    Corleone.Constant(2; kind = Val(:parameter)) => nothing,
+    Tunable(3; kind = Val(:parameter), default = 2.5, transform = asℝ₊) => nothing
+)
 
 @testset "Positive transforms on annotations" begin
     positive = ShootingLayer(

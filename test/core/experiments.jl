@@ -32,6 +32,13 @@ end
 end
 
 @testset "Observation and experiment validation" begin
+    @test Observation(1 => ([0.0], [1.0], 0.5)).σ == 0.5
+    @test_throws ArgumentError Observation(1 => ())
+    @test_throws ArgumentError Observation(1 => ([0.0],))
+    @test_throws ArgumentError Observation(1 => ([0.0], [1.0], 0.5, :extra))
+    @test_throws ArgumentError Observation(1 => ([0.0], [1.0], -0.5))
+    @test_throws ArgumentError Observation(1 => ([0.0], [1.0], NaN))
+    @test_throws ArgumentError Observation(1 => ([0.0], [1.0], [0.0]))
     @test_throws ArgumentError Experiment()
     @test_throws DimensionMismatch Observation(1 => ([0.0, 1.0], [1.0]))
     @test_throws ArgumentError Observation(1 => ([1.0, 0.0], [1.0, 2.0]))
