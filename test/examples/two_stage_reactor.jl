@@ -154,14 +154,14 @@ p = ComponentArray(ps)
 
 # The linkage applies the mixing relations: dilution by V1/V2 and addition of B.
 A, B, C, D, E, F, D_amount, V2 = last((stage1(nothing, ps.stage_1, st.stage_1))[1].u)
-expec = let S = ps.stage_2.θ[1], V2n = V1 + S
+expected = let S = ps.stage_2.θ[1], V2n = V1 + S
     [
         V1 * A / V2n, (V1 * B + S * c_b_s) / V2n, V1 * C / V2n, V1 * D / V2n,
         V1 * E / V2n, V1 * F / V2n, V1 * D, V2n,
     ]
 end
 @test Corleone.linkage_residual(linkage, ps.stage_2, (stage1(nothing, ps.stage_1, st.stage_1))[1]) ≈
-    ps.stage_2.u0 - expec
+    ps.stage_2.u0 - expected
 
 # Maximum amount of D is wanted, so the objective is minimised for -D_amount (state 7).
 # Constraint J2: the two stage durations must fit within the processing time, i.e.

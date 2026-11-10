@@ -89,6 +89,9 @@ else
             @safetestset "Native Lux interface" begin
                 include("core/interface_contracts.jl")
             end
+            @safetestset "Multistage state and validation" begin
+                include("core/multistage.jl")
+            end
             @safetestset "State handoff" begin
                 include("core/state_handoff.jl")
             end

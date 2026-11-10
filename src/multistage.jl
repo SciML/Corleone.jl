@@ -35,7 +35,7 @@ function StageTransition(
     if isnothing(bounds)
         bounds = (fill(-Inf, length(p)), fill(Inf, length(p)))
     end
-    @assert length(first(bounds)) == length(p) == length(last(bounds)) "The number of transition parameters and the bounds must match."
+    length(first(bounds)) == length(p) == length(last(bounds)) || throw(DimensionMismatch("The number of transition parameters and the bounds must match."))
     return StageTransition{F, typeof(p), typeof(bounds)}(f, p, bounds)
 end
 
@@ -107,9 +107,9 @@ function StageLinkage(
     m = length(θ)
     isnothing(bounds_θ) && (bounds_θ = (fill(-Inf, m), fill(Inf, m)))
     isnothing(bounds) && (bounds = (zeros(n), zeros(n)))
-    @assert length(first(bounds_u0)) == n == length(last(bounds_u0)) "The interface-state bounds must match the length of `u0`."
-    @assert length(first(bounds_θ)) == m == length(last(bounds_θ)) "The linkage-parameter bounds must match the length of `θ`."
-    @assert length(first(bounds)) == n == length(last(bounds)) "The linkage-residual bounds must match the length of `u0`."
+    length(first(bounds_u0)) == n == length(last(bounds_u0)) || throw(DimensionMismatch("The interface-state bounds must match the length of `u0`."))
+    length(first(bounds_θ)) == m == length(last(bounds_θ)) || throw(DimensionMismatch("The linkage-parameter bounds must match the length of `θ`."))
+    length(first(bounds)) == n == length(last(bounds)) || throw(DimensionMismatch("The linkage-residual bounds must match the length of `u0`."))
     return StageLinkage{F, typeof(u0), typeof(bounds_u0), typeof(θ), typeof(bounds_θ), typeof(bounds)}(
         f, u0, bounds_u0, θ, bounds_θ, bounds
     )
@@ -219,7 +219,8 @@ end
 @inline _multistage_call(layers::Tuple{}, i, names, ps, st, inp) = (inp, st)
 @inline function _multistage_call(layers::Tuple, i, names, ps, st, inp)
     outp, next_st = first(layers)(inp, getproperty(ps, names[i]), getproperty(st, names[i]))
-    return _multistage_call(Base.tail(layers), i + 1, names, ps, st, outp)
+    updated_st = merge(st, NamedTuple{(names[i],)}((next_st,)))
+    return _multistage_call(Base.tail(layers), i + 1, names, ps, updated_st, outp)
 end
 
 """

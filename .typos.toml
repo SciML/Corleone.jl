@@ -45,6 +45,9 @@ opts = "opts"
 args = "args"
 kwargs = "kwargs"
 
+# Sum Up Rounding (optimal control)
+SUR = "SUR"
+
 # Scientific abbreviations
 ND = "ND"
 nd = "nd"
