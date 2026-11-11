@@ -31,8 +31,7 @@ hybrid_initialization
 Chain multiple shooting stages with `Stages` and connect consecutive stages with
 `StageTransition` (substitution) or `StageLinkage` (a free interface state coupled by
 a residual constraint). Each layer is stored under the key `stage_i` following the
-layer order. See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md)
-and the [multistage Lotka-Volterra tutorial](examples/a_multistage_lotka_volterra_problem_with_a_third_species.md).
+layer order. See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md).
 
 ```@docs
 StageTransition
