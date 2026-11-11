@@ -97,7 +97,7 @@ function make_tutorial(path; name = nothing, draft = false)
     isdir(outpath) || mkdir(outpath)
     category = get(
         something(metadata, Dict()), "category",
-        occursin("CorleoneOED", path) ? "experimental_design" : ""
+        occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control"
     )
     staged = joinpath(demo_source, category, "$fname.jl")
     content = preprocess_script(read(path, String))
