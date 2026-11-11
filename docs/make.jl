@@ -81,12 +81,14 @@ makedocs(
         ],
         "Sublibraries" => [
             "Overview" => "sublibraries.md",
-            "CorleoneOED" => "oed/index.md",
-            "Measurements and Information" => "oed/formulation.md",
-            "Constructing and Optimizing Designs" => "oed/designs.md",
-            "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
-            "API Reference" => "oed/api.md",
-            "References and Attribution" => "oed/references.md",
+            "CorleoneOED" => [
+                "Overview" => "oed/index.md",
+                "Measurements and Information" => "oed/formulation.md",
+                "Constructing and Optimizing Designs" => "oed/designs.md",
+                "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
+                "API Reference" => "oed/api.md",
+                "References and Attribution" => "oed/references.md",
+            ],
             "CorleoneInverse" => [
                 "Parameter Estimation" => "inverse/index.md",
                 "API Reference" => "inverse/api.md",
