@@ -18,13 +18,13 @@ using ForwardDiff, ReverseDiff, Zygote
             (
                 annotations = (
                     Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊) => [0.0],
-                    Tunable(1; default = 1.1, transform = asℝ₊) => nothing,
+                    Tunable(2; default = 1.1, transform = asℝ₊) => nothing,
                 ),
-            ), [1.4, 0.4, 2.0, 0.4, 8.0, 2.42], 6.78,
+            ), [2.8, 2.0, 0.4, 8.0, 2.42], 7.23,
         ),
     )
     for (b, expected, value) in cases
-        experiments = Experiments(problem; experiments = (; a, b))
+        experiments = Experiments(problem; controls = [2], experiments = (; a, b))
         ps, st = LuxCore.setup(Xoshiro(1), experiments)
         q, reconstruct = pack(default_vectorizer(), ps)
         function loss(q)

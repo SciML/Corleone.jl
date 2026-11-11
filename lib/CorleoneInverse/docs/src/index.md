@@ -57,9 +57,12 @@ estimate = ParameterEstimate(model, fit.u)
 `NonlinearLeastSquaresProblem(model)` uses the prepared observation residuals.
 Untransformed Normal priors add Gaussian residual rows. Use
 `OptimizationProblem(model, ad)` for annotation bounds, general priors, and
-constraints. The scalar objective is half the weighted residual sum of squares
-minus `log_prior`. The convenience builders accepting `(shooting, experiments,
-ps, st)` prepare this same model internally.
+constraints. By default the scalar objective is the mean squared observation
+residual minus `log_prior`. Pass `reducer = x -> sum(x) / 2` to the model
+constructor for the Gaussian half-sum objective. The reducer receives the
+squared, noise-scaled observation residuals. Priors and constraints are handled
+separately. The convenience builders accepting `(shooting, experiments, ps, st)`
+prepare this same model internally.
 
 ### Symbolic measurements and constraints
 
@@ -93,19 +96,20 @@ model after changing selectors, observation times, or schedules.
 
 ## Shared and local values with Experiments
 
-`Experiments` is a data-only Lux container. It defines shared and local model
-parameters, controls, and initial variables, without storing a solver or shooting
-layer. Its constructor takes the problem and shared annotations; each named entry
-can override any parameter or variable locally:
+`Experiments` is a data-only Lux container for shared model parameters,
+experiment-local controls, and shared or local initial variables. Its constructor
+takes the problem and shared annotations. Each named entry supplies its controls
+and can define local initial variables.
 
 ```julia
 experiments = Experiments(problem,
     Tunable(1) => nothing;
+    controls = [2],
     experiments = (
-        a = (observations = data_a,),
+        a = (annotations = Constant(2; default = 0.0) => nothing, observations = data_a),
         b = (
             annotations = (
-                Tunable(1; default = 1.2) => nothing, # Local ordinary parameter
+                Tunable(2; default = 1.2) => nothing,
                 Tunable(1; kind = Val(:variable), default = 2.0) => [0.0],
             ),
             observations = data_b,
@@ -139,12 +143,13 @@ trajectory types. State field order may differ without changing declaration orde
 `Experiments(base_shooting, specs)` may inherit an existing layer's definitions at
 construction; the resulting container retains no shooting layer or solver.
 
-Base definitions remain shared unless locally overridden. Local `Tunable` and
-`Constant` annotations use the same `annotation => timegrid` syntax as
-`ShootingLayer`, including independent grids, transforms, bounds, and priors.
-Ordinary model parameters may be local as well as controls and initial variables.
-Global definitions overridden everywhere are omitted from setup, excluding unused
-unknowns, priors, and initializer calls.
+Ordinary model parameters are shared. Each experiment supplies a `Tunable` or
+`Constant` annotation for every control. A bare control annotation uses the
+batch-wide union of observation times as its switching grid. The first value
+applies from the start of the problem, including when the first observation
+comes later. Use `annotation => nothing` for one value throughout the
+experiment, or `annotation => timegrid` to specify switching times. Local
+controls and initial variables can have their own transforms, bounds, and priors.
 
 Each specification accepts `annotations`, `observations`, and `u0`. Observations
 accept an observation-only `Experiment` or a tuple of observation pairs. An
@@ -162,7 +167,8 @@ in prediction callbacks. Shared priors are counted once, local priors once each.
 
 Use `OptimizationProblem(model, ad)` for bounds, general priors, and multiple
 shooting. `ParameterEstimate(model, q)` reports joint covariance, including
-shared/local cross terms.
+shared/local cross terms. `mean_squared_residual(model)` averages the squared,
+noise-scaled observation residuals, with each observed value counted once.
 
 ```@example experiment_layers
 using CorleoneInverse

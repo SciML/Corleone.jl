@@ -75,14 +75,15 @@ end
 $(SIGNATURES)
 
 Prepare an experiment dynamic problem and use Corleone's common Optimization.jl
-bridge for its likelihood, priors, bounds, and shooting constraints. Additional
+bridge for its observation loss, priors, bounds, and shooting constraints.
+`reducer` selects the scalar reduction of the squared observation residuals. Additional
 user constraints can be declared with `CorleoneDynamicOptProblem` directly.
 """
 function SciMLBase.OptimizationProblem(
         shooting::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, ps, st, ad::AbstractADType;
         vectorize = default_vectorizer(), eval_module::Module = Corleone,
-        evaluator = Corleone.default_evaluator(), kwargs...
+        evaluator = Corleone.default_evaluator(), reducer = mean, kwargs...
     )
-    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator)
+    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator, reducer)
     return SciMLBase.OptimizationProblem(model, ad; vectorize, kwargs...)
 end

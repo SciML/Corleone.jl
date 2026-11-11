@@ -1,4 +1,4 @@
-using Corleone, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, Test, Random
+using CorleoneInverse, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, Test, Random
 using ForwardDiff, ReverseDiff, Zygote, RuntimeGeneratedFunctions
 using SciMLBase
 using DiffEqBase: SensitivityADPassThrough
@@ -22,7 +22,6 @@ using Distributions: Normal, logpdf
             ),
             b = (
                 annotations = (
-                    Tunable(1; default = 2.0) => nothing,
                     Constant(2; default = 0.5) => nothing,
                     Tunable(1; kind = Val(:variable), default = 1.0) => [0.0],
                 ),
@@ -44,16 +43,17 @@ using Distributions: Normal, logpdf
     @test next.execution.b.timestops == [0.0, 2.0]
     @test next.saveat === st.saveat
     q, reconstruct = pack(default_vectorizer(), ps)
-    @test q == [1.0, 1.0, 2.0]
+    @test q == [1.0, 1.0]
     expected(q) = vcat(
         (ya .- (q[1] .* ta .+ max.(0, ta .- 1) .+ (ta .>= 1) .+ ta)) ./ 0.5,
-        (yb .- (q[2] .+ (q[3] + 0.5) .* tb .- q[3])) ./ 0.25,
+        (yb .- (q[2] .+ (q[1] + 0.5) .* tb .- q[1])) ./ 0.25,
     )
     @test (@inferred residual(model)) ≈ expected(q)
+    @test mean_squared_residual(model) ≈ sum(abs2, expected(q)) / 5
     @test n_observations(model) == 5
     objective(q) = optimization_objective(model, reconstruct(q))
-    @test (@inferred optimization_objective(model)) ≈ sum(abs2, expected(q)) / 2
-    gradient = ForwardDiff.gradient(x -> sum(abs2, expected(x)) / 2, q)
+    @test (@inferred optimization_objective(model)) ≈ sum(abs2, expected(q)) / 5
+    gradient = ForwardDiff.gradient(x -> sum(abs2, expected(x)) / 5, q)
     for differentiate in (ForwardDiff.gradient, ReverseDiff.gradient)
         @test differentiate(objective, q) ≈ gradient
     end
@@ -61,7 +61,7 @@ using Distributions: Normal, logpdf
     @test first(Zygote.gradient(u -> selector(u, [1.0, 0.5], 1.0), [2.0])) ≈ [1.0]
     packed = ComponentArray(ps)
     @test (@inferred residual(model, packed)) ≈ expected(q)
-    @test (@inferred optimization_objective(model, packed)) ≈ sum(abs2, expected(q)) / 2
+    @test (@inferred optimization_objective(model, packed)) ≈ sum(abs2, expected(q)) / 5
     @test get_bounds(model.layer, packed, st) == get_bounds(experiments, packed, st)
     @test model.ps === ps && model.st === st
     reordered = merge(st, (; execution = (; b = st.execution.b, a = st.execution.a), experiments = (; b = st.experiments.b, a = st.experiments.a)))
@@ -81,7 +81,7 @@ using Distributions: Normal, logpdf
     @test 1.75 in constrained.evaluation_grid
     @test all(t -> t in constrained.evaluation_grid, samples)
     @test !(1.75 in constrained.st.execution.a.timestops)
-    @test optimization_constraints(constrained) ≈ [1.5, 6.0, 3.0]
+    @test optimization_constraints(constrained) ≈ [1.5, 4.0, 1.0]
     buffer = zeros(3)
     @test optimization_constraints!(buffer, constrained) === buffer
     @test buffer ≈ optimization_constraints(constrained)
@@ -89,6 +89,29 @@ using Distributions: Normal, logpdf
     @test_throws ArgumentError CorleoneDynamicOptProblem(shooting, experiments, :unknown => :(u₁(1.0)); ps, st, lcons = [0.0], ucons = [1.0])
     changed = merge(st, (; execution = merge(st.execution, (; a = merge(st.execution.a, (; timestops = [0.0, 2.0]))))))
     @test_throws ArgumentError optimization_objective(model, ps, changed)
+end
+
+@testset "Mean squared residual weights each observation equally" begin
+    problem = ODEProblem((u, p, t) -> p, [0.0], (0.0, 1.0), [1.0])
+    shooting = ShootingLayer(problem, Tsit5())
+    data = (
+        a = Experiment(1 => ([0.0, 0.5, 1.0], [2.0, -1.5, 9.0], [2.0, 1.0, 2.0])),
+        b = Experiment(1 => ([0.0], [1.0], 0.5); u0 = [2.0]),
+    )
+    model = CorleoneDynamicOptProblem(shooting, data)
+    expected = residual(model)
+    @test expected ≈ [1.0, -2.0, 4.0, -2.0]
+    @test (@inferred mean_squared_residual(model)) ≈ sum(abs2, expected) / length(expected) ≈ 6.25
+    @test optimization_objective(model) ≈ 6.25
+    custom = CorleoneDynamicOptProblem(shooting, data; reducer = maximum)
+    @test optimization_objective(custom) ≈ 16.0
+    q, reconstruct = pack(default_vectorizer(), model.ps)
+    @test ForwardDiff.gradient(q -> mean_squared_residual(model, reconstruct(q), model.st), q) ≈ [-0.5]
+
+    plain = CorleoneDynamicOptProblem(shooting, Experiment(1 => ([0.5], [0.0])))
+    @test mean_squared_residual(plain) ≈ 0.25
+    empty_data = CorleoneDynamicOptProblem(shooting, Experiment(1 => (Float64[], Float64[])))
+    @test isnan(mean_squared_residual(empty_data))
 end
 
 @testset "Observation and constraint conventions at resets" begin
@@ -120,10 +143,16 @@ end
 @testset "Shared priors contribute once" begin
     problem = ODEProblem((u, p, t) -> p, [0.0], (0.0, 1.0), [1.0])
     prior = Normal(0.0, 2.0)
-    data = Experiment(1 => ([1.0], [1.0], 0.1))
+    data = Experiment(1 => ([1.0], [1.2], 0.1))
     experiments = Experiments(problem, Tunable(1; prior) => nothing; experiments = (a = data, b = data))
     model = CorleoneDynamicOptProblem(ShootingLayer(problem, Tsit5()), experiments)
-    @test optimization_objective(model) ≈ -logpdf(prior, 1.0)
-    @test (@inferred optimization_objective(model, ComponentArray(model.ps))) ≈ -logpdf(prior, 1.0)
+    @test optimization_objective(model) ≈ 4.0 - logpdf(prior, 1.0)
+    @test (@inferred optimization_objective(model, ComponentArray(model.ps))) ≈ 4.0 - logpdf(prior, 1.0)
     @test isempty(model.lcons)
+    constrained = CorleoneDynamicOptProblem(
+        ShootingLayer(problem, Tsit5()), experiments, :a => :(u₁(1.0));
+        reducer = sum, lcons = [1.0], ucons = [1.0]
+    )
+    @test optimization_objective(constrained) ≈ 8.0 - logpdf(prior, 1.0)
+    @test optimization_constraints(constrained) ≈ [1.0]
 end

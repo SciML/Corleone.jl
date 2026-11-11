@@ -26,8 +26,17 @@ run_qa(
     ei_kwargs = (;
         # Established AD and symbolic indexing APIs that are not declared public.
         all_qualified_accesses_are_public = (; ignore = (:jacobian, :hessian)),
-        # Corleone's parameter-collection hooks for transforms and priors.
-        all_explicit_imports_are_public = (; ignore = (:ExperimentDynamicOptProblem, :ObservationExperiments, :is_weighted, :natural_values, :parameter_collections)),
+        # Corleone's dynamic optimization and observation preparation hooks.
+        all_explicit_imports_are_public = (;
+            ignore = (
+                :collect_expression_times!, :compile_trajectory_expression, :evaluate_trajectory_objective,
+                :experiment_fields, :expression_sample_grid, :expression_symbol_indices, :expression_symbol_name,
+                :get_saveat, :natural_values, :observation_residual, :optimization_matching, :optimization_matching!,
+                :optimization_prediction, :optimization_schedule, :optimization_times, :optimization_trajectory,
+                :parameter_collections, :prepare_constraint_bounds, :prepare_dynamic_opt_problem,
+                :replace_expression_samples, :sample_indices, :scalar_objective, :state_index,
+            ),
+        ),
     ),
     api_docs_kwargs = (; docs_src = joinpath(@__DIR__, "..", "..", "docs", "src")),
     reexports_allow = CORLEONE_REEXPORTS,

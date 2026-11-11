@@ -14,7 +14,7 @@ using ForwardDiff, ReverseDiff, Zygote
     )
     batch = Experiments(
         base, (
-            a = (;), b = (
+            a = (annotations = Tunable(2) => nothing,), b = (
                 annotations = (
                     Constant(2; default = [0.3, 0.4]) => [0.5],
                     Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊, prior = LogNormal(0.0, 1.0)) => [0.0],
@@ -24,14 +24,14 @@ using ForwardDiff, ReverseDiff, Zygote
     )
     @test batch.problem === problem
     @test !hasproperty(batch, :shooting)
-    @test Experiments(problem; controls = [2], experiments = (a = (;),)).problem === problem
+    @test_throws ArgumentError Experiments(problem; controls = [2], experiments = (a = (;),))
     @test !(:ExperimentLayer in names(Corleone))
     @test !hasproperty(batch.experiments.b, :shooting)
     @test !hasproperty(batch.experiments.b, :base)
     ps, st = LuxCore.setup(Xoshiro(1), batch)
     @test calls[] == 1
-    @test length(ComponentArray(ps.shared)) == 3
-    @test isempty(ComponentArray(ps.experiments.a))
+    @test length(ComponentArray(ps.shared)) == 2
+    @test length(ComponentArray(ps.experiments.a)) == 1
     @test length(ComponentArray(ps.experiments.b)) == 1
     @test LuxCore.parameterlength(batch) == length(ComponentArray(ps)) == 4
     @test batch.experiments.b(nothing, ps.experiments.b, st.experiments.b) === (ps.experiments.b, st.experiments.b)
@@ -55,8 +55,8 @@ using ForwardDiff, ReverseDiff, Zygote
     @test first(y[1].u) ≈ [1.0]
     @test first(y[2].u) ≈ [2.0]
     @test keys(next.experiments) == (:a, :b)
-    # The global control is used by a, while b has a fixed local replacement.
-    ps.shared.parameter.parameters.p₂.parameter.ps .= 0.9
+    # Each experiment owns its control.
+    ps.experiments.a.parameter.parameters.p₂.parameter.ps .= 0.9
     changed, _ = base(batch, ps, st)
     @test last(changed[1].u) != last(y[1].u)
     @test changed[2].u ≈ y[2].u
@@ -75,11 +75,7 @@ using ForwardDiff, ReverseDiff, Zygote
     lb, ub = get_bounds(batch, ComponentArray(ps), st)
     @test collect(ComponentArray(lb)) == [0.0, -Inf, -Inf, -Inf]
     @test collect(ComponentArray(ub)) == fill(Inf, 4)
-    ordinary = Experiments(base, (a = (;), b = (annotations = (Tunable(1; default = 0.9) => nothing,),)))
-    ordinary_ps, ordinary_st = LuxCore.setup(Xoshiro(1), ordinary)
-    ordinary_y, _ = base(ordinary, ordinary_ps, ordinary_st)
-    @test last(ordinary_y[1].u) != last(ordinary_y[2].u)
-    @test length(ComponentArray(ordinary_ps.experiments.b)) == 1
+    @test_throws ArgumentError Experiments(base, (a = (annotations = (Tunable(2) => nothing, Tunable(1) => nothing)),))
     @test_throws ArgumentError Experiments(base, (a = (annotations = (Tunable(2) => [0.7, 0.3],),),))
     @test_throws ArgumentError Experiments(base, (a = (annotations = (Tunable(2) => [1.5],),),))
     @test_throws ArgumentError Experiments(base, (a = (annotations = (Tunable(2) => nothing, Constant(2) => nothing),),))
@@ -144,7 +140,7 @@ end
     calls = Ref(0)
     initialize = (rng, n) -> (calls[] += 1; fill(0.7, n))
     problem = ODEProblem((u, p, t) -> [p[1] + p[2]], [1.0], (0.0, 1.0), [0.7, 0.2])
-    base = ShootingLayer(problem, Tsit5(), Constant(1; default = initialize) => nothing; controls = [2])
+    base = ShootingLayer(problem, Tsit5(), Constant(1; default = initialize) => nothing)
     batch = Experiments(base, (a = (u0 = [2.0],), b = (u0 = [3.0],)))
     ps, st = LuxCore.setup(Xoshiro(1), batch)
     @test calls[] == 1
@@ -183,7 +179,7 @@ end
 @testset "A local tunable replaces a global constant" begin
     problem = ODEProblem((u, p, t) -> [p[1] + p[2]], [1.0], (0.0, 1.0), [0.7, 0.2])
     base = ShootingLayer(problem, Tsit5(), Constant(2) => nothing; controls = [2])
-    batch = Experiments(base, (a = (;), b = (annotations = (Tunable(2; default = 0.4) => nothing,),)))
+    batch = Experiments(base, (a = (annotations = Constant(2) => nothing,), b = (annotations = Tunable(2; default = 0.4) => nothing,)))
     ps, st = LuxCore.setup(Xoshiro(1), batch)
     y, _ = base(batch, ComponentArray(ps), st)
     @test last(y[1].u) ≈ [1.9]
@@ -194,19 +190,37 @@ end
     @test last(changed[2].u) ≈ [2.2]
 end
 
-@testset "Trajectory bounds retain shared transforms and local replacements" begin
-    problem = ODEProblem((u, p, t) -> [-p[1] * u[1]], [1.0], (0.0, 1.0), [0.7])
+@testset "Shared parameter bounds and local control bounds" begin
+    problem = ODEProblem((u, p, t) -> [-p[1] * u[1] + p[2]], [1.0], (0.0, 1.0), [0.7, 0.0])
     experiments = Experiments(
         problem, Tunable(1; transform = asℝ₊) => nothing;
-        bounds = Dict(:p₁ => (0.0, 1.0)), experiments = (
-            a = (;),
-            b = (annotations = (Constant(1; default = 1.2, lowerbound = 0.1, upperbound = 2.0) => nothing,),),
+        bounds = Dict(:p₁ => (0.0, 1.0)), controls = [2], experiments = (
+            a = (annotations = Constant(2; default = 0.0) => nothing,),
+            b = (annotations = Constant(2; default = 1.2, lowerbound = 0.1, upperbound = 2.0) => nothing,),
         )
     )
     ps, st = LuxCore.setup(Xoshiro(1), experiments)
     trajectories, _ = ShootingLayer(problem, Tsit5())(experiments, ps, st)
-    @test get_bounds(trajectories[1].sys, :p₁) == (-Inf, Inf)
-    @test get_bounds(trajectories[2].sys, :p₁) == (0.1, 2.0)
+    @test all(trajectory -> get_bounds(trajectory.sys, :p₁) == (-Inf, Inf), trajectories)
+    @test get_bounds(trajectories[2].sys, :p₂) == (0.1, 2.0)
     @test last(trajectories[1].u) ≈ [exp(-0.7)] rtol = 1.0e-4
-    @test last(trajectories[2].u) ≈ [exp(-1.2)] rtol = 1.0e-4
+    @test last(trajectories[2].u) ≈ [exp(-0.7) + 1.2 / 0.7 * (1 - exp(-0.7))] rtol = 1.0e-4
+end
+
+@testset "Omitted control schedules use the batch observation times" begin
+    problem = ODEProblem((u, p, t) -> [p[1] + p[2]], [0.0], (0.0, 2.0), [1.0, 0.0])
+    base = ShootingLayer(problem, Tsit5(); controls = [2])
+    a = (annotations = Constant(2; default = [0.0, 1.0, 2.0]), observations = Experiment(1 => ([0.0, 1.0], [0.0, 2.0])))
+    b = (annotations = Tunable(2; default = 0.0), observations = Experiment(1 => ([0.5], [0.5])))
+    batch = Experiments(base, (; a, b))
+    ps, st = LuxCore.setup(Xoshiro(1), batch)
+    @test st.saveat == [0.0, 0.5, 1.0]
+    @test st.execution.a.timestops == st.execution.b.timestops == [0.0, 0.5, 1.0, 2.0]
+    @test length(ComponentArray(ps.shared)) == 1
+    @test isempty(ComponentArray(ps.experiments.a))
+    @test length(ComponentArray(ps.experiments.b)) == 3
+    y, _ = base(batch, ps, st)
+    @test last(y[1].u) ≈ [4.5]
+    @test last(y[2].u) ≈ [2.0]
+    @test_throws ArgumentError Experiments(base, (a = (annotations = Tunable(2),),))
 end

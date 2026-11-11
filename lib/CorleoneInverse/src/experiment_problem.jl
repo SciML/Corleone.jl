@@ -1,3 +1,11 @@
+"One experiment, or a tuple or NamedTuple of experiments."
+const ObservationExperiments = Union{Experiment, Tuple{Vararg{Experiment}}, NamedTuple{<:Any, <:Tuple{Vararg{Experiment}}}}
+
+as_experiments(experiment::Experiment) = (experiment,)
+as_experiments(experiments::ObservationExperiments) = experiments
+
+is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
+
 # The wrapper delegates Lux setup and bounds to the owner of the tunable tree.
 struct ExperimentPrediction{S, L, D} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     shooting::S
@@ -98,11 +106,15 @@ function prepare_observations(data::Experiment, metadata, trajectory, eval_modul
     return Experiment(observations, data.u0, data.t)
 end
 
-struct MeasurementObjective{O, D}
+struct MeasurementObjective{O, D, R}
     owner::O
     data::D
+    reducer::R
 end
-(objective::MeasurementObjective)(trajectories) = sum(abs2, residual(objective.data, trajectories)) / 2
+(objective::MeasurementObjective)(trajectories) = scalar_objective(reduce_measurements(objective.reducer, objective.data, trajectories))
+reduce_measurements(reducer, data, trajectories) = reducer(abs2.(residual(data, trajectories)))
+reduce_measurements(::typeof(mean), data, trajectories) = mean_squared_residual(data, trajectories)
+
 function evaluate_trajectory_objective(objective::MeasurementObjective, trajectories, ps, st)
     return objective(trajectories) - log_prior(objective.owner, ps, st)
 end
@@ -130,12 +142,15 @@ end
 $(SIGNATURES)
 
 Build `CorleoneDynamicOptProblem(shooting, experiments, constraints...; ps, st,
-lcons, ucons, eval_module, evaluator)` from an [`Experiments`](@ref) container or
+lcons, ucons, reducer = mean, eval_module, evaluator)` from an [`Experiments`](@ref) container or
 observation [`Experiment`](@ref), tuple, or NamedTuple. Lux parameters and state
 follow their owner, initialized once when omitted.
 
-Observations define half the weighted residual sum of squares. Annotation priors
-add their negative log density once per owned value. Observable selectors accept
+The reducer receives the squared, noise-scaled observation residuals in residual
+order and returns a scalar. The default is `Statistics.mean`. Pass
+`reducer = x -> sum(x) / 2` for the Gaussian half-sum convention.
+Annotation priors add their negative log density once per owned value, outside
+the reduction. Observable selectors accept
 state symbols/indices, `(u, p, t) -> value` callbacks, or scalar Julia expressions
 such as `:(p₁ * u₁)`. Expressions use current-time signal names and the independent
 variable; each observation supplies its own sampling grid. They compile once
@@ -152,7 +167,8 @@ referenced by the prepared model.
 function CorleoneDynamicOptProblem(
         shooting::ShootingLayer, experiments::Union{Experiments, ObservationExperiments}, constraints...;
         ps = nothing, st = nothing, rng::Random.AbstractRNG = Random.default_rng(),
-        lcons = nothing, ucons = nothing, eval_module::Module = @__MODULE__, evaluator = default_evaluator()
+        lcons = nothing, ucons = nothing, reducer = mean,
+        eval_module::Module = Corleone, evaluator = default_evaluator()
     )
     owner = experiments isa Experiments ? experiments : shooting
     data = experiments isa Experiments ? experiment_data(experiments) : as_experiments(experiments)
@@ -180,7 +196,7 @@ function CorleoneDynamicOptProblem(
     grid = expression_sample_grid(shooting.problem.tspan, grid, expression_times)
     trajectory = optimization_prediction(layer, ps, st, grid)
     prepared = map((experiment, symbols, prediction) -> prepare_observations(experiment, symbols, prediction, eval_module, evaluator), data, metadata, trajectory)
-    objective = MeasurementObjective(owner, prepared)
+    objective = MeasurementObjective(owner, prepared, reducer)
     prepared_constraints = map(constraints, descriptions) do constraint, description
         isnothing(description) && return constraint
         key, expression = description
@@ -202,3 +218,26 @@ handled separately by optimization and least-squares problem construction.
 residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st) =
     residual(model.objective.data, optimization_trajectory(model, ps, st))
 n_observations(model::ExperimentDynamicOptProblem) = n_observations(model.objective.data)
+
+"""
+$(SIGNATURES)
+
+Return the mean squared observation residual across all experiments. Each
+observed value counts once, with the same noise scaling as [`residual`](@ref).
+Priors and shooting constraints are excluded. With no observed values, the
+result is `NaN`.
+
+Evaluate the prediction once and sum over observation groups without
+concatenating their residual vectors. Parameters and state default to those
+retained by the model.
+"""
+function mean_squared_residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st)
+    return mean_squared_residual(model.objective.data, optimization_trajectory(model, ps, st))
+end
+
+function mean_squared_residual(data, trajectories)
+    totals = map(data, trajectories) do experiment, trajectory
+        sum(map(observation -> sum(abs2, residual(observation, trajectory)), experiment.observations))
+    end
+    return sum(values(totals)) / n_observations(data)
+end

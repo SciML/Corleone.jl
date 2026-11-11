@@ -39,7 +39,7 @@ end
 @testset "MAP through the optimization problem" begin
     layer = prior_layer(Normal(μ, τ))
     ps, st = LuxCore.setup(StableRNG(1), layer)
-    optprob = OptimizationProblem(layer, experiment, ps, st, Optimization.AutoForwardDiff())
+    optprob = OptimizationProblem(layer, experiment, ps, st, Optimization.AutoForwardDiff(); reducer = x -> sum(x) / 2)
     sol = solve(optprob, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-12)
     @test sol.u ≈ β rtol = 1.0e-6
 end

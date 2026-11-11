@@ -27,7 +27,7 @@ using Optimization, OptimizationMOI, Ipopt
     opt = OptimizationProblem(model, Optimization.AutoForwardDiff())
     opt_fit = solve(opt, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-10)
     @test opt_fit.u ≈ fit.u rtol = 1.0e-6
-    @test opt.f.f(fit.u, opt.p) ≈ estimate.rss / 2
+    @test opt.f.f(fit.u, opt.p) ≈ estimate.rss / length(times)
 
     unbounded = CorleoneDynamicOptProblem(shooting, data, :(u₁(0.3)); ps = model.ps, st = model.st, lcons = [-Inf], ucons = [Inf])
     @test NonlinearLeastSquaresProblem(unbounded).u0 == NonlinearLeastSquaresProblem(model).u0

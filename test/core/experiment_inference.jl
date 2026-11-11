@@ -16,12 +16,12 @@ using TransformVariables: asℝ₊
         transformed = (
             annotations = (
                 Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊) => [0.0],
-                Tunable(1; default = 1.1, transform = asℝ₊) => nothing,
+                Tunable(2; default = 1.1, transform = asℝ₊) => nothing,
             ),
         ),
     )
     for variant in values(variants)
-        experiments = Experiments(problem; experiments = (a = (annotations = definitions,), b = variant))
+        experiments = Experiments(problem; controls = [2], experiments = (a = (annotations = definitions,), b = variant))
         native, st = LuxCore.setup(Xoshiro(1), experiments)
         for ps in (native, ComponentArray(native))
             calls, prepared = @inferred experiments(nothing, ps, st)
@@ -60,10 +60,10 @@ end
     specs = (
         shared = (annotations = (Tunable(1; kind = Val(:variable)) => [0.0], Tunable(2) => nothing),),
         fixed = (annotations = (Tunable(1; kind = Val(:variable), default = [2.0, 1.0]) => [0.0, 0.5], Constant(2) => nothing),),
-        transformed = (annotations = (Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊) => [0.0], Tunable(1; default = 1.1, transform = asℝ₊) => nothing),),
+        transformed = (annotations = (Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊) => [0.0], Tunable(2; default = 1.1, transform = asℝ₊) => nothing),),
     )
     for definitions in ((only = specs.shared,), specs)
-        experiments = Experiments(problem; experiments = definitions)
+        experiments = Experiments(problem; controls = [2], experiments = definitions)
         ps, st = LuxCore.setup(Xoshiro(1), experiments)
         for parameters in (ps, ComponentArray(ps))
             calls, _ = @inferred experiments(nothing, parameters, st)

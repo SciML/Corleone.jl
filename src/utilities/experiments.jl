@@ -69,14 +69,13 @@ function Experiment(observations::Pair...; u0 = nothing)
     return Experiment(observations, u0, t)
 end
 
-is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
 n_observations(experiment::Experiment) = sum(observation -> length(observation.y), experiment.observations)
 
-function experiment_sample_times(layer::ShootingLayer, experiment::Experiment)
-    t0, tf = layer.problem.tspan
+function experiment_sample_times(problem::SciMLBase.AbstractSciMLProblem, experiment::Experiment)
+    t0, tf = problem.tspan
     all(t -> t0 <= t <= tf, experiment.t) ||
         throw(ArgumentError("Observation times must lie within the problem time span."))
-    isnothing(experiment.u0) || length(experiment.u0) == length(layer.problem.u0) ||
+    isnothing(experiment.u0) || length(experiment.u0) == length(problem.u0) ||
         throw(DimensionMismatch("An experiment's u0 must match the problem's state length."))
     return experiment.t
 end
@@ -105,7 +104,7 @@ get_saveat(layer::ShootingLayer, experiment::Experiment, st) =
     get_saveat(layer, (experiment,), st)
 
 function get_saveat(layer::ShootingLayer, experiments, st)
-    times = reduce(vcat, map(experiment -> experiment_sample_times(layer, experiment), values(experiments)))
+    times = reduce(vcat, map(experiment -> experiment_sample_times(layer.problem, experiment), values(experiments)))
     return get_saveat(layer.problem, times, (st.timestops,), get(st, :saveat, nothing))
 end
 
@@ -155,7 +154,7 @@ end
 weighted(::Nothing, r) = r
 weighted(σ, r) = r ./ σ
 
-observe(::Expr, traj, k) = throw(ArgumentError("Prepare symbolic observations with CorleoneDynamicOptProblem before evaluating residuals."))
+observe(::Expr, traj, k) = throw(ArgumentError("Load CorleoneInverse and prepare symbolic observations with CorleoneDynamicOptProblem before evaluating residuals."))
 
 function observe(selector, traj, k)
     t = traj.t[k]
@@ -167,12 +166,6 @@ state_index(traj, selector) = SymbolicIndexingInterface.variable_index(traj, sel
 sample_indices(times, t) = map(ti -> findfirst(==(ti), times), t)
 ChainRulesCore.@non_differentiable state_index(::Any, ::Any)
 ChainRulesCore.@non_differentiable sample_indices(::Any, ::Any)
-
-"One experiment, or a tuple or NamedTuple of experiments."
-const ObservationExperiments = Union{Experiment, Tuple{Vararg{Experiment}}, NamedTuple{<:Any, <:Tuple{Vararg{Experiment}}}}
-
-as_experiments(experiment::Experiment) = (experiment,)
-as_experiments(experiments::ObservationExperiments) = experiments
 
 """
 $(SIGNATURES)

@@ -52,12 +52,16 @@ function experiment_collection(template, entries, constructor; separate)
 end
 
 
-function local_experiment_entries(layer, definitions, variables, parameters)
-    definitions = definitions isa Pair ? (definitions,) : definitions
+function local_experiment_entries(layer, definitions, variables, controls, observation_times)
+    definitions = definitions isa Union{Pair, AbstractAnnotation} ? (definitions,) : definitions
     resolved = reduce(
         vcat, map(definitions) do definition
+            if definition isa AbstractAnnotation && !is_variable(definition)
+                isempty(observation_times) && throw(ArgumentError("Supply control switching times when the batch has no observation times."))
+                definition = definition => filter(t -> t > first(layer.problem.tspan), observation_times)
+            end
             definition isa Pair && first(definition) isa AbstractAnnotation ||
-                throw(ArgumentError("Experiment definitions must be annotation => timegrid pairs."))
+                throw(ArgumentError("Use a control annotation or an annotation => timegrid pair."))
             kind = is_variable(first(definition)) ? Val(:variable) : Val(:parameter)
             process_definition(layer.sys, kind, definition...)
         end; init = Pair[]
@@ -73,8 +77,10 @@ function local_experiment_entries(layer, definitions, variables, parameters)
                 throw(ArgumentError("Experiment times must lie within the problem time span."))
             variable || issorted(grid) || throw(ArgumentError("Parameter switching times must be sorted."))
         end
-        entries = variable ? variables : parameters
-        entry = only(filter(entry -> entry.index == index, entries))
+        entries = variable ? variables : controls
+        position = findfirst(entry -> entry.index == index, entries)
+        isnothing(position) && throw(ArgumentError("Only controls can have experiment-local parameter annotations."))
+        entry = entries[position]
         grid = variable && isnothing(grid) ? Float64[] : grid
         times = variable ? grid : isnothing(grid) ? [first(layer.problem.tspan)] : vcat(first(layer.problem.tspan), grid)
         default, transform = get_default(annotation), get_transform(annotation)
@@ -85,9 +91,12 @@ function local_experiment_entries(layer, definitions, variables, parameters)
         grid = variable ? Dict(t => i for (i, t) in enumerate(grid)) : grid
         push!(locals, (; variable, entry = (; index, sym = entry.sym, name = entry.name, grid, parameter, fixed = !is_tunable(annotation))))
     end
+    parameters = [local_entry.entry for local_entry in locals if !local_entry.variable]
+    length(parameters) == length(controls) ||
+        throw(ArgumentError("Supply a Constant or Tunable annotation for every control in each experiment."))
     return (;
         variables = [local_entry.entry for local_entry in locals if local_entry.variable],
-        parameters = [local_entry.entry for local_entry in locals if !local_entry.variable],
+        parameters,
     )
 end
 
@@ -114,15 +123,16 @@ end
 """
 $(TYPEDEF)
 
-A data-only Lux container owning shared and experiment-local parameters, controls,
-and initial variables. Calling it returns per-experiment parameter/state tuples.
+A data-only Lux container owning shared model parameters, experiment-local
+controls, and shared or local initial variables. Calling it returns
+per-experiment parameter/state tuples.
 A separate ShootingLayer executes the experiments.
 
 # Fields
 $(FIELDS)
 """
 @concrete terse struct Experiments <: LuxCore.AbstractLuxContainerLayer{(:shared, :experiments)}
-    "Global initial variables, parameters, and controls, initialized once."
+    "Shared initial variables and model parameters, initialized once."
     shared
     "Internal local-value providers, with no shooting layers."
     experiments
@@ -136,16 +146,19 @@ end
     Experiments(problem, shared_definitions...; experiments, kwargs...)
     Experiments(shooting::ShootingLayer, experiments::NamedTuple)
 
-Define shared and experiment-local parameters, controls, and initial variables.
+Share ordinary model parameters across experiments and configure controls and
+initial variables for individual experiments.
 No shooting layer or solver is stored. The problem supplies defaults and indexing;
 shared definitions and metadata keywords follow `ShootingLayer` without its solver.
 The second form inherits an existing layer's definitions during construction only.
 
-Each named entry accepts `annotations`, `observations`, and `u0`. Local annotations
-use `annotation => timegrid` syntax and may redefine any model parameter or variable
-as `Tunable` or `Constant`, with its own grid, bounds, transform, and prior.
-Undeclared quantities remain shared. Globals overridden everywhere are omitted
-from setup, including their unused unknowns, priors, and initializers.
+Each named entry accepts `annotations`, `observations`, and `u0`. Each control
+requires a local `Tunable` or `Constant` annotation. A bare control annotation uses
+the union of observation times in the batch, with one initial value at the start
+of the problem. Use `annotation => timegrid` to supply an explicit schedule or
+`annotation => nothing` for a single value throughout the experiment. Initial
+variables can also have local annotations with an explicit grid. Shared initial
+variables overridden everywhere are omitted from setup.
 
 `LuxCore.setup` returns `ps.shared` and `ps.experiments.<name>`, with fixed values and
 schedules in `st`. Observation times from all experiments share `st.saveat`.
@@ -159,33 +172,10 @@ Experiments(shooting::ShootingLayer, experiments::NamedTuple) = build_experiment
 function build_experiments(shooting, experiments::NamedTuple)
     isempty(experiments) && throw(ArgumentError("Supply at least one experiment."))
     specs = map(experiments) do spec
-        spec isa Experiment && return (; observations = spec)
+        spec isa Experiment && (spec = (; observations = spec))
         spec isa NamedTuple || throw(ArgumentError("Experiment entries must be NamedTuples or observation Experiments."))
         all(key -> key in (:annotations, :observations, :u0), keys(spec)) ||
             throw(ArgumentError("Experiment entries accept annotations, observations, and u0 only."))
-        spec
-    end
-    global_variables = experiment_entries(shooting.initialcondition, shooting.sys, true)
-    global_parameters = experiment_entries(shooting.parameter, shooting.sys, false)
-    entries = map(spec -> local_experiment_entries(shooting, get(spec, :annotations, ()), global_variables, global_parameters), specs)
-    # A quantity used by no experiment must not contribute an unknown or a prior.
-    retained_variables = filter(global_variables) do entry
-        any(local_entries -> all(local_entry -> local_entry.index != entry.index, local_entries.variables), entries)
-    end
-    retained_parameters = filter(global_parameters) do entry
-        any(local_entries -> all(local_entry -> local_entry.index != entry.index, local_entries.parameters), entries)
-    end
-    variable_overrides = Set(entry.index for local_entries in entries for entry in local_entries.variables)
-    parameter_overrides = Set(entry.index for local_entries in entries for entry in local_entries.parameters)
-    # Retained globals that can be locally replaced use stable scalar keys. Purely
-    # global groups and entirely local groups retain their shared-grid execution.
-    shared = (;
-        initialcondition = experiment_collection(shooting.initialcondition, retained_variables, InitialCondition; separate = variable_overrides),
-        parameter = experiment_collection(shooting.parameter, retained_parameters, PiecewiseConstant; separate = parameter_overrides),
-    )
-    retained_variable_indices = Set(entry.index for entry in retained_variables)
-    retained_parameter_indices = Set(entry.index for entry in retained_parameters)
-    locals = map(specs, entries) do spec, local_entries
         data = get(spec, :observations, nothing)
         data = data isa Experiment || isnothing(data) ? data : Experiment(data...)
         u0 = get(spec, :u0, isnothing(data) ? nothing : data.u0)
@@ -193,23 +183,44 @@ function build_experiments(shooting, experiments::NamedTuple)
             throw(DimensionMismatch("Experiment u0 must match the state length."))
         if !isnothing(data)
             data = Experiment(data.observations, u0, data.t)
-            all(t -> first(shooting.problem.tspan) <= t <= last(shooting.problem.tspan), data.t) ||
-                throw(ArgumentError("Observation times must lie within the problem time span."))
+            experiment_sample_times(shooting.problem, data)
         end
+        return (; data, u0, annotations = get(spec, :annotations, ()))
+    end
+    global_variables = experiment_entries(shooting.initialcondition, shooting.sys, true)
+    parameters = experiment_entries(shooting.parameter, shooting.sys, false)
+    indices = control_indices(shooting.sys)
+    controls = filter(entry -> entry.index in indices, parameters)
+    shared_parameters = filter(entry -> entry.index ∉ indices, parameters)
+    observation_times = experiment_observation_times(map(spec -> spec.data, values(specs)))
+    entries = map(spec -> local_experiment_entries(shooting, spec.annotations, global_variables, controls, observation_times), specs)
+    # A quantity used by no experiment must not contribute an unknown or a prior.
+    retained_variables = filter(global_variables) do entry
+        any(local_entries -> all(local_entry -> local_entry.index != entry.index, local_entries.variables), entries)
+    end
+    variable_overrides = Set(entry.index for local_entries in entries for entry in local_entries.variables)
+    # Retained globals that can be locally replaced use stable scalar keys. Purely
+    # global groups and entirely local groups retain their shared-grid execution.
+    shared = (;
+        initialcondition = experiment_collection(shooting.initialcondition, retained_variables, InitialCondition; separate = variable_overrides),
+        parameter = experiment_collection(shooting.parameter, shared_parameters, PiecewiseConstant; separate = ()),
+    )
+    retained_variable_indices = Set(entry.index for entry in retained_variables)
+    locals = map(specs, entries) do spec, local_entries
         initialcondition = experiment_collection(
             shooting.initialcondition, local_entries.variables, InitialCondition;
             separate = retained_variable_indices
         )
         parameter = experiment_collection(
             shooting.parameter, local_entries.parameters, PiecewiseConstant;
-            separate = retained_parameter_indices
+            separate = ()
         )
-        return (; layer = ExperimentLayer(initialcondition, parameter, data), u0)
+        return (; layer = ExperimentLayer(initialcondition, parameter, spec.data), spec.u0)
     end
     # Explicit transforms can replace model bounds even on shared quantities.
     shared_bounds = Dict{Any, Any}(default_bounds(shooting.sys))
     update_experiment_bounds!(shared_bounds, global_variables)
-    update_experiment_bounds!(shared_bounds, global_parameters)
+    update_experiment_bounds!(shared_bounds, shared_parameters)
     configurations = map(locals, entries) do local_entry, local_entries
         local_layer = local_entry.layer
         initialcondition = merge_experiment_collection(shared.initialcondition, local_layer.initialcondition, true)
@@ -226,6 +237,12 @@ function build_experiments(shooting, experiments::NamedTuple)
         )
     end
     return Experiments(shared, map(entry -> entry.layer, locals), configurations, shooting.problem)
+end
+
+function experiment_observation_times(data)
+    measured = filter(!isnothing, data)
+    isempty(measured) && return Float64[]
+    return sort!(unique!(copy(reduce(vcat, map(experiment -> experiment.t, measured)))))
 end
 
 function Experiments(
