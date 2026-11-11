@@ -13,14 +13,40 @@ ps, st = LuxCore.setup(StableRNG(1), layer)
     @test experiment.t == [0.0, 0.5, 1.0, 2.0]
     @test n_observations(experiment) == 4
     state = experiment_state(layer, experiment, st)
-    @test state.timestops == experiment.t
+    @test state.timestops === st.timestops
+    @test state.saveat == experiment.t
     traj, _ = layer(experiment, ps, state)
+    @test traj.t == experiment.t
     @test residual(experiment, traj) ≈ [1.0, 1.0, 0.0, 0.5]
     @test residual(first(experiment.observations), traj) ≈ [1.0, 1.0]
     @test residual((experiment, experiment), (traj, traj)) ≈ repeat(residual(experiment, traj), 2)
     @test residual((a = experiment,), (a = traj,)) == residual(experiment, traj)
     @test n_observations((experiment, experiment)) == 8
     @test n_observations((a = experiment,)) == 4
+end
+
+@testset "Observation times and configured solver samples coexist" begin
+    prob = ODEProblem(problem.f, problem.u0, (0.0f0, 2.0f0), problem.p; saveat = [0.25, 0.5])
+    shooting = ShootingLayer(prob, Tsit5())
+    ps, st = LuxCore.setup(StableRNG(1), shooting)
+    data = Experiment(1 => ([0.1, 0.5, 1.5], [1.2, 2.0, 4.0]))
+    state = experiment_state(shooting, data, st)
+    traj, _ = shooting(data, ps, state)
+    @test state.timestops == [0.0, 2.0]
+    @test traj.t == [0.0, 0.1, 0.25, 0.5, 1.5, 2.0]
+    @test residual(data, traj) ≈ zeros(3) atol = 1.0e-12
+    additional = Experiment(1 => ([0.75], [2.5]))
+    @test experiment_state(shooting, additional, state).saveat == [0.1, 0.25, 0.5, 0.75, 1.5]
+
+    stepped = remake(problem; saveat = 0.5)
+    shooting = ShootingLayer(stepped, Tsit5(), Constant(1; default = [2.0, 2.0]) => [0.75]; controls = [1])
+    ps, st = LuxCore.setup(StableRNG(1), shooting)
+    state = experiment_state(shooting, data, st)
+    @test state.timestops == [0.0, 0.75, 2.0]
+    @test state.saveat == [0.1, 0.5, 1.25, 1.5, 1.75]
+    traj, _ = shooting(data, ps, state)
+    @test traj.t == [0.0, 0.1, 0.5, 0.75, 1.25, 1.5, 1.75, 2.0]
+    @test residual(data, traj) ≈ zeros(3) atol = 1.0e-12
 end
 
 @testset "Experiment initial states and unweighted observations" begin

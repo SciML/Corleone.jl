@@ -108,13 +108,14 @@ function collect_expression_times!(timepoints, sym::Symbol, indices)
 end
 collect_expression_times!(timepoints, x, indices) = timepoints
 
-function expression_evaluation_grid(layer, st, timepoints)
-    extra = Real[t for times in values(timepoints) for t in times]
-    lo, hi = layer.problem.tspan
+expression_evaluation_grid(layer, st, timepoints) = expression_sample_grid(layer.problem.tspan, st.timestops, values(timepoints))
+
+function expression_sample_grid((lo, hi), grid, timepoints)
+    extra = Real[t for times in timepoints for t in times]
     all(t -> lo <= t <= hi, extra) || throw(DomainError(extra, "Expression times must lie within the problem time span."))
-    isempty(extra) && return st.timestops
-    T = promote_type(eltype(st.timestops), map(typeof, extra)...)
-    return sort!(unique!(vcat(collect(T, st.timestops), collect(T, extra))))
+    isempty(extra) && return grid
+    T = promote_type(eltype(grid), map(typeof, extra)...)
+    return sort!(unique!(vcat(collect(T, grid), collect(T, extra))))
 end
 
 function replace_expression_samples(expr::Expr, indices, times, input)

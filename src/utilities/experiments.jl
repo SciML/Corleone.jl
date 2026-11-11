@@ -72,26 +72,59 @@ end
 is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
 n_observations(experiment::Experiment) = sum(observation -> length(observation.y), experiment.observations)
 
-"""
-$(SIGNATURES)
-
-Return the Lux state `st` of `layer` with the observation times of `experiment`
-merged into its segment grid, so that predictions sample every observation time.
-"""
-function experiment_state(layer::ShootingLayer, experiment::Experiment, st)
+function experiment_sample_times(layer::ShootingLayer, experiment::Experiment)
     t0, tf = layer.problem.tspan
     all(t -> t0 <= t <= tf, experiment.t) ||
         throw(ArgumentError("Observation times must lie within the problem time span."))
     isnothing(experiment.u0) || length(experiment.u0) == length(layer.problem.u0) ||
         throw(DimensionMismatch("An experiment's u0 must match the problem's state length."))
-    return merge(st, (; timestops = sort!(unique!(vcat(st.timestops, experiment.t)))))
+    return experiment.t
+end
+
+function get_saveat(problem::SciMLBase.AbstractSciMLProblem, samples, schedules, existing = nothing)
+    times = isnothing(existing) ? copy(samples) : vcat(samples, existing)
+    configured = get(problem.kwargs, :saveat, ())
+    if configured isa Number
+        configured = reduce(vcat, map(stops -> interval_saveat(configured, times, stops), schedules))
+    end
+    isempty(configured) || (times = vcat(times, collect(configured)))
+    return sort!(unique!(times))
+end
+
+# A scalar solver saveat is relative to the start of each shooting segment.
+function interval_saveat(interval, samples, tstops)
+    step = abs(interval)
+    ranges = map(1:(length(tstops) - 1)) do i
+        lo, hi = sampling_tspan((tstops[i], tstops[i + 1]), samples)
+        (lo + step):step:hi
+    end
+    return reduce(vcat, ranges)
+end
+
+get_saveat(layer::ShootingLayer, experiment::Experiment, st) =
+    get_saveat(layer, (experiment,), st)
+
+function get_saveat(layer::ShootingLayer, experiments, st)
+    times = reduce(vcat, map(experiment -> experiment_sample_times(layer, experiment), values(experiments)))
+    return get_saveat(layer.problem, times, (st.timestops,), get(st, :saveat, nothing))
 end
 
 """
 $(SIGNATURES)
 
-Predict `experiment` with the shooting layer: simulate from the experiment's initial
-state on the segment grid in `st`, prepared by [`experiment_state`](@ref).
+Return the Lux state `st` of `layer` with observation times merged with existing
+and solver-configured sampling times in `saveat`. The shooting boundaries in
+`st.timestops` are preserved.
+"""
+function experiment_state(layer::ShootingLayer, experiment::Experiment, st)
+    return merge(st, (; saveat = get_saveat(layer, experiment, st)))
+end
+
+"""
+$(SIGNATURES)
+
+Predict `experiment` from its initial state on the shooting grid in `st`, saving
+the observation times prepared by [`experiment_state`](@ref).
 """
 function (layer::ShootingLayer)(experiment::Experiment, ps, st)
     return layer((experiment_problem(layer, experiment), st.timestops), ps, st)

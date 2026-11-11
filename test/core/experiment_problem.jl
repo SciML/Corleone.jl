@@ -32,6 +32,17 @@ using Distributions: Normal, logpdf
     )
     ps, st = LuxCore.setup(Xoshiro(1), experiments)
     model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
+    @test st.execution.a.timestops == [0.0, 1.0, 2.0]
+    @test st.execution.b.timestops == [0.0, 2.0]
+    samples = sort(vcat(ta, tb))
+    @test Corleone.get_saveat(experiments, st) == samples
+    @test model.evaluation_grid === st.saveat
+    predictions, next = shooting(experiments, ps, st)
+    @test predictions[1].t == predictions[2].t == vcat(0.0, samples, 2.0)
+    @test length(predictions[1].residuals) == 2
+    @test length(predictions[2].residuals) == 1
+    @test next.execution.b.timestops == [0.0, 2.0]
+    @test next.saveat === st.saveat
     q, reconstruct = pack(default_vectorizer(), ps)
     @test q == [1.0, 1.0, 2.0]
     expected(q) = vcat(
@@ -67,6 +78,9 @@ using Distributions: Normal, logpdf
         trajectories -> last(trajectories.b.u)[1] - last(trajectories.a.u)[1];
         ps, st, lcons = [-Inf, 0.0, -Inf], ucons = [10.0, 20.0, 20.0]
     )
+    @test 1.75 in constrained.evaluation_grid
+    @test all(t -> t in constrained.evaluation_grid, samples)
+    @test !(1.75 in constrained.st.execution.a.timestops)
     @test optimization_constraints(constrained) ≈ [1.5, 6.0, 3.0]
     buffer = zeros(3)
     @test optimization_constraints!(buffer, constrained) === buffer

@@ -38,7 +38,8 @@ end
     @test experiment.t == t
     @test n_observations(experiment) == length(t)
     state = experiment_state(layer, experiment, st)
-    @test state.timestops == t
+    @test state.timestops === st.timestops
+    @test state.saveat == t
     traj, _ = layer(experiment, ps, state)
     @test traj.t == t
     @test residual((experiment,), (traj,)) == residual(experiment, traj)

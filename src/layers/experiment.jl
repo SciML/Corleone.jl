@@ -148,7 +148,8 @@ Undeclared quantities remain shared. Globals overridden everywhere are omitted
 from setup, including their unused unknowns, priors, and initializers.
 
 `LuxCore.setup` returns `ps.shared` and `ps.experiments.<name>`, with fixed values and
-schedules in `st`. `experiments(nothing, ps, st)` returns `(calls, st)`, where each
+schedules in `st`. Observation times from all experiments share `st.saveat`.
+`experiments(nothing, ps, st)` returns `(calls, st)`, where each
 entry of `calls` is a merged `(experiment_ps, experiment_st)` tuple. A separate
 `shooting(experiments, ps, st)` returns a vector of trajectories and updated state,
 in the named declaration order. ComponentArrays are supported.
@@ -283,13 +284,19 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::Experiments)
             config = layer.configurations[name]
             state = merge_experiment_st(config, shared, experiments[name], fill(false, sum(length, config.initialcondition.indices; init = 0)))
             times = shooting_timestops(config.initialcondition, config.parameter, config.problem, state, eltype(config.problem.tspan))
-            data = layer.experiments[name].observations
-            isnothing(data) || (times = sort!(unique!(vcat(times, data.t))))
             (; active = state.initialcondition.active, timestops = times)
         end
     )
-    return (; shared, experiments, execution)
+    data = filter(!isnothing, map(experiment -> experiment.observations, values(layer.experiments)))
+    saveat = if isempty(data)
+        nothing
+    else
+        get_saveat(layer.problem, reduce(vcat, map(experiment -> experiment.t, data)), map(entry -> entry.timestops, values(execution)))
+    end
+    return (; shared, experiments, execution, saveat)
 end
+
+get_saveat(::Experiments, st) = st.saveat
 
 function prepare_experiment(layer, ::Val{name}, ps, st) where {name}
     experiment, config = getproperty(layer.experiments, name), getproperty(layer.configurations, name)
@@ -298,7 +305,7 @@ function prepare_experiment(layer, ::Val{name}, ps, st) where {name}
     execution = getproperty(st.execution, name)
     merged_st = merge(
         merge_experiment_st(config, st.shared, local_st, execution.active), (;
-            timestops = execution.timestops,
+            timestops = execution.timestops, saveat = get_saveat(layer, st),
             experiment_configuration = (; problem = layer.problem, configuration = config),
         )
     )
@@ -351,7 +358,8 @@ function execute_experiment(shooting, layer, ::Val{name}, call, state) where {na
         initialcondition = merge(local_st.initialcondition, (; initialconditions = local_initials, active = local_active)),
         parameter = merge(local_st.parameter, (; parameters = local_parameters)),
     )
-    return (; trajectory, state = local_next, execution = (; active = next.initialcondition.active, timestops = next.timestops))
+    execution = merge(getproperty(state.execution, name), (; active = next.initialcondition.active))
+    return (; trajectory, state = local_next, execution)
 end
 
 # Keep a Vector API without widening mixed trajectories to abstract Trajectory.

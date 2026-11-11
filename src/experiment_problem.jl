@@ -15,11 +15,8 @@ end
 experiment_metadata(layer::ExperimentPrediction) = experiment_metadata(layer.layer, layer.shooting, layer.data)
 experiment_metadata(owner::Experiments, shooting, data) = owner.configurations
 experiment_metadata(owner::ShootingLayer, shooting, data) = map(_ -> shooting, data)
-function experiment_grids(owner::Experiments, shooting, data, st)
-    execution = experiment_fields(st.execution, data)
-    return map((experiment, entry) -> experiment_state(shooting, experiment, entry).timestops, data, execution)
-end
-experiment_grids(owner::ShootingLayer, shooting, data, st) = map(experiment -> experiment_state(shooting, experiment, st).timestops, data)
+experiment_grid(owner::Experiments, data, st) = get_saveat(owner, st)
+experiment_grid(owner::ShootingLayer, data, st) = get_saveat(owner, data, st)
 
 optimization_schedule(layer::ExperimentPrediction, st) = experiment_schedule(layer.layer, st)
 # Reset flags in `active` are forward-pass scratch state, not part of the schedule.
@@ -27,27 +24,23 @@ experiment_schedule(owner::Experiments, st) =
     map(entry -> entry.timestops, experiment_fields(st.execution, owner.experiments))
 experiment_schedule(layer::ShootingLayer, st) = optimization_schedule(layer, st)
 
-function experiment_execution_state(st, grids)
-    execution = map((entry, grid) -> merge(entry, (; timestops = grid)), experiment_fields(st.execution, grids), grids)
-    return merge(st, (; execution))
-end
-
 # Optimization evaluations retain the supplied experiment conditions.
 function (layer::ExperimentPrediction)(::Any, ps, st)
-    grids = experiment_grids(layer.layer, layer.shooting, layer.data, st)
-    return optimization_prediction(layer, ps, st, grids), st
+    grid = experiment_grid(layer.layer, layer.data, st)
+    return optimization_prediction(layer, ps, st, grid), st
 end
 
-function optimization_prediction(layer::ExperimentPrediction, ps, st, grids)
-    return experiment_prediction(layer.layer, layer.shooting, layer.data, ps, st, grids)
+function optimization_prediction(layer::ExperimentPrediction, ps, st, grid)
+    return experiment_prediction(layer.layer, layer.shooting, layer.data, ps, st, grid)
 end
-function experiment_prediction(owner::Experiments, shooting, data, ps, st, grids)
-    trajectories, _ = shooting(owner, ps, experiment_execution_state(st, grids))
+function experiment_prediction(owner::Experiments, shooting, data, ps, st, grid)
+    trajectories, _ = shooting(owner, ps, merge(st, (; saveat = grid)))
     return NamedTuple{keys(data)}(Tuple(trajectories))
 end
-function experiment_prediction(owner::ShootingLayer, shooting, data, ps, st, grids)
-    return map(data, grids) do experiment, grid
-        first(shooting(experiment, ps, merge(st, (; timestops = grid))))
+function experiment_prediction(owner::ShootingLayer, shooting, data, ps, st, grid)
+    state = merge(st, (; saveat = grid))
+    return map(data) do experiment
+        first(shooting(experiment, ps, state))
     end
 end
 
@@ -182,11 +175,10 @@ function CorleoneDynamicOptProblem(
         key, expression = description
         expression isa Expr && collect_expression_times!(timepoints[key], expression, indices[key])
     end
-    grids = experiment_grids(owner, shooting, data, st)
-    grids = map(grids, timepoints) do grid, times
-        expression_evaluation_grid(shooting, (; timestops = grid), times)
-    end
-    trajectory = optimization_prediction(layer, ps, st, grids)
+    grid = experiment_grid(owner, data, st)
+    expression_times = Iterators.flatten(map(values, values(timepoints)))
+    grid = expression_sample_grid(shooting.problem.tspan, grid, expression_times)
+    trajectory = optimization_prediction(layer, ps, st, grid)
     prepared = map((experiment, symbols, prediction) -> prepare_observations(experiment, symbols, prediction, eval_module, evaluator), data, metadata, trajectory)
     objective = MeasurementObjective(owner, prepared)
     prepared_constraints = map(constraints, descriptions) do constraint, description
@@ -195,7 +187,7 @@ function CorleoneDynamicOptProblem(
         f = expression isa Expr ? compile_trajectory_expression(expression, indices[key], optimization_times(trajectory[key]), eval_module, evaluator) : expression
         return ExperimentConstraint{key, typeof(f), !applicable(f, trajectory[key])}(f)
     end
-    return prepare_dynamic_opt_problem(layer, objective, prepared_constraints, bounds, ps, st, timepoints, grids, trajectory, nothing, eval_module, evaluator)
+    return prepare_dynamic_opt_problem(layer, objective, prepared_constraints, bounds, ps, st, timepoints, grid, trajectory, nothing, eval_module, evaluator)
 end
 
 const ExperimentDynamicOptProblem = CorleoneDynamicOptProblem{<:ExperimentPrediction, <:MeasurementObjective}

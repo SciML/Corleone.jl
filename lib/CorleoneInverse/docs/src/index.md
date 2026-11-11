@@ -12,9 +12,10 @@ experiment = Experiment(:u₁ => (t₁, y₁, 0.05), :u₂ => (t₂, y₂, 0.05)
 ```
 
 A shooting layer predicts an experiment with `layer(experiment, ps, st)`, where
-[`experiment_state`](@ref) merges the observation times into the segment grid of
-`st`. In this observation-only interface, experiments share the layer's parameters
-`ps`; use callable experiment layers below for independent local values. [`residual`](@ref)
+[`experiment_state`](@ref) adds the observation times to `st.saveat` and preserves
+the shooting boundaries in `st.timestops`. In this observation-only interface,
+experiments share the layer's parameters `ps`; use callable experiment layers
+below for independent local values. [`residual`](@ref)
 concatenates the observation residuals
 
 ```math
