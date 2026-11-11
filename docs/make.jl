@@ -1,6 +1,5 @@
 using Documenter, Corleone
 import CorleoneOED
-import CorleoneInverse
 
 realpath(pkgdir(Corleone)) == realpath(joinpath(@__DIR__, "..")) &&
     realpath(pkgdir(CorleoneOED)) == realpath(joinpath(@__DIR__, "..", "lib", "CorleoneOED")) ||
@@ -29,7 +28,7 @@ makedocs(
     root = @__DIR__,
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
-    modules = [Corleone, CorleoneOED, CorleoneInverse],
+    modules = [Corleone, CorleoneOED],
     #format = Material3(
     #    theme = :ocean_depth,
     #    dark_mode = :toggle,
@@ -85,12 +84,6 @@ makedocs(
             "Reduction, AD, and Numerical Scope" => "oed/numerics.md",
             "API Reference" => "oed/api.md",
             "References and Attribution" => "oed/references.md",
-            "CorleoneInverse" => [
-                "Overview" => "inverse/index.md",
-                "Formulation" => "inverse/formulation.md",
-                "Numerics" => "inverse/numerics.md",
-                "API Reference" => "inverse/api.md",
-            ],
         ],
         "References" => "references.md",
         "API Reference" => "api.md",

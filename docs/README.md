@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/CorleoneInverse")]); Pkg.instantiate()'
+julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED")]); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
@@ -23,8 +23,7 @@ using LiveServer
 servedocs(
     skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/inverse"],
     include_dirs = ["examples", "lib/CorleoneOED/examples",
-        "lib/CorleoneOED/docs/src", "lib/CorleoneInverse/examples",
-        "lib/CorleoneInverse/docs/src"],
+        "lib/CorleoneOED/docs/src",],
 )
 '
 ```
@@ -35,13 +34,12 @@ The build executes the LQR,
 numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
 optimization tutorials, and the Lotka–Volterra universal differential equation tutorial,
 plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment, and discrete
-compartmental tutorials, the two-stage reactor tutorial, and CorleoneInverse's
-Robertson DAE and multiple-shooting tutorials. It checks exported API coverage and resolves
-internal cross-references. External URL checks can be enabled with
-`DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
+compartmental tutorials, the two-stage reactor tutorial. It checks exported 
+API coverage and resolves internal cross-references. External URL checks can be 
+enabled with `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 
 On GitHub pull requests, the build uses Documenter's `draft=true` mode unless
-the PR changes `examples/`, `lib/CorleoneOED/examples/`, `lib/CorleoneInverse/examples/`, or
+the PR changes `examples/`, `lib/CorleoneOED/examples/`, or
 `docs/process_tutorials.jl`. This compares the PR merge commit with its first
 parent, fetching that parent for shallow checkouts.
 Draft builds generate tutorial Markdown without executing Literate code; outputs
@@ -79,8 +77,7 @@ Markdown. DemoCards stages the authoritative scripts and executes each tutorial
 once through Literate; Documenter includes its rendered output. Introductory
 guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone, CorleoneOED, and CorleoneInverse
-modules. OED tutorials
+The manual documents the checked-out Corleone, CorleoneOED modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
 `docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown

@@ -158,7 +158,7 @@ prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], abstol = 1.0e-10)
 # first stage (normalized time), bounded to the reactor limits ``[298, 398]\,\mathrm{K}``.
 
 P = 20
-grid = collect(range(0.0, 1.0, P + 1))[1:(end - 1)]
+grid = collect(range(0.0, 1.0, P + 1))[1:(end - 1)];
 
 # The duration `p₁` is a single tunable scalar; the temperature control `p₂` is a
 # piecewise-constant parameter switched at the interior grid points (the problem start
