@@ -86,12 +86,4 @@ a collection with a prior contributes `logpdf(prior, θ)` at its natural value `
 plus the log-Jacobian of its transform, so the density refers to the stored internal
 values. Collections without a prior contribute nothing.
 """
-function log_prior(layer, ps)
-    return sum(parameter_collections(layer, ps); init = 0.0) do (collection, values)
-        isnothing(collection.prior) && return 0.0
-        sum(values.ps; init = 0.0) do x
-            log_density(collection.prior, natural_value(collection.transform, x)) +
-                log_jacobian(collection.transform, x)
-        end
-    end
-end
+function log_prior end

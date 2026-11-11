@@ -41,7 +41,7 @@ $(FIELDS)
 struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
     "The Lux layer shared with forward predictions."
     layer::L
-    "The scalar objective callback or prepared expression/terminal selector."
+    "The scalar objective callback, prepared expression, or measurement objective."
     objective::O
     "Prepared constraint evaluators in declaration order."
     constraints::C
@@ -49,9 +49,9 @@ struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
     ps::P
     "Initialized Lux state, retained by reference."
     st::S
-    "Signal names mapped to requested expression times; discrete setup metadata."
+    "Requested expression times grouped by signal, and by experiment when applicable."
     timepoints::T
-    "The evaluation grid, or nothing when prediction uses the layer's own grids."
+    "The evaluation grid or experiment grid tree, or nothing for layer-owned grids."
     evaluation_grid::G
     "The original cached shooting-stop tree used to detect schedule changes."
     source_timestops::B
@@ -120,7 +120,7 @@ function constraint_eltype(traj)
     return P <: Real ? promote_type(T, P) : T
 end
 constraint_buffer(traj, n) = similar(first(state_values(traj)), constraint_eltype(traj), n)
-function constraint_buffer(trajectories::NamedTuple, n)
+function constraint_buffer(trajectories::Union{Tuple, NamedTuple}, n)
     T = promote_type(map(constraint_eltype, values(trajectories))...)
     return similar(first(state_values(first(values(trajectories)))), T, n)
 end
@@ -212,8 +212,12 @@ function CorleoneDynamicOptProblem(
     end
     grid = optimization_grid(layer, st, timepoints)
     trajectory = optimization_prediction(layer, ps, st, grid)
+    return prepare_dynamic_opt_problem(layer, loss, constraints, bounds, ps, st, timepoints, grid, trajectory, indices, eval_module, evaluator)
+end
+
+function prepare_dynamic_opt_problem(layer, loss, constraints, bounds, ps, st, timepoints, grid, trajectory, indices, eval_module, evaluator)
     objective = loss isa Expr ? compile_trajectory_expression(loss, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, loss)
-    scalar_objective(evaluate_trajectory_objective(objective, trajectory, st))
+    scalar_objective(evaluate_trajectory_objective(objective, trajectory, ps, st))
     prepared = map(constraints, bounds) do c, bound
         f = c isa Expr ? compile_trajectory_expression(c, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, c)
         prepare_trajectory_constraint(f, trajectory, length(first(bound)))
@@ -256,7 +260,7 @@ Parameters/state default to those retained by the model. No numerical solution
 cache is shared between calls or AD contexts.
 """
 optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st) =
-    scalar_objective(evaluate_trajectory_objective(prob.objective, optimization_trajectory(prob, ps, st), st))
+    scalar_objective(evaluate_trajectory_objective(prob.objective, optimization_trajectory(prob, ps, st), ps, st))
 
 """
 $(SIGNATURES)
@@ -298,20 +302,21 @@ optimization_schedule(layer, st) = nothing
 optimization_state(layer, st, grid) = st
 optimization_prediction(layer, ps, st, grid) = first(layer(nothing, ps, st))
 optimization_times(trajectory) = current_time(trajectory)
-optimization_times(trajectories::NamedTuple) = map(optimization_times, trajectories)
+optimization_times(trajectories::Union{Tuple, NamedTuple}) = map(optimization_times, trajectories)
 optimization_matching(layer, trajectory) = shooting_constraints(trajectory)
 optimization_matching!(res, layer, trajectory) = shooting_constraints!(res, trajectory)
 
 # The optional state argument supports objectives such as information criteria
 # with a prior supplied by OptimizationProblem.p rather than captured at setup.
 evaluate_trajectory_objective(f, trajectory, st) = applicable(f, trajectory) ? f(trajectory) : f(trajectory, st)
+evaluate_trajectory_objective(f, trajectory, ps, st) = evaluate_trajectory_objective(f, trajectory, st)
 @non_differentiable optimization_schedule(::Any, ::Any)
 @non_differentiable optimization_times(::Any)
 
 # Objective and constraints share one prediction during second differentiation.
 function optimization_lagrangian(prob, ps, st, sigma, multipliers)
     traj = optimization_trajectory(prob, ps, st)
-    objective = scalar_objective(evaluate_trajectory_objective(prob.objective, traj, st))
+    objective = scalar_objective(evaluate_trajectory_objective(prob.objective, traj, ps, st))
     isempty(multipliers) && return sigma * objective
     constraints = vcat(map(c -> c(traj), prob.constraints)..., optimization_matching(prob.layer, traj))
     return sigma * objective + LinearAlgebra.dot(multipliers, constraints)

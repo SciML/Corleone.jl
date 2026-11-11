@@ -3,7 +3,8 @@
 CorleoneInverse fits the tunable parameters of a Corleone `ShootingLayer` to
 measurements. Corleone provides the experiment and observation types. An [`Experiment`](@ref) stores one [`Observation`](@ref) per observed
 quantity as a `selector => (t, y)` or `selector => (t, y, σ)` pair, where the
-selector is a state symbol or index, or a scalar map `(u, p, t) -> y`. Each quantity
+selector is a state symbol or index, a scalar map `(u, p, t) -> y`, or a Julia
+expression such as `:(p₁ * u₁)`. Symbolic maps compile during problem preparation. Each quantity
 has its own observation times; an experiment may also prescribe its initial state:
 
 ```julia
@@ -42,17 +43,52 @@ transforms replace it and use unbounded optimizer coordinates.
 
 ## Solving
 
-Both builders take `(layer, experiments, ps, st)`, prepare the experiment states
-once, and optimize the packed internal parameters.
+Prepare one [`CorleoneDynamicOptProblem`](@ref) from the shooting solver and
+experiments. Measurements define the objective, with shared/local priors counted
+once per owned value. The model retains initialized `ps` and `st`.
 
-- `NonlinearLeastSquaresProblem(layer, experiments, ps, st)` builds a least-squares
-  problem for NonlinearSolve. Normal priors on untransformed parameters add the
-  residual rows `(θ - μ) / σ`. It does not support bounds, other priors, or multiple
-  shooting.
-- `OptimizationProblem(layer, experiments, ps, st, ad)` minimizes half the residual
-  sum of squares minus `log_prior` (maximum a posteriori), with the layer's bounds and
-  the multiple-shooting matching constraints. For multiple experiments with
-  independent shooting nodes, use `Experiments` below.
+```julia
+model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
+fit = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt())
+estimate = ParameterEstimate(model, fit.u)
+```
+
+`NonlinearLeastSquaresProblem(model)` uses the prepared observation residuals.
+Untransformed Normal priors add Gaussian residual rows. Use
+`OptimizationProblem(model, ad)` for annotation bounds, general priors, and
+constraints. The scalar objective is half the weighted residual sum of squares
+minus `log_prior`. The convenience builders accepting `(shooting, experiments,
+ps, st)` prepare this same model internally.
+
+### Symbolic measurements and constraints
+
+Each measurement expression uses current-time state and parameter names. The
+independent variable refers to its sample time. The observation supplies the
+sampling grid and noise scale, for example
+
+```julia
+observations = Experiment(:(p₁ * u₁ + t) => (times, values, 0.1))
+```
+
+Tagged constraints select an experiment, and timed signal calls request their
+sampling points during preparation. Callbacks receive the collection of
+trajectories and can couple experiments. Ordinary `lcons`/`ucons` bounds apply,
+and shooting equalities are appended automatically.
+
+```julia
+model = CorleoneDynamicOptProblem(
+    shooting, experiments,
+    :a => :(u₁(2.0)),
+    trajectories -> last(trajectories.a.u)[1] - last(trajectories.b.u)[1];
+    ps, st, lcons = [0.0, 0.0], ucons = [10.0, 0.0],
+)
+opt = OptimizationProblem(model, AutoForwardDiff())
+```
+
+For observation tuples, integer tags select entries. A single experiment accepts
+an untagged constraint expression. Tagged callbacks can use allocating or in-place
+constraint forms. Observable maps and sample indices compile once. Reprepare the
+model after changing selectors, observation times, or schedules.
 
 ## Shared and local values with Experiments
 
@@ -79,7 +115,8 @@ shooting = ShootingLayer(problem, alg)
 ps, st = LuxCore.setup(rng, experiments)
 calls, st = experiments(nothing, ps, st)
 trajectories, st = shooting(experiments, ps, st)
-problem = NonlinearLeastSquaresProblem(shooting, experiments, ps, st)
+model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
+problem = NonlinearLeastSquaresProblem(model)
 ```
 
 `calls` is a tuple of merged `(experiment_ps, experiment_st)` tuples. Calling the
@@ -122,9 +159,9 @@ Prepared configurations retain the metadata needed for distinct grids and
 transforms; no annotation processing, initialization, or problem remaking happens
 in prediction callbacks. Shared priors are counted once, local priors once each.
 
-Use `OptimizationProblem(shooting, experiments, ps, st, ad)` for bounds, general
-priors, and multiple shooting. `ParameterEstimate(shooting, experiments, q, ps, st)`
-reports the joint covariance, including shared/local cross terms.
+Use `OptimizationProblem(model, ad)` for bounds, general priors, and multiple
+shooting. `ParameterEstimate(model, q)` reports joint covariance, including
+shared/local cross terms.
 
 ```@example experiment_layers
 using CorleoneInverse
@@ -133,10 +170,25 @@ include(joinpath(pkgdir(CorleoneInverse), "examples", "experiment_layers", "main
 
 ## Statistics
 
-[`ParameterEstimate`](@ref)`(layer, experiments, sol.u, ps, st)` evaluates the observation Jacobian `J` at the fit and
+[`ParameterEstimate`](@ref)`(model, sol.u)` evaluates the observation Jacobian `J` at the fit and
 returns the covariance `(JᵀJ / s² + H)⁻¹`, where `H` is the Hessian of the negative
-log prior, restricted to the null space of the matching
-constraints for multiple shooting. Known noise scales use `s² = 1` and normal
+log prior, restricted to the null space of equality constraints, including
+multiple-shooting matches. This approximation assumes an interior optimum relative
+to inequalities and parameter bounds. Known noise scales use `s² = 1` and normal
 quantiles; otherwise `s²` is the residual variance and intervals use Student-t
 quantiles. Results are reported in natural coordinates: the covariance with the delta
 method, the confidence intervals by mapping the internal endpoints.
+
+## Worked examples
+
+The tutorial gallery includes examples adapted from Christoph Plate
+([@chplate](https://github.com/chplate))'s
+[PR #168](https://github.com/SciML/Corleone.jl/pull/168).
+
+- [Lotka–Volterra estimation](@ref inverse_lotka_plain)
+- [Joint Lotka–Volterra experiments](@ref inverse_lotka_multiexperiment)
+- [OED-designed fixed controls](@ref inverse_lotka_oed_control)
+- [Multiple shooting with continuity constraints](@ref inverse_multiple_shooting)
+- [SIR estimation across two regions](@ref inverse_sir_multicity)
+- [Robertson DAE estimation](@ref inverse_rober_dae)
+- [Lux universal differential equation](@ref inverse_ude_growth)

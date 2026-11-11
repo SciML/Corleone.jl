@@ -3,6 +3,8 @@ $(TYPEDEF)
 
 Measurements `y` of one observed quantity at the sorted, unique times `t`. The
 `selector` is a state symbol or index, or a map `(u, p, t) -> y` returning a scalar.
+Scalar Julia expressions such as `:(p₁ * u₁)` are compiled during
+[`CorleoneDynamicOptProblem`](@ref) preparation, with each observation's sampling grid.
 The noise scale `σ` is `nothing` (unweighted residuals), a scalar, or a vector
 matching `y`.
 
@@ -10,7 +12,7 @@ matching `y`.
 $(FIELDS)
 """
 @concrete terse struct Observation
-    "The observed state symbol or index, or a scalar map `(u, p, t) -> y`."
+    "The state selector, scalar observation callback, or Julia observable expression."
     selector
     "Sorted, unique observation times."
     t
@@ -119,6 +121,8 @@ end
 
 weighted(::Nothing, r) = r
 weighted(σ, r) = r ./ σ
+
+observe(::Expr, traj, k) = throw(ArgumentError("Prepare symbolic observations with CorleoneDynamicOptProblem before evaluating residuals."))
 
 function observe(selector, traj, k)
     t = traj.t[k]

@@ -35,6 +35,9 @@ else
             @safetestset "Experiment layers" begin
                 include("core/experiment_layers.jl")
             end
+            @safetestset "Experiment dynamic optimization problems" begin
+                include("core/experiment_problem.jl")
+            end
             @safetestset "Annotations" begin
                 include("core/annotations.jl")
             end

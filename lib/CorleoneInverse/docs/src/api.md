@@ -5,6 +5,7 @@ Observations, experiments, predictions, and residuals are documented in the
 
 ```@docs
 ParameterEstimate
+CorleoneInverse.SciMLBase.NonlinearLeastSquaresProblem(::CorleoneInverse.ExperimentDynamicOptProblem)
 CorleoneInverse.SciMLBase.NonlinearLeastSquaresProblem(::ShootingLayer, ::CorleoneInverse.Experiments, ::Any, ::Any)
 CorleoneInverse.SciMLBase.OptimizationProblem(::ShootingLayer, ::CorleoneInverse.Experiments, ::Any, ::Any, ::CorleoneInverse.AbstractADType)
 ```

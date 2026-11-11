@@ -1,5 +1,6 @@
 using Corleone, ComponentArrays, LuxCore, OrdinaryDiffEqTsit5, ForwardDiff, ReverseDiff, SciMLBase
 using StaticArrays, Random, Test
+using OrdinaryDiffEqBDF, OrdinaryDiffEqNonlinearSolve
 using DiffEqBase: SensitivityADPassThrough
 
 const DT = 0.01
@@ -40,4 +41,25 @@ end
             @test gradient(objective, values) ≈ fill(DT * expected, N_INTERVALS) rtol = 1.0e-8
         end
     end
+end
+
+@testset "DAE state handoff without saved derivative history" begin
+    function dae_residual!(res, du, u, p, t)
+        res[1] = du[1] + p[1] * u[1]
+        res[2] = u[1] + u[2] - 1
+        return nothing
+    end
+    problem = DAEProblem(
+        dae_residual!, [-1.0, 1.0], [1.0, 0.0], (0.0, 1.0), [1.0];
+        differential_vars = [true, false], initializealg = BrownFullBasicInit(),
+        abstol = 1.0e-10, reltol = 1.0e-10
+    )
+    layer = ShootingLayer(
+        problem, DFBDF(), Constant(1; default = 1.0) => [0.25, 0.5, 0.75]; controls = [1]
+    )
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    trajectory, _ = layer(nothing, ps, st)
+    @test trajectory.t == collect(0.0:0.25:1.0)
+    @test last(trajectory.u) ≈ [exp(-1), 1 - exp(-1)] rtol = 1.0e-7
+    @test all(isapprox(sum(u), 1.0; atol = 1.0e-9) for u in trajectory.u)
 end

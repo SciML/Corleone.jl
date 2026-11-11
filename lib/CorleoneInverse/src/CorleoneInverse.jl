@@ -2,9 +2,9 @@ module CorleoneInverse
 
 using Reexport: @reexport
 @reexport using Corleone
-using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, default_vectorizer, get_bounds, get_number_of_shooting_constraints,
-    ObservationExperiments, as_experiments, experiment_state, is_weighted, log_prior, natural_values, n_observations,
-    pack, parameter_collections, residual, shooting_constraints
+using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiments, CorleoneDynamicOptProblem,
+    ExperimentDynamicOptProblem, ObservationExperiments, default_vectorizer, is_weighted,
+    log_prior, natural_values, n_observations, optimization_constraints, pack, parameter_collections, residual
 using ADTypes: AbstractADType
 using ConcreteStructs: @concrete
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF

@@ -16,6 +16,7 @@ function documentation_draft(; root = joinpath(@__DIR__, ".."), env = ENV)
         tutorial_paths = [
             "examples/",
             "lib/CorleoneOED/examples/",
+            "lib/CorleoneInverse/examples/",
             "docs/process_tutorials.jl",
         ]
         result = run(ignorestatus(`git -C $root diff --quiet $base $sha -- $tutorial_paths`))

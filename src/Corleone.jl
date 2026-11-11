@@ -68,6 +68,7 @@ export Stages
 include("optimization_expressions.jl")
 export default_evaluator, compile_evaluator
 include("dynprob.jl")
+include("experiment_problem.jl")
 export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
 include("optimization_bridge.jl")
 export pack, default_vectorizer, constraint_jacobian_sparsity, lagrangian_hessian_sparsity

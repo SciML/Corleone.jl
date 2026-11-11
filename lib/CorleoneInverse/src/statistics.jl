@@ -27,33 +27,43 @@ end
 """
 $(SIGNATURES)
 
-Construct a [`ParameterEstimate`](@ref) for the fitted packed parameters `q` of
-`layer` and `experiments`; `ps` and `st` must be those used to build the problem.
+Construct `ParameterEstimate(model, q; ps = model.ps, st = model.st)` for a prepared
+experiment dynamic problem. The convenience form
+`ParameterEstimate(shooting, experiments, q, ps, st)` prepares the model first.
 The covariance in internal coordinates is `(JᵀJ / s² + H)⁻¹` for the observation
 residual Jacobian `J` and the Hessian `H` of the negative [`log_prior`](@ref),
-restricted to the null space of the multiple-shooting matching constraints. With
+restricted to the null space of equality constraints, including shooting matches.
+The approximation assumes an interior optimum relative to inequalities and bounds. With
 known noise scales `s² = 1` and intervals use normal quantiles; otherwise `s²` is
 the residual variance and intervals use Student-t quantiles. Values are reported in
 natural coordinates of the annotation transforms: the covariance with the delta
 method, the intervals by mapping their internal endpoints.
 """
 function ParameterEstimate(
-        layer::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, q::AbstractVector, ps, st;
-        α::Real = 0.05, vectorize = default_vectorizer()
+        model::ExperimentDynamicOptProblem, q::AbstractVector;
+        ps = model.ps, st = model.st, α::Real = 0.05, vectorize = default_vectorizer()
     )
     0 < α < 1 || throw(ArgumentError("α must lie in (0, 1)."))
-    owner = experiments isa Experiments ? experiments : layer
-    (; experiments, states, reconstruct, predict) = prepare(layer, experiments, ps, st, vectorize)
+    owner = model.objective.owner
+    _, reconstruct = pack(vectorize, ps)
     natural = x -> natural_vector(owner, reconstruct(x))
-    r = residual(experiments, predict(q))
-    J = ForwardDiff.jacobian(x -> residual(experiments, predict(x)), q)
+    observation_residuals = x -> residual(model, reconstruct(x), st)
+    r = observation_residuals(q)
+    J = ForwardDiff.jacobian(observation_residuals, q)
     H = ForwardDiff.hessian(x -> -log_prior(owner, reconstruct(x)), q)
-    Z = n_matching(layer, ps, states) == 0 ? Matrix(I, length(q), length(q)) :
-        nullspace(ForwardDiff.jacobian(x -> matching(predict(x)), q))
+    equality_rows = findall(eachindex(model.lcons)) do i
+        isfinite(model.lcons[i]) && model.lcons[i] == model.ucons[i]
+    end
+    Z = if isempty(equality_rows)
+        Matrix(I, length(q), length(q))
+    else
+        C = ForwardDiff.jacobian(x -> optimization_constraints(model, reconstruct(x), st)[equality_rows], q)
+        nullspace(C)
+    end
     rss = sum(abs2, r)
     dof = length(r) - size(Z, 2)
     dof > 0 || throw(ArgumentError("Need more observations than free parameters, got $(length(r)) for $(size(Z, 2))."))
-    weighted = first(is_weighted(first(experiments)))
+    weighted = first(is_weighted(first(values(model.objective.data))))
     s² = weighted ? one(rss) : rss / dof
     Σφ = Z * inv(Symmetric(Z' * (J' * J / s² + H) * Z)) * Z'
     G = ForwardDiff.jacobian(natural, q)
@@ -62,6 +72,15 @@ function ParameterEstimate(
     halfwidth = z .* sqrt.(diag(Σφ))
     intervals = collect(zip(natural(q .- halfwidth), natural(q .+ halfwidth)))
     return ParameterEstimate(natural(q), Σ, sqrt.(diag(Σ)), intervals, 1 - α, rss, dof)
+end
+
+function ParameterEstimate(
+        shooting::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, q::AbstractVector, ps, st;
+        α::Real = 0.05, vectorize = default_vectorizer(), eval_module::Module = Corleone,
+        evaluator = Corleone.default_evaluator()
+    )
+    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator)
+    return ParameterEstimate(model, q; α, vectorize)
 end
 
 # The natural values of the tunable parameters, in packed order.

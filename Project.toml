@@ -63,6 +63,8 @@ Makie = "0.24"
 ModelingToolkit = "11.22.0"
 OhMyThreads = "0.8"
 OrdinaryDiffEqTsit5 = "2"
+OrdinaryDiffEqBDF = "2"
+OrdinaryDiffEqNonlinearSolve = "2"
 Pkg = "1"
 PrecompileTools = "1.2.1"
 Random = "1"
@@ -82,6 +84,8 @@ Zygote = "0.7.13"
 julia = "1.10"
 
 [extras]
+OrdinaryDiffEqBDF = "6ad6398a-0878-4a85-9266-38940aa047c8"
+OrdinaryDiffEqNonlinearSolve = "127b3ac7-2247-4354-8eb6-78cf4e7c58e8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
@@ -100,4 +104,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [targets]
-test = ["Distributions", "TransformVariables", "DiffEqBase", "ForwardDiff", "ComponentArrays", "RuntimeGeneratedFunctions", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]
+test = ["OrdinaryDiffEqBDF", "OrdinaryDiffEqNonlinearSolve", "Distributions", "TransformVariables", "DiffEqBase", "ForwardDiff", "ComponentArrays", "RuntimeGeneratedFunctions", "Test", "OrdinaryDiffEqTsit5", "LinearAlgebra", "SafeTestsets", "SciMLTesting", "Pkg", "StableRNGs", "ReverseDiff", "StaticArrays", "Zygote"]
