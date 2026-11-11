@@ -16,7 +16,7 @@ const CORLEONE_REEXPORTS = (
     :forward_initialization, :linear_initialization, :random_initialization,
     :constant_initialization, :custom_initialization, :hybrid_initialization,
     :trajectoryplot, :trajectoryplot!, :log_prior,
-    :BoundedTransform, :Experiments, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
+    :BoundedTransform, :Experiments, :append_experiment, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
 )
 run_qa(
     CorleoneInverse;

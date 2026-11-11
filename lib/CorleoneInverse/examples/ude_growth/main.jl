@@ -49,8 +49,7 @@ shooting = ShootingLayer(prob, Tsit5())
 shared = Tunable(eachindex(p0)) => nothing
 first_experiment = Experiments(prob, shared; experiments = (first = data_1,))
 ps_1, st_1 = LuxCore.setup(rng, first_experiment)
-# Small chunks limit compilation cost for the differentiated Lux/ODE objective.
-ad = Optimization.AutoForwardDiff(; chunksize = 1)
+ad = Optimization.AutoForwardDiff()
 model_1 = CorleoneDynamicOptProblem(shooting, first_experiment; ps = ps_1, st = st_1)
 opt_1 = OptimizationProblem(model_1, ad)
 
@@ -64,11 +63,10 @@ println("First-experiment objective = ", fit_1.objective)
 
 # ## Add a second initial condition
 # The low-state experiment constrains a region absent from the first trajectory.
-experiments = Experiments(prob, shared; experiments = (first = data_1, second = data_2))
-ps, st = LuxCore.setup(rng, experiments)
-model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
-opt = OptimizationProblem(model, ad)
-adam = solve(remake(opt; u0 = fit_1.u, lb = nothing, ub = nothing), Adam(0.01); maxiters = 100)
+joint = append_experiment(model_1, opt_1, :second => data_2; u0 = fit_1.u, rng)
+model, opt = joint.model, joint.problem
+experiments, ps, st = model.layer.layer, model.ps, model.st
+adam = solve(remake(opt; lb = nothing, ub = nothing), Adam(0.01); maxiters = 100)
 fit = solve(remake(opt; u0 = adam.u), LBFGSB(); maxiters = 100)
 @assert isfinite(fit.objective)
 println("Joint objective = ", fit.objective)

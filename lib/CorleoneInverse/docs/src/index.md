@@ -170,6 +170,13 @@ shooting. `ParameterEstimate(model, q)` reports joint covariance, including
 shared/local cross terms. `mean_squared_residual(model)` averages the squared,
 noise-scaled observation residuals, with each observed value counted once.
 
+To add an experiment after fitting, call
+`append_experiment(model, problem, :second => data; u0 = fit.u)` and use the
+returned `model` and `problem`. The old batch remains usable. The new problem
+starts from the previous fit and initializes the new experiment's values. If an
+inferred control grid gains times, each new interval starts from the old
+piecewise-constant control value at that time.
+
 ```@example experiment_layers
 using CorleoneInverse
 include(joinpath(pkgdir(CorleoneInverse), "examples", "experiment_layers", "main.jl"))

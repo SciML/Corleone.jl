@@ -7,10 +7,11 @@ as_experiments(experiments::ObservationExperiments) = experiments
 is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
 
 # The wrapper delegates Lux setup and bounds to the owner of the tunable tree.
-struct ExperimentPrediction{S, L, D} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+struct ExperimentPrediction{S, L, D, P} <: LuxCore.AbstractLuxWrapperLayer{:layer}
     shooting::S
     layer::L
     data::D
+    definition::P
 end
 
 function experiment_data(layer::Experiments)
@@ -181,7 +182,7 @@ function CorleoneDynamicOptProblem(
         throw(ArgumentError("Shared shooting-node values require a single observation experiment; use Experiments for local nodes."))
     end
     bounds = prepare_constraint_bounds(lcons, ucons, length(constraints))
-    layer = ExperimentPrediction(shooting, owner, data)
+    layer = ExperimentPrediction(shooting, owner, data, (; constraints, lcons, ucons, eval_module, evaluator))
     metadata = experiment_metadata(layer)
     indices = map(expression_symbol_indices, metadata)
     timepoints = map(_ -> Dict{Symbol, Vector{Real}}(), data)

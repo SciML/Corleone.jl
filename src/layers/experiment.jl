@@ -140,6 +140,8 @@ $(FIELDS)
     configurations
     "The problem supplying symbols, shapes, and natural defaults; no solver is stored."
     problem
+    "The original annotation layers and experiment specifications."
+    definition
 end
 
 """
@@ -169,7 +171,7 @@ in the named declaration order. ComponentArrays are supported.
 """
 Experiments(shooting::ShootingLayer, experiments::NamedTuple) = build_experiments(shooting, experiments)
 
-function build_experiments(shooting, experiments::NamedTuple)
+function build_experiments(shooting, experiments::NamedTuple; warm = nothing)
     isempty(experiments) && throw(ArgumentError("Supply at least one experiment."))
     specs = map(experiments) do spec
         spec isa Experiment && (spec = (; observations = spec))
@@ -199,6 +201,10 @@ function build_experiments(shooting, experiments::NamedTuple)
         any(local_entries -> all(local_entry -> local_entry.index != entry.index, local_entries.variables), entries)
     end
     variable_overrides = Set(entry.index for local_entries in entries for entry in local_entries.variables)
+    if !isnothing(warm)
+        retained_variables = warm_experiment_entries(retained_variables, warm.shared.initialcondition, shooting.problem)
+        shared_parameters = warm_experiment_entries(shared_parameters, warm.shared.parameter, shooting.problem)
+    end
     # Retained globals that can be locally replaced use stable scalar keys. Purely
     # global groups and entirely local groups retain their shared-grid execution.
     shared = (;
@@ -206,7 +212,14 @@ function build_experiments(shooting, experiments::NamedTuple)
         parameter = experiment_collection(shooting.parameter, shared_parameters, PiecewiseConstant; separate = ()),
     )
     retained_variable_indices = Set(entry.index for entry in retained_variables)
-    locals = map(specs, entries) do spec, local_entries
+    locals = map(keys(specs), values(specs), values(entries)) do name, spec, local_entries
+        if !isnothing(warm) && hasproperty(warm.experiments, name)
+            previous = warm.experiments[name]
+            local_entries = (;
+                variables = warm_experiment_entries(local_entries.variables, previous.initialcondition, shooting.problem),
+                parameters = warm_experiment_entries(local_entries.parameters, previous.parameter, shooting.problem),
+            )
+        end
         initialcondition = experiment_collection(
             shooting.initialcondition, local_entries.variables, InitialCondition;
             separate = retained_variable_indices
@@ -221,6 +234,7 @@ function build_experiments(shooting, experiments::NamedTuple)
     shared_bounds = Dict{Any, Any}(default_bounds(shooting.sys))
     update_experiment_bounds!(shared_bounds, global_variables)
     update_experiment_bounds!(shared_bounds, shared_parameters)
+    locals = NamedTuple{keys(specs)}(locals)
     configurations = map(locals, entries) do local_entry, local_entries
         local_layer = local_entry.layer
         initialcondition = merge_experiment_collection(shared.initialcondition, local_layer.initialcondition, true)
@@ -236,13 +250,93 @@ function build_experiments(shooting, experiments::NamedTuple)
             parameter_permutation = collection_permutation(parameter.indices),
         )
     end
-    return Experiments(shared, map(entry -> entry.layer, locals), configurations, shooting.problem)
+    source = (; shooting.problem, shooting.initialcondition, shooting.parameter, shooting.sys)
+    return Experiments(shared, map(entry -> entry.layer, locals), configurations, shooting.problem, (; source, experiments))
 end
 
 function experiment_observation_times(data)
     measured = filter(!isnothing, data)
     isempty(measured) && return Float64[]
     return sort!(unique!(copy(reduce(vcat, map(experiment -> experiment.t, measured)))))
+end
+
+warm_branch(layer, ps, st) = (layer, ps, st)
+warm_branch(layer::FixedLayer, ps, st) = (layer.layer, st.parameters, st.states)
+
+function experiment_warm_values(layer, ps, st)
+    variable = layer isa InitialConditions
+    children = variable ? layer.initialconditions : layer.parameters
+    parameters = variable ? ps.initialconditions : ps.parameters
+    states = variable ? st.initialconditions : st.parameters
+    result = Dict{Int, Any}()
+    for (name, indices) in zip(keys(children), layer.indices)
+        child = children[name]
+        child isa PassThrough && continue
+        child, child_ps, child_st = warm_branch(child, getproperty(parameters, name), states[name])
+        collections = child.parameter
+        if collections isa NamedTuple
+            for (index, key) in zip(indices, keys(collections))
+                collection, values, _ = warm_branch(
+                    collections[key], getproperty(child_ps.parameter, key), child_st.parameter[key]
+                )
+                result[index] = (; grid = child_st.lookup.collection, values = natural_values(collection.transform, values.ps))
+            end
+        else
+            result[only(indices)] = (; grid = child_st.lookup.collection, values = natural_values(collections.transform, child_ps.parameter.ps))
+        end
+    end
+    return result
+end
+
+function experiment_warm_values(layer::Experiments, ps, st)
+    names = keys(layer.experiments)
+    local_values = map(names) do name
+        experiment_warm_values(layer.experiments[name], getproperty(ps.experiments, name), st.experiments[name])
+    end
+    return (;
+        shared = experiment_warm_values(layer.shared, ps.shared, st.shared),
+        experiments = NamedTuple{names}(local_values),
+    )
+end
+
+experiment_warm_values(layer::Union{NamedTuple, ExperimentLayer}, ps, st) = (;
+    initialcondition = experiment_warm_values(layer.initialcondition, ps.initialcondition, st.initialcondition),
+    parameter = experiment_warm_values(layer.parameter, ps.parameter, st.parameter),
+)
+
+function warm_experiment_entries(entries, previous, problem)
+    return map(entries) do entry
+        haskey(previous, entry.index) && !isnothing(entry.parameter) || return entry
+        old = previous[entry.index]
+        values = if isequal(old.grid, entry.grid)
+            copy(old.values)
+        elseif entry.grid isa AbstractDict
+            all(t -> haskey(old.grid, t), keys(entry.grid)) || return entry
+            [old.values[old.grid[t]] for t in sort!(collect(keys(entry.grid)); by = t -> entry.grid[t])]
+        else
+            times = isnothing(entry.grid) ? [first(problem.tspan)] : vcat(first(problem.tspan), entry.grid)
+            [old.values[lookup!(nothing, old.grid, t)] for t in times]
+        end
+        collection = entry.parameter
+        return merge(entry, (; parameter = ParameterCollection((rng, n) -> copy(values), collection.out_dims, collection.transform, collection.prior)))
+    end
+end
+
+"""
+    append_experiment(layer::Experiments, ps, st, experiment::Pair; rng = Random.default_rng())
+
+Return `(; layer, ps, st)` for a new batch with one appended named experiment.
+The pair's value follows the `Experiments` constructor. Reuse existing values by
+experiment name and model index. When an inferred control grid expands, seed
+each interval from the previous piecewise-constant control at its start.
+"""
+function append_experiment(layer::Experiments, ps, st, (name, spec)::Pair{Symbol}; rng = Random.default_rng())
+    definitions = layer.definition.experiments
+    haskey(definitions, name) && throw(ArgumentError("Experiment `$name` already exists."))
+    warm = experiment_warm_values(layer, ps, st)
+    next = build_experiments(layer.definition.source, merge(definitions, NamedTuple{(name,)}((spec,))); warm)
+    parameters, state = LuxCore.setup(rng, next)
+    return (; layer = next, ps = parameters, st = state)
 end
 
 function Experiments(

@@ -80,6 +80,7 @@ Observation
 Experiment
 experiment_state
 Experiments
+append_experiment
 residual
 n_observations
 ```

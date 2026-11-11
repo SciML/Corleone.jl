@@ -2,7 +2,7 @@ module CorleoneInverse
 
 using Reexport: @reexport
 @reexport using Corleone
-import Corleone: CorleoneDynamicOptProblem, evaluate_trajectory_objective,
+import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajectory_objective,
     get_number_of_shooting_constraints, n_observations, optimization_matching,
     optimization_matching!, optimization_prediction, optimization_schedule, residual
 using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, compile_evaluator,
