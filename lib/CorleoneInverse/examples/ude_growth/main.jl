@@ -74,9 +74,17 @@ function ude_residual(prob, experiments, weights)
     return result
 end
 
-residual_callback = let prob = prob
-    (weights, experiments) -> ude_residual(prob, experiments, weights)
+# Keep the ODE problem type out of the outer solver's specialization. The
+# dispatched residual still specializes on the problem and the weight type.
+struct UDEResidual
+    problem::Any
 end
+
+function (residual::UDEResidual)(weights::AbstractVector{T}, experiments) where {T}
+    return ude_residual(residual.problem, experiments, weights)::Vector{T}
+end
+
+residual_callback = UDEResidual(prob)
 
 function least_squares(f, weights, experiments)
     prototype = zeros(eltype(weights), sum(n_observations, experiments))
