@@ -22,10 +22,9 @@ end
 experiment_grids(owner::ShootingLayer, shooting, data, st) = map(experiment -> experiment_state(shooting, experiment, st).timestops, data)
 
 optimization_schedule(layer::ExperimentPrediction, st) = experiment_schedule(layer.layer, st)
-function experiment_schedule(owner::Experiments, st)
-    execution = experiment_fields(st.execution, owner.experiments)
-    return map(entry -> (; active = entry.active, timestops = entry.timestops), execution)
-end
+# Reset flags in `active` are forward-pass scratch state, not part of the schedule.
+experiment_schedule(owner::Experiments, st) =
+    map(entry -> entry.timestops, experiment_fields(st.execution, owner.experiments))
 experiment_schedule(layer::ShootingLayer, st) = optimization_schedule(layer, st)
 
 function experiment_execution_state(st, grids)
@@ -68,10 +67,7 @@ struct PreparedObservation{F, T, Y, S, I}
     σ::S
     indices::I
 end
-function residual(observation::PreparedObservation, trajectory)
-    prediction = map(k -> observe(observation.selector, trajectory, k), observation.indices)
-    return weighted(observation.σ, observation.y .- prediction)
-end
+residual(observation::PreparedObservation, trajectory) = observation_residual(observation, trajectory, observation.indices)
 
 struct ObservationExpression{F}
     f::F
@@ -115,7 +111,7 @@ struct MeasurementObjective{O, D}
 end
 (objective::MeasurementObjective)(trajectories) = sum(abs2, residual(objective.data, trajectories)) / 2
 function evaluate_trajectory_objective(objective::MeasurementObjective, trajectories, ps, st)
-    return objective(trajectories) - log_prior(objective.owner, ps)
+    return objective(trajectories) - log_prior(objective.owner, ps, st)
 end
 
 # A key in the type keeps heterogeneous experiment selection inferable.

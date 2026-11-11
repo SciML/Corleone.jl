@@ -5,64 +5,82 @@ collection_transform(::Any) = BoundedTransform()
 """
 $(SIGNATURES)
 
-Return `(collection, ps)` pairs for the tunable parameter collections of `layer`, in
-the order of the Lux parameters `ps`. Fixed collections are skipped.
+Return `(collection, ps, inserted)` triples for the tunable parameter collections of
+`layer`, in the order of the Lux parameters `ps`. `inserted` holds the indices of
+values that [`add_parameter_segments!`](@ref) duplicated from their predecessor,
+read from the enclosing lookup state in `st`. Fixed collections are skipped.
 """
-parameter_collections(::Any, ps) = ()
-parameter_collections(layer::ParameterCollection, ps) = ((layer, ps),)
-parameter_collections(::FixedLayer, ps) = ()
-parameter_collections(layer::LuxCore.AbstractLuxWrapperLayer{field}, ps) where {field} =
-    parameter_collections(getfield(layer, field), ps)
-function parameter_collections(layer::LuxCore.AbstractLuxContainerLayer{fields}, ps) where {fields}
+parameter_collections(layer, ps, st) = parameter_collections(layer, ps, st, ())
+parameter_collections(::Any, ps, st, inserted) = ()
+parameter_collections(layer::ParameterCollection, ps, st, inserted) = ((layer, ps, inserted),)
+parameter_collections(::FixedLayer, ps, st, inserted) = ()
+parameter_collections(layer::PiecewiseConstant, ps, st, inserted) =
+    parameter_collections(layer.parameter, ps.parameter, st.parameter, st.lookup.inserted)
+parameter_collections(layer::LuxCore.AbstractLuxWrapperLayer{field}, ps, st, inserted) where {field} =
+    parameter_collections(getfield(layer, field), ps, st, inserted)
+function parameter_collections(layer::LuxCore.AbstractLuxContainerLayer{fields}, ps, st, inserted) where {fields}
     names = optimization_parameter_names(ps, fields)
-    return parameter_collections(layer, ps, Val(names))
+    return parameter_collections(layer, ps, st, inserted, Val(names))
 end
-function parameter_collections(layers::NamedTuple, ps)
+function parameter_collections(layers::NamedTuple, ps, st, inserted)
     names = optimization_parameter_names(ps, keys(layers))
-    return parameter_collections(layers, ps, Val(names))
+    return parameter_collections(layers, ps, st, inserted, Val(names))
 end
 
 # Literal field accesses and tuple splats preserve heterogeneous collection types.
-@generated function parameter_collections(layers, ps, ::Val{names}) where {names}
-    entries = [Expr(:..., :(parameter_collections(getfield(layers, $(QuoteNode(name))), getproperty(ps, $(QuoteNode(name)))))) for name in names]
+@generated function parameter_collections(layers, ps, st, inserted, ::Val{names}) where {names}
+    entries = map(names) do name
+        field = QuoteNode(name)
+        Expr(:..., :(parameter_collections(getfield(layers, $field), getproperty(ps, $field), getproperty(st, $field), inserted)))
+    end
     return Expr(:tuple, entries...)
 end
 
-function collection_log_prior(collection, values)
+# Duplicated segment values are held equal to their predecessor by matching
+# constraints, so each prior counts once per original value.
+function collection_log_prior(collection, values, inserted)
     isnothing(collection.prior) && return 0.0
-    return sum(values.ps; init = 0.0) do x
-        log_density(collection.prior, natural_value(collection.transform, x)) +
-            log_jacobian(collection.transform, x)
+    x = values.ps
+    return sum(eachindex(x); init = 0.0) do i
+        term = log_density(collection.prior, natural_value(collection.transform, x[i])) +
+            log_jacobian(collection.transform, x[i])
+        i in inserted ? zero(term) : term
     end
 end
 
-prior_expression(::Type, layer, ps) = :(0.0)
-prior_expression(::Type{<:FixedLayer}, layer, ps) = :(0.0)
-prior_expression(::Type{<:ParameterCollection}, layer, ps) = :(collection_log_prior($layer, $ps))
-prior_expression(::Type{L}, layer, ps) where {L <: NamedTuple} = container_prior_expression(L, fieldnames(L), layer, ps)
-function prior_expression(::Type{L}, layer, ps) where {field, L <: LuxCore.AbstractLuxWrapperLayer{field}}
-    child = :(getfield($layer, $(QuoteNode(field))))
-    child_type = fieldtype(L, field)
-    return isconcretetype(child_type) ? prior_expression(child_type, child, ps) : :(log_prior($child, $ps))
+prior_expression(::Type, layer, ps, st, inserted) = :(0.0)
+prior_expression(::Type{<:FixedLayer}, layer, ps, st, inserted) = :(0.0)
+prior_expression(::Type{<:ParameterCollection}, layer, ps, st, inserted) = :(collection_log_prior($layer, $ps, $inserted))
+function prior_expression(::Type{L}, layer, ps, st, inserted) where {L <: PiecewiseConstant}
+    return child_prior_expression(fieldtype(L, :parameter), :($layer.parameter), :($ps.parameter), :($st.parameter), :($st.lookup.inserted))
 end
-function prior_expression(::Type{L}, layer, ps) where {fields, L <: LuxCore.AbstractLuxContainerLayer{fields}}
-    return container_prior_expression(L, fields, layer, ps)
+prior_expression(::Type{L}, layer, ps, st, inserted) where {L <: NamedTuple} =
+    container_prior_expression(L, fieldnames(L), layer, ps, st, inserted)
+function prior_expression(::Type{L}, layer, ps, st, inserted) where {field, L <: LuxCore.AbstractLuxWrapperLayer{field}}
+    return child_prior_expression(fieldtype(L, field), :(getfield($layer, $(QuoteNode(field)))), ps, st, inserted)
 end
-function container_prior_expression(::Type{L}, fields, layer, ps) where {L}
+function prior_expression(::Type{L}, layer, ps, st, inserted) where {fields, L <: LuxCore.AbstractLuxContainerLayer{fields}}
+    return container_prior_expression(L, fields, layer, ps, st, inserted)
+end
+function container_prior_expression(::Type{L}, fields, layer, ps, st, inserted) where {L}
     terms = map(fields) do field
-        child = :(getfield($layer, $(QuoteNode(field))))
-        parameters = :(getproperty($ps, $(QuoteNode(field))))
-        child_type = fieldtype(L, field)
-        isconcretetype(child_type) ? prior_expression(child_type, child, parameters) : :(log_prior($child, $parameters))
+        name = QuoteNode(field)
+        child_prior_expression(
+            fieldtype(L, field), :(getfield($layer, $name)), :(getproperty($ps, $name)), :(getproperty($st, $name)), inserted
+        )
     end
     return quote
         optimization_parameter_names($ps, $(QuoteNode(fields)))
         sum(($(terms...),); init = 0.0)
     end
 end
+child_prior_expression(T, layer, ps, st, inserted) =
+    isconcretetype(T) ? prior_expression(T, layer, ps, st, inserted) : :(layer_log_prior($layer, $ps, $st, $inserted))
+
+log_prior(layer, ps, st) = layer_log_prior(layer, ps, st, ())
 
 # Flatten the density traversal into literal field accesses. Recursive tuple
 # collection widens deeply nested ComponentArray view types during inference.
-@generated function log_prior(layer::L, ps) where {L}
-    return prior_expression(L, :layer, :ps)
+@generated function layer_log_prior(layer::L, ps, st, inserted) where {L}
+    return prior_expression(L, :layer, :ps, :st, :inserted)
 end

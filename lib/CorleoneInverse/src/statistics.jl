@@ -35,7 +35,8 @@ residual Jacobian `J` and the Hessian `H` of the negative [`log_prior`](@ref),
 restricted to the null space of equality constraints, including shooting matches.
 The approximation assumes an interior optimum relative to inequalities and bounds. With
 known noise scales `s² = 1` and intervals use normal quantiles; otherwise `s²` is
-the residual variance and intervals use Student-t quantiles. Values are reported in
+the residual variance and intervals use Student-t quantiles; priors then require
+known noise scales. Values are reported in
 natural coordinates of the annotation transforms: the covariance with the delta
 method, the intervals by mapping their internal endpoints.
 """
@@ -46,11 +47,11 @@ function ParameterEstimate(
     0 < α < 1 || throw(ArgumentError("α must lie in (0, 1)."))
     owner = model.objective.owner
     _, reconstruct = pack(vectorize, ps)
-    natural = x -> natural_vector(owner, reconstruct(x))
+    natural = x -> natural_vector(owner, reconstruct(x), st)
     observation_residuals = x -> residual(model, reconstruct(x), st)
     r = observation_residuals(q)
     J = ForwardDiff.jacobian(observation_residuals, q)
-    H = ForwardDiff.hessian(x -> -log_prior(owner, reconstruct(x)), q)
+    H = ForwardDiff.hessian(x -> -log_prior(owner, reconstruct(x), st), q)
     equality_rows = findall(eachindex(model.lcons)) do i
         isfinite(model.lcons[i]) && model.lcons[i] == model.ucons[i]
     end
@@ -64,6 +65,9 @@ function ParameterEstimate(
     dof = length(r) - size(Z, 2)
     dof > 0 || throw(ArgumentError("Need more observations than free parameters, got $(length(r)) for $(size(Z, 2))."))
     weighted = first(is_weighted(first(values(model.objective.data))))
+    # The fit weights a prior against unit noise; the estimated s² would rescale only the data.
+    weighted || all(entry -> isnothing(first(entry).prior), parameter_collections(owner, ps, st)) ||
+        throw(ArgumentError("Parameter statistics with priors require observations with a noise scale σ."))
     s² = weighted ? one(rss) : rss / dof
     Σφ = Z * inv(Symmetric(Z' * (J' * J / s² + H) * Z)) * Z'
     G = ForwardDiff.jacobian(natural, q)
@@ -84,8 +88,8 @@ function ParameterEstimate(
 end
 
 # The natural values of the tunable parameters, in packed order.
-natural_vector(layer, ps) = reduce(
-    vcat, map(((collection, values),) -> natural_values(collection.transform, values.ps), parameter_collections(layer, ps))
+natural_vector(layer, ps, st) = reduce(
+    vcat, map(((collection, values),) -> natural_values(collection.transform, values.ps), parameter_collections(layer, ps, st))
 )
 
 function Base.show(io::IO, ::MIME"text/plain", est::ParameterEstimate)

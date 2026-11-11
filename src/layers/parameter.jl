@@ -38,8 +38,7 @@ function PiecewiseConstant(
     isnothing(initialization_times) || length(initialization_times) == n ||
         throw(DimensionMismatch("Expected $n parameter initialization times."))
     transform = annotation_transform(transform, bounds...)
-    bounds = get_bounds(transform)
-    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, initialization_times, bounds)
+    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, initialization_times, transform)
     return PiecewiseConstant(name, lookup, ParameterCollection(initialize, n, transform, prior))
 end
 
@@ -116,15 +115,15 @@ function Parameter(
         sym = only(filter(s -> SymbolicIndexingInterface.parameter_index(sys, s) == i, symbols))
         position = findfirst(==(i), indices)
         if isnothing(position)
-            grid, default, bounds, tunable, transform, prior = nothing, vals[i], (-Inf, Inf), true, BoundedTransform(), nothing
+            grid, default, tunable, transform, prior = nothing, vals[i], true, BoundedTransform(), nothing
         else
             annotation, grid = definitions[position]
-            default, bounds, tunable = get_default(annotation), get_bounds(annotation), is_tunable(annotation)
+            default, tunable = get_default(annotation), is_tunable(annotation)
             transform, prior = get_transform(annotation), get_prior(annotation)
         end
         times = isnothing(grid) ? [first(prob.tspan)] : vcat([first(prob.tspan)], grid)
         n = length(times)
-        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, times, bounds)
+        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, times, transform)
         parameter = ParameterCollection(initialize, n, transform, prior)
         fixed_value = !tunable || i in fixed_indices
         return (; index = i, name = Symbol(sym), grid, parameter, fixed = fixed_value)

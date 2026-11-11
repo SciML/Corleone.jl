@@ -11,6 +11,7 @@ initial values, and interior matching residuals. Parameters and controls remain
 shared across shooting blocks.
 Legacy stage-parameter/control lifting and whole-layer `initialization` callbacks
 are not restored; express initial guesses through annotation defaults instead.
+Priors on lifted initial conditions are rejected.
 """
 function MultipleShootingLayer(
         prob::SciMLBase.AbstractDEProblem,
@@ -32,6 +33,10 @@ function MultipleShootingLayer(
     return legacy_lift_states(layer, times, ensemble_alg)
 end
 
+# One collection holds one prior, which would then also weight the lifted node values.
+check_unlifted_prior(collection) = isnothing(collection.prior) ||
+    throw(ArgumentError("Priors on lifted initial conditions are unsupported; define native ShootingLayer annotations."))
+
 function legacy_lift_states(layer, times, ensemblealg)
     points = length(times) == 1 && only(times) isa AbstractVector ? collect(only(times)) : collect(times)
     all(t -> t isa Real && first(layer.problem.tspan) <= t <= last(layer.problem.tspan), points) ||
@@ -50,6 +55,7 @@ function legacy_lift_states(layer, times, ensemblealg)
             grid = sort!(unique!(vcat(collect(keys(original)), points)))
             parameter = map(enumerate(keys(ic.parameter)) |> collect) do (j, name)
                 child = ic.parameter[name]
+                check_unlifted_prior(child)
                 i = selected[j]
                 sym = only(filter(sym -> variable_index(layer.sys, sym) == i, variable_symbols(layer.sys)))
                 fallback = clamp(values[i], get_bounds(layer.sys, sym)...)
@@ -57,7 +63,7 @@ function legacy_lift_states(layer, times, ensemblealg)
                     existing = child.init_parameters(rng, child.out_dims)
                     return [haskey(original, t) ? existing[original[t]] : fallback for t in grid]
                 end
-                name => ParameterCollection(initialize, length(grid), child.transform, child.prior)
+                name => ParameterCollection(initialize, length(grid), child.transform, nothing)
             end |> NamedTuple
             return InitialCondition(grid, parameter; name = ic.name)
         end
@@ -68,6 +74,7 @@ function legacy_lift_states(layer, times, ensemblealg)
         if ic isa PassThrough
             return InitialCondition(points, fallback; name = ic.name, bounds)
         end
+        check_unlifted_prior(ic.parameter)
         original = ic.lookup.collection
         grid = sort!(unique!(vcat(collect(keys(original)), points)))
         initialize = function (rng, times::AbstractVector)
@@ -76,7 +83,7 @@ function legacy_lift_states(layer, times, ensemblealg)
         end
         return InitialCondition(
             grid, initialize; name = ic.name, bounds,
-            transform = ic.parameter.transform, prior = ic.parameter.prior
+            transform = ic.parameter.transform
         )
     end
     initialcondition = InitialConditions(

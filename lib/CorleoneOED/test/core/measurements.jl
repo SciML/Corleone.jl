@@ -1,5 +1,6 @@
 using CorleoneOED, LuxCore, Random, ComponentArrays, OrdinaryDiffEqTsit5
 using Test, ForwardDiff, LinearAlgebra, OrdinaryDiffEqBDF
+using TransformVariables: asℝ₊
 @testset "Measurement augmentation" begin
     problem = ODEProblem((u, p, t) -> p[1] .* u, [1.0], (0.0, 1.0), [-2.0]; abstol = 1.0e-10, reltol = 1.0e-10)
     model = OEDLayer(
@@ -85,6 +86,16 @@ end
     forward_initialization(Xoshiro(1), layer.shooting, ps, st)
     traj, _ = layer(nothing, ps, st)
     @test norm(shooting_constraints(traj)) < 1.0e-7
+end
+
+@testset "Wrapping keeps explicit transforms" begin
+    problem = ODEProblem((u, p, t) -> p[1] .* u, [1.0], (0.0, 1.0), [2.0])
+    original = ShootingLayer(problem, Tsit5(), Tunable(1; default = 2.0, transform = asℝ₊) => nothing; bounds = Dict(:p₁ => (1.0, 3.0)))
+    @test get_bounds(original.sys, :p₁) == (1.0, 3.0)
+    layer = OEDLayer(original; params = [1], measurements = (DiscreteMeasurement(:w, [1.0], (u, p, t) -> u[1]),))
+    ps, st = LuxCore.setup(Xoshiro(1), layer)
+    @test only(ps.parameter.parameters.p₁.parameter.ps) ≈ log(2.0)
+    @test get_bounds(layer.shooting.sys, :p₁) == (1.0, 3.0)
 end
 
 @testset "Mixed observation rows and direct parameter dependence" begin

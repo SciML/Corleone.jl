@@ -70,8 +70,8 @@ using ForwardDiff, ReverseDiff, Zygote
     @test last(shared_changed[2].u) != last(local_changed[2].u)
     @test calls[] == 1
     expected = logpdf(prior, 0.8) + logpdf(LogNormal(0.0, 1.0), 3.0) + log(3.0)
-    @test log_prior(batch, ps) ≈ expected
-    @test log_prior(batch, ComponentArray(ps)) ≈ expected
+    @test log_prior(batch, ps, st) ≈ expected
+    @test log_prior(batch, ComponentArray(ps), st) ≈ expected
     lb, ub = get_bounds(batch, ComponentArray(ps), st)
     @test collect(ComponentArray(lb)) == [0.0, -Inf, -Inf, -Inf]
     @test collect(ComponentArray(ub)) == fill(Inf, 4)
@@ -176,7 +176,7 @@ end
     ps, st = LuxCore.setup(Xoshiro(1), batch)
     @test isempty(ComponentArray(ps.shared))
     @test collect(ComponentArray(ps)) == ones(4)
-    @test log_prior(batch, ps) == 0.0
+    @test log_prior(batch, ps, st) == 0.0
     @test last(first(base(batch, ps, st))[1].u) ≈ [2.0]
 end
 

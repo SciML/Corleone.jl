@@ -110,7 +110,7 @@ function update_annotation(x::AbstractAnnotation, indep)
     validate_transform(transform)
     lowerbound, upperbound = get_bounds(transform)
     lowerbound <= upperbound || throw(ArgumentError("Lower bound exceeds upper bound."))
-    validate_annotation_default(default, lowerbound, upperbound)
+    validate_annotation_default(default, transform)
     # Keep unbounded integer annotations representable; bounds need not have the
     # same type as the default. Explicit false must also override model metadata.
     integer = has_integer(x) ? get_integer(x) : is_integer_variable(sym)
@@ -123,14 +123,15 @@ validate_prior(::Nothing) = nothing
 validate_prior(prior) = throw(ArgumentError("Unsupported prior $(typeof(prior)); load Distributions for univariate priors."))
 
 # Callbacks are checked after evaluation, without drawing from their RNG twice.
-validate_annotation_default(default, lower, upper) = default
-function validate_annotation_default(default::Number, lower, upper)
-    lower <= default <= upper || throw(ArgumentError("Default value is outside the annotation bounds."))
+# Each natural value must lie in the transform's domain, so its internal value is finite.
+validate_annotation_default(default, transform) = default
+function validate_annotation_default(default::Number, transform)
+    in_domain(transform, default) || throw(ArgumentError("Default value is outside the annotation bounds or transform domain."))
     return default
 end
-function validate_annotation_default(default::AbstractVector, lower, upper)
-    all(value -> value isa Number && lower <= value <= upper, default) ||
-        throw(ArgumentError("Default values must be numbers within the annotation bounds."))
+function validate_annotation_default(default::AbstractVector, transform)
+    all(value -> value isa Number && in_domain(transform, value), default) ||
+        throw(ArgumentError("Default values must be numbers within the annotation bounds or transform domain."))
     return default
 end
 
@@ -140,10 +141,11 @@ $(SIGNATURES)
 Initialize `n` scalar values from a scalar, vector, or callback. Count callbacks
 `(rng, n::Int)` take precedence, preserving untyped callbacks. Otherwise a callback
 accepting `(rng, times::AbstractVector)` receives the supplied initialization times.
-Validate the result's shape and bounds once, without reevaluating the callback.
+Validate the result's shape and the domain of `transform` once, without reevaluating
+the callback.
 Supplied vectors and callback results are retained by reference.
 """
-function initialize_annotation_values(default, rng, n::Int, times, bounds)
+function initialize_annotation_values(default, rng, n::Int, times, transform)
     values = if default isa Number
         fill(default, n)
     elseif default isa AbstractVector
@@ -157,7 +159,7 @@ function initialize_annotation_values(default, rng, n::Int, times, bounds)
     end
     values isa AbstractVector || throw(ArgumentError("An initializer must return an AbstractVector."))
     length(values) == n || throw(DimensionMismatch("Expected $n initial values, got $(length(values))."))
-    return validate_annotation_default(values, bounds...)
+    return validate_annotation_default(values, transform)
 end
 
 """

@@ -1,5 +1,6 @@
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test
 import SymbolicIndexingInterface as SII
+using Distributions: Normal
 
 @testset "Legacy constructors are functions returning native objects" begin
     @test ControlParameter isa Function
@@ -151,4 +152,6 @@ end
     @test_throws ArgumentError MultipleShootingLayer(prob, Tsit5(), -1.0)
     fixed = ShootingLayer(prob, Tsit5(), Constant(1; kind = Val(:variable)) => [0.0])
     @test_throws ArgumentError MultipleShootingLayer(fixed, 1.0)
+    prior = ShootingLayer(prob, Tsit5(), Tunable(1; kind = Val(:variable), prior = Normal(1.0, 0.1)) => [0.0])
+    @test_throws ArgumentError MultipleShootingLayer(prior, 1.0)
 end

@@ -23,11 +23,11 @@ g_true(u) = 0.5 * sin(u)
 true_rhs(u, p, t) = [-0.5 * u[1] + g_true(u[1])]
 t = collect(0.0:0.2:10.0)
 σ = 0.01
-function measure(u0)
+function measure(u0, t)
     truth = solve(ODEProblem(true_rhs, [u0], (0.0, 10.0)), Tsit5(); saveat = t, abstol = 1.0e-9, reltol = 1.0e-9)
     return Experiment(1 => (t, getindex.(truth.u, 1) .+ σ .* randn(rng, length(t)), σ); u0 = [u0])
 end
-data_1, data_2 = measure(2.0), measure(0.3)
+data_1, data_2 = measure(2.0, t), measure(0.3, t)
 
 # ## Embed a Lux network
 # A 1 → 4 → 2 → 1 network keeps forward-mode training small enough for a tutorial.
@@ -87,6 +87,7 @@ opt_l1 = OptimizationProblem(model_l1, ad)
 fit_l1 = solve(remake(opt_l1; u0 = fit.u), LBFGSB(); maxiters = 100)
 @assert isfinite(fit_l1.objective)
 println("Regularized weight norm = ", norm(fit_l1.u))
+println("Joint objective = ", fit_l1.objective)
 
 # ## Compare trajectories and learned reaction terms
 _, reconstruct = pack(default_vectorizer(), ps)
@@ -106,5 +107,5 @@ for (weights, label) in ((fit_1.u, "First experiment"), (fit.u, "Joint"), (fit_l
     values = [only(first(network([u], rebuild(weights), network_st))) for u in ugrid]
     lines!(reaction_axis, ugrid, values; label)
 end
-axislegend(reaction_axis)
+axislegend(reaction_axis, position = :rb)
 figure

@@ -14,6 +14,7 @@ BoundedTransform() = BoundedTransform(-Inf, Inf)
 BoundedTransform(lowerbound) = BoundedTransform(lowerbound, Inf)
 
 natural_value(::BoundedTransform, x) = x
+in_domain(t::BoundedTransform, x) = t.lowerbound <= x <= t.upperbound
 internal_value(::BoundedTransform, x) = x
 log_jacobian(::BoundedTransform, x) = zero(x)
 """
@@ -81,9 +82,11 @@ resolve_transform(t::BoundedTransform, (lower, upper)) = BoundedTransform(
 """
 $(SIGNATURES)
 
-Return the log prior density of the tunable parameters `ps` of `layer`. Each value of
-a collection with a prior contributes `logpdf(prior, θ)` at its natural value `θ`,
-plus the log-Jacobian of its transform, so the density refers to the stored internal
-values. Collections without a prior contribute nothing.
+Return the log prior density of the tunable parameters `ps` of `layer` with Lux state
+`st`. Each value of a collection with a prior contributes `logpdf(prior, θ)` at its
+natural value `θ`, plus the log-Jacobian of its transform, so the density refers to
+the stored internal values. Values that [`add_parameter_segments!`](@ref) duplicated
+for multiple shooting are skipped, so each prior counts once per original value.
+Collections without a prior contribute nothing.
 """
 function log_prior end

@@ -55,8 +55,7 @@ function InitialCondition(
     allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
     lookup = LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache)
     transform = annotation_transform(transform, bounds...)
-    bounds = get_bounds(transform)
-    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, bounds)
+    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, transform)
     return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid), transform, prior))
 end
 
@@ -173,11 +172,11 @@ function InitialConditions(
         annotation, grid = processed[position]
         grid = isnothing(grid) ? Float64[] : grid
         allunique(grid) || throw(ArgumentError("Initial-condition times must be unique."))
-        default, bounds = get_default(annotation), get_bounds(annotation)
-        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, bounds)
+        default, transform = get_default(annotation), get_transform(annotation)
+        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, transform)
         return (;
             index = i, name = Symbol(sym), grid,
-            parameter = ParameterCollection(initialize, length(grid), get_transform(annotation), get_prior(annotation)),
+            parameter = ParameterCollection(initialize, length(grid), transform, get_prior(annotation)),
             fixed = !is_tunable(annotation),
         )
     end

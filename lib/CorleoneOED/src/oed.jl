@@ -160,9 +160,11 @@ function shooting_definitions(layer::ShootingLayer)
                 symbols = kind === Val(:variable) ? variable_symbols(layer.sys) : parameter_symbols(layer.sys)
                 indexof = kind === Val(:variable) ? variable_index : parameter_index
                 sym = only(filter(sym -> indexof(layer.sys, sym) == index, symbols))
-                lo, hi = get_bounds(layer.sys, sym)
+                # Identity collections keep live symbolic bounds; other transforms own their domain.
+                transform = parameter.transform isa BoundedTransform ?
+                    BoundedTransform(get_bounds(layer.sys, sym)...) : parameter.transform
                 constructor = held ? Constant : Tunable
-                push!(definitions, constructor(index; kind, default = parameter.init_parameters, lowerbound = lo, upperbound = hi) => grid)
+                push!(definitions, constructor(index; kind, default = parameter.init_parameters, transform, prior = parameter.prior) => grid)
             end
         end
     end

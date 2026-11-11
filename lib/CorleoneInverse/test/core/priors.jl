@@ -51,3 +51,29 @@ end
         @test OptimizationProblem(layer, experiment, ps, st, Optimization.AutoForwardDiff()) isa OptimizationProblem
     end
 end
+
+@testset "Prior statistics require known noise scales" begin
+    layer = prior_layer(Normal(μ, τ))
+    unweighted = Experiment(1 => (t, y))
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    model = CorleoneDynamicOptProblem(layer, unweighted; ps, st)
+    q, _ = pack(default_vectorizer(), ps)
+    @test_throws ArgumentError ParameterEstimate(model, q)
+end
+
+@testset "Least squares respects parameter bounds" begin
+    # The unbounded slope is about 2; the bound keeps the fit at its upper limit.
+    layer = ShootingLayer(
+        problem, Tsit5(),
+        Tunable(1; kind = Val(:parameter), default = 1.0, lowerbound = 0.0, upperbound = 1.5) => nothing,
+        Tunable(1; kind = Val(:variable)) => [0.0]
+    )
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    nlls = NonlinearLeastSquaresProblem(layer, experiment, ps, st)
+    @test nlls.lb == [-Inf, 0.0]
+    @test nlls.ub == [Inf, 1.5]
+    sol = solve(nlls, LevenbergMarquardt())
+    @test 1.4 < last(sol.u) <= 1.5
+    unbounded = prior_layer(Normal(μ, τ))
+    @test isnothing(NonlinearLeastSquaresProblem(unbounded, experiment, LuxCore.setup(StableRNG(1), unbounded)...).lb)
+end

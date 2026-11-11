@@ -50,6 +50,7 @@ SymbolicIndexingInterface.symbolic_container(layer::ShootingLayer) = layer.sys
 
 # Retain effective annotation bounds, which would otherwise be discarded after
 # constructing the numerical sublayers. Explicit annotations override defaults.
+# Explicit transforms own their domain and leave the natural metadata unchanged.
 function shooting_metadata(problem, definitions, ic_defs; controls, quadratures, bounds)
     parent = ControlSymbolCache(problem)
     cache = ControlSymbolCache(
@@ -65,6 +66,7 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         has_lowerbound(annotation) || has_upperbound(annotation) || continue
         kind = i in ic_defs ? Val(:variable) : Val(:parameter)
         for scalar in scalar_annotations(annotation)
+            get_transform(scalar) isa BoundedTransform || continue
             resolved = update_annotation(set_kind(scalar, kind), cache)
             isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
             effective_bounds[get_sym(resolved)] = get_bounds(resolved)
@@ -194,10 +196,24 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
 end
 
 get_du0(::Any, ::Any) = nothing
-# Some DAE integrators (e.g. `DFBDF`) do not populate the derivative history
-# (`sol.du === nothing`); fall back to the problem's stored `du0` and let the DAE
-# initialization algorithm recompute a consistent value for the new initial state.
-get_du0(::SciMLBase.AbstractDAEProblem, sol) = isnothing(sol.du) ? nothing : sol.du[end]
+function get_du0(prob::SciMLBase.AbstractDAEProblem, sol)
+    isnothing(sol.du) || return sol.du[end]
+    # DFBDF can omit derivative history. The next segment then starts from the
+    # problem's du0, which only an initialization that recomputes it makes consistent.
+    recomputes_du0(prob) || throw(
+        ArgumentError(
+            "DAE segment handoff without saved derivatives needs an initialization that recomputes du0; " *
+                "set e.g. initializealg = BrownFullBasicInit() on the DAEProblem."
+        )
+    )
+    return nothing
+end
+function recomputes_du0(prob)
+    alg = get(prob.kwargs, :initializealg, nothing)
+    alg isa Union{SciMLBase.NoInit, SciMLBase.CheckInit} && return false
+    # The default only recomputes through symbolic initialization data.
+    return !isnothing(alg) || SciMLBase.has_initialization_data(prob.f)
+end
 
 function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
     du0 = get_du0(prob, sol)

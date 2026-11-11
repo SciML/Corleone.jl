@@ -92,6 +92,17 @@ end
     @test optimization_constraints(model) ≈ [2.0]
 end
 
+@testset "Reset flags are not part of the schedule" begin
+    problem = ODEProblem((u, p, t) -> p, [0.0], (0.0, 1.0), [1.0])
+    data = Experiment(1 => ([0.25, 1.0], [0.25, 0.5], 0.1))
+    experiments = Experiments(problem, Tunable(1; kind = Val(:variable)) => [0.0, 0.5]; experiments = (a = data,))
+    ps, st = LuxCore.setup(Xoshiro(1), experiments)
+    model = CorleoneDynamicOptProblem(ShootingLayer(problem, Tsit5()), experiments; ps, st)
+    # A fresh state has all reset flags cleared; construction ran a forward pass.
+    _, fresh = LuxCore.setup(Xoshiro(1), experiments)
+    @test optimization_objective(model, ps, fresh) ≈ optimization_objective(model)
+end
+
 @testset "Shared priors contribute once" begin
     problem = ODEProblem((u, p, t) -> p, [0.0], (0.0, 1.0), [1.0])
     prior = Normal(0.0, 2.0)

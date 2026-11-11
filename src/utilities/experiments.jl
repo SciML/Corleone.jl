@@ -112,10 +112,10 @@ function residual(experiment::Experiment, traj)
     return reduce(vcat, map(observation -> residual(observation, traj), experiment.observations))
 end
 
-function residual(observation::Observation, traj)
-    prediction = map(sample_indices(traj.t, observation.t)) do k
-        observe(observation.selector, traj, k)
-    end
+residual(observation::Observation, traj) = observation_residual(observation, traj, sample_indices(traj.t, observation.t))
+
+function observation_residual(observation, traj, indices)
+    prediction = map(k -> observe(observation.selector, traj, k), indices)
     return weighted(observation.σ, observation.y .- prediction)
 end
 

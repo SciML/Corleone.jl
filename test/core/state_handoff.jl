@@ -62,4 +62,10 @@ end
     @test trajectory.t == collect(0.0:0.25:1.0)
     @test last(trajectory.u) ≈ [exp(-1), 1 - exp(-1)] rtol = 1.0e-7
     @test all(isapprox(sum(u), 1.0; atol = 1.0e-9) for u in trajectory.u)
+    for initializealg in (nothing, SciMLBase.CheckInit(), SciMLBase.NoInit())
+        kwargs = isnothing(initializealg) ? (;) : (; initializealg)
+        stale = DAEProblem(dae_residual!, [-1.0, 1.0], [1.0, 0.0], (0.0, 1.0), [1.0]; differential_vars = [true, false], kwargs...)
+        stale_layer = ShootingLayer(stale, DFBDF(), Constant(1; default = 1.0) => [0.5]; controls = [1])
+        @test_throws ArgumentError stale_layer(nothing, LuxCore.setup(MersenneTwister(1), stale_layer)...)
+    end
 end

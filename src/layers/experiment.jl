@@ -77,11 +77,11 @@ function local_experiment_entries(layer, definitions, variables, parameters)
         entry = only(filter(entry -> entry.index == index, entries))
         grid = variable && isnothing(grid) ? Float64[] : grid
         times = variable ? grid : isnothing(grid) ? [first(layer.problem.tspan)] : vcat(first(layer.problem.tspan), grid)
-        default, bounds = get_default(annotation), get_bounds(annotation)
-        initialize = let default = default, times = times, bounds = bounds
-            (rng, n) -> initialize_annotation_values(default, rng, n, times, bounds)
+        default, transform = get_default(annotation), get_transform(annotation)
+        initialize = let default = default, times = times, transform = transform
+            (rng, n) -> initialize_annotation_values(default, rng, n, times, transform)
         end
-        parameter = ParameterCollection(initialize, length(times), get_transform(annotation), get_prior(annotation))
+        parameter = ParameterCollection(initialize, length(times), transform, get_prior(annotation))
         grid = variable ? Dict(t => i for (i, t) in enumerate(grid)) : grid
         push!(locals, (; variable, entry = (; index, sym = entry.sym, name = entry.name, grid, parameter, fixed = !is_tunable(annotation))))
     end

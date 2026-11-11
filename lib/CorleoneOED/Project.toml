@@ -54,6 +54,7 @@ StableRNGs = "1"
 SymbolicIndexingInterface = "0.3.43"
 Symbolics = "7.37"
 Test = "1"
+TransformVariables = "0.8"
 julia = "1.10"
 
 [extras]
@@ -68,6 +69,7 @@ SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 SciMLTesting = "09d9d899-5365-40a9-917a-5f67fddea283"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [targets]
-test = ["OrdinaryDiffEqBDF", "ComponentArrays", "Ipopt", "Optimization", "OptimizationMOI", "OrdinaryDiffEqTsit5", "Pkg", "SafeTestsets", "SciMLTesting", "StableRNGs", "Test"]
+test = ["OrdinaryDiffEqBDF", "ComponentArrays", "Ipopt", "Optimization", "OptimizationMOI", "OrdinaryDiffEqTsit5", "Pkg", "SafeTestsets", "SciMLTesting", "StableRNGs", "Test", "TransformVariables"]

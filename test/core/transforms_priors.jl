@@ -49,9 +49,9 @@ end
     ps, st = LuxCore.setup(StableRNG(1), layer)
     # The log-Jacobian of exp is the internal value log(2).
     expected = logpdf(prior, 2.0) + log(2.0) + 2 * logpdf(Normal(0.2, 0.1), 0.3)
-    @test log_prior(layer, ps) ≈ expected
-    @test log_prior(layer, ComponentArray(ps)) ≈ expected
-    @test length(Corleone.parameter_collections(layer, ps)) == 2
+    @test log_prior(layer, ps, st) ≈ expected
+    @test log_prior(layer, ComponentArray(ps), st) ≈ expected
+    @test length(Corleone.parameter_collections(layer, ps, st)) == 2
     @test_throws ArgumentError ShootingLayer(problem, Tsit5(), Tunable(1; kind = Val(:parameter), prior = :invalid) => nothing)
 end
 
@@ -108,4 +108,47 @@ end
     @test values ≈ [log(2.0), log(2.0) - 0.25] rtol = 1.0e-4
     traj, _ = layer(nothing, ps, st)
     @test maximum(abs, shooting_constraints(traj)) < 1.0e-5
+end
+
+@testset "Inserted shooting segments do not repeat priors" begin
+    prior = Normal(0.4, 0.1)
+    layer = ShootingLayer(
+        problem, Tsit5(),
+        Tunable([1, 2]; kind = Val(:variable), default = [1.0, 0.0]) => [0.0, 0.5],
+        Tunable(1; kind = Val(:parameter), default = 0.5, prior) => nothing
+    )
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    expected = log_prior(layer, ps, st)
+    @test expected ≈ logpdf(prior, 0.5)
+    expanded, state = add_parameter_segments!(layer, ps, st)
+    @test expanded.parameter.parameters.p₁.parameter.p₁.ps == [0.5, 0.5]
+    @test log_prior(layer, expanded, state) ≈ expected
+    @test log_prior(layer, ComponentArray(expanded), state) ≈ expected
+    prior_collections = filter(entry -> !isnothing(first(entry).prior), Corleone.parameter_collections(layer, expanded, state))
+    @test last(only(prior_collections)) == [2]
+end
+
+@testset "Explicit transforms keep symbolic bounds metadata" begin
+    layer = ShootingLayer(
+        problem, Tsit5(), Tunable(1; kind = Val(:parameter), default = 2.0, transform = asℝ₊) => nothing;
+        bounds = Dict(:p₁ => (1.0, 3.0))
+    )
+    @test get_bounds(layer.sys, :p₁) == (1.0, 3.0)
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    lower, upper = get_bounds(layer, ps, st)
+    @test first(ComponentArray(lower)) == -Inf
+    @test first(ComponentArray(upper)) == Inf
+end
+
+@testset "Values must lie in the transform domain" begin
+    for (transform, value) in ((asℝ₊, 0.0), (asℝ₊, -1.0), (as𝕀, 1.0))
+        @test_throws ArgumentError ShootingLayer(problem, Tsit5(), Tunable(1; kind = Val(:parameter), default = value, transform) => nothing)
+    end
+    # The model value 0.0 of u₂ is the endpoint of the positive domain.
+    @test_throws ArgumentError ShootingLayer(problem, Tsit5(), Tunable(2; kind = Val(:variable), transform = asℝ₊) => [0.0])
+    callback = Corleone.PiecewiseConstant(nothing, (rng, n) -> zeros(n); transform = asℝ₊)
+    @test_throws ArgumentError LuxCore.setup(StableRNG(1), callback)
+    layer = ShootingLayer(problem, Tsit5(), Tunable(1; kind = Val(:variable), default = 2.0, transform = asℝ₊) => [0.0, 0.5])
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    @test_throws ArgumentError constant_initialization(StableRNG(1), layer, ps, st; u0 = [0.0, 0.0])
 end
