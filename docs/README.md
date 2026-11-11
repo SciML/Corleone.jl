@@ -21,9 +21,9 @@ root. Watch the authoritative sources and skip generated copies to avoid rebuild
 julia --project=docs -e '
 using LiveServer
 servedocs(
-    skip_dirs = ["docs/src/examples", "docs/src/oed"],
+    skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/inverse"],
     include_dirs = ["examples", "lib/CorleoneOED/examples",
-        "lib/CorleoneOED/docs/src"],
+        "lib/CorleoneOED/docs/src",],
 )
 '
 ```
@@ -34,9 +34,9 @@ The build executes the LQR,
 numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
 optimization tutorials, and the Lotka–Volterra universal differential equation tutorial,
 plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment, and discrete
-compartmental tutorials. It checks exported API coverage and resolves
-internal cross-references. External URL checks can be enabled with
-`DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
+compartmental tutorials, the two-stage reactor tutorial. It checks exported 
+API coverage and resolves internal cross-references. External URL checks can be 
+enabled with `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
 
 On GitHub pull requests, the build uses Documenter's `draft=true` mode unless
 the PR changes `examples/`, `lib/CorleoneOED/examples/`, or
@@ -77,7 +77,7 @@ Markdown. DemoCards stages the authoritative scripts and executes each tutorial
 once through Literate; Documenter includes its rendered output. Introductory
 guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone and CorleoneOED modules. OED tutorials
+The manual documents the checked-out Corleone, CorleoneOED modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
 `docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
@@ -87,7 +87,7 @@ The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local
 package, remove `docs/Manifest.toml` and run the setup command again.
 
-DemoCards.jl builds the eight root-site tutorials via `docs/process_tutorials.jl`.
+DemoCards.jl builds the root-site tutorials via `docs/process_tutorials.jl`.
 Its temporary staging directory is ignored; edit the original example scripts.
 The Tutorials overview uses DemoCards’ `bokehlist` theme with Optimal Control,
 Optimal Experimental Design, and Parameter Estimation sections. The generated

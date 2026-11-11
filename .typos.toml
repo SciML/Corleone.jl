@@ -45,12 +45,34 @@ opts = "opts"
 args = "args"
 kwargs = "kwargs"
 
+# Sum Up Rounding (optimal control)
+SUR = "SUR"
+
 # Scientific abbreviations
 ND = "ND"
 nd = "nd"
 MTK = "MTK"
 ODE = "ODE"
 OED = "OED"
+
+# Asymptotic-interval variables (acpi = asymptotic confidence interval,
+# alo/ahi = asymptotic lower/upper bound)
+aci = "aci"
+alo = "alo"
+ahi = "ahi"
+
+# Multi-experiment data arguments
+datas = "datas"
+
+# ALL example: absolute neutrophil count (domain term; `Anc_INI` matches the patient
+# parameter column name)
+ANC = "ANC"
+Anc = "Anc"
+anc = "anc"
+
+# Rocket-trajectory examples: relative-velocity components in the Earth-fixed frame
+vry = "vry"
+vrn = "vrn"
 
 # Domain terms
 jacobian = "jacobian"

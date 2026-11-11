@@ -89,6 +89,9 @@ else
             @safetestset "Native Lux interface" begin
                 include("core/interface_contracts.jl")
             end
+            @safetestset "Multistage state and validation" begin
+                include("core/multistage.jl")
+            end
             @safetestset "State handoff" begin
                 include("core/state_handoff.jl")
             end
@@ -110,7 +113,8 @@ else
             "Differentiation" => (;
                 env = joinpath(@__DIR__, "differentiation"),
                 body = function ()
-                    return @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                    @safetestset "Full-solver AD backends" include("differentiation/backends.jl")
+                    return @safetestset "Failed-segment pad differentiation" include("differentiation/pad.jl")
                 end,
             ),
             "Plotting" => (;
@@ -139,6 +143,12 @@ else
                     end
                     @safetestset "Optimization facade bridge" begin
                         include("examples/optimization_facade.jl")
+                    end
+                    @safetestset "Multistage linkage" begin
+                        include("examples/multistage_linkage.jl")
+                    end
+                    @safetestset "Two-stage reactor" begin
+                        include("examples/two_stage_reactor.jl")
                     end
                     return @safetestset "ModelingToolkit frontend" begin
                         include("examples/mtk.jl")

@@ -29,6 +29,9 @@ makedocs(
     sitename = "Corleone.jl",
     authors = "Carl Julius Martensen, Christoph Plate, et al.",
     modules = [Corleone, CorleoneOED],
+    # Tutorial HTML exceeds Documenter's default 200 KiB cap (two-stage reactor
+    # example embeds base64 plots); keep the plain HTML format and raise the cap.
+    format = Documenter.HTML(size_threshold = 1_500_000),
     #format = Material3(
     #    theme = :ocean_depth,
     #    dark_mode = :toggle,
@@ -51,6 +54,7 @@ makedocs(
                 "Lotka Volterra Fishing" => "examples/the_lotka_volterra_fishing_problem.md",
                 "ModelingToolkit Integration" => "examples/modelingtoolkit_integration.md",
                 "LTI Control with Unknown Coefficients" => "examples/lti_control_with_unknown_coefficients.md",
+                "Two-Stage Chemical Reactor" => "examples/optimal_control_of_a_two_stage_reactor_system.md",
             ],
             "Parameter Estimation" => [
                 "Lotka–Volterra Universal Differential Equation" => "examples/lotka_volterra_universal_differential_equation.md",

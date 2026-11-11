@@ -152,6 +152,9 @@ function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ShootingLayer)
 end
 
 (x::ShootingLayer)(::Any, ps, st) = x(x.problem, ps, st)
+# Feeding a state vector starts a stage from an explicit initial condition (used by
+# multistage chains to hand off the previous stage's final state).
+(x::ShootingLayer)(u0::AbstractArray, ps, st) = x(remake(x.problem; u0 = u0), ps, st)
 
 @inline function (x::ShootingLayer)(prob::SciMLBase.AbstractSciMLProblem, ps, st::NamedTuple)
     return x((prob, st.timestops), ps, st)
@@ -178,7 +181,7 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     # Put the effective inputs in the problem before solve dispatch so scalar-type
     # changes (e.g. Float64 to Dual) retain an inferable solution type.
     segment = remake(prob; u0 = u0, p = p, tspan = (t0, tinf))
-    sol = solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true)
+    sol = pad_failed_segment!(solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true), t0, tinf)
     next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     # Parameters can first introduce AD scalars in the solve, after the initial
     # (possibly empty) residual vector has already been constructed.
@@ -188,7 +191,10 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
 end
 
 get_du0(::Any, ::Any) = nothing
-get_du0(::SciMLBase.AbstractDAEProblem, sol) = sol.du[end]
+# Some DAE integrators (e.g. `DFBDF`) do not populate the derivative history
+# (`sol.du === nothing`); fall back to the problem's stored `du0` and let the DAE
+# initialization algorithm recompute a consistent value for the new initial state.
+get_du0(::SciMLBase.AbstractDAEProblem, sol) = isnothing(sol.du) ? nothing : sol.du[end]
 
 function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
     du0 = get_du0(prob, sol)
@@ -198,6 +204,89 @@ end
 # Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
 internal_solve_with_du0(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
 internal_solve_with_du0(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+
+# A failed segment (e.g. DAE initialization failure) may save only its initial
+# point; an integrator that exhausted its iterations still saves its last computed
+# step. Fill every expected saved time the failed segment did not reach, repeating
+# that last computed state, so the assembled trajectory keeps the prepared time
+# grid and the optimizer sees a removable infeasibility instead of a compiled
+# expression indexing past the end of a short trajectory.
+#
+# `expected` lists additional expected saved times (e.g. problem saveat), ascending
+# and within (t0, t1). The saved time grid must be compatible with the caller's
+# prepared grid; the pad repeats the last computed state verbatim, so only missing
+# times are appended.
+function pad_failed_segment!(sol, t0, t1, expected = ())
+    if !SciMLBase.successful_retcode(getproperty(sol, :retcode)) && sol.t isa Vector
+        for t in pad_missing_times(sol, t1, expected)
+            push!(sol.t, t)
+            push!(sol.u, last(sol.u))
+        end
+    end
+    return sol
+end
+
+function pad_missing_times(sol, t1, expected)
+    t_end = last(sol.t)
+    return sort!(collect(t for t in Iterators.flatten((expected, (t1,))) if t > t_end))
+end
+
+# Zygote traces `push!` into the solution arrays and rejects array mutation, so
+# gradient handling for the pad cannot be traced through; it needs an explicit
+# rule. The forward pass repeats the last computed state, so a padded state entry
+# is a copy of `sol.u[n]` and a padded time entry is the corresponding argument
+# value. The cotangent formats follow SciMLBase: solution cotangents are
+# `RecursiveArrayTools.DiffEqArray`s or `Tangent`s with `:u`/`:t` fields. The
+# unknown-format fallback zeroes the failure point's contribution, keeping AD
+# working (the pad itself carries no derivative information; repeating an already
+# computed state is the only choice available).
+function ChainRulesCore.rrule(::typeof(pad_failed_segment!), sol, t0, t1, expected)
+    n_pre = sol.t isa Vector ? length(sol.t) : 0
+    padded = pad_failed_segment!(sol, t0, t1, expected)
+    n_pushed = sol.t isa Vector ? length(sol.t) - n_pre : 0
+    function pad_failed_segment_pullback(Δsol)
+        if n_pushed == 0 || Δsol isa AbstractZero
+            # No pad applied or no information flowing in; identity or zeros.
+            return ChainRulesCore.NoTangent(), Δsol, ChainRulesCore.ZeroTangent(), ChainRulesCore.ZeroTangent(), ChainRulesCore.ZeroTangent()
+        end
+        if Δsol isa RecursiveArrayTools.AbstractVectorOfArray
+            Δu, Δt = Δsol.u, Δsol.t
+            rebuild = (u, t) -> RecursiveArrayTools.DiffEqArray(u, t)
+        elseif Δsol isa ChainRulesCore.Tangent
+            # Partial struct cotangents: missing fields read as ZeroTangent.
+            Δu, Δt = Δsol.u, Δsol.t
+            # NamedTuple primals take a plain NamedTuple cotangent (constructing a
+            # `Tangent` of a NamedTuple with partial fields is unsupported); other
+            # structs rebuild a full `Tangent` with the missing fields zeroed.
+            if sol isa NamedTuple
+                rebuild = (u, t) -> (; u = u, t = t)
+            else
+                rebuild = (u, t) -> ChainRulesCore.Tangent{typeof(sol)}(; u = u, t = t)
+            end
+        else
+            return ChainRulesCore.NoTangent(), ChainRulesCore.ZeroTangent(), ChainRulesCore.ZeroTangent(), ChainRulesCore.ZeroTangent(), ChainRulesCore.ZeroTangent()
+        end
+        # State cotangents of the pad repeats accumulate into the repeated source
+        # state; time cotangents of the pad repeats belong to the padded-in
+        # argument times (t1 last), while the original time cotangents pass on.
+        n = length(sol.t) - n_pushed
+        t1_cot = ChainRulesCore.ZeroTangent()
+        t_cot = Δt
+        if !(Δt isa AbstractZero)
+            t1_cot = Δt[n + n_pushed]
+            t_cot = collect(Δt[i] for i in 1:n)
+        end
+        u_cot = Δu
+        if !(Δu isa AbstractZero)
+            u_cot = collect(Δu[i] for i in 1:n)
+            for i in (n + 1):(n + n_pushed)
+                u_cot[n] = u_cot[n] + Δu[i]
+            end
+        end
+        return ChainRulesCore.NoTangent(), rebuild(u_cot, t_cot), ChainRulesCore.ZeroTangent(), t1_cot, ChainRulesCore.ZeroTangent()
+    end
+    return padded, pad_failed_segment_pullback
+end
 
 
 function mkbuffer(::T, vec::AbstractArray) where {T}
@@ -231,7 +320,8 @@ terminal_state(sol::AbstractArray) = sol[:, end]
     @inbounds for i in Base.OneTo(length(tstops) - 1)
         (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
-        sols[i + 1] = internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1]))
+        solution = pad_failed_segment!(internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1])), tstops[i], tstops[i + 1])
+        sols[i + 1] = solution
         st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st

@@ -56,6 +56,7 @@ export ShootingLayer
 
 export get_bounds, get_lower_bound, get_upper_bound, get_number_of_shooting_constraints
 export shooting_constraints, shooting_constraints!, add_parameter_segments!
+export Stages
 
 include("optimization_expressions.jl")
 export default_evaluator, compile_evaluator
@@ -68,6 +69,9 @@ include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")
 include("multiple_shooting.jl")
 export ControlParameter, SingleShootingLayer, MultipleShootingLayer
+
+include("multistage.jl")
+export StageTransition, StageLinkage, linkage_residual, get_number_of_linkage_constraints
 
 include("precompile.jl")
 

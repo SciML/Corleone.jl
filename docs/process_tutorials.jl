@@ -4,10 +4,13 @@ function extract_metadata(file_path)
     content = read(file_path, String)
     # Read DemoCards' native commented YAML frontmatter.
     m = match(r"\A# ---(?:\r?\n)((?:# .*\r?\n)*)# ---", content)
+    if isnothing(m)
+        m = match(r"\A#src ---(?:\r?\n)((?:#src .*\r?\n)*)#src ---", content)
+    end
 
     if m !== nothing
         # Remove the comment prefix to obtain YAML.
-        yaml_text = replace(m.captures[1], r"^# "m => "")
+        yaml_text = replace(m.captures[1], r"^#(?:src)? "m => "")
         return YAML.load(yaml_text)
     end
     # Try to get the first header for the title
@@ -31,7 +34,14 @@ function tutorial_figures(content, title, outpath, name)
 end
 
 function preprocess_script(content)
-    content = replace(content, "TODAY" => string(Date(now())))
+    content = replace(
+        content, "TODAY" => string(Date(now())),
+        "[`OptimizationLBFGSB.LBFGSB`](@extref)" =>
+            "[`OptimizationLBFGSB.LBFGSB`](https://docs.sciml.ai/Optimization/stable/optimization_packages/lbfgsb/)",
+        # Tutorial anchors referenced here live in the sublibrary's own tutorial tree,
+        # which the root site does not build; degrade the links to plain text.
+        "[OED-controlled example](@ref corleone_pe_lotka_oed_control)" => "the OED-controlled example"
+    )
     content *= """
             # ## Appendix
             # ```@raw html
@@ -91,6 +101,18 @@ function make_tutorial(path; name = nothing, draft = false)
     )
     staged = joinpath(demo_source, category, "$fname.jl")
     content = preprocess_script(read(path, String))
+    if startswith(content, "#src ---")
+        # Adapt older tutorials at staging time, retaining their published anchors.
+        heading = match(r"^# ## [^\n]+(?:\n|$)"m, content)
+        anchor = isnothing(heading) ? nothing : match(r"@id ([^)]+)", heading.match)
+        metadata["id"] = isnothing(anchor) ? fname : anchor.captures[1]
+        header = match(r"\A#src ---\r?\n(?:#src .*\r?\n)*#src ---", content).match
+        native_header = replace(header, r"^#src"m => "#")
+        native_header = native_header[1:(end - 5)] *
+            "# id: $(metadata["id"])\n# julia: \"1.10\"\n# notebook: false\n# generate_cover: false\n# ---"
+        content = replace(content, header => native_header; count = 1)
+        isnothing(heading) || (content = replace(content, heading.match => ""; count = 1))
+    end
     # Each tutorial disables cover/notebook execution in its native frontmatter.
     # Only the documentation build's draft mode needs a staging-time override.
     content = replace(content, "# ---\n" => "# ---\n# execute: $(!draft)\n"; count = 1)
@@ -121,6 +143,7 @@ tutorials = map(
         (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), nothing),
         (
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
             "the_lotka_volterra_optimal_experimental_design_problem",
