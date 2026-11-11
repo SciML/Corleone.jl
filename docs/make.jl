@@ -55,8 +55,6 @@ makedocs(
             ],
             "Parameter Estimation" => [
                 "Lotka–Volterra Universal Differential Equation" => "examples/lotka_volterra_universal_differential_equation.md",
-                "Robertson DAE" => "examples/rober_dae_parameter_estimation.md",
-                "Multiple Shooting with Controls" => "examples/multiple_shooting_parameter_estimation.md",
             ],
             "Optimal Experimental Design" => [
                 "Continuous Lotka–Volterra Design" => "examples/the_lotka_volterra_optimal_experimental_design_problem.md",
