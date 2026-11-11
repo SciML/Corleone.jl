@@ -43,6 +43,16 @@ end
     end
 end
 
+@testset "Failed segments preserve the shared save grid" begin
+    problem = ODEProblem((u, p, t) -> p, [1.0], (0.0, 1.0), [0.05]; maxiters = 0, verbose = false)
+    layer = ShootingLayer(problem, Tsit5(), Tunable(1) => [0.5])
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    saveat = collect(0.0:0.25:1.0)
+    trajectory, _ = layer(nothing, ps, merge(st, (; saveat)))
+    @test trajectory.t == saveat
+    @test trajectory.u == fill([1.0], length(saveat))
+end
+
 @testset "DAE state handoff without saved derivative history" begin
     function dae_residual!(res, du, u, p, t)
         res[1] = du[1] + p[1] * u[1]
