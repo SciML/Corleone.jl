@@ -65,16 +65,22 @@ function (layer::ExperimentPrediction)(::Any, ps, st)
 end
 
 function optimization_prediction(layer::ExperimentPrediction, ps, st, grid)
-    return experiment_prediction(layer.layer, layer.shooting, layer.data, experiment_parameters(layer, ps), st, grid)
+    return experiment_prediction(layer.layer, layer, ps, st, grid)
 end
-function experiment_prediction(owner::Experiments, shooting, data, ps, st, grid)
-    trajectories, _ = shooting(owner, ps, merge(st, (; saveat = grid)))
-    return NamedTuple{keys(data)}(Tuple(trajectories))
-end
-function experiment_prediction(owner::ShootingLayer, shooting, data, ps, st, grid)
+function experiment_prediction(owner::Experiments, layer, ps, st, grid)
     state = merge(st, (; saveat = grid))
-    return map(data) do experiment
-        first(shooting(experiment, ps, state))
+    if isnothing(layer.evaluation)
+        trajectories, _ = layer.shooting(owner, ps, state)
+    else
+        trajectories, _ = layer.evaluation(owner, ps, (; shooting = state, evaluation = (;)))
+    end
+    return NamedTuple{keys(layer.data)}(Tuple(trajectories))
+end
+function experiment_prediction(owner::ShootingLayer, layer, ps, st, grid)
+    state = merge(st, (; saveat = grid))
+    parameters = experiment_parameters(layer, ps)
+    return map(layer.data) do experiment
+        first(layer.shooting(experiment, parameters, state))
     end
 end
 

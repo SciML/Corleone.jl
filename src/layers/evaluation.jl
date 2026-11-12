@@ -16,6 +16,11 @@ The parameters are stored in `ps.evaluation` and the shooting layer receives
 `ps.shooting`. Names must be distinct from shooting signals. Additional
 parameters are continuous and unbounded.
 
+Call `layer(experiments, ps, st)` to run an [`Experiments`](@ref) batch.
+Set `ps.shooting` and `st.shooting` to the results of Lux setup on
+`experiments`. The call returns the batch trajectories and the updated
+wrapper state. Observation parameters stay in `ps.evaluation`.
+
 The prepared problem's `layer.sparsity` stores the packed constraint Jacobian
 and Lagrangian Hessian patterns as `jacobian` and `hessian`. For ODE shooting,
 preparation fills this snapshot when the default vectorizer is loaded. Otherwise
@@ -61,6 +66,11 @@ LuxCore.statelength(layer::EvaluationLayer) = LuxCore.statelength(layer.shooting
 function (layer::EvaluationLayer)(x, ps, st)
     traj, shooting = LuxCore.apply(layer.shooting, x, ps.shooting, st.shooting)
     return traj, (; shooting, evaluation = st.evaluation)
+end
+
+function (layer::EvaluationLayer)(experiments::Experiments, ps, st)
+    trajectories, shooting = layer.shooting(experiments, ps.shooting, st.shooting)
+    return trajectories, (; shooting, evaluation = st.evaluation)
 end
 
 for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)

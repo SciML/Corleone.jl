@@ -214,8 +214,9 @@ end
 # The `#` prefix cannot be written as an ordinary user identifier.
 const EXPRESSION_SAMPLES_ARGUMENT = Symbol("##corleone_samples")
 
-struct ObservationExpression{F}
+struct ObservationExpression{F, D}
     f::F
+    dependencies::D
 end
 
 (expression::ObservationExpression)(u, p, t, evaluation = ()) =
@@ -245,7 +246,10 @@ function compile_observation_expression(expression, sys, times, layer, eval_modu
         throw(ArgumentError("Observation expressions use current-time signal names; sampling times belong in the observation grid."))
     input = EXPRESSION_SAMPLES_ARGUMENT
     body = Base.remove_linenums!(replace_expression_samples(expression, indices, times, input))
-    return ObservationExpression(compile_evaluator(evaluator, Expr(:->, input, body), eval_module))
+    return ObservationExpression(
+        compile_evaluator(evaluator, Expr(:->, input, body), eval_module),
+        expression_dependencies(expression, indices, times)
+    )
 end
 @non_differentiable compile_observation_expression(::Any, ::Any, ::Any, ::Any, ::Any, ::Any)
 

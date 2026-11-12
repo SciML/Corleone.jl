@@ -4,7 +4,8 @@ using Reexport: @reexport
 @reexport using Corleone
 import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajectory_objective,
     get_number_of_shooting_constraints, n_observations, optimization_matching,
-    optimization_matching!, optimization_prediction, optimization_schedule, residual, log_prior, parameter_collections
+    optimization_matching!, optimization_prediction, optimization_schedule, residual, log_prior, parameter_collections,
+    optimization_dependency_rows
 using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, EvaluationLayer,
     default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
     pack, shooting_constraints,
@@ -12,7 +13,9 @@ using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experimen
     experiment_fields, expression_sample_grid,
     expression_symbol_indices, get_saveat, observation_residual, observation_symbol_indices, optimization_times,
     optimization_trajectory, prepare_constraint_bounds, prepare_dynamic_opt_problem,
-    sample_indices, scalar_objective, state_index
+    sample_indices, scalar_objective, state_index, check_optimization_schedule, dependency_pattern,
+    experiment_shooting, ObservationExpression, ParsedTrajectoryExpression, prepare_experiment,
+    shooting_dependency_context, sparsity_indices, trajectory_constraint_dependencies
 using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete
@@ -30,6 +33,8 @@ using SciMLBase: SciMLBase
 using SymbolicIndexingInterface: symbolic_container
 
 include("experiment_problem.jl")
+include("experiment_sparsity.jl")
+export residual_jacobian_sparsity
 include("problem.jl")
 include("statistics.jl")
 export ParameterEstimate, mean_squared_residual

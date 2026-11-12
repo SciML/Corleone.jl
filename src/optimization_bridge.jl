@@ -157,8 +157,8 @@ expressions such as `:(identity(u₁))` or `:(u₁ .- 0.5 .* p₂)` (see
 dependencies of saved sample `k`, plus any timed signals. A saved sample depends on
 the values starting its segment, the active parameters and the controls applied
 before it; both sides of a saved reset are kept apart. Other vector-valued
-expressions use their combined dependencies. Arbitrary callback rows are dense.
-Shooting rows
+expressions use their combined dependencies. Arbitrary callback rows are dense
+over the parameters they can access. Shooting rows
 propagate all state dependencies within each integration segment, replace them
 at scheduled resets, and include active tunable parameters. Fixed resets erase
 state dependencies; partial resets retain dependencies of the other states.
@@ -186,7 +186,10 @@ function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
 end
 
 function constraint_pattern(dependencies, nrows, ncolumns)
-    all_rows = vcat(dependencies.user, dependencies.matching)
+    return dependency_pattern(vcat(dependencies.user, dependencies.matching), nrows, ncolumns)
+end
+
+function dependency_pattern(all_rows, nrows, ncolumns)
     rows, columns = Int[], Int[]
     entries = sum(length, all_rows; init = 0)
     sizehint!(rows, entries)
@@ -209,16 +212,29 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     layer, ids, state = shooting_components(prob.layer, packed_ids, prepared_state)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
     evaluation_ids = evaluation_parameters(prob.layer, packed_ids)
-    state_reads = false
-    series_reads = false
     times = prob.times
-    state_times = eltype(times)[]
     # Builtin field access keeps the heterogeneous constraint tuple from
     # specializing setup code (and its closures) on each expression type.
     constraints = prob.constraints
     functions = Any[getfield(getfield(constraints, i), :f) for i in 1:nfields(constraints)]
     lengths = Int[getfield(getfield(constraints, i), :n) for i in 1:nfields(constraints)]
     inspected = hessian ? vcat(functions, Any[prob.objective]) : functions
+    dependencies, resolve = shooting_dependency_context(layer, ids, state, times, evaluation_ids, inspected; hessian)
+    length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
+    user_rows = BitSet[]
+    for (f, n) in zip(functions, lengths)
+        append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
+    end
+    objective = hessian ? trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times)) : BitSet[]
+    return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
+end
+
+# Saved-index reads may distinguish the two sides of a reset. Include the
+# history as a conservative fallback when the saved grid cannot be walked.
+function shooting_dependency_context(layer, ids, state, times, evaluation_ids, inspected; hessian = false, saved_samples = false)
+    state_reads = saved_samples
+    series_reads = saved_samples
+    state_times = eltype(times)[]
     for f in inspected
         f isa ParsedTrajectoryExpression || continue
         for (kind, index, time) in f.dependencies
@@ -232,7 +248,6 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
         layer, ids, state; sample_times = state_reads ? state_times : nothing,
         series_times = series_reads ? times : nothing, hessian
     )
-    length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
     parameter_layer = layer.parameter
     parameter_locations = parameter_signal_locations(parameter_layer, state.parameter)
     parameter_samples = Dict{Tuple{Int, Real}, BitSet}()
@@ -245,6 +260,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
             # A series read at one saved sample is a timed read at that sample.
             sampled = isnothing(time) && !isnothing(sample)
             time = sampled ? times[sample] : time
+            kind === :time && continue
             if kind === :evaluation
                 push!(columns, evaluation_ids[index])
             elseif kind === :states
@@ -271,12 +287,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
         end
         columns
     end
-    user_rows = BitSet[]
-    for (f, n) in zip(functions, lengths)
-        append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
-    end
-    objective = hessian ? only(trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times))) : BitSet()
-    return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
+    return dependencies, resolve
 end
 
 function check_sparse_constraint_keywords(enabled, kwargs)
@@ -302,12 +313,14 @@ The pattern is independent of the current objective factor and multipliers.
 Parsed expressions (including lowered MTK expressions) conservatively couple all
 parameter columns on which each output depends. This covers general nonlinear
 operations and curvature introduced by the ODE solution without differentiating
-expression syntax. Unknown callbacks conservatively couple all columns.
+expression syntax. Unknown callbacks conservatively couple accessible columns.
 This is a structural superset, not symbolic second differentiation.
-State matching rows use their incoming solution dependencies; the assigned lifted
-value is affine. Parameter matching equalities are affine and add no entries.
+State matching rows include curvature from the incoming solution and from
+nonlinear transforms on assigned values. Parameter matching equalities are affine
+and add no entries.
 
-Supports prepared ODE ShootingLayer models. Rebuild after schedule or layout
+Supports prepared ODE shooting models, including experiment fits via CorleoneInverse.
+Rebuild after schedule or layout
 changes. Load OptimizationBase to obtain its canonical upper-triangle coordinates
 with `OptimizationBase.lag_hess_structure(prob; vectorize, ps, st)`.
 This helper supplies structure only. Use `sparse_hessian=true` when constructing
@@ -330,7 +343,7 @@ function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
 end
 
 function lagrangian_pattern(dependencies, ncolumns)
-    cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
+    cliques = unique(vcat(dependencies.objective, dependencies.user, dependencies.matching_hessian))
     columns = [BitSet() for _ in 1:ncolumns]
     for clique in cliques, column in clique
         union!(columns[column], clique)

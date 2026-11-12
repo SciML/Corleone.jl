@@ -6,6 +6,7 @@ Observations, experiments, predictions, and residuals are documented in the
 ```@docs
 ParameterEstimate
 mean_squared_residual
+residual_jacobian_sparsity
 CorleoneDynamicOptProblem(::ShootingLayer, ::CorleoneInverse.Experiments, ::Vararg{Any})
 CorleoneInverse.SciMLBase.NonlinearLeastSquaresProblem(::CorleoneInverse.ExperimentDynamicOptProblem)
 CorleoneInverse.SciMLBase.NonlinearLeastSquaresProblem(::ShootingLayer, ::CorleoneInverse.Experiments, ::Any, ::Any)

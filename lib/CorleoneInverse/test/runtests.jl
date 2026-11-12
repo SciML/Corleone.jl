@@ -18,6 +18,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Experiment dynamic optimization problems" begin
                 include("core/experiment_model.jl")
             end
+            @safetestset "Experiment sparsity" begin
+                include("core/experiment_sparsity.jl")
+            end
             @safetestset "Experiment layers" begin
                 include("core/experiment_layers.jl")
             end

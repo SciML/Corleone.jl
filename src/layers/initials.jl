@@ -283,7 +283,10 @@ function reset_dependency!(dependencies, rows, layer::InitialCondition, ids, st,
             column = Int(parameter.ps[position])
             if matching
                 rows[i] = union(dependencies[i], BitSet([column]))
-                isnothing(hessian_rows) || (hessian_rows[i] = dependencies[i])
+                if !isnothing(hessian_rows)
+                    affine = collection isa ParameterCollection && collection.transform isa BoundedTransform
+                    hessian_rows[i] = affine ? dependencies[i] : rows[i]
+                end
             end
             dependencies[i] = BitSet([column])
         end
