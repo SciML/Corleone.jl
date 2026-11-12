@@ -173,17 +173,19 @@ function constraint_jacobian_sparsity(
         @nospecialize(prob::CorleoneDynamicOptProblem); vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st
     )
-    prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
     initial, reconstruct = pack(vectorize, ps)
     return constraint_sparsity(prob, initial, reconstruct, st)
 end
 
 function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
-    prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
-    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
-    prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
-    isempty(prob.lcons) && return spzeros(Bool, 0, length(initial))
+    if prob.layer isa EvaluationLayer && isnothing(prob.layer.sparsity)
+        return copy(prepare_evaluation_sparsity!(prob, initial, reconstruct, st).jacobian)
+    end
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st)
+    return constraint_pattern(dependencies, length(prob.lcons), length(initial))
+end
+
+function constraint_pattern(dependencies, nrows, ncolumns)
     all_rows = vcat(dependencies.user, dependencies.matching)
     rows, columns = Int[], Int[]
     entries = sum(length, all_rows; init = 0)
@@ -193,18 +195,20 @@ function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
         push!(rows, i)
         push!(columns, column)
     end
-    return sparse(rows, columns, trues(length(rows)), length(prob.lcons), length(initial))
+    return sparse(rows, columns, trues(length(rows)), nrows, ncolumns)
 end
 
 # Shared setup-time signal resolution for Jacobian and Hessian patterns.
 # Structural setup does not specialize on the problem type: each distinct set of
 # compiled expressions would otherwise recompile this whole analysis.
 function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct, st; hessian = false)
-    prob.layer isa ShootingLayer || throw(ArgumentError("Structural derivatives currently require a ShootingLayer."))
+    prob.layer isa Union{ShootingLayer, EvaluationLayer} || throw(ArgumentError("Structural derivatives currently require a shooting layer."))
     check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
-    prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
-    ids = sparsity_indices(reconstruct(collect(1:length(initial))))
-    state = optimization_state(prob.layer, st, prob.evaluation_grid)
+    packed_ids = sparsity_indices(reconstruct(collect(1:length(initial))))
+    prepared_state = optimization_state(prob.layer, st, prob.evaluation_grid)
+    layer, ids, state = shooting_components(prob.layer, packed_ids, prepared_state)
+    layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
+    evaluation_ids = evaluation_parameters(prob.layer, packed_ids)
     state_reads = false
     series_reads = false
     times = prob.times
@@ -225,11 +229,11 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     end
     sort!(unique!(state_times))
     dependencies = shooting_constraint_dependencies(
-        prob.layer, ids, state; sample_times = state_reads ? state_times : nothing,
+        layer, ids, state; sample_times = state_reads ? state_times : nothing,
         series_times = series_reads ? times : nothing, hessian
     )
     length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
-    parameter_layer = prob.layer.parameter
+    parameter_layer = layer.parameter
     parameter_locations = parameter_signal_locations(parameter_layer, state.parameter)
     parameter_samples = Dict{Tuple{Int, Real}, BitSet}()
     parameter_series = Dict{Int, BitSet}()
@@ -241,7 +245,9 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
             # A series read at one saved sample is a timed read at that sample.
             sampled = isnothing(time) && !isnothing(sample)
             time = sampled ? times[sample] : time
-            if kind === :states
+            if kind === :evaluation
+                push!(columns, evaluation_ids[index])
+            elseif kind === :states
                 values = if sampled
                     isnothing(state_samples) ? dependencies.state_series : state_samples[sample]
                 else
@@ -316,13 +322,20 @@ function lagrangian_hessian_sparsity(
 end
 
 function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
+    if prob.layer isa EvaluationLayer && isnothing(prob.layer.sparsity)
+        return copy(prepare_evaluation_sparsity!(prob, initial, reconstruct, st).hessian)
+    end
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
+    return lagrangian_pattern(dependencies, length(initial))
+end
+
+function lagrangian_pattern(dependencies, ncolumns)
     cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
-    columns = [BitSet() for _ in eachindex(initial)]
+    columns = [BitSet() for _ in 1:ncolumns]
     for clique in cliques, column in clique
         union!(columns[column], clique)
     end
-    colptr = Vector{Int}(undef, length(initial) + 1)
+    colptr = Vector{Int}(undef, ncolumns + 1)
     rows = Int[]
     sizehint!(rows, sum(length, columns; init = 0))
     for (j, indices) in enumerate(columns)
@@ -330,7 +343,28 @@ function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
         append!(rows, indices)
     end
     colptr[end] = length(rows) + 1
-    return SparseMatrixCSC(length(initial), length(initial), colptr, rows, fill(true, length(rows)))
+    return SparseMatrixCSC(ncolumns, ncolumns, colptr, rows, fill(true, length(rows)))
+end
+
+function initialize_evaluation_sparsity!(prob)
+    prob.layer.shooting.problem isa SciMLBase.AbstractODEProblem || return nothing
+    isnothing(Base.get_extension(@__MODULE__, :CorleoneComponentArraysExtension)) && return nothing
+    vectorize = default_vectorizer()
+    applicable(pack, vectorize, prob.ps) || return nothing
+    initial, reconstruct = pack(vectorize, prob.ps)
+    prepare_evaluation_sparsity!(prob, initial, reconstruct, prob.st)
+    return nothing
+end
+
+function prepare_evaluation_sparsity!(prob, initial, reconstruct, st)
+    dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
+    ncolumns = length(initial)
+    patterns = EvaluationSparsity(
+        constraint_pattern(dependencies, length(prob.lcons), ncolumns),
+        lagrangian_pattern(dependencies, ncolumns)
+    )
+    prob.layer.sparsity = patterns
+    return patterns
 end
 
 function check_sparse_hessian_keywords(enabled, kwargs)

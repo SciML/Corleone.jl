@@ -146,6 +146,7 @@ shooting_constraints!
 
 ```@docs
 CorleoneDynamicOptProblem
+EvaluationLayer
 optimization_objective
 optimization_constraints
 optimization_constraints!

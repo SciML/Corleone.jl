@@ -107,6 +107,7 @@ function collect_expression_times!(timepoints, expr::Expr, indices)
     if expr.head === :call
         op = first(expr.args)
         if op isa Symbol && haskey(indices, op)
+            first(indices[op]) === :evaluation && throw(ArgumentError("Evaluation parameter $op is scalar. Use $op without a time argument."))
             length(expr.args) == 2 || throw(ArgumentError("A signal call must have exactly one time argument: $expr."))
             push!(get!(timepoints, op, Real[]), expression_time(expr.args[2]))
             return timepoints
@@ -118,7 +119,7 @@ function collect_expression_times!(timepoints, expr::Expr, indices)
     return timepoints
 end
 function collect_expression_times!(timepoints, sym::Symbol, indices)
-    haskey(indices, sym) && get!(timepoints, sym, Real[])
+    haskey(indices, sym) && first(indices[sym]) !== :evaluation && get!(timepoints, sym, Real[])
     return timepoints
 end
 collect_expression_times!(timepoints, x, indices) = timepoints
@@ -177,11 +178,12 @@ struct ParsedTrajectoryExpression{F, D, C}
 end
 ParsedTrajectoryExpression(f, dependencies, components) =
     ParsedTrajectoryExpression(f, dependencies, components, false)
-function (expression::ParsedTrajectoryExpression)(traj)
+function (expression::ParsedTrajectoryExpression)(traj, evaluation = ())
     return expression.f(
         (;
             states = ExpressionSamples{typeof(traj), :states}(traj),
             parameters = ExpressionSamples{typeof(traj), :parameters}(traj),
+            evaluation,
         )
     )
 end
@@ -250,7 +252,10 @@ dependencies in every row. Row sparsity is additionally applied only when the
 output length equals the number of saved samples.
 """
 function elementwise_series_expression(expr, indices)
-    expr isa Symbol && return haskey(indices, expr) ? :series : nothing
+    if expr isa Symbol
+        haskey(indices, expr) || return nothing
+        return first(indices[expr]) === :evaluation ? :scalar : :series
+    end
     expr isa Expr || return expr isa Union{Number, AbstractArray{<:Number}} ? :scalar : nothing
     if expr.head === :call
         op = first(expr.args)
@@ -293,8 +298,8 @@ function trajectory_constraint_dependencies(@nospecialize(f::ParsedTrajectoryExp
         return map(signals -> resolve(signals, nothing), f.components)
     end
     if f.elementwise && n == nsamples
-        timed = filter(signal -> !isnothing(signal[3]), f.dependencies)
-        series = filter(signal -> isnothing(signal[3]), f.dependencies)
+        series = filter(signal -> signal[1] !== :evaluation && isnothing(signal[3]), f.dependencies)
+        timed = filter(signal -> signal[1] === :evaluation || !isnothing(signal[3]), f.dependencies)
         shared = resolve(timed, nothing)
         return [union(shared, resolve(series, k)) for k in 1:n]
     end

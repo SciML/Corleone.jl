@@ -67,6 +67,8 @@ export Stages
 
 include("optimization_expressions.jl")
 export default_evaluator, compile_evaluator
+include("layers/evaluation.jl")
+export EvaluationLayer
 include("dynprob.jl")
 export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
 include("optimization_bridge.jl")
