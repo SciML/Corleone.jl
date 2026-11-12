@@ -2,9 +2,9 @@
 $(TYPEDEF)
 
 Measurements `y` of one observed quantity at the sorted, unique times `t`. The
-`selector` is a state symbol or index, or a map `(u, p, t) -> y` returning a scalar.
-Scalar Julia expressions such as `:(p₁ * u₁)` are compiled during
-[`CorleoneDynamicOptProblem`](@ref) preparation, with each observation's sampling grid.
+`selector` is a state symbol or index, a map `(u, p, t) -> y` returning a scalar,
+or a scalar Julia expression such as `:(p₁ * u₁)`. Expressions use state and
+parameter values at each observation time. Prepared fits compile them once.
 The noise scale `σ` is `nothing` (unweighted residuals), a scalar, or a vector
 matching `y`.
 
@@ -138,24 +138,42 @@ $(SIGNATURES)
 
 Return the observation residuals `(y - ŷ) / σ` of `experiment` for its predicted
 trajectory, concatenated over its observations. At a reset time, the incoming state
-is observed.
+is observed. For expressions, `eval_module` supplies custom functions and
+constants and `evaluator` selects the compilation strategy.
 """
-function residual(experiment::Experiment, traj)
-    return reduce(vcat, map(observation -> residual(observation, traj), experiment.observations))
+function residual(experiment::Experiment, traj; eval_module::Module = @__MODULE__, evaluator = default_evaluator())
+    return residual_from_samples(nothing, experiment, traj, (), eval_module, evaluator)
 end
 
-residual(observation::Observation, traj) = observation_residual(observation, traj, sample_indices(traj.t, observation.t))
+function residual(observation::Observation, traj; eval_module::Module = @__MODULE__, evaluator = default_evaluator())
+    return residual_from_samples(nothing, observation, traj, (), eval_module, evaluator)
+end
 
-function observation_residual(observation, traj, indices)
-    prediction = map(k -> observe(observation.selector, traj, k), indices)
+function residual_from_samples(layer, experiment::Experiment, traj, values, eval_module, evaluator)
+    return reduce(vcat, map(experiment.observations) do observation
+        residual_from_samples(layer, observation, traj, values, eval_module, evaluator)
+    end)
+end
+
+function residual_from_samples(layer, observation::Observation, traj, values, eval_module, evaluator)
+    indices = sample_indices(traj.t, observation.t)
+    all(!isnothing, indices) || throw(ArgumentError("Every observation time must be saved in its trajectory."))
+    selector = observation.selector
+    if selector isa Expr
+        selector = compile_observation_expression(selector, SymbolicIndexingInterface.symbolic_container(traj), traj.t, layer, eval_module, evaluator)
+    end
+    return observation_residual(observation, traj, indices, values, selector)
+end
+
+function observation_residual(observation, traj, indices, values = (), selector = observation.selector)
+    prediction = map(k -> observe(selector, traj, k, values), indices)
     return weighted(observation.σ, observation.y .- prediction)
 end
 
 weighted(::Nothing, r) = r
 weighted(σ, r) = r ./ σ
 
-observe(::Expr, traj, k) = throw(ArgumentError("Load CorleoneInverse and prepare symbolic observations with CorleoneDynamicOptProblem before evaluating residuals."))
-
+observe(selector, traj, k, values) = observe(selector, traj, k)
 function observe(selector, traj, k)
     t = traj.t[k]
     return selector(traj.u[k], SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t), t)

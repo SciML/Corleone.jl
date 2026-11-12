@@ -4,6 +4,41 @@ using SciMLBase
 using DiffEqBase: SensitivityADPassThrough
 using Distributions: Normal, logpdf
 
+@testset "Observation expressions with shared fitted parameters" begin
+    problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 1.0), [2.0])
+    shooting = ShootingLayer(problem, Tsit5(), Tunable(1; default = 2.0) => nothing)
+    t = [0.25, 0.5, 0.75]
+    data = Experiment(:(u₁^2 - w + p₁ * t) => (t, zeros(3), 0.5))
+    ode_only = Experiment(:(u₁^2 - p₁ + t) => (t, zeros(3), 0.5))
+    state_data = Experiment(:u₁ => (t, zeros(3), 0.5))
+    for evaluator in (Val(:Eval), Val(:RuntimeGeneratedFunctions))
+        model = CorleoneDynamicOptProblem(shooting, (a = data, b = data); observation_parameters = (w = 0.5,), evaluator)
+        @test model.ps.evaluation == (w = 0.5,)
+        @test model.layer.evaluation isa EvaluationLayer
+        @test LuxCore.setup(Random.default_rng(), model.layer)[1] == model.ps
+        trajectory = Corleone.optimization_trajectory(model, model.ps, model.st).a
+        q, reconstruct = pack(default_vectorizer(), model.ps)
+        expected(q) = repeat(-2 .* ((1 .+ q[1] .* t).^2 .- q[2] .+ q[1] .* t), 2)
+        @test q == [2.0, 0.5]
+        @test residual(model) ≈ expected(q)
+        @test residual(model.layer.evaluation, data, trajectory, model.ps.evaluation; evaluator) ≈ expected(q)[1:3]
+        @test residual(model.layer.evaluation, data, trajectory, (w = 1.0,); evaluator) ≈ expected(q)[1:3] .+ 1
+        @test residual(ode_only, trajectory; evaluator) ≈ -2 .* ((1 .+ 2 .* t).^2 .- 2 .+ t)
+        @test residual(state_data, trajectory) ≈ -2 .* (1 .+ 2 .* t)
+        @test_throws ArgumentError residual(model.layer.evaluation, data, trajectory, (;))
+        @test_throws ArgumentError residual(Experiment(:(u₁^2) => ([0.1], [0.0])), trajectory)
+        @test ForwardDiff.jacobian(q -> residual(model, reconstruct(q)), q) ≈ ForwardDiff.jacobian(expected, q)
+        @test optimization_objective(model) ≈ sum(abs2, expected(q)) / 6
+        ls = SciMLBase.NonlinearLeastSquaresProblem(model)
+        @test ls.f(ls.u0, ls.p) ≈ expected(q)
+        opt = SciMLBase.OptimizationProblem(model, SciMLBase.ADTypes.AutoForwardDiff())
+        @test opt.lb[2] == -Inf && opt.ub[2] == Inf
+        @test ParameterEstimate(model, q).x ≈ q
+    end
+    @test_throws ArgumentError CorleoneDynamicOptProblem(shooting, data; observation_parameters = (p₁ = 1.0,))
+    @test_throws ArgumentError CorleoneDynamicOptProblem(shooting, data; observation_parameters = (t = 1.0,))
+end
+
 @testset "Symbolic measurements share the dynamic optimization interface" begin
     function dynamics!(du, u, p, t)
         du[1] = p[1] + p[2]

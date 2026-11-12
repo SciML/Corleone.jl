@@ -67,22 +67,37 @@ for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
     @eval function $operation(layer::EvaluationLayer, ps, st = nothing)
         shooting = $operation(layer.shooting, ps.shooting, bound_child_state(st, :shooting))
         evaluation = $operation(nothing, ps.evaluation)
-        bounds = (; shooting, evaluation)
-        names = optimization_parameter_names(ps, keys(bounds))
-        return NamedTuple{names}(map(name -> getproperty(bounds, name), names))
+        return evaluation_parameter_tree(ps, shooting, evaluation)
     end
 end
 
+function evaluation_parameter_tree(ps, shooting, evaluation)
+    parts = (; shooting, evaluation)
+    names = optimization_parameter_names(ps, keys(parts))
+    return NamedTuple{names}(map(name -> getproperty(parts, name), names))
+end
+
 function expression_symbol_indices(layer::EvaluationLayer)
-    indices = expression_symbol_indices(layer.shooting)
+    return add_evaluation_symbols!(expression_symbol_indices(layer.shooting), layer)
+end
+
+add_evaluation_symbols!(indices, ::Nothing) = indices
+function add_evaluation_symbols!(indices, layer::EvaluationLayer)
     for (i, name) in enumerate(keys(layer.evaluation))
+        haskey(indices, name) && throw(ArgumentError("Evaluation parameter $name duplicates a shooting signal."))
         indices[name] = (:evaluation, i)
     end
     return indices
 end
 
 evaluation_parameters(layer, ps) = ()
-evaluation_parameters(layer::EvaluationLayer, ps) = map(name -> getproperty(ps.evaluation, name), keys(layer.evaluation))
+evaluation_parameters(layer::EvaluationLayer, ps) = evaluation_values(layer, ps.evaluation)
+function evaluation_values(layer::EvaluationLayer, values)
+    return map(keys(layer.evaluation)) do name
+        hasproperty(values, name) || throw(ArgumentError("Missing evaluation parameter $name."))
+        getproperty(values, name)
+    end
+end
 is_evaluation_parameter(layer, name) = layer isa EvaluationLayer && name isa Symbol && haskey(layer.evaluation, name)
 
 optimization_grid(layer::EvaluationLayer, st, timepoints) = optimization_grid(layer.shooting, st.shooting, timepoints)
@@ -95,3 +110,16 @@ trajectory_objective(layer::EvaluationLayer, loss) = trajectory_objective(layer.
 
 shooting_components(layer, ps, st) = (layer, ps, st)
 shooting_components(layer::EvaluationLayer, ps, st) = (layer.shooting, ps.shooting, st.shooting)
+
+"""
+    residual(layer::EvaluationLayer, experiment::Experiment, trajectory, parameters; eval_module, evaluator)
+
+Evaluate observations against saved samples. Pass the current named values
+from `ps.evaluation` for observation-only parameters.
+"""
+function residual(
+        layer::EvaluationLayer, experiment::Experiment, trajectory, parameters;
+        eval_module::Module = @__MODULE__, evaluator = default_evaluator()
+    )
+    return residual_from_samples(layer, experiment, trajectory, evaluation_values(layer, parameters), eval_module, evaluator)
+end

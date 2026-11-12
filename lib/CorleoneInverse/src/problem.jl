@@ -70,9 +70,9 @@ This convenience form retains the parameter layout of `ps` and `st`.
 function SciMLBase.NonlinearLeastSquaresProblem(
         shooting::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, ps, st;
         vectorize = default_vectorizer(), eval_module::Module = Corleone,
-        evaluator = Corleone.default_evaluator(), kwargs...
+        evaluator = Corleone.default_evaluator(), observation_parameters::NamedTuple = (;), kwargs...
     )
-    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator)
+    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator, observation_parameters)
     return SciMLBase.NonlinearLeastSquaresProblem(model; vectorize, kwargs...)
 end
 
@@ -87,9 +87,9 @@ user constraints can be declared with `CorleoneDynamicOptProblem` directly.
 function SciMLBase.OptimizationProblem(
         shooting::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, ps, st, ad::AbstractADType;
         vectorize = default_vectorizer(), eval_module::Module = Corleone,
-        evaluator = Corleone.default_evaluator(), reducer = mean, kwargs...
+        evaluator = Corleone.default_evaluator(), reducer = mean, observation_parameters::NamedTuple = (;), kwargs...
     )
-    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator, reducer)
+    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator, reducer, observation_parameters)
     return SciMLBase.OptimizationProblem(model, ad; vectorize, kwargs...)
 end
 
@@ -99,7 +99,10 @@ function appended_experiment_model(model, experiment, u0, ps, st, vectorize, rng
     owner isa Experiments || throw(ArgumentError("Use an Experiments layer to append to an inverse model."))
     initial, reconstruct = pack(vectorize, ps)
     length(u0) == length(initial) || throw(DimensionMismatch("The warm start must match the existing model's packed layout."))
-    next = append_experiment(owner, reconstruct(u0), st, experiment; rng)
+    fitted = reconstruct(u0)
+    observation_parameters = isnothing(prediction.evaluation) ? (;) :
+        NamedTuple{keys(prediction.evaluation.evaluation)}(evaluation_parameters(prediction.evaluation, fitted))
+    next = append_experiment(owner, experiment_parameters(prediction, fitted), st, experiment; rng)
     definition = prediction.definition
     constraints = map(definition.constraints) do constraint
         # An untagged symbolic constraint originally selected the sole experiment.
@@ -108,7 +111,7 @@ function appended_experiment_model(model, experiment, u0, ps, st, vectorize, rng
     return CorleoneDynamicOptProblem(
         prediction.shooting, next.layer, constraints...;
         next.ps, next.st, definition.lcons, definition.ucons,
-        definition.eval_module, definition.evaluator, model.objective.reducer
+        definition.eval_module, definition.evaluator, model.objective.reducer, observation_parameters
     )
 end
 

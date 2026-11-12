@@ -84,6 +84,27 @@ sampling grid and noise scale, for example
 observations = Experiment(:(p₁ * u₁ + t) => (times, values, 0.1))
 ```
 
+An observation expression can also use shared trainables that belong to the
+observation model. Declare their initial values with `observation_parameters`.
+The names must differ from the state, ODE parameter, and time names.
+
+```julia
+observations = Experiment(:(u₁^2 - w) => (times, values, 0.1))
+model = CorleoneDynamicOptProblem(
+    shooting, observations; observation_parameters = (w = 0.5,),
+)
+ps = model.ps
+trajectory, _ = shooting(observations, ps.shooting, model.st)
+residual(model.layer.evaluation, observations, trajectory, ps.evaluation)
+```
+
+The fit packs the shooting values and observation values together. The ODE
+receives `ps.shooting`, and all experiments in the fit share `ps.evaluation`.
+Pass the current or fitted `ps.evaluation` values to evaluate against a saved
+trajectory. Expressions that read only trajectory values also work with
+`residual(observations, trajectory)`. The direct residual methods accept
+`eval_module` and `evaluator` when expressions use custom helpers.
+
 Tagged constraints select an experiment, and timed signal calls request their
 sampling points during preparation. Callbacks receive the collection of
 trajectories and can couple experiments. Ordinary `lcons`/`ucons` bounds apply,

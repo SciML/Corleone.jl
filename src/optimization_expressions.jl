@@ -74,16 +74,18 @@ Base.getindex(samples::ExpressionSamples, j::Int) =
 expression_symbol_name(sym::Symbol) = sym
 expression_symbol_name(sym) = throw(ArgumentError("Expression parsing is not implemented for $(typeof(sym))."))
 
-function expression_symbol_indices(layer)
+expression_symbol_indices(layer) = signal_symbol_indices(layer.sys)
+
+function signal_symbol_indices(sys)
     indices = Dict{Symbol, Tuple{Symbol, Int}}()
     for (kind, symbols, indexof) in (
-            (:states, variable_symbols(layer.sys), variable_index),
-            (:parameters, parameter_symbols(layer.sys), parameter_index),
+            (:states, variable_symbols(sys), variable_index),
+            (:parameters, parameter_symbols(sys), parameter_index),
         )
         for sym in symbols
             name = expression_symbol_name(sym)
             haskey(indices, name) && throw(ArgumentError("State and parameter names must be distinct in timed expressions."))
-            indices[name] = (kind, indexof(layer.sys, sym))
+            indices[name] = (kind, indexof(sys, sym))
         end
     end
     return indices
@@ -211,6 +213,41 @@ end
 # rebuilt problems reuse derivative preparation and other specialized code.
 # The `#` prefix cannot be written as an ordinary user identifier.
 const EXPRESSION_SAMPLES_ARGUMENT = Symbol("##corleone_samples")
+
+struct ObservationExpression{F}
+    f::F
+end
+
+(expression::ObservationExpression)(u, p, t, evaluation = ()) =
+    expression.f((; states = u, parameters = p, time = (t,), evaluation))
+
+function observe(expression::ObservationExpression, traj, k, evaluation)
+    t = traj.t[k]
+    parameters = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t)
+    return expression(traj.u[k], parameters, t, evaluation)
+end
+
+function observation_symbol_indices(sys, layer)
+    indices = signal_symbol_indices(sys)
+    for symbol in independent_variable_symbols(sys)
+        name = expression_symbol_name(symbol)
+        haskey(indices, name) && throw(ArgumentError("Independent variables and signals must have distinct names."))
+        indices[name] = (:time, 1)
+    end
+    return add_evaluation_symbols!(indices, layer)
+end
+
+function compile_observation_expression(expression, sys, times, layer, eval_module, evaluator)
+    indices = observation_symbol_indices(sys, layer)
+    timepoints = Dict{Symbol, Vector{Real}}()
+    collect_expression_times!(timepoints, expression, indices)
+    all(isempty, values(timepoints)) ||
+        throw(ArgumentError("Observation expressions use current-time signal names; sampling times belong in the observation grid."))
+    input = EXPRESSION_SAMPLES_ARGUMENT
+    body = Base.remove_linenums!(replace_expression_samples(expression, indices, times, input))
+    return ObservationExpression(compile_evaluator(evaluator, Expr(:->, input, body), eval_module))
+end
+@non_differentiable compile_observation_expression(::Any, ::Any, ::Any, ::Any, ::Any, ::Any)
 
 function compile_trajectory_expression(expr::Union{Expr, Symbol}, indices, times, eval_module, evaluator)
     input = EXPRESSION_SAMPLES_ARGUMENT
