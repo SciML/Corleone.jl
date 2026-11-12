@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED")]); Pkg.instantiate()'
+julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/CorleoneInverse")]); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
@@ -23,7 +23,7 @@ using LiveServer
 servedocs(
     skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/inverse"],
     include_dirs = ["examples", "lib/CorleoneOED/examples",
-        "lib/CorleoneOED/docs/src",],
+        "lib/CorleoneOED/docs/src", "lib/CorleoneInverse/docs/src"],
 )
 '
 ```
@@ -77,11 +77,14 @@ Markdown. DemoCards stages the authoritative scripts and executes each tutorial
 once through Literate; Documenter includes its rendered output. Introductory
 guide examples and doctests execute through Documenter.
 
-The manual documents the checked-out Corleone, CorleoneOED modules. OED tutorials
+The manual documents the checked-out Corleone, CorleoneOED, and CorleoneInverse
+modules. OED tutorials
 are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
 generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
 `docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
 duplicates. The root site retains main's established OED tutorial URLs.
+CorleoneInverse's overview and API pages are generated from
+`lib/CorleoneInverse/docs/src/`; edit those sources rather than `docs/src/inverse/`.
 
 The generated manifest, tutorial Markdown and figures, and HTML output are
 ignored by Git. If a manifest from an older checkout references a removed local

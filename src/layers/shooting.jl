@@ -50,6 +50,7 @@ SymbolicIndexingInterface.symbolic_container(layer::ShootingLayer) = layer.sys
 
 # Retain effective annotation bounds, which would otherwise be discarded after
 # constructing the numerical sublayers. Explicit annotations override defaults.
+# Explicit transforms own their domain and leave the natural metadata unchanged.
 function shooting_metadata(problem, definitions, ic_defs; controls, quadratures, bounds)
     parent = ControlSymbolCache(problem)
     cache = ControlSymbolCache(
@@ -65,6 +66,7 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         has_lowerbound(annotation) || has_upperbound(annotation) || continue
         kind = i in ic_defs ? Val(:variable) : Val(:parameter)
         for scalar in scalar_annotations(annotation)
+            get_transform(scalar) isa BoundedTransform || continue
             resolved = update_annotation(set_kind(scalar, kind), cache)
             isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
             effective_bounds[get_sym(resolved)] = get_bounds(resolved)
@@ -122,13 +124,16 @@ cached grid after changing schedules, use
 `merge(st, (; timestops = get_timestops(layer, nothing, st)))`. Forward evaluation
 uses `st.timestops` directly rather than invoking this function.
 """
-function get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan))
+get_timestops(layer::ShootingLayer, ps, st, T = eltype(layer.problem.tspan)) =
+    shooting_timestops(layer.initialcondition, layer.parameter, layer.problem, st, T)
+
+function shooting_timestops(initialcondition, parameter, problem, st, T)
     tstops = vcat(
-        collect(T, layer.problem.tspan),
-        get_timestops(layer.initialcondition, nothing, st.initialcondition, T),
-        get_timestops(layer.parameter, nothing, st.parameter, T)
+        collect(T, problem.tspan),
+        get_timestops(initialcondition, nothing, st.initialcondition, T),
+        get_timestops(parameter, nothing, st.parameter, T)
     )
-    filter!(t -> first(layer.problem.tspan) <= t <= last(layer.problem.tspan), tstops)
+    filter!(t -> first(problem.tspan) <= t <= last(problem.tspan), tstops)
     sort!(tstops)
     return unique!(tstops)
 end
@@ -173,6 +178,8 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
 
 @inline function solve_problems(::EnsembleSerial, x::ShootingLayer, prob::SciMLBase.AbstractSciMLProblem, ps, st, tstops)
     t0, tinf = tstops[1:2]
+    saveat = get(st, :saveat, nothing)
+    save_options = isnothing(saveat) ? (;) : (; saveat)
     (u0, variable_residuals), st_ic = x.initialcondition(
         (prob.u0, t0), ps.initialcondition, st.initialcondition;
         matching = t0 != first(prob.tspan)
@@ -180,30 +187,55 @@ solve_problems(alg, ::ShootingLayer, prob, ps, st, tstops) = throw(ArgumentError
     p, st_p = x.parameter(t0, ps.parameter, st.parameter)
     # Put the effective inputs in the problem before solve dispatch so scalar-type
     # changes (e.g. Float64 to Dual) retain an inferable solution type.
-    segment = remake(prob; u0 = u0, p = p, tspan = (t0, tinf))
-    sol = pad_failed_segment!(solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true), t0, tinf)
+    tspan = sampling_tspan((t0, tinf), saveat)
+    segment = remake(prob; u0 = u0, p = p, tspan)
+    sol = solve(segment, x.alg; save_everystep = false, dense = false, save_start = true, save_end = true, save_options...)
+    sol = pad_failed_segment!(sol, t0, tinf, get(save_options, :saveat, ()))
     next_st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     # Parameters can first introduce AD scalars in the solve, after the initial
     # (possibly empty) residual vector has already been constructed.
     residual_type = promote_type(eltype(variable_residuals), eltype(terminal_state(sol)))
     residuals = residual_type === eltype(variable_residuals) ? variable_residuals : residual_type.(variable_residuals)
-    return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end])
+    return buffered_solve(x, prob, sol, residuals, ps, next_st, tstops[2:end], save_options)
+end
+
+sampling_tspan(tspan, ::Nothing) = tspan
+function sampling_tspan(tspan, samples)
+    T = promote_type(typeof(first(tspan)), eltype(samples))
+    return (convert(T, first(tspan)), convert(T, last(tspan)))
 end
 
 get_du0(::Any, ::Any) = nothing
-# Some DAE integrators (e.g. `DFBDF`) do not populate the derivative history
-# (`sol.du === nothing`); fall back to the problem's stored `du0` and let the DAE
-# initialization algorithm recompute a consistent value for the new initial state.
-get_du0(::SciMLBase.AbstractDAEProblem, sol) = isnothing(sol.du) ? nothing : sol.du[end]
+function get_du0(prob::SciMLBase.AbstractDAEProblem, sol)
+    isnothing(sol.du) || return sol.du[end]
+    # DFBDF can omit derivative history. The next segment then starts from the
+    # problem's du0, which only an initialization that recomputes it makes consistent.
+    recomputes_du0(prob) || throw(
+        ArgumentError(
+            "DAE segment handoff without saved derivatives needs an initialization that recomputes du0; " *
+                "set e.g. initializealg = BrownFullBasicInit() on the DAEProblem."
+        )
+    )
+    return nothing
+end
+function recomputes_du0(prob)
+    alg = get(prob.kwargs, :initializealg, nothing)
+    alg isa Union{SciMLBase.NoInit, SciMLBase.CheckInit} && return false
+    # The default only recomputes through symbolic initialization data.
+    return !isnothing(alg) || SciMLBase.has_initialization_data(prob.f)
+end
 
-function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan)
+function internal_solve(prob::SciMLBase.AbstractSciMLProblem, alg::SciMLBase.AbstractSciMLAlgorithm, sol::SciMLBase.AbstractSciMLSolution, u0, p, tspan, save_options)
     du0 = get_du0(prob, sol)
-    return internal_solve_with_du0(prob, alg, u0, p, tspan, du0)
+    span = sampling_tspan(tspan, get(save_options, :saveat, nothing))
+    return internal_solve_with_du0(prob, alg, u0, p, span, du0, save_options)
 end
 
 # Keep both sides of segment boundaries; reduce continuous handoffs when assembling the trajectory.
-internal_solve_with_du0(prob, alg, u0, p, tspan, ::Nothing) = solve(prob, alg; u0 = u0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
-internal_solve_with_du0(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0, du0 = du0, p = p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true)
+internal_solve_with_du0(prob, alg, u0, p, tspan, ::Nothing, save_options) =
+    solve(prob, alg; u0, p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true, save_options...)
+internal_solve_with_du0(prob, alg, u0, p, tspan, du0, save_options) =
+    solve(prob, alg; u0, du0, p, tspan, save_everystep = false, dense = false, save_start = true, save_end = true, save_options...)
 
 # A failed segment (e.g. DAE initialization failure) may save only its initial
 # point; an integrator that exhausted its iterations still saves its last computed
@@ -212,8 +244,8 @@ internal_solve_with_du0(prob, alg, u0, p, tspan, du0) = solve(prob, alg; u0 = u0
 # grid and the optimizer sees a removable infeasibility instead of a compiled
 # expression indexing past the end of a short trajectory.
 #
-# `expected` lists additional expected saved times (e.g. problem saveat), ascending
-# and within (t0, t1). The saved time grid must be compatible with the caller's
+# `expected` lists additional expected saved times (e.g. experiment saveat),
+# which may span multiple segments. The saved time grid must be compatible with the caller's
 # prepared grid; the pad repeats the last computed state verbatim, so only missing
 # times are appended.
 function pad_failed_segment!(sol, t0, t1, expected = ())
@@ -228,7 +260,9 @@ end
 
 function pad_missing_times(sol, t1, expected)
     t_end = last(sol.t)
-    return sort!(collect(t for t in Iterators.flatten((expected, (t1,))) if t > t_end))
+    missing = sort!(eltype(sol.t)[t for t in expected if t_end < t < t1])
+    t_end < t1 && push!(missing, t1)
+    return missing
 end
 
 # Zygote traces `push!` into the solution arrays and rejects array mutation, so
@@ -298,12 +332,12 @@ function wrapbuffer end # Implemented by the Zygote extension.
 
 unwrapbuffer(x) = x
 
-function buffered_solve(x::ShootingLayer, prob, sol::T, res::R, ps, st, tstops) where {T, R}
+function buffered_solve(x::ShootingLayer, prob, sol::T, res::R, ps, st, tstops, save_options) where {T, R}
     solbuff = mkbuffer(sol, tstops)
     solbuff[1] = sol
     resbuff = mkbuffer(res, tstops)
     resbuff[1] = res
-    return buffered_solve!(solbuff, x, prob, resbuff, ps, st, tstops)
+    return buffered_solve!(solbuff, x, prob, resbuff, ps, st, tstops, save_options)
 end
 
 """
@@ -316,12 +350,13 @@ terminal_state(sol::SciMLBase.AbstractTimeseriesSolution) = last(sol.u)
 terminal_state(sol::Base.AbstractVecOrTuple) = last(sol)
 terminal_state(sol::AbstractArray) = sol[:, end]
 
-@inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops)
+@inline function buffered_solve!(sols, x::ShootingLayer, prob, res, ps, st, tstops, save_options)
     @inbounds for i in Base.OneTo(length(tstops) - 1)
         (u0, res[i + 1]), st_ic = x.initialcondition((terminal_state(sols[i]), tstops[i]), ps.initialcondition, st.initialcondition)
         p, st_p = x.parameter(tstops[i], ps.parameter, st.parameter)
-        solution = pad_failed_segment!(internal_solve(prob, x.alg, sols[i], u0, p, (tstops[i], tstops[i + 1])), tstops[i], tstops[i + 1])
-        sols[i + 1] = solution
+        tspan = (tstops[i], tstops[i + 1])
+        solution = internal_solve(prob, x.alg, sols[i], u0, p, tspan, save_options)
+        sols[i + 1] = pad_failed_segment!(solution, tspan..., get(save_options, :saveat, ()))
         st = merge(st, (; initialcondition = st_ic, parameter = st_p))
     end
     return unwrapbuffer(sols), unwrapbuffer(res), st
@@ -361,13 +396,14 @@ function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select,
             inner = NamedTuple{inner_names}(
                 map(inner_names) do variable
                     sym = only(filter(sym -> Symbol(sym) == variable, symbols))
-                    parameter_bound_tree(template[name].parameter[variable], select(get_bounds(cache, sym)))
+                    bounds = internal_bounds(collection_transform(child.parameter[variable]), get_bounds(cache, sym))
+                    parameter_bound_tree(template[name].parameter[variable], select(bounds))
                 end
             )
             return merge(template[name], (; parameter = inner))
         end
         sym = only(filter(sym -> Symbol(sym) == name, symbols))
-        parameter_bound_tree(template[name], select(get_bounds(cache, sym)))
+        parameter_bound_tree(template[name], select(internal_bounds(collection_transform(child), get_bounds(cache, sym))))
     end
     return NamedTuple{names}(fields)
 end
@@ -387,18 +423,21 @@ The count uses scheduling metadata in Lux state; `ps` may be `nothing`. Refresh
 `st.timestops` after changing schedules, then recompute this count before allocating
 optimizer constraint buffers. This discrete metadata calculation is not differentiated.
 """
-function get_number_of_shooting_constraints(layer::ShootingLayer, ps, st)
+get_number_of_shooting_constraints(layer::ShootingLayer, ps, st) =
+    shooting_constraint_count(layer.initialcondition, layer.parameter, layer.problem, st)
+
+function shooting_constraint_count(initialcondition, parameter, problem, st)
     n = 0
-    for name in keys(layer.initialcondition.initialconditions)
-        ic = layer.initialcondition.initialconditions[name]
+    for name in keys(initialcondition.initialconditions)
+        ic = initialcondition.initialconditions[name]
         ic isa InitialCondition || continue
         state = st.initialcondition.initialconditions[name]
         for i in firstindex(st.timestops):(lastindex(st.timestops) - 1)
-            st.timestops[i] == first(layer.problem.tspan) && continue
+            st.timestops[i] == first(problem.tspan) && continue
             n += resets_variable(ic, state, st.timestops[i]) * number_of_tunable_collections(ic.parameter)
         end
     end
-    return n + number_of_parameter_constraints(layer.parameter, st.parameter)
+    return n + number_of_parameter_constraints(parameter, st.parameter)
 end
 
 ChainRulesCore.@non_differentiable get_number_of_shooting_constraints(layer, ps, st)

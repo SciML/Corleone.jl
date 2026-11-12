@@ -1,28 +1,37 @@
 """
 $(TYPEDEF)
 
-A layer storing tunable values initialized during Lux setup.
+A layer storing tunable values initialized during Lux setup. Lux parameters hold
+internal values and calls return natural values. The default BoundedTransform
+uses identity coordinates.
 
 # Fields
 $(FIELDS)
 
-Calling with `(index, ps, st)` returns `(ps.ps[index], st)`.
+Calling with `(index, ps, st)` returns the natural value of `ps.ps[index]` and `st`.
 """
 @concrete terse struct ParameterCollection <: LuxCore.AbstractLuxLayer
     "The initializer called as `init_parameters(rng, out_dims)` during Lux setup."
     init_parameters
     "The number of stored parameter values."
     out_dims
+    "An increasing scalar transform from stored internal values to natural values, or a BoundedTransform identity."
+    transform
+    "A univariate prior on natural values, or `nothing`."
+    prior
 end
 
-LuxCore.initialparameters(rng::Random.AbstractRNG, x::ParameterCollection) = (; ps = x.init_parameters(rng, x.out_dims))
+ParameterCollection(init_parameters, out_dims) = ParameterCollection(init_parameters, out_dims, BoundedTransform(), nothing)
+
+LuxCore.initialparameters(rng::Random.AbstractRNG, x::ParameterCollection) =
+    (; ps = internal_values(x.transform, x.init_parameters(rng, x.out_dims)))
 LuxCore.initialstates(::Random.AbstractRNG, ::ParameterCollection) = (;)
 # Shape queries must not execute user initializers or consume RNG values.
 LuxCore.parameterlength(x::ParameterCollection) = x.out_dims
 LuxCore.statelength(::ParameterCollection) = 0
 
-function (::ParameterCollection)(index, ps, st::NamedTuple)
-    return getindex(ps.ps, index), st
+function (x::ParameterCollection)(index, ps, st::NamedTuple)
+    return natural_values(x.transform, getindex(ps.ps, index)), st
 end
 
 """
@@ -68,11 +77,11 @@ apply_scalar_collections(layer::LuxCore.AbstractLuxLayer, index, ps, st) = LuxCo
 end
 
 # Construction metadata. Every numerical leaf still owns a scalar-valued vector.
-function group_scalar_collections(entries)
+function group_scalar_collections(entries; separate = ())
     groups = Vector{eltype(entries)}[]
     for entry in entries
-        position = isnothing(entry.parameter) ? nothing : findfirst(groups) do group
-                !isnothing(first(group).parameter) && isequal(first(group).grid, entry.grid)
+        position = entry.index in separate || isnothing(entry.parameter) ? nothing : findfirst(groups) do group
+                first(group).index ∉ separate && !isnothing(first(group).parameter) && isequal(first(group).grid, entry.grid)
         end
         isnothing(position) ? push!(groups, [entry]) : push!(groups[position], entry)
     end

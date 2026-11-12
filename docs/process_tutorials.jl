@@ -144,6 +144,13 @@ tutorials = map(
         (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
         (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_plain", "main.jl"), "inverse_lotka_plain"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_multiexperiment", "main.jl"), "inverse_lotka_multiexperiment"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_oed_control", "main.jl"), "inverse_lotka_oed_control"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "multiple_shooting", "main.jl"), "inverse_multiple_shooting"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "sir_multicity", "main.jl"), "inverse_sir_multicity"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "rober_dae", "main.jl"), "inverse_rober_dae"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "ude_growth", "main.jl"), "inverse_ude_growth"),
         (
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
             "the_lotka_volterra_optimal_experimental_design_problem",
@@ -228,5 +235,17 @@ for page in ("index", "formulation", "designs", "numerics", "api", "references")
     write(
         joinpath(oed_output, "$page.md"),
         "```@meta\nCurrentModule = CorleoneOED\nEditURL = \"$edit_url\"\n```\n\n" * content
+    )
+end
+
+inverse_output = joinpath(@__DIR__, "src", "inverse")
+isdir(inverse_output) && rm(inverse_output; recursive = true)
+mkpath(inverse_output)
+for page in ("index", "api")
+    source = joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "docs", "src", "$page.md")
+    edit_url = replace(relpath(source, inverse_output), '\\' => '/')
+    write(
+        joinpath(inverse_output, "$page.md"),
+        "```@meta\nCurrentModule = CorleoneInverse\nEditURL = \"$edit_url\"\n```\n\n" * read(source, String)
     )
 end

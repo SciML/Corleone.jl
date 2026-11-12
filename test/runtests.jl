@@ -26,11 +26,23 @@ else
     run_tests(;
         # Core: light tests that resolve in the main test target's environment.
         core = function ()
+            @safetestset "Generated experiment differentiation" begin
+                include("core/experiment_generated_ad.jl")
+            end
+            @safetestset "Experiment inference" begin
+                include("core/experiment_inference.jl")
+            end
+            @safetestset "Experiment layers" begin
+                include("core/experiment_layers.jl")
+            end
             @safetestset "Annotations" begin
                 include("core/annotations.jl")
             end
             @safetestset "Annotation initialization" begin
                 include("core/annotation_initialization.jl")
+            end
+            @safetestset "Parameter transforms and priors" begin
+                include("core/transforms_priors.jl")
             end
             @safetestset "Shared-grid collections" begin
                 include("core/shared_grid_collections.jl")
@@ -82,6 +94,9 @@ else
             end
             @safetestset "Legacy single-shooting constructor" begin
                 include("core/legacy_single_shooting.jl")
+            end
+            @safetestset "Experiments" begin
+                include("core/experiments.jl")
             end
             @safetestset "Trajectory" begin
                 include("core/trajectory.jl")

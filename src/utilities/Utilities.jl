@@ -1,6 +1,8 @@
 include("helpers.jl")
 include("trajectory.jl")
 export Trajectory
+include("transforms.jl")
+export BoundedTransform, log_prior
 include("annotations.jl")
 export Tunable, Constant, Annotations
 include("../cache.jl")

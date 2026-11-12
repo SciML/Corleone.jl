@@ -19,7 +19,7 @@ Load ModelingToolkit to use this constructor.
 """
 function Annotations end
 
-for f in (:index, :sym, :default, :upperbound, :lowerbound, :kind, :integer)
+for f in (:index, :sym, :default, :kind, :integer, :transform, :prior)
     # Construct names dynamically (e.g., get_index, set_index!)
     getter = Symbol(:get_, f)
     checker = Symbol(:has_, f)
@@ -44,7 +44,13 @@ is_variable(x::AbstractAnnotation) = has_kind(x) && get_kind(x) == Val{:variable
 is_integer_variable(x::AbstractAnnotation) = something(get_integer(x), false)
 relax_integer_variable(x::AbstractAnnotation) = set_integer(x, false)
 
-get_bounds(x::AbstractAnnotation) = (get_lowerbound(x), get_upperbound(x))
+get_bounds(x::AbstractAnnotation) = annotation_bounds(get_transform(x))
+get_lowerbound(x::AbstractAnnotation) = first(get_bounds(x))
+get_upperbound(x::AbstractAnnotation) = last(get_bounds(x))
+has_lowerbound(x::AbstractAnnotation) = !isnothing(get_lowerbound(x))
+has_upperbound(x::AbstractAnnotation) = !isnothing(get_upperbound(x))
+set_lowerbound(x::AbstractAnnotation, value) = remake(x; lowerbound = value)
+set_upperbound(x::AbstractAnnotation, value) = remake(x; upperbound = value)
 has_bounds(x::AbstractAnnotation) = has_lowerbound(x) &&  has_upperbound(x)
 
 function is_fully_specified(x::AbstractAnnotation)
@@ -100,26 +106,32 @@ function update_annotation(x::AbstractAnnotation, indep)
     end
     default = has_default(x) ? get_default(x) :
         get(SymbolicIndexingInterface.default_values(indep), sym, 0.0)
-    fallback_lower, fallback_upper = get(default_bounds(indep), sym, (-Inf, Inf))
-    lowerbound = has_lowerbound(x) ? get_lowerbound(x) : fallback_lower
-    upperbound = has_upperbound(x) ? get_upperbound(x) : fallback_upper
+    transform = resolve_transform(get_transform(x), get(default_bounds(indep), sym, (-Inf, Inf)))
+    validate_transform(transform)
+    lowerbound, upperbound = get_bounds(transform)
     lowerbound <= upperbound || throw(ArgumentError("Lower bound exceeds upper bound."))
-    validate_annotation_default(default, lowerbound, upperbound)
+    validate_annotation_default(default, transform)
     # Keep unbounded integer annotations representable; bounds need not have the
     # same type as the default. Explicit false must also override model metadata.
     integer = has_integer(x) ? get_integer(x) : is_integer_variable(sym)
-    return remake(x; index, sym, default, lowerbound, upperbound, integer)
+    validate_prior(get_prior(x))
+    return remake(x; index, sym, default, transform, integer)
 end
 
+# Prior support is supplied by the Distributions extension.
+validate_prior(::Nothing) = nothing
+validate_prior(prior) = throw(ArgumentError("Unsupported prior $(typeof(prior)); load Distributions for univariate priors."))
+
 # Callbacks are checked after evaluation, without drawing from their RNG twice.
-validate_annotation_default(default, lower, upper) = default
-function validate_annotation_default(default::Number, lower, upper)
-    lower <= default <= upper || throw(ArgumentError("Default value is outside the annotation bounds."))
+# Each natural value must lie in the transform's domain, so its internal value is finite.
+validate_annotation_default(default, transform) = default
+function validate_annotation_default(default::Number, transform)
+    in_domain(transform, default) || throw(ArgumentError("Default value is outside the annotation bounds or transform domain."))
     return default
 end
-function validate_annotation_default(default::AbstractVector, lower, upper)
-    all(value -> value isa Number && lower <= value <= upper, default) ||
-        throw(ArgumentError("Default values must be numbers within the annotation bounds."))
+function validate_annotation_default(default::AbstractVector, transform)
+    all(value -> value isa Number && in_domain(transform, value), default) ||
+        throw(ArgumentError("Default values must be numbers within the annotation bounds or transform domain."))
     return default
 end
 
@@ -129,10 +141,11 @@ $(SIGNATURES)
 Initialize `n` scalar values from a scalar, vector, or callback. Count callbacks
 `(rng, n::Int)` take precedence, preserving untyped callbacks. Otherwise a callback
 accepting `(rng, times::AbstractVector)` receives the supplied initialization times.
-Validate the result's shape and bounds once, without reevaluating the callback.
+Validate the result's shape and the domain of `transform` once, without reevaluating
+the callback.
 Supplied vectors and callback results are retained by reference.
 """
-function initialize_annotation_values(default, rng, n::Int, times, bounds)
+function initialize_annotation_values(default, rng, n::Int, times, transform)
     values = if default isa Number
         fill(default, n)
     elseif default isa AbstractVector
@@ -146,7 +159,7 @@ function initialize_annotation_values(default, rng, n::Int, times, bounds)
     end
     values isa AbstractVector || throw(ArgumentError("An initializer must return an AbstractVector."))
     length(values) == n || throw(DimensionMismatch("Expected $n initial values, got $(length(values))."))
-    return validate_annotation_default(values, bounds...)
+    return validate_annotation_default(values, transform)
 end
 
 """
@@ -169,12 +182,12 @@ $(FIELDS)
     kind
     "A scalar, vector, count/timepoint initializer, or `nothing` to inherit the symbolic default."
     default
-    "The lower bound, or `nothing` to inherit the symbolic bound."
-    lowerbound
-    "The upper bound, or `nothing` to inherit the symbolic bound."
-    upperbound
     "Whether the value is integer-valued, or `nothing` to inherit symbol metadata."
     integer
+    "A BoundedTransform identity or an explicit scalar transform from internal to natural values."
+    transform
+    "A univariate prior distribution on natural values, or `nothing`."
+    prior
 end
 
 is_tunable(::DynamicVariable{T}) where {T} = T
@@ -183,9 +196,12 @@ is_tunable(::DynamicVariable{T}) where {T} = T
 function SciMLBase.remake(
         x::DynamicVariable{T};
         index = x.index, sym = x.sym, kind = x.kind, default = x.default,
-        lowerbound = x.lowerbound, upperbound = x.upperbound, integer = x.integer,
+        lowerbound = missing, upperbound = missing, integer = x.integer,
+        transform = x.transform, prior = x.prior,
     ) where {T}
-    return DynamicVariable{T}(index, sym, kind, default, lowerbound, upperbound, integer)
+    transform = annotation_transform(transform, nothing, nothing)
+    transform = replace_transform_bounds(transform, lowerbound, upperbound)
+    return DynamicVariable{T}(index, sym, kind, default, integer, transform, prior)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", f::DynamicVariable{T}) where {T}
@@ -212,7 +228,16 @@ $(SIGNATURES)
 Construct an annotation whose values are stored in Lux parameters. Supply an
 index or symbol, a vector of indices or symbols, a positional `selector => default` pair, or the `index`/`sym`
 keywords. Optional keywords are `kind`, `default`, `lowerbound`, `upperbound`,
-and `integer`. Missing metadata is resolved from the symbolic container.
+`integer`, `transform`, and `prior`. Missing metadata is resolved from the symbolic
+container.
+
+`transform` is an increasing scalar transform from internal to natural values (load
+TransformVariables, e.g. `asℝ₊`). Lux parameters then store internal values, while
+defaults and layer outputs remain natural. With no explicit transform, a
+[`BoundedTransform`](@ref) stores the bounds and uses identity coordinates. Explicit
+transforms replace this object and supply their own optimizer bounds;
+TransformVariables transforms use `(-Inf, Inf)`. `prior` is a univariate
+distribution on natural values (load Distributions); see [`log_prior`](@ref).
 
 Use `kind = Val(:variable)` for initial-condition resets and `Val(:parameter)`
 for parameter definitions. Pair the annotation with its time grid to define a layer.
@@ -226,18 +251,22 @@ A parameter without switching times has one value at `tspan[1]`.
 
 For vector selectors, supply one default per selector: a vector of scalars gives
 constant guesses, and a vector of vectors gives per-variable time series. Omitted
-defaults inherit metadata separately. Bounds may be shared scalars or per-selector
-vectors. Grouped annotations expand into scalar definitions before layer construction.
+defaults inherit metadata separately. Bounds, transforms, and priors may be shared or
+per-selector vectors. Grouped annotations expand into scalar definitions before layer construction.
 
 Scalar and vector bounds are checked when resolving annotations. Callback output
 length and bounds are checked during Lux setup. Vectors and callback results are
 retained by reference; use a callback that allocates when independent setup arrays
 are needed.
 """
-function Tunable(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
+function Tunable(;
+        index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing,
+        lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing,
+        transform = nothing, prior = nothing
+    )
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))
-    return DynamicVariable{true}(index, sym, kind, default, lowerbound, upperbound, integer)
+    return DynamicVariable{true}(index, sym, kind, default, integer, annotation_transform(transform, lowerbound, upperbound), prior)
 end
 
 function Tunable(index_or_sym; kwargs...)
@@ -262,10 +291,14 @@ Construct a fixed-value annotation with the same selectors and metadata keywords
 as [`Tunable`](@ref). Values are stored in Lux state through [`FixedLayer`](@ref),
 and active fixed initial conditions do not contribute shooting residuals.
 """
-function Constant(; index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing, lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing)
+function Constant(;
+        index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing,
+        lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing,
+        transform = nothing, prior = nothing
+    )
     isnothing(index) && isnothing(sym) &&
         throw(ArgumentError("Provide either an index or a symbol."))
-    return DynamicVariable{false}(index, sym, kind, default, lowerbound, upperbound, integer)
+    return DynamicVariable{false}(index, sym, kind, default, integer, annotation_transform(transform, lowerbound, upperbound), prior)
 end
 
 function Constant(index_or_sym; kwargs...)
@@ -289,8 +322,14 @@ function scalar_annotations(annotation::AbstractAnnotation)
     selectors isa AbstractVector || return (annotation,)
     isempty(selectors) && throw(ArgumentError("An annotation must select at least one entry."))
     n = length(selectors)
-    for field in (:index, :sym, :default, :lowerbound, :upperbound)
-        value = getfield(annotation, field)
+    default = get_default(annotation)
+    lowerbound, upperbound = get_bounds(annotation)
+    transform, prior = get_transform(annotation), get_prior(annotation)
+    for (field, value) in (
+            (:index, index), (:sym, sym), (:default, default),
+            (:lowerbound, lowerbound), (:upperbound, upperbound),
+            (:transform, transform), (:prior, prior),
+        )
         if field in (:index, :sym, :default) && !isnothing(value)
             value isa AbstractVector || throw(ArgumentError("Grouped annotation $field must be a vector."))
         end
@@ -302,9 +341,11 @@ function scalar_annotations(annotation::AbstractAnnotation)
         remake(
             annotation;
             index = entry(index, i), sym = entry(sym, i),
-            default = entry(get_default(annotation), i),
-            lowerbound = entry(get_lowerbound(annotation), i),
-            upperbound = entry(get_upperbound(annotation), i)
+            default = entry(default, i),
+            lowerbound = entry(lowerbound, i),
+            upperbound = entry(upperbound, i),
+            transform = entry(transform, i),
+            prior = entry(prior, i)
         )
     end
 end

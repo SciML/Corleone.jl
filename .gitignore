@@ -13,6 +13,7 @@ docs/src/examples
 .vscode/
 
 /docs/src/oed/
+/docs/src/inverse/
 /docs/src/benchmarks/
 /docs/src/inverse/
 

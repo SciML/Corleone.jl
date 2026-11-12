@@ -28,7 +28,7 @@ features:
   - icon: 🔬
     title: Experimental design
     details: Optimize measurements and combine experiments to learn model parameters with CorleoneOED.
-    link: /oed/index/
+    link: /oed/
   - icon: 🧩
     title: Symbolic models
     details: Build dynamics and integral costs with ModelingToolkit, including parameter bounds and initial values.

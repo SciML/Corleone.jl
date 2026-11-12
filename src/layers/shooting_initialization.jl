@@ -12,12 +12,12 @@ function shooting_initialization_entries(layer::ShootingLayer, ps, st, variables
         indices = layer.initialcondition.indices[group]
         if ic.parameter isa NamedTuple
             return [
-                (; index = indices[j], values = getproperty(values, name).ps, grid)
+                (; index = indices[j], values = getproperty(values, name).ps, grid, transform = ic.parameter[name].transform)
                     for (j, name) in enumerate(keys(ic.parameter))
                     if ic.parameter[name] isa ParameterCollection && indices[j] in selected
             ]
         end
-        return only(indices) in selected ? [(; index = only(indices), values = values.ps, grid)] : []
+        return only(indices) in selected ? [(; index = only(indices), values = values.ps, grid, transform = ic.parameter.transform)] : []
     end
     return sort!(reduce(vcat, parts; init = []); by = entry -> entry.index)
 end
@@ -37,10 +37,11 @@ function set_shooting_guesses!(layer, entries, guess)
         grid = sort!(collect(entry.grid); by = last)
         proposed = [guess(entry.index, t, j) for (t, j) in grid]
         bound = shooting_initialization_bounds(layer, entry.index)
-        validate_annotation_default(proposed, bound...)
+        validate_annotation_default(proposed, BoundedTransform(bound...))
+        validate_annotation_default(proposed, entry.transform)
         converted = similar(entry.values)
         for ((_, j), value) in zip(grid, proposed)
-            converted[j] = value
+            converted[j] = internal_value(entry.transform, value)
         end
         converted
     end
@@ -184,7 +185,7 @@ function forward_initialization(
     for (k, t) in enumerate(times)
         if t != first(prob.tspan)
             for entry in work_entries
-                haskey(entry.grid, t) && (entry.values[entry.grid[t]] = incoming[entry.index])
+                haskey(entry.grid, t) && (entry.values[entry.grid[t]] = internal_value(entry.transform, incoming[entry.index]))
             end
         end
         (u0, _), ic_st = layer.initialcondition((incoming, t), work_ps.initialcondition, work_st.initialcondition; matching = false)
@@ -198,7 +199,7 @@ function forward_initialization(
         SciMLBase.successful_retcode(sol) || error("Forward initialization failed: $(sol.retcode)")
         incoming = terminal_state(sol)
     end
-    guesses = Dict(entry.index => entry.values for entry in work_entries)
+    guesses = Dict(entry.index => natural_values(entry.transform, entry.values) for entry in work_entries)
     set_shooting_guesses!(layer, entries, (i, t, j) -> guesses[i][j])
     return ps
 end

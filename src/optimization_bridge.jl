@@ -60,18 +60,18 @@ function SciMLBase.OptimizationFunction(
     jacobian_options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
     hessian_options = sparse_hessian ? sparse_hessian_options(prob, ad, initial, reconstruct, st) : (;)
     options = merge(jacobian_options, hessian_options)
-    return optimization_function(prob, ad, reconstruct; inplace, options..., kwargs...)
+    return optimization_function(prob, ad, reconstruct; st, inplace, options..., kwargs...)
 end
 
-function optimization_function(prob, ad, reconstruct; inplace::Bool = true, kwargs...)
+function optimization_function(prob, ad, reconstruct; st = prob.st, inplace::Bool = true, kwargs...)
     haskey(kwargs, :cons) && throw(ArgumentError("Declare constraints on CorleoneDynamicOptProblem; its generated constraint callback cannot be replaced."))
-    objective = (q, st) -> optimization_objective(prob, reconstruct(q), st)
+    objective = (q, state) -> optimization_objective(prob, reconstruct(q), isnothing(state) ? st : state)
     constraints = if isempty(prob.lcons)
         nothing
     elseif inplace
-        (res, q, st) -> optimization_constraints!(res, prob, reconstruct(q), st)
+        (res, q, state) -> optimization_constraints!(res, prob, reconstruct(q), isnothing(state) ? st : state)
     else
-        (q, st) -> optimization_constraints(prob, reconstruct(q), st)
+        (q, state) -> optimization_constraints(prob, reconstruct(q), isnothing(state) ? st : state)
     end
     return SciMLBase.OptimizationFunction{inplace}(objective, ad; cons = constraints, kwargs...)
 end
@@ -111,7 +111,7 @@ function SciMLBase.OptimizationProblem(
     jacobian_options = sparse_constraints ? sparse_constraint_options(prob, ad, initial, reconstruct, st) : (;)
     hessian_options = sparse_hessian ? sparse_hessian_options(prob, ad, initial, reconstruct, st) : (;)
     options = merge(jacobian_options, hessian_options)
-    f = optimization_function(prob, ad, reconstruct; inplace, options..., function_kwargs...)
+    f = optimization_function(prob, ad, reconstruct; st, inplace, options..., function_kwargs...)
     lcons, ucons = isempty(prob.lcons) ? (nothing, nothing) : (prob.lcons, prob.ucons)
     return SciMLBase.OptimizationProblem(f, initial, st; lb, ub, lcons, ucons, kwargs...)
 end

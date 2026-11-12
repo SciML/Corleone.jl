@@ -44,18 +44,19 @@ end
 $(SIGNATURES)
 
 Construct reset values for one state variable on `timegrid`. `default` is a scalar,
-vector, or count/timepoint initializer as described by [`Tunable`](@ref). Times must
-be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
+vector, or count/timepoint initializer as described by [`Tunable`](@ref), as are the
+optional `transform` and `prior`. Times must be unique; `nothing` selects an empty reset grid. `cache` is an optional lookup
 cache. Output length and `bounds` are checked during Lux setup.
 """
 function InitialCondition(
         timegrid::AbstractVector{<:Real}, default;
-        name = nothing, cache = nothing, bounds = (-Inf, Inf)
+        name = nothing, cache = nothing, bounds = (-Inf, Inf), transform = nothing, prior = nothing
     )
     allunique(timegrid) || throw(ArgumentError("Initial-condition times must be unique."))
     lookup = LookUp(Dict(t => i for (i, t) in enumerate(timegrid)), cache)
-    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, bounds)
-    return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid)))
+    transform = annotation_transform(transform, bounds...)
+    initialize = (rng, n) -> initialize_annotation_values(default, rng, n, timegrid, transform)
+    return InitialCondition(name, lookup, ParameterCollection(initialize, length(timegrid), transform, prior))
 end
 
 function InitialCondition(::Nothing, default; kwargs...)
@@ -171,11 +172,12 @@ function InitialConditions(
         annotation, grid = processed[position]
         grid = isnothing(grid) ? Float64[] : grid
         allunique(grid) || throw(ArgumentError("Initial-condition times must be unique."))
-        default, bounds = get_default(annotation), get_bounds(annotation)
-        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, bounds)
+        default, transform = get_default(annotation), get_transform(annotation)
+        initialize = (rng, n) -> initialize_annotation_values(default, rng, n, grid, transform)
         return (;
             index = i, name = Symbol(sym), grid,
-            parameter = ParameterCollection(initialize, length(grid)), fixed = !is_tunable(annotation),
+            parameter = ParameterCollection(initialize, length(grid), transform, get_prior(annotation)),
+            fixed = !is_tunable(annotation),
         )
     end
     groups = group_scalar_collections(entries)
