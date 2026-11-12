@@ -27,8 +27,13 @@ call_eval_function(f, x) = Base.invokelatest(f, x)
 const EVAL_EXPRESSION_CACHE = Dict{Tuple{Module, Expr}, Any}()
 const EVAL_EXPRESSION_LOCK = ReentrantLock()
 function compile_evaluator(::Val{:Eval}, expression::Expr, eval_module::Module)
+    keyexpr = Base.remove_linenums!(Base.deepcopy(expression))
+    key = (eval_module, keyexpr)
     f = lock(EVAL_EXPRESSION_LOCK) do
-        get!(() -> Core.eval(eval_module, expression), EVAL_EXPRESSION_CACHE, (eval_module, expression))
+        length(EVAL_EXPRESSION_CACHE) > 10_000 && empty!(EVAL_EXPRESSION_CACHE)
+        get!(EVAL_EXPRESSION_CACHE, key) do
+            Core.eval(eval_module, keyexpr)
+        end
     end
     return Base.Fix1(call_eval_function, f)
 end
