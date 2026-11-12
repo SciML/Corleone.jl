@@ -502,6 +502,146 @@ function add_parameter_segments!(layer::ShootingLayer, ps, st)
     return next_ps, next_st
 end
 
+"""
+    adapt_timegrid!(layer::ShootingLayer, ps, st, pairs...; interpolation = :constant, extrapolation = :constant)
+
+Move controls to new time grids and return `(new_ps, new_st)` for the same layer.
+Each pair is `parameter => grid`: the parameter as a `Symbol`, symbolic variable or
+original index, and the new sorted switching times strictly inside the problem
+time span (`nothing` or an empty grid gives one constant value). A grid of `n`
+times stores `n + 1` values. The inputs and the layer are not modified.
+
+Each new interval takes the old control's value at the interval midpoint:
+
+- `interpolation = :constant` uses the value of the old interval containing the
+  midpoint, so refining a grid reproduces the old control exactly.
+- `interpolation = :linear` interpolates linearly between the old values placed
+  at their interval midpoints. Outside the first and last old midpoints,
+  `extrapolation = :constant` holds the end value and `:linear` extends the end
+  slope. Results are rounded for integer parameters and clipped to the bounds of
+  identity-transformed parameters. Other transforms interpolate internal values.
+
+`extrapolation` has no effect with constant interpolation, since the old control
+covers the whole time span. Parameters that share a time grid (for example all
+untimed parameters) are stored together; supply the same grid for every member
+of such a group. Fixed (`Constant`) parameters are resampled the same way.
+Adapted groups lose their parameter matching equalities; if any were inserted by
+[`add_parameter_segments!`](@ref), segments are inserted again on the new grids.
+`st.timestops` is refreshed. Rebuild optimization problems afterwards.
+"""
+function adapt_timegrid!(
+        layer::ShootingLayer, ps, st, pairs::Pair...;
+        interpolation::Symbol = :constant, extrapolation::Symbol = :constant
+    )
+    interpolation in (:constant, :linear) || throw(ArgumentError("interpolation must be :constant or :linear, got :$interpolation."))
+    extrapolation in (:constant, :linear) || throw(ArgumentError("extrapolation must be :constant or :linear, got :$extrapolation."))
+    isempty(pairs) && return ps, st
+    tspan = layer.problem.tspan
+    parameter = layer.parameter
+    names = keys(parameter.parameters)
+    grids = Dict{Int, Any}()
+    named = Dict{Int, Set{Int}}()
+    for (key, grid) in pairs
+        index = timegrid_parameter_index(layer.sys, key)
+        group = findfirst(members -> index in members, parameter.indices)
+        isnothing(group) && throw(ArgumentError("Parameter $key has no time grid in this layer."))
+        normalized = normalize_timegrid(grid, tspan)
+        haskey(grids, group) && !isequal(grids[group], normalized) &&
+            throw(ArgumentError("Parameters sharing a time grid must receive the same new grid; $key differs."))
+        grids[group] = normalized
+        push!(get!(named, group, Set{Int}()), index)
+    end
+    symbols = parameter_symbols(layer.sys)
+    for (group, members) in named
+        missing_members = setdiff(parameter.indices[group], members)
+        isempty(missing_members) || throw(
+            ArgumentError(
+                "Parameters $(join(map(i -> parameter_name(layer.sys, symbols, i), parameter.indices[group]), ", ")) share one time grid; " *
+                    "also supply $(join(map(i -> parameter_name(layer.sys, symbols, i), missing_members), ", ")) with the same grid."
+            )
+        )
+    end
+    segmented = any(name -> !isempty(grid_lookup_state(parameter.parameters[name], st.parameter.parameters[name]).inserted), names)
+    resample = (values, plan, collection, member) -> resample_control(layer.sys, symbols, values, plan, collection, member, interpolation)
+    updated = map(enumerate(names)) do (group, name)
+        child, child_ps, child_st = parameter.parameters[name], getproperty(ps.parameter.parameters, name), st.parameter.parameters[name]
+        haskey(grids, group) || return child_ps, child_st
+        plan_for = old -> timegrid_plan(old, grids[group], tspan, interpolation, extrapolation)
+        return adapt_parameter_grid(child, child_ps, child_st, grids[group], plan_for, resample, name)
+    end
+    parameters = NamedTuple{names}(map(first, Tuple(updated)))
+    states = NamedTuple{names}(map(last, Tuple(updated)))
+    next_parameter_ps = replace_parameter_fields(ps.parameter, (; parameters))
+    next_ps = replace_parameter_fields(ps, (; parameter = next_parameter_ps))
+    next_st = merge(st, (; parameter = merge(st.parameter, (; parameters = states))))
+    next_st = merge(next_st, (; timestops = get_timestops(layer, nothing, next_st)))
+    segmented && return add_parameter_segments!(layer, next_ps, next_st)
+    return next_ps, next_st
+end
+
+function timegrid_parameter_index(sys, key)
+    key isa Integer && return Int(key)
+    if is_variable(sys, key) || (key isa Symbol && any(sym -> Symbol(sym) == key, variable_symbols(sys)))
+        throw(ArgumentError("$key is a state; only parameters and controls have time grids."))
+    end
+    index = is_parameter(sys, key) ? parameter_index(sys, key) : nothing
+    if isnothing(index) && key isa Symbol
+        position = findfirst(sym -> Symbol(sym) == key, parameter_symbols(sys))
+        index = isnothing(position) ? nothing : parameter_index(sys, parameter_symbols(sys)[position])
+    end
+    index isa Integer || throw(ArgumentError("Unknown parameter $key."))
+    return Int(index)
+end
+
+parameter_name(sys, symbols, index) = Symbol(only(filter(sym -> parameter_index(sys, sym) == index, symbols)))
+
+function normalize_timegrid(grid, (t0, tf))
+    (isnothing(grid) || isempty(grid)) && return nothing
+    times = collect(float.(grid))
+    issorted(times) && allunique(times) || throw(ArgumentError("Time grids must be sorted and contain unique times."))
+    all(t -> t0 < t < tf, times) || throw(DomainError(times, "New switching times must lie strictly inside the time span ($t0, $tf)."))
+    return times
+end
+
+# Intervals of a switching grid, clipped to the time span. Old grids may contain
+# switching times outside the span; those intervals are never active.
+function timegrid_intervals(grid, (t0, tf))
+    isnothing(grid) && return [(t0, tf)]
+    bounds = vcat(-Inf, grid, Inf)
+    return [(clamp(bounds[k], t0, tf), clamp(bounds[k + 1], t0, tf)) for k in 1:(length(grid) + 1)]
+end
+
+function timegrid_plan(old, new, tspan, interpolation, extrapolation)
+    midpoints = [(a + b) / 2 for (a, b) in timegrid_intervals(new, tspan)]
+    if interpolation === :constant
+        return [(k, k, 0.0) for k in (lookup!(nothing, old, m) for m in midpoints)]
+    end
+    intervals = timegrid_intervals(old, tspan)
+    active = findall(((a, b),) -> b > a, intervals)
+    nodes = [(intervals[k][1] + intervals[k][2]) / 2 for k in active]
+    length(active) == 1 && return fill((only(active), only(active), 0.0), length(midpoints))
+    return map(midpoints) do m
+        i = clamp(searchsortedlast(nodes, m), 1, length(nodes) - 1)
+        w = (m - nodes[i]) / (nodes[i + 1] - nodes[i])
+        if extrapolation === :constant
+            w <= 0 && return (active[i], active[i], 0.0)
+            w >= 1 && return (active[i + 1], active[i + 1], 0.0)
+        end
+        return (active[i], active[i + 1], w)
+    end
+end
+
+function resample_control(sys, symbols, values, plan, collection, member, interpolation)
+    resampled = resample_values(values, plan)
+    interpolation === :constant && return resampled
+    sym = only(filter(sym -> Symbol(sym) == member, symbols))
+    is_integer_variable(sys, sym) && (resampled = round.(resampled))
+    transform = collection_transform(collection)
+    transform isa BoundedTransform || return resampled
+    lower, upper = internal_bounds(transform, get_bounds(sys, sym))
+    return clamp.(resampled, lower, upper)
+end
+
 optimization_grid(layer::ShootingLayer, st, timepoints) = expression_evaluation_grid(layer, st, timepoints)
 optimization_schedule(::ShootingLayer, st) = st.timestops
 optimization_state(::ShootingLayer, st, grid) = merge(st, (; timestops = grid))

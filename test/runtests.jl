@@ -80,6 +80,9 @@ else
             @safetestset "Parameter shooting segments" begin
                 include("core/parameter_segments.jl")
             end
+            @safetestset "Adapted control time grids" begin
+                include("core/adapt_timegrid.jl")
+            end
             @safetestset "Parameter segment differentiation" begin
                 include("core/parameter_segments_ad.jl")
             end
