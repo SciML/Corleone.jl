@@ -181,4 +181,5 @@ $(SIGNATURES)
 
 Return the total number of observations of `experiments`.
 """
-n_observations(experiments::Union{Tuple, NamedTuple}) = sum(n_observations, values(experiments))
+n_observations(experiments::Union{Tuple, NamedTuple})::Int =
+    sum(n_observations, values(experiments))

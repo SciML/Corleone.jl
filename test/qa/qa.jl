@@ -49,6 +49,7 @@ run_qa(
                 # these, which is only expressible as a qualified access into the
                 # parent package; they are internal hooks, not user API.
                 :AbstractCorleoneFunctionWrapper, :get_number_of_shooting_constraints,
+                :in_domain,
                 :retrieve_symbol_cache, :shooting_constraints!, :to_vec,
                 :wrap_functions, :replace_parameter_fields, :expression_symbol_name,
                 :sparse_constraint_options, :constraint_sparsity, :sparsity_indices,

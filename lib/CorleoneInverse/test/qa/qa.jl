@@ -17,6 +17,7 @@ const CORLEONE_REEXPORTS = (
     :constant_initialization, :custom_initialization, :hybrid_initialization,
     :trajectoryplot, :trajectoryplot!, :log_prior,
     :BoundedTransform, :Experiments, :append_experiment, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
+    :StageLinkage, :StageTransition, :Stages, :get_number_of_linkage_constraints, :linkage_residual,
 )
 run_qa(
     CorleoneInverse;

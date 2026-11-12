@@ -260,7 +260,7 @@ end
 
 function pad_missing_times(sol, t1, expected)
     t_end = last(sol.t)
-    missing = sort!(collect(t for t in expected if t_end < t < t1))
+    missing = sort!(eltype(sol.t)[t for t in expected if t_end < t < t1])
     t_end < t1 && push!(missing, t1)
     return missing
 end

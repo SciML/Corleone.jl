@@ -186,9 +186,10 @@ optprob = OptimizationProblem(
 @test optprob.lcons == [c_d_w; zeros(8); -Inf]
 @test optprob.ucons == [Inf; zeros(8); 0.0]
 
+# Ipopt's gradient-based scaling can send this problem into failed restoration on Julia 1.10.
 sol = solve(
     optprob, Ipopt.Optimizer(); max_iter = 500, tol = 1.0e-8,
-    hessian_approximation = "limited-memory", print_level = 0,
+    hessian_approximation = "limited-memory", nlp_scaling_method = "none", print_level = 0,
 )
 
 @test SciMLBase.successful_retcode(sol)
