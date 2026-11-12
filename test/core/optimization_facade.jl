@@ -126,6 +126,13 @@ end
     @test optimization_objective(d) ≈ last(traj.u)[2]
     @test isempty(optimization_constraints(d))
     @test optimization_constraints!(Float64[], d) == Float64[]
-    terminal = CorleoneDynamicOptProblem(layer, :u₂, :u₁; ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
+    terminal = CorleoneDynamicOptProblem(layer, :u₂, :(u₁(1.0)); ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
     @test only(optimization_constraints(terminal)) ≈ last(traj.u)[1]
+    # A bare signal constraint is a path constraint on every saved sample.
+    n = length(terminal.times)
+    path = CorleoneDynamicOptProblem(layer, :u₂, :u₁; ps = d.ps, st = d.st, lcons = [zeros(n)], ucons = [fill(2.0, n)])
+    series = CorleoneDynamicOptProblem(layer, :u₂, :(identity(u₁)); ps = d.ps, st = d.st, lcons = [zeros(n)], ucons = [fill(2.0, n)])
+    @test optimization_constraints(path) ≈ optimization_constraints(series)
+    @test last(optimization_constraints(path)) ≈ last(traj.u)[1]
+    @test_throws ArgumentError CorleoneDynamicOptProblem(layer, :u₂, :unknown; ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
 end

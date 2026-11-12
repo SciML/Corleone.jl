@@ -489,7 +489,11 @@ end
 
 # Arbitrary dynamics may couple all states. Propagate their combined dependency
 # set through each integration segment, retaining precision at scheduled resets.
-function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing, hessian = false)
+# `series_times` are the saved trajectory times, with both sides of saved resets.
+# When supplied, `state_samples[k]` holds per-state dependencies of saved sample k:
+# a segment start reads only its outgoing (reset) values, later samples read the
+# segment's combined set. It is nothing if the times do not match the schedule.
+function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing, series_times = nothing, hessian = false)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
     dependencies = [BitSet() for _ in 1:sum(length, layer.initialcondition.indices; init = 0)]
     rows = BitSet[]
@@ -501,6 +505,9 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
     # state histories have the same union. It is only read after this walk.
     history = BitSet()
     state_series = fill(history, length(dependencies))
+    state_samples = isnothing(series_times) ? nothing : Vector{Vector{BitSet}}(undef, length(series_times))
+    next_sample = 1 # First saved sample not yet assigned to a segment.
+    pending = 0 # A single saved sample at the previous segment end, if any.
     callback = get(layer.problem.kwargs, :callback, nothing)
     has_callbacks = callback isa SciMLBase.CallbackSet ?
         !isempty(callback.continuous_callbacks) || !isempty(callback.discrete_callbacks) : !isnothing(callback)
@@ -508,6 +515,7 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
     initializes_state = has_callbacks || !hasproperty(f, :initialization_data) ||
         !isnothing(f.initialization_data) || !hasproperty(f, :mass_matrix) || f.mass_matrix != LinearAlgebra.I
     for (segment, t) in enumerate(st.timestops[1:(end - 1)])
+        incoming = isnothing(state_samples) ? dependencies : copy(dependencies)
         fill!(reset_rows, nothing)
         hessian && fill!(reset_hessian_rows, nothing)
         for (k, name) in enumerate(keys(layer.initialcondition.initialconditions))
@@ -531,17 +539,38 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             end
         end
         query = isnothing(sample_times) ? 0 : searchsortedfirst(sample_times, t)
-        if query > 0 && query <= length(sample_times) && sample_times[query] == t
+        saved_start = query > 0 && query <= length(sample_times) && sample_times[query] == t
+        if saved_start || !isnothing(state_samples)
             # A callback initializer can mix states and parameters before the
             # first saved value. Keep that boundary conservative when present.
             outgoing = !initializes_state ?
                 copy(dependencies) : fill(combined, length(dependencies))
-            states_at[t] = outgoing
+            saved_start && (states_at[t] = outgoing)
         end
         # Published dependency sets are read-only. Resets replace vector entries,
         # so coupled states can share one set without copying its bit storage.
         dependencies = fill(combined, length(dependencies))
         stop = st.timestops[segment + 1]
+        if !isnothing(state_samples)
+            k = next_sample
+            if k <= length(series_times) && series_times[k] == t
+                # An unassigned sample at the segment start is its outgoing side.
+                state_samples[k] = outgoing
+                k += 1
+            elseif pending > 0 && any(i -> incoming[i] !== outgoing[i], eachindex(outgoing))
+                # Only one side of a reset was saved; it may be either side.
+                state_samples[pending] = map(union, state_samples[pending], outgoing)
+            end
+            # Resets replace entries of `dependencies` in place; publish a copy.
+            interior = k <= length(series_times) && t < series_times[k] <= stop ? copy(dependencies) : dependencies
+            while k <= length(series_times) && t < series_times[k] <= stop
+                state_samples[k] = interior
+                k += 1
+                series_times[k - 1] == stop && break # The next copy belongs to the next segment.
+            end
+            pending = k > next_sample && series_times[k - 1] == stop ? k - 1 : 0
+            next_sample = k
+        end
         if !isnothing(sample_times)
             first_sample = searchsortedlast(sample_times, t) + 1
             last_sample = searchsortedlast(sample_times, stop)
@@ -555,6 +584,8 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             union!(history, combined)
         end
     end
+    # Saved times outside the schedule: fall back to the conservative history.
+    !isnothing(state_samples) && next_sample != length(series_times) + 1 && (state_samples = nothing)
     for entry in parameter_constraint_entries(layer.parameter, ids.parameter, st.parameter)
         entry.fixed && continue
         for i in entry.inserted
@@ -562,5 +593,5 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             hessian && push!(matching_hessian, BitSet()) # Affine parameter equality.
         end
     end
-    return (; matching = rows, states_at, state_series, matching_hessian)
+    return (; matching = rows, states_at, state_series, state_samples, matching_hessian)
 end

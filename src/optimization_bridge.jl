@@ -142,7 +142,12 @@ Return a conservative sparse Boolean constraint Jacobian pattern for a prepared
 ODE shooting problem. Columns follow `pack(vectorize, ps)`; rows follow
 [`optimization_constraints`](@ref). Parsed Expr constraints (including lowered MTK
 constraints) use their referenced state/time and parameter/time dependencies.
-Literal vectors retain separate dependencies per component; other vector-valued
+Literal vectors retain separate dependencies per component. Elementwise series
+expressions such as `:(identity(u₁))` or `:(u₁ .- 0.5 .* p₂)` (see
+[`Corleone.elementwise_series_expression`](@ref)) give row `k` only the
+dependencies of saved sample `k`, plus any timed signals. A saved sample depends on
+the values starting its segment, the active parameters and the controls applied
+before it; both sides of a saved reset are kept apart. Other vector-valued
 expressions use their combined dependencies. Arbitrary callback rows are dense.
 Shooting rows
 propagate all state dependencies within each integration segment, replace them
@@ -156,7 +161,7 @@ through the ODE solver. Dependencies of fixed numerical values in `st` are
 excluded because the Jacobian differentiates only `ps`.
 """
 function constraint_jacobian_sparsity(
-        prob::CorleoneDynamicOptProblem; vectorize = default_vectorizer(),
+        @nospecialize(prob::CorleoneDynamicOptProblem); vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st
     )
     prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
@@ -164,7 +169,7 @@ function constraint_jacobian_sparsity(
     return constraint_sparsity(prob, initial, reconstruct, st)
 end
 
-function constraint_sparsity(prob, initial, reconstruct, st)
+function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
     prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
     check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
     prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
@@ -183,46 +188,67 @@ function constraint_sparsity(prob, initial, reconstruct, st)
 end
 
 # Shared setup-time signal resolution for Jacobian and Hessian patterns.
-function optimization_dependency_rows(prob, initial, reconstruct, st; hessian = false)
+# Structural setup does not specialize on the problem type: each distinct set of
+# compiled expressions would otherwise recompile this whole analysis.
+function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct, st; hessian = false)
     prob.layer isa ShootingLayer || throw(ArgumentError("Structural derivatives currently require a ShootingLayer."))
     check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
     prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
     ids = sparsity_indices(reconstruct(collect(1:length(initial))))
     state = optimization_state(prob.layer, st, prob.evaluation_grid)
     state_reads = false
-    state_times = eltype(prob.times)[]
-    functions = (c.f for c in prob.constraints)
-    inspected = hessian ? Iterators.flatten((functions, (prob.objective,))) : functions
+    series_reads = false
+    times = prob.times
+    state_times = eltype(times)[]
+    # Builtin field access keeps the heterogeneous constraint tuple from
+    # specializing setup code (and its closures) on each expression type.
+    constraints = prob.constraints
+    functions = Any[getfield(getfield(constraints, i), :f) for i in 1:nfields(constraints)]
+    lengths = Int[getfield(getfield(constraints, i), :n) for i in 1:nfields(constraints)]
+    inspected = hessian ? vcat(functions, Any[prob.objective]) : functions
     for f in inspected
         f isa ParsedTrajectoryExpression || continue
         for (kind, index, time) in f.dependencies
             kind === :states || continue
             state_reads = true
-            isnothing(time) || push!(state_times, time)
+            isnothing(time) ? (series_reads |= f.elementwise) : push!(state_times, time)
         end
     end
     sort!(unique!(state_times))
-    dependencies = shooting_constraint_dependencies(prob.layer, ids, state; sample_times = state_reads ? state_times : nothing, hessian)
+    dependencies = shooting_constraint_dependencies(
+        prob.layer, ids, state; sample_times = state_reads ? state_times : nothing,
+        series_times = series_reads ? times : nothing, hessian
+    )
     length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
-    parameter_locations = parameter_signal_locations(prob.layer.parameter, state.parameter)
+    parameter_layer = prob.layer.parameter
+    parameter_locations = parameter_signal_locations(parameter_layer, state.parameter)
     parameter_samples = Dict{Tuple{Int, Real}, BitSet}()
     parameter_series = Dict{Int, BitSet}()
-    resolve = signals -> begin
+    # Per-sample series reads need the saved-sample walk; otherwise use the history.
+    state_samples = dependencies.state_samples
+    resolve = (signals, sample) -> begin
         columns = BitSet()
         for (kind, index, time) in signals
+            # A series read at one saved sample is a timed read at that sample.
+            sampled = isnothing(time) && !isnothing(sample)
+            time = sampled ? times[sample] : time
             if kind === :states
-                values = isnothing(time) ? dependencies.state_series : dependencies.states_at[time]
+                values = if sampled
+                    isnothing(state_samples) ? dependencies.state_series : state_samples[sample]
+                else
+                    isnothing(time) ? dependencies.state_series : dependencies.states_at[time]
+                end
                 union!(columns, values[index])
             else
                 dependency = if isnothing(time)
                     get!(parameter_series, index) do
                         # Bound the sampled interval indices by the first and
                         # last saved times without a lookup at every sample.
-                        parameter_signal_dependency(prob.layer.parameter, ids.parameter, state.parameter, parameter_locations[index], (first(prob.times), last(prob.times)))
+                        parameter_signal_dependency(parameter_layer, ids.parameter, state.parameter, parameter_locations[index], (first(times), last(times)))
                     end
                 else
                     get!(parameter_samples, (index, time)) do
-                        parameter_signal_dependency(prob.layer.parameter, ids.parameter, state.parameter, parameter_locations[index], time)
+                        parameter_signal_dependency(parameter_layer, ids.parameter, state.parameter, parameter_locations[index], time)
                     end
                 end
                 union!(columns, dependency)
@@ -231,10 +257,10 @@ function optimization_dependency_rows(prob, initial, reconstruct, st; hessian = 
         columns
     end
     user_rows = BitSet[]
-    for constraint in prob.constraints
-        append!(user_rows, trajectory_constraint_dependencies(constraint.f, length(constraint), resolve, length(initial)))
+    for (f, n) in zip(functions, lengths)
+        append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
     end
-    objective = hessian ? only(trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial))) : BitSet()
+    objective = hessian ? only(trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times))) : BitSet()
     return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
 end
 
@@ -273,14 +299,14 @@ This helper supplies structure only. Use `sparse_hessian=true` when constructing
 OptimizationFunction/OptimizationProblem to prepare numerical Hessian callbacks.
 """
 function lagrangian_hessian_sparsity(
-        prob::CorleoneDynamicOptProblem; vectorize = default_vectorizer(),
+        @nospecialize(prob::CorleoneDynamicOptProblem); vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st
     )
     initial, reconstruct = pack(vectorize, ps)
     return lagrangian_sparsity(prob, initial, reconstruct, st)
 end
 
-function lagrangian_sparsity(prob, initial, reconstruct, st)
+function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
     cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
     columns = [BitSet() for _ in eachindex(initial)]

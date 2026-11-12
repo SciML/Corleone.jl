@@ -10,7 +10,9 @@ Callback-based Lux layers may return a collection of trajectories. Timed
 expressions and terminal selectors require a `ShootingLayer`.
 
 Each constraint is a scalar/vector callback `f(traj)`, an in-place callback
-`f!(res, traj)` whose return is ignored, or a numerical Julia expression. Supply
+`f!(res, traj)` whose return is ignored, or a numerical Julia expression. A bare
+signal name such as `:u₂` is a path constraint on its full saved series,
+`[u₂(t₀), u₂(t₁), …]`, equivalent to `:(identity(u₂))`. Supply
 `lcons` and `ucons` with matching structure and one top-level entry per constraint:
 `[0.0, [0.0, 0.0], 0.0]` declares output sizes `(1, 2, 1)`. With a single constraint,
 a flat bound vector is also accepted. Bounds are flattened in declaration order;
@@ -198,13 +200,13 @@ function CorleoneDynamicOptProblem(
     )
     isnothing(ps) == isnothing(st) || throw(ArgumentError("Supply initialized ps and st together."))
     bounds = prepare_constraint_bounds(lcons, ucons, length(constraints))
-    uses_expressions = loss isa Expr || any(c -> c isa Expr, constraints)
+    uses_expressions = loss isa Expr || any(c -> c isa Union{Expr, Symbol}, constraints)
     uses_expressions && !(layer isa ShootingLayer) && throw(ArgumentError("Timed expressions require a ShootingLayer; use callbacks for other layers."))
     indices = uses_expressions ? expression_symbol_indices(layer) : Dict{Symbol, Int}()
     timepoints = Dict{Symbol, Vector{Real}}()
     loss isa Expr && collect_expression_times!(timepoints, loss, indices)
     for c in constraints
-        c isa Expr && collect_expression_times!(timepoints, c, indices)
+        c isa Union{Expr, Symbol} && collect_expression_times!(timepoints, c, indices)
     end
     foreach(times -> sort!(unique!(times)), values(timepoints))
     if isnothing(ps)
@@ -219,7 +221,8 @@ function prepare_dynamic_opt_problem(layer, loss, constraints, bounds, ps, st, t
     objective = loss isa Expr ? compile_trajectory_expression(loss, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, loss)
     scalar_objective(evaluate_trajectory_objective(objective, trajectory, ps, st))
     prepared = map(constraints, bounds) do c, bound
-        f = c isa Expr ? compile_trajectory_expression(c, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, c)
+        c isa Symbol && !haskey(indices, c) && throw(ArgumentError("Constraint $c is not a state or parameter name."))
+        f = c isa Union{Expr, Symbol} ? compile_trajectory_expression(c, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, c)
         prepare_trajectory_constraint(f, trajectory, length(first(bound)))
     end
     nshooting = get_number_of_shooting_constraints(layer, ps, optimization_state(layer, st, grid))
