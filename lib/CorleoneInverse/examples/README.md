@@ -14,7 +14,7 @@ These examples adapt the models and workflows contributed by **Christoph Plate
 | [SIR across two regions](sir_multicity/main.jl) | Combine per-quantity observations and estimate a local initial infection count. |
 | [Robertson DAE](rober_dae/main.jl) | Fit a subset of positive rates in a stiff differential-algebraic system. |
 | [Lux UDE](ude_growth/main.jl) | Train a neural reaction term, add a second experiment, and apply an L1 prior. |
-| [Experiment-local annotations](experiment_layers/main.jl) | Define shared and local rates, controls, and initial values in an `Experiments` container. |
+| [Experiment-local annotations](experiment_layers/main.jl) | Fit a shared rate and local initial values with fixed experiment-specific controls. |
 
 ## Running
 

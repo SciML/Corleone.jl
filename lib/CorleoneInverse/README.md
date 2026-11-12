@@ -20,14 +20,15 @@ sol = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt())
 ParameterEstimate(model, sol.u)
 ```
 
-Use `OptimizationProblem(model, ad)` for bounds, general priors, and constraints.
+Least squares supports parameter bounds and untransformed Normal priors.
+Use `OptimizationProblem(model, ad)` for general priors and constraints.
 Declare constraints on `CorleoneDynamicOptProblem(shooting, experiments, constraints...;
 ps, st, lcons, ucons)`. Scalar measurement expressions such as `:(p₁ * u₁)` compile
 once on each experiment's observation grid. See the [manual](docs/src/index.md) and the [API reference](docs/src/api.md).
 
 `Experiments(problem, shared_annotations...; experiments=(name=(annotations=(...),
-observations=data), ...))` defines shared and individual ordinary parameters,
-controls, and initial variables without a solver. Lux setup initializes each owned
+observations=data), ...))` defines shared model parameters, experiment-local
+controls, and shared or local initial variables without a solver. Lux setup initializes each owned
 value once; calling the container returns merged `(ps, st)` tuples. Execute with
 `shooting(experiments, ps, st)` for a vector of trajectories and updated state, or
 prepare `model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)` and

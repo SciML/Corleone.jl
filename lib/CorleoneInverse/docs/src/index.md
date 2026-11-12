@@ -22,7 +22,9 @@ concatenates the observation residuals
 r = \frac{y - h(u(t), p, t)}{\sigma}
 ```
 
-over all observations and experiments.
+over all observations and experiments. A fit must provide a noise scale for
+every observation group or omit it for every group. With no scales, residuals
+are unweighted.
 
 ## Parameters, transforms, and priors
 
@@ -44,21 +46,29 @@ transforms replace it and use unbounded optimizer coordinates.
 
 ## Solving
 
-Prepare one [`CorleoneDynamicOptProblem`](@ref) from the shooting solver and
-experiments. Measurements define the objective, with shared/local priors counted
-once per owned value. The model retains initialized `ps` and `st`.
+```@example first_fit
+using CorleoneInverse, OrdinaryDiffEqTsit5, NonlinearSolve
 
-```julia
-model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
+ode = ODEProblem((u, p, t) -> -p[1] .* u, [1.0], (0.0, 2.0), [0.5])
+shooting = ShootingLayer(ode, Tsit5(), Tunable(1) => nothing)
+t = collect(0.2:0.2:2.0)
+experiment = Experiment(1 => (t, exp.(-1.3 .* t), 0.01))
+model = CorleoneDynamicOptProblem(shooting, experiment)
 fit = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt())
-estimate = ParameterEstimate(model, fit.u)
+ParameterEstimate(model, fit.u)
 ```
 
-`NonlinearLeastSquaresProblem(model)` uses the prepared observation residuals.
-Untransformed Normal priors add Gaussian residual rows. Use
-`OptimizationProblem(model, ad)` for annotation bounds, general priors, and
-constraints. By default the scalar objective is the mean squared observation
-residual minus `log_prior`. Pass `reducer = x -> sum(x) / 2` to the model
+The [`CorleoneDynamicOptProblem`](@ref) initializes and retains `ps` and `st`.
+Pass both explicitly to reuse an existing Lux setup.
+
+| Solver problem | Supported features |
+| --- | --- |
+| `NonlinearLeastSquaresProblem(model)` | Prepared observation residuals, annotation bounds, and Gaussian residual rows for untransformed Normal priors. |
+| `OptimizationProblem(model, ad)` | Annotation bounds, general priors, user constraints, and multiple-shooting equalities. |
+
+By default the scalar objective is the mean squared observation
+residual minus `log_prior`, with each observed value weighted equally after noise
+scaling. Pass `reducer = x -> sum(x) / 2` to the model
 constructor for the Gaussian half-sum objective. The reducer receives the
 squared, noise-scaled observation residuals. Priors and constraints are handled
 separately. The convenience builders accepting `(shooting, experiments, ps, st)`
@@ -165,17 +175,56 @@ Prepared configurations retain the metadata needed for distinct grids and
 transforms; no annotation processing, initialization, or problem remaking happens
 in prediction callbacks. Shared priors are counted once, local priors once each.
 
-Use `OptimizationProblem(model, ad)` for bounds, general priors, and multiple
+Use `OptimizationProblem(model, ad)` for general priors and multiple
 shooting. `ParameterEstimate(model, q)` reports joint covariance, including
 shared/local cross terms. `mean_squared_residual(model)` averages the squared,
 noise-scaled observation residuals, with each observed value counted once.
 
-To add an experiment after fitting, call
-`append_experiment(model, problem, :second => data; u0 = fit.u)` and use the
-returned `model` and `problem`. The old batch remains usable. The new problem
-starts from the previous fit and initializes the new experiment's values. If an
-inferred control grid gains times, each new interval starts from the old
-piecewise-constant control value at that time.
+### Reuse a fit and add an experiment
+
+The solver problem stores the Lux state in `p`. Use `remake` to replace fixed
+values when the schedules and layouts match the prepared model. Here Lux setup
+creates replacement state with a corrected fixed input and the same experiment
+name and control schedule.
+
+```@example reuse_fit
+using CorleoneInverse, LuxCore, NonlinearSolve, OrdinaryDiffEqTsit5, Random
+
+ode = ODEProblem((u, p, t) -> [p[1] + p[2]], [0.0], (0.0, 1.0), [1.0, 0.0])
+shooting = ShootingLayer(ode, Tsit5(), Tunable(1) => nothing; controls = [2])
+spec(control, t, y) = (
+    annotations = Constant(2; default = control) => nothing,
+    observations = Experiment(1 => (t, y)),
+)
+first_run = spec(0.0, [0.5, 1.0], [1.0, 2.0])
+batch = Experiments(shooting, (; first_run))
+model = CorleoneDynamicOptProblem(shooting, batch)
+problem = NonlinearLeastSquaresProblem(model)
+fit = solve(problem, LevenbergMarquardt())
+@assert fit.u ≈ [2.0] # hide
+
+corrected_batch = Experiments(shooting, (first_run = spec(0.5, [0.5, 1.0], [1.0, 2.0]),))
+_, state = LuxCore.setup(Xoshiro(1), corrected_batch)
+updated = remake(problem; u0 = fit.u, p = state)
+fit = solve(updated, LevenbergMarquardt())
+@assert fit.u ≈ [1.5] # hide
+fit.u
+```
+
+Appending an experiment changes the residual layout and can change the sampling
+grid and the unknowns. `append_experiment` prepares a new model and solver problem
+from the updated state, carries over the fitted unknowns, and initializes any new
+ones. The original batch remains usable. If an inferred control grid gains times,
+each new interval starts from the previous control value at that time.
+
+```@example reuse_fit
+second_run = spec(0.25, [0.25, 0.75], [0.4375, 1.3125])
+joint = append_experiment(model, updated, :second_run => second_run; u0 = fit.u)
+joint_fit = solve(joint.problem, LevenbergMarquardt())
+@assert joint.problem.u0 ≈ fit.u # hide
+@assert joint_fit.u ≈ [1.5] # hide
+joint_fit.u
+```
 
 ```@example experiment_layers
 using CorleoneInverse
@@ -192,6 +241,12 @@ to inequalities and parameter bounds. Known noise scales use `s² = 1` and norma
 quantiles; otherwise `s²` is the residual variance and intervals use Student-t
 quantiles. Results are reported in natural coordinates: the covariance with the delta
 method, the confidence intervals by mapping the internal endpoints.
+
+With priors, the covariance assumes known noise scales and a fit that minimizes
+half the weighted residual sum of squares minus the log prior. Use least squares
+for supported Normal priors or `reducer = x -> sum(x) / 2` with
+`OptimizationProblem`. The default mean-squared objective gives the prior a
+different relative weight.
 
 ## Worked examples
 

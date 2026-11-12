@@ -39,9 +39,19 @@ end
 @testset "MAP through the optimization problem" begin
     layer = prior_layer(Normal(μ, τ))
     ps, st = LuxCore.setup(StableRNG(1), layer)
-    optprob = OptimizationProblem(layer, experiment, ps, st, Optimization.AutoForwardDiff(); reducer = x -> sum(x) / 2)
+    model = CorleoneDynamicOptProblem(layer, experiment; ps, st, reducer = x -> sum(x) / 2)
+    optprob = OptimizationProblem(model, Optimization.AutoForwardDiff())
     sol = solve(optprob, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-12)
     @test sol.u ≈ β rtol = 1.0e-6
+    @test ParameterEstimate(model, sol.u).covariance ≈ inv(precision)
+
+    mean_model = CorleoneDynamicOptProblem(layer, experiment; ps, st)
+    mean_problem = OptimizationProblem(mean_model, Optimization.AutoForwardDiff())
+    mean_fit = solve(mean_problem, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-12)
+    mean_weight = 2 / (length(t) * σ^2)
+    mean_β = (mean_weight * X' * X + P) \ (mean_weight * X' * y + P * [0.0, μ])
+    @test mean_fit.u ≈ mean_β rtol = 1.0e-6
+    @test !isapprox(mean_fit.u, sol.u; rtol = 1.0e-3)
 end
 
 @testset "Unsupported least-squares priors" begin

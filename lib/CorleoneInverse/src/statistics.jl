@@ -39,6 +39,13 @@ the residual variance and intervals use Student-t quantiles; priors then require
 known noise scales. Values are reported in
 natural coordinates of the annotation transforms: the covariance with the delta
 method, the intervals by mapping their internal endpoints.
+
+With priors, supply `q` from a fit that minimizes half the weighted residual sum
+of squares minus the log prior. Use `NonlinearLeastSquaresProblem` for supported
+Normal priors or construct the model with `reducer = x -> sum(x) / 2` for
+`OptimizationProblem`. The default mean-squared objective changes the relative
+weight of the prior. `ParameterEstimate` uses the Gaussian likelihood convention
+for every reducer.
 """
 function ParameterEstimate(
         model::ExperimentDynamicOptProblem, q::AbstractVector;

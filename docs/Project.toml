@@ -1,11 +1,6 @@
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-OptimizationOptimisers = "42dfb2eb-d2b4-4451-abcd-913932933ac1"
-OrdinaryDiffEqBDF = "6ad6398a-0878-4a85-9266-38940aa047c8"
-OrdinaryDiffEqNonlinearSolve = "127b3ac7-2247-4354-8eb6-78cf4e7c58e8"
-StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
-NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
