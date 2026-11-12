@@ -229,7 +229,8 @@ Construct an annotation whose values are stored in Lux parameters. Supply an
 index or symbol, a vector of indices or symbols, a positional `selector => default` pair, or the `index`/`sym`
 keywords. Optional keywords are `kind`, `default`, `lowerbound`, `upperbound`,
 `integer`, `transform`, and `prior`. Missing metadata is resolved from the symbolic
-container.
+container. For an [`EvaluationLayer`](@ref) keyword, supply a scalar `default`
+and let the keyword provide the name.
 
 `transform` is an increasing scalar transform from internal to natural values (load
 TransformVariables, e.g. `asℝ₊`). Lux parameters then store internal values, while
@@ -264,8 +265,8 @@ function Tunable(;
         lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing,
         transform = nothing, prior = nothing
     )
-    isnothing(index) && isnothing(sym) &&
-        throw(ArgumentError("Provide either an index or a symbol."))
+    isnothing(index) && isnothing(sym) && isnothing(default) &&
+        throw(ArgumentError("Provide an index, a symbol, or a default for a named evaluation parameter."))
     return DynamicVariable{true}(index, sym, kind, default, integer, annotation_transform(transform, lowerbound, upperbound), prior)
 end
 
@@ -289,15 +290,17 @@ $(SIGNATURES)
 
 Construct a fixed-value annotation with the same selectors and metadata keywords
 as [`Tunable`](@ref). Values are stored in Lux state through [`FixedLayer`](@ref),
-and active fixed initial conditions do not contribute shooting residuals.
+and active fixed initial conditions do not contribute shooting residuals. For an
+[`EvaluationLayer`](@ref) keyword, supply a scalar `default` and let the keyword
+provide the name.
 """
 function Constant(;
         index = nothing, sym = nothing, kind::Val = Val{:unknown}(), default = nothing,
         lowerbound = nothing, upperbound = nothing, integer::Union{Nothing, Bool} = nothing,
         transform = nothing, prior = nothing
     )
-    isnothing(index) && isnothing(sym) &&
-        throw(ArgumentError("Provide either an index or a symbol."))
+    isnothing(index) && isnothing(sym) && isnothing(default) &&
+        throw(ArgumentError("Provide an index, a symbol, or a default for a named evaluation parameter."))
     return DynamicVariable{false}(index, sym, kind, default, integer, annotation_transform(transform, lowerbound, upperbound), prior)
 end
 

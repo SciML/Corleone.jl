@@ -100,13 +100,6 @@ natural_vector(layer, ps, st) = reduce(
     init = Union{}[]
 )
 
-function natural_vector(layer::ExperimentPrediction, ps, st)
-    shooting = natural_vector(layer.layer, experiment_parameters(layer, ps), st)
-    isnothing(layer.evaluation) && return shooting
-    evaluation = map(name -> getproperty(ps.evaluation, name), propertynames(ps.evaluation))
-    return reduce(vcat, values(evaluation_parameter_tree(ps, shooting, collect(evaluation))))
-end
-
 function Base.show(io::IO, ::MIME"text/plain", est::ParameterEstimate)
     println(io, "ParameterEstimate (RSS = ", round(est.rss; sigdigits = 4), ", dof = ", est.dof, ")")
     print(io, "  index  value  std. error  ", round(100 * est.level; digits = 1), "% interval")

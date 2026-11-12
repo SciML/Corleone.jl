@@ -32,6 +32,7 @@ run_qa(
             ignore = (
                 :collect_expression_times!, :compile_observation_expression, :compile_trajectory_expression,
                 :evaluate_trajectory_objective, :evaluation_parameter_tree, :evaluation_parameters,
+                :evaluation_collections, :evaluation_coordinate_ids, :evaluation_log_prior, :evaluation_parameter_metadata,
                 :experiment_fields, :expression_sample_grid, :expression_symbol_indices,
                 :get_saveat, :natural_values, :observation_residual, :observation_symbol_indices,
                 :optimization_matching, :optimization_matching!,

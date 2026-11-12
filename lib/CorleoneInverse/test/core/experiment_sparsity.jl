@@ -6,7 +6,8 @@ using TransformVariables: asℝ₊
     problem = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 1.0), [2.0])
     shooting = ShootingLayer(problem, Tsit5(), Tunable(1) => nothing)
     times = [0.25, 0.75]
-    data = Experiment(:(u₁^2 - w) => (times, [0.5, 1.0], 0.5))
+    data = Experiment(:(u₁^2 - w + offset) => (times, [0.5, 1.0], 0.5))
+    parameters = (w = Tunable(default = 0.5, lowerbound = 0.0, upperbound = 3.0), offset = Constant(default = 0.0))
     specification(x) = (;
         annotations = Tunable(1; kind = Val(:variable), default = x) => [0.0],
         observations = data,
@@ -15,7 +16,7 @@ using TransformVariables: asℝ₊
     shooting_ps, shooting_st = LuxCore.setup(Random.default_rng(), experiments)
     model = CorleoneDynamicOptProblem(
         shooting, experiments, :a => :(u₁(0.25)), :b => :(u₁(0.75));
-        ps = shooting_ps, st = shooting_st, observation_parameters = (w = 0.5,),
+        ps = shooting_ps, st = shooting_st, observation_parameters = parameters,
         lcons = (-Inf, -Inf), ucons = (Inf, Inf)
     )
     layer = model.layer.evaluation
@@ -30,6 +31,9 @@ using TransformVariables: asℝ₊
     updated, _ = layer(experiments, updated_ps, deepcopy(state))
     @test getproperty.(updated, :u) ≈ getproperty.(trajectories, :u)
     @test residual(model, updated_ps) ≈ residual(model) .+ 2
+    @test model.st.evaluation == (offset = 0.0,)
+    @test residual(model, model.ps, merge(model.st, (; evaluation = (offset = 1.0,)))) ≈ residual(model) .- 2
+    @test residual(layer, data, first(trajectories), model.ps.evaluation) ≈ residual(model)[1:2]
 
     ps = (; model.ps.evaluation, model.ps.shooting)
     q, reconstruct = pack(default_vectorizer(), ps)
@@ -44,6 +48,7 @@ using TransformVariables: asℝ₊
 
     ad = Corleone.SciMLBase.ADTypes.AutoForwardDiff()
     opt = Corleone.SciMLBase.OptimizationProblem(model, ad; ps, sparse_constraints = true, sparse_hessian = true)
+    @test opt.lb[1] == 0.0 && opt.ub[1] == 3.0
     for x in (q, q .+ 0.2, [2.0, 0.0, 1.0, 1.0]), λ in ([1.0, 0.0], [0.5, -1.5])
         r(q) = residual(model, reconstruct(q))
         c(q) = optimization_constraints(model, reconstruct(q))
@@ -63,12 +68,12 @@ using TransformVariables: asℝ₊
     end
 
     coupled_loss = CorleoneDynamicOptProblem(
-        shooting, experiments; observation_parameters = (w = 0.5,), reducer = r -> sum(r)^2
+        shooting, experiments; observation_parameters = parameters, reducer = r -> sum(r)^2
     )
     @test lagrangian_hessian_sparsity(coupled_loss)[2, 3]
     coupled_constraint = trajectories -> first(trajectories.a.u)[1] * first(trajectories.b.u)[1]
     coupled_model = CorleoneDynamicOptProblem(
-        shooting, experiments, coupled_constraint; observation_parameters = (w = 0.5,), lcons = 0.0, ucons = Inf
+        shooting, experiments, coupled_constraint; observation_parameters = parameters, lcons = 0.0, ucons = Inf
     )
     @test lagrangian_hessian_sparsity(coupled_model)[2, 3]
 
@@ -77,6 +82,8 @@ using TransformVariables: asℝ₊
         sparse_constraints = true, sparse_hessian = true
     )
     @test appended.model.ps.evaluation == (w = 1.5,)
+    @test appended.model.st.evaluation == model.st.evaluation
+    @test last(appended.problem.lb) == 0.0 && last(appended.problem.ub) == 3.0
     @test size(residual_jacobian_sparsity(appended.model)) == (6, 5)
     @test size(appended.problem.f.cons_jac_prototype) == (2, 5)
     @test size(appended.problem.f.lag_hess_prototype) == (5, 5)

@@ -4,6 +4,31 @@ using SciMLBase
 using DiffEqBase: SensitivityADPassThrough
 using Distributions: Normal, logpdf
 
+@testset "Observation annotation priors and fixed state" begin
+    problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 1.0), [2.0])
+    shooting = ShootingLayer(problem, Tsit5(), Tunable(1) => nothing)
+    times = [0.25, 0.5, 0.75]
+    data = Experiment(:(u₁ + offset - w) => (times, [2.0, 2.5, 3.0], 0.5))
+    prior = Normal(1.0, 0.5)
+    model = CorleoneDynamicOptProblem(
+        shooting, data; observation_parameters = (offset = Constant(default = 1.0), w = Tunable(; default = 0.5, prior))
+    )
+    @test model.st.evaluation == (offset = 1.0,)
+    @test model.ps.evaluation == (w = 0.5,)
+    @test residual(model) ≈ zeros(3) atol = 1.0e-12
+    @test optimization_objective(model) ≈ -logpdf(prior, 0.5)
+    ls = SciMLBase.NonlinearLeastSquaresProblem(model)
+    @test ls.f(ls.u0, ls.p) ≈ [0.0, 0.0, 0.0, -1.0]
+    @test ParameterEstimate(model, ls.u0).x ≈ ls.u0
+
+    fixed_data = Experiment(:(u₁ + offset) => (times, [2.5, 3.0, 3.5]))
+    fixed_model = CorleoneDynamicOptProblem(shooting, fixed_data; observation_parameters = (offset = Constant(default = 1.0),))
+    @test isempty(fixed_model.ps.evaluation)
+    @test Matrix(residual_jacobian_sparsity(fixed_model)) == trues(3, 1)
+    fixed_ls = SciMLBase.NonlinearLeastSquaresProblem(fixed_model)
+    @test fixed_ls.f(fixed_ls.u0, fixed_ls.p) ≈ zeros(3) atol = 1.0e-12
+end
+
 @testset "Observation expressions with shared fitted parameters" begin
     problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 1.0), [2.0])
     shooting = ShootingLayer(problem, Tsit5(), Tunable(1; default = 2.0) => nothing)
@@ -18,12 +43,12 @@ using Distributions: Normal, logpdf
         @test LuxCore.setup(Random.default_rng(), model.layer)[1] == model.ps
         trajectory = Corleone.optimization_trajectory(model, model.ps, model.st).a
         q, reconstruct = pack(default_vectorizer(), model.ps)
-        expected(q) = repeat(-2 .* ((1 .+ q[1] .* t).^2 .- q[2] .+ q[1] .* t), 2)
+        expected(q) = repeat(-2 .* ((1 .+ q[1] .* t) .^ 2 .- q[2] .+ q[1] .* t), 2)
         @test q == [2.0, 0.5]
         @test residual(model) ≈ expected(q)
         @test residual(model.layer.evaluation, data, trajectory, model.ps.evaluation; evaluator) ≈ expected(q)[1:3]
         @test residual(model.layer.evaluation, data, trajectory, (w = 1.0,); evaluator) ≈ expected(q)[1:3] .+ 1
-        @test residual(ode_only, trajectory; evaluator) ≈ -2 .* ((1 .+ 2 .* t).^2 .- 2 .+ t)
+        @test residual(ode_only, trajectory; evaluator) ≈ -2 .* ((1 .+ 2 .* t) .^ 2 .- 2 .+ t)
         @test residual(state_data, trajectory) ≈ -2 .* (1 .+ 2 .* t)
         @test_throws ArgumentError residual(model.layer.evaluation, data, trajectory, (;))
         @test_throws ArgumentError residual(Experiment(:(u₁^2) => ([0.1], [0.0])), trajectory)

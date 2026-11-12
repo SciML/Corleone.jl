@@ -211,7 +211,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     prepared_state = optimization_state(prob.layer, st, prob.evaluation_grid)
     layer, ids, state = shooting_components(prob.layer, packed_ids, prepared_state)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
-    evaluation_ids = evaluation_parameters(prob.layer, packed_ids)
+    evaluation_ids = evaluation_coordinate_ids(prob.layer, packed_ids)
     times = prob.times
     # Builtin field access keeps the heterogeneous constraint tuple from
     # specializing setup code (and its closures) on each expression type.
@@ -226,6 +226,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
         append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
     end
     objective = hessian ? trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times)) : BitSet[]
+    hessian && append!(objective, evaluation_prior_columns(prob.layer, packed_ids))
     return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
 end
 
@@ -262,7 +263,8 @@ function shooting_dependency_context(layer, ids, state, times, evaluation_ids, i
             time = sampled ? times[sample] : time
             kind === :time && continue
             if kind === :evaluation
-                push!(columns, evaluation_ids[index])
+                id = evaluation_ids[index]
+                isnothing(id) || push!(columns, id)
             elseif kind === :states
                 values = if sampled
                     isnothing(state_samples) ? dependencies.state_series : state_samples[sample]

@@ -85,24 +85,34 @@ observations = Experiment(:(p₁ * u₁ + t) => (times, values, 0.1))
 ```
 
 An observation expression can also use shared trainables that belong to the
-observation model. Declare their initial values with `observation_parameters`.
+observation model. Declare them with `observation_parameters`. The keyword
+names each value, so the annotation only needs its default and metadata.
 The names must differ from the state, ODE parameter, and time names.
 
 ```julia
-observations = Experiment(:(u₁^2 - w) => (times, values, 0.1))
+observations = Experiment(:(u₁^2 - w + offset) => (times, values, 0.1))
 model = CorleoneDynamicOptProblem(
-    shooting, observations; observation_parameters = (w = 0.5,),
+    shooting, observations;
+    observation_parameters = (
+        w = Tunable(default = 0.5, lowerbound = 0.0),
+        offset = Constant(default = 0.0),
+    ),
 )
 ps = model.ps
 trajectory, _ = shooting(observations, ps.shooting, model.st)
-residual(model.layer.evaluation, observations, trajectory, ps.evaluation)
+residual(
+    model.layer.evaluation, observations, trajectory, ps.evaluation;
+    evaluation_state = model.st.evaluation,
+)
 ```
 
-The fit packs the shooting values and observation values together. The ODE
-receives `ps.shooting`, and all experiments in the fit share `ps.evaluation`.
-Pass the current or fitted `ps.evaluation` values to evaluate against a saved
-trajectory. Expressions that read only trajectory values also work with
-`residual(observations, trajectory)`. The direct residual methods accept
+The fit packs the shooting values and observation tunables together. The ODE
+receives `ps.shooting`, and all experiments share the tunables in `ps.evaluation`
+and constants in `model.st.evaluation`. A numeric declaration such as
+`w = 0.5` is shorthand for an unbounded tunable. Expressions see natural
+values when a tunable has a transform. Direct evaluation uses the constant
+defaults when `evaluation_state` is omitted. Expressions that read only
+trajectory values also work with `residual(observations, trajectory)`. The direct residual methods accept
 `eval_module` and `evaluator` when expressions use custom helpers.
 
 #### Experiment sparsity
@@ -113,9 +123,9 @@ in every experiment, and local parameters keep their own columns. The existing
 `constraint_jacobian_sparsity(model)` and `lagrangian_hessian_sparsity(model)`
 queries use the same packing. Constraint rows include shooting equalities.
 
-In this example, two experiments share the ODE rate `p₁` and the observation
-offset `w`. Each experiment fits its own initial state. The tagged constraint
-reads only experiment `a` at time `0.75`.
+In this example, two experiments share the ODE rate `p₁`, the observation
+parameter `w`, and a fixed offset. Each experiment fits its own initial state.
+The tagged constraint reads only experiment `a` at time `0.75`.
 
 ```@example experiment_sparsity
 using CorleoneInverse, ComponentArrays, OrdinaryDiffEqTsit5
@@ -126,7 +136,7 @@ times = [0.25, 0.75]
 
 specification(x0, measurements) = (;
     annotations = Tunable(1; kind = Val(:variable), default = x0) => [0.0],
-    observations = Experiment(:(u₁^2 - w) => (times, measurements, 0.5)),
+    observations = Experiment(:(u₁^2 - w + offset) => (times, measurements, 0.5)),
 )
 batch = Experiments(shooting, (
     a = specification(1.0, [1.75, 5.75]),
@@ -134,7 +144,8 @@ batch = Experiments(shooting, (
 ))
 model = CorleoneDynamicOptProblem(
     shooting, batch, :a => :(u₁(0.75));
-    observation_parameters = (w = 0.5,), lcons = 0.0, ucons = 3.0,
+    observation_parameters = (w = Tunable(default = 0.5, lowerbound = 0.0), offset = Constant(default = 0.0)),
+    lcons = 0.0, ucons = 3.0,
 )
 
 J = residual_jacobian_sparsity(model)
@@ -146,7 +157,8 @@ Int.(Matrix(J))
 ```
 
 The first two residuals depend on the initial state of `a`, and the last two
-depend on the initial state of `b`. The tagged constraint has support in
+depend on the initial state of `b`. The fixed offset has no column.
+The tagged constraint has support in
 columns 1 and 2. The Hessian entry between the two initial states, `H[2, 3]`,
 is absent.
 

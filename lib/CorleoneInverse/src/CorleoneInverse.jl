@@ -10,6 +10,7 @@ using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experimen
     default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
     pack, shooting_constraints,
     collect_expression_times!, compile_observation_expression, compile_trajectory_expression, evaluation_parameter_tree, evaluation_parameters,
+    evaluation_collections, evaluation_coordinate_ids, evaluation_log_prior, evaluation_parameter_metadata,
     experiment_fields, expression_sample_grid,
     expression_symbol_indices, get_saveat, observation_residual, observation_symbol_indices, optimization_times,
     optimization_trajectory, prepare_constraint_bounds, prepare_dynamic_opt_problem,

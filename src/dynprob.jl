@@ -223,7 +223,7 @@ end
 
 function prepare_dynamic_opt_problem(layer, loss, constraints, bounds, ps, st, timepoints, grid, trajectory, indices, eval_module, evaluator)
     objective = loss isa Expr || is_evaluation_parameter(layer, loss) ? compile_trajectory_expression(loss, indices, optimization_times(trajectory), eval_module, evaluator) : trajectory_objective(layer, loss)
-    evaluation = evaluation_parameters(layer, ps)
+    evaluation = evaluation_parameters(layer, ps, st)
     scalar_objective(evaluate_optimization_objective(objective, trajectory, ps, st, evaluation))
     prepared = map(constraints, bounds) do c, bound
         c isa Symbol && !haskey(indices, c) && throw(ArgumentError("Constraint $c is not a state or parameter name."))
@@ -272,8 +272,10 @@ Solve once on the prepared evaluation grid and evaluate the scalar objective.
 Parameters/state default to those retained by the model. No numerical solution
 cache is shared between calls or AD contexts.
 """
-optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st) =
-    scalar_objective(evaluate_optimization_objective(prob.objective, optimization_trajectory(prob, ps, st), ps, st, evaluation_parameters(prob.layer, ps)))
+function optimization_objective(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
+    trajectory = optimization_trajectory(prob, ps, st)
+    return optimization_objective_value(prob, trajectory, ps, st, evaluation_parameters(prob.layer, ps, st))
+end
 
 """
 $(SIGNATURES)
@@ -285,7 +287,7 @@ AD support depends on the callback and backend's support for mutation.
 """
 function optimization_constraints(prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
     traj = optimization_trajectory(prob, ps, st)
-    evaluation = evaluation_parameters(prob.layer, ps)
+    evaluation = evaluation_parameters(prob.layer, ps, st)
     return vcat(map(c -> c(traj; evaluation), prob.constraints)..., optimization_matching(prob.layer, traj))
 end
 
@@ -300,7 +302,7 @@ the current numerical scalar type, including AD values.
 function optimization_constraints!(res, prob::CorleoneDynamicOptProblem, ps = prob.ps, st = prob.st)
     length(res) == length(prob.lcons) || throw(DimensionMismatch("Expected $(length(prob.lcons)) constraint entries, got $(length(res))."))
     traj = optimization_trajectory(prob, ps, st)
-    evaluation = evaluation_parameters(prob.layer, ps)
+    evaluation = evaluation_parameters(prob.layer, ps, st)
     index = firstindex(res)
     for c in prob.constraints
         c(view(res, index:(index + length(c) - 1)), traj; evaluation)
@@ -327,14 +329,18 @@ evaluate_trajectory_objective(f, trajectory, st) = applicable(f, trajectory) ? f
 evaluate_trajectory_objective(f, trajectory, ps, st) = evaluate_trajectory_objective(f, trajectory, st)
 evaluate_optimization_objective(f, trajectory, ps, st, evaluation) = evaluate_trajectory_objective(f, trajectory, ps, st)
 evaluate_optimization_objective(f::ParsedTrajectoryExpression, trajectory, ps, st, evaluation) = f(trajectory, evaluation)
+function optimization_objective_value(prob, trajectory, ps, st, evaluation)
+    objective = scalar_objective(evaluate_optimization_objective(prob.objective, trajectory, ps, st, evaluation))
+    return with_evaluation_prior(prob.layer, ps, objective)
+end
 @non_differentiable optimization_schedule(::Any, ::Any)
 @non_differentiable optimization_times(::Any)
 
 # Objective and constraints share one prediction during second differentiation.
 function optimization_lagrangian(prob, ps, st, sigma, multipliers)
     traj = optimization_trajectory(prob, ps, st)
-    evaluation = evaluation_parameters(prob.layer, ps)
-    objective = scalar_objective(evaluate_optimization_objective(prob.objective, traj, ps, st, evaluation))
+    evaluation = evaluation_parameters(prob.layer, ps, st)
+    objective = optimization_objective_value(prob, traj, ps, st, evaluation)
     isempty(multipliers) && return sigma * objective
     constraints = vcat(map(c -> c(traj; evaluation), prob.constraints)..., optimization_matching(prob.layer, traj))
     return sigma * objective + LinearAlgebra.dot(multipliers, constraints)

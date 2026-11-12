@@ -22,22 +22,38 @@ experiment_parameters(layer::ExperimentPrediction, ps) = experiment_parameters(l
 function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ExperimentPrediction)
     ps = LuxCore.initialparameters(rng, layer.layer)
     isnothing(layer.evaluation) && return ps
-    return (; shooting = ps, evaluation = layer.evaluation.evaluation)
+    return (; shooting = ps, evaluation = layer.evaluation.trainable)
 end
 LuxCore.parameterlength(layer::ExperimentPrediction) =
-    LuxCore.parameterlength(layer.layer) + (isnothing(layer.evaluation) ? 0 : length(layer.evaluation.evaluation))
+    LuxCore.parameterlength(layer.layer) + (isnothing(layer.evaluation) ? 0 : length(layer.evaluation.trainable))
+LuxCore.statelength(layer::ExperimentPrediction) =
+    LuxCore.statelength(layer.layer) + (isnothing(layer.evaluation) ? 0 : length(layer.evaluation.fixed))
 
 for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
     @eval function Corleone.$operation(layer::ExperimentPrediction, ps, st = nothing)
         shooting = Corleone.$operation(layer.layer, experiment_parameters(layer, ps), st)
         isnothing(layer.evaluation) && return shooting
-        evaluation = Corleone.$operation(nothing, ps.evaluation)
+        evaluation = evaluation_parameter_metadata(Corleone.$operation, layer.evaluation, ps.evaluation)
         return evaluation_parameter_tree(ps, shooting, evaluation)
     end
 end
 
-log_prior(layer::ExperimentPrediction, ps, st) = log_prior(layer.layer, experiment_parameters(layer, ps), st)
-parameter_collections(layer::ExperimentPrediction, ps, st) = parameter_collections(layer.layer, experiment_parameters(layer, ps), st)
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ExperimentPrediction)
+    return experiment_evaluation_state(layer.evaluation, LuxCore.initialstates(rng, layer.layer))
+end
+
+experiment_evaluation_state(::Nothing, st) = st
+experiment_evaluation_state(layer::EvaluationLayer, st) =
+    isempty(layer.fixed) ? st : merge(st, (; evaluation = layer.fixed))
+
+log_prior(layer::ExperimentPrediction, ps, st) =
+    log_prior(layer.layer, experiment_parameters(layer, ps), st) + evaluation_log_prior(layer.evaluation, ps)
+
+function parameter_collections(layer::ExperimentPrediction, ps, st)
+    shooting = parameter_collections(layer.layer, experiment_parameters(layer, ps), st)
+    isnothing(layer.evaluation) && return shooting
+    return Tuple(Iterators.flatten(evaluation_parameter_tree(ps, shooting, evaluation_collections(layer.evaluation, ps))))
+end
 
 function experiment_data(layer::Experiments)
     data = map(experiment -> experiment.observations, layer.experiments)
@@ -72,7 +88,7 @@ function experiment_prediction(owner::Experiments, layer, ps, st, grid)
     if isnothing(layer.evaluation)
         trajectories, _ = layer.shooting(owner, ps, state)
     else
-        trajectories, _ = layer.evaluation(owner, ps, (; shooting = state, evaluation = (;)))
+        trajectories, _ = layer.evaluation(owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
     end
     return NamedTuple{keys(layer.data)}(Tuple(trajectories))
 end
@@ -138,7 +154,7 @@ reduce_measurements(reducer, data, trajectories, evaluation) = reducer(abs2.(mea
 reduce_measurements(::typeof(mean), data, trajectories, evaluation) = mean_squared_residual(data, trajectories, evaluation)
 
 function evaluate_trajectory_objective(objective::MeasurementObjective, trajectories, ps, st)
-    evaluation = evaluation_parameters(objective.owner.evaluation, ps)
+    evaluation = evaluation_parameters(objective.owner.evaluation, ps, st)
     loss = reduce_measurements(objective.reducer, objective.data, trajectories, evaluation)
     return scalar_objective(loss) - log_prior(objective.owner, ps, st)
 end
@@ -180,11 +196,14 @@ such as `:(p₁ * u₁)`. Expressions use current-time signal names and the inde
 variable; each observation supplies its own sampling grid. They compile once
 against the experiment's symbolic metadata. `eval_module` resolves custom helpers.
 
-`observation_parameters = (w = 0.5,)` declares a shared observation-only trainable.
+`observation_parameters = (w = Tunable(default = 0.5), offset = Constant(default = 0.0))`
+declares shared observation-only values. Numeric declarations are shorthand for
+unbounded tunables.
 The fit creates an [`EvaluationLayer`](@ref) at `model.layer.evaluation`. The
 prepared parameter tree stores the shooting values in `model.ps.shooting` and the
-extra values in `model.ps.evaluation`. If supplied, `ps` and `st` are the shooting
-or experiments owner's Lux setup values.
+extra tunables in `model.ps.evaluation`. Constants are stored in
+`model.st.evaluation`. If supplied, `ps` and `st` are the shooting or
+experiments owner's Lux setup values.
 
 A tagged constraint `:experiment => :(u₁(2.0))` evaluates on that experiment.
 Untagged expressions apply to a single experiment. Callbacks receive the complete
@@ -216,7 +235,8 @@ function CorleoneDynamicOptProblem(
     layer = ExperimentPrediction(shooting, owner, data, (; constraints, lcons, ucons, eval_module, evaluator), evaluation)
     if !isnothing(evaluation)
         observation_symbol_indices(shooting.sys, evaluation)
-        ps = (; shooting = ps, evaluation = evaluation.evaluation)
+        ps = (; shooting = ps, evaluation = evaluation.trainable)
+        st = experiment_evaluation_state(evaluation, st)
     end
     metadata = experiment_metadata(layer)
     indices = map(expression_symbol_indices, metadata)
@@ -254,7 +274,7 @@ model. Parameters and state default to those retained by the model. Priors are
 handled separately by optimization and least-squares problem construction.
 """
 residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st) =
-    measurement_residuals(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps))
+    measurement_residuals(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps, st))
 n_observations(model::ExperimentDynamicOptProblem) = n_observations(model.objective.data)
 
 """
@@ -270,7 +290,7 @@ concatenating their residual vectors. Parameters and state default to those
 retained by the model.
 """
 function mean_squared_residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st)
-    return mean_squared_residual(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps))
+    return mean_squared_residual(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps, st))
 end
 
 function mean_squared_residual(data, trajectories, evaluation = ())

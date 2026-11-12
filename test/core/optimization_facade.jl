@@ -1,6 +1,8 @@
 using Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, ComponentArrays, Random, ForwardDiff
 using RuntimeGeneratedFunctions
 using SymbolicIndexingInterface
+using Distributions: Normal, logpdf
+using TransformVariables: asℝ₊
 
 facade_helper(x) = 2x + 1
 
@@ -49,6 +51,42 @@ facade_helper(x) = 2x + 1
         @test all(hessian[i] || iszero(dense_hessian[i]) for i in eachindex(hessian))
         @test model.layer.sparsity === stored
     end
+end
+
+@testset "Named evaluation annotations" begin
+    problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 1.0), [2.0])
+    shooting = ShootingLayer(problem, Tsit5(), Tunable(1) => nothing)
+    layer = EvaluationLayer(
+        shooting, :(offset), :offset, :(gain + scale + offset);
+        gain = Tunable(default = 2.0, lowerbound = 1.0, upperbound = 5.0, integer = true),
+        scale = Tunable(default = 3.0, transform = asℝ₊, prior = Normal(3.0, 1.0)),
+        offset = Constant(default = 4.0)
+    )
+    model = CorleoneDynamicOptProblem(layer; lcons = (0.0, 0.0), ucons = (Inf, Inf))
+    @test model.ps.evaluation.gain == 2.0
+    @test model.ps.evaluation.scale ≈ log(3.0)
+    @test model.st.evaluation == (offset = 4.0,)
+    @test LuxCore.parameterlength(layer) == LuxCore.parameterlength(shooting) + 2
+    @test LuxCore.statelength(layer) == LuxCore.statelength(shooting) + 1
+    @test optimization_constraints(model) ≈ [4.0, 9.0]
+    @test optimization_constraints(model, model.ps, merge(model.st, (; evaluation = (offset = 5.0,)))) ≈ [5.0, 10.0]
+    @test log_prior(layer, model.ps, model.st) ≈ logpdf(Normal(3.0, 1.0), 3.0) + log(3.0)
+    @test optimization_objective(model) ≈ 4.0 - log_prior(layer, model.ps, model.st)
+    opt = Corleone.SciMLBase.OptimizationProblem(model, Corleone.SciMLBase.ADTypes.AutoForwardDiff())
+    q, rebuild = pack(default_vectorizer(), model.ps)
+    ids = rebuild(collect(eachindex(q)))
+    @test opt.lb[ids.evaluation.gain] == 1.0
+    @test opt.ub[ids.evaluation.gain] == 5.0
+    @test opt.int[ids.evaluation.gain] && !opt.int[ids.evaluation.scale]
+    @test Matrix(constraint_jacobian_sparsity(model)) == Bool[0 0 0; 0 1 1]
+    @test findall(lagrangian_hessian_sparsity(model)[:, ids.evaluation.scale]) == [ids.evaluation.gain, ids.evaluation.scale]
+    @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(:gain; default = 1.0))
+    @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(default = -1.0, lowerbound = 0.0))
+
+    fixed = CorleoneDynamicOptProblem(EvaluationLayer(shooting, :offset, :offset; offset = Constant(default = 4.0)); lcons = 0.0, ucons = Inf)
+    @test isempty(fixed.ps.evaluation)
+    @test optimization_objective(fixed) == 4.0
+    @test Matrix(constraint_jacobian_sparsity(fixed)) == falses(1, 1)
 end
 
 @testset "Timed expressions and structured constraint bounds" begin

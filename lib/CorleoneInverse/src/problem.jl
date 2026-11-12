@@ -100,8 +100,13 @@ function appended_experiment_model(model, experiment, u0, ps, st, vectorize, rng
     initial, reconstruct = pack(vectorize, ps)
     length(u0) == length(initial) || throw(DimensionMismatch("The warm start must match the existing model's packed layout."))
     fitted = reconstruct(u0)
-    observation_parameters = isnothing(prediction.evaluation) ? (;) :
-        NamedTuple{keys(prediction.evaluation.evaluation)}(evaluation_parameters(prediction.evaluation, fitted))
+    observation_parameters = if isnothing(prediction.evaluation)
+        (;)
+    else
+        layer = prediction.evaluation
+        defaults = evaluation_parameters(layer, fitted, st)
+        map((annotation, default) -> SciMLBase.remake(annotation; default), layer.evaluation, NamedTuple{keys(layer.evaluation)}(defaults))
+    end
     next = append_experiment(owner, experiment_parameters(prediction, fitted), st, experiment; rng)
     definition = prediction.definition
     constraints = map(definition.constraints) do constraint
