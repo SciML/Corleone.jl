@@ -6,9 +6,10 @@ Wrap a SymbolicIndexingInterface symbolic container with bookkeeping metadata.
 running costs. Selections accept symbols or original indices. All symbols retain
 their original kind, index and ordering. Controls remain parameters.
 
-`bounds` maps state or parameter symbols to `(lower, upper)` pairs. The parent
-container and supplied bounds dictionary are retained by reference, just as the
-parent's defaults are. Index-provider queries delegate through `symbolic_container`.
+`bounds` maps state or parameter symbols to `(lower, upper)` pairs. `integers`
+lists the state and parameter symbols whose optimization values are integral. The
+parent container and supplied bounds dictionary are retained by reference, just as
+the parent's defaults are. Index-provider queries delegate through `symbolic_container`.
 A differential equation problem can also be supplied in place of `sys`.
 
 # Fields
@@ -23,6 +24,8 @@ $(FIELDS)
     quadratures
     "State and parameter symbols mapped to `(lower, upper)` bounds, retained by reference."
     bounds
+    "State and parameter symbols whose optimization values are integral."
+    integers
 end
 
 function metadata_subset(sys, selected, kind)
@@ -44,11 +47,12 @@ end
 $(SIGNATURES)
 
 Construct a bookkeeping wrapper from a symbolic index provider. `controls` and
-`quadratures` accept symbols or original indices; `bounds` must be keyed by symbols.
+`quadratures` accept symbols or original indices; `bounds` and `integers` must be
+keyed by symbols.
 The parent and bounds dictionary are retained by reference. Passing an existing
 cache without overrides returns that same cache.
 """
-function ControlSymbolCache(sys; controls = (), quadratures = (), bounds = default_bounds(sys))
+function ControlSymbolCache(sys; controls = (), quadratures = (), bounds = default_bounds(sys), integers = default_integers(sys))
     controls = metadata_subset(sys, controls, :parameter)
     quadratures = metadata_subset(sys, quadratures, :variable)
     for (sym, interval) in bounds
@@ -60,7 +64,11 @@ function ControlSymbolCache(sys; controls = (), quadratures = (), bounds = defau
             throw(ArgumentError("Bounds for $sym must contain a lower and upper bound."))
         first(interval) <= last(interval) || throw(ArgumentError("Lower bound exceeds upper bound for $sym."))
     end
-    return ControlSymbolCache(sys, controls, quadratures, bounds)
+    for sym in integers
+        (is_variable(sys, sym) || is_parameter(sys, sym)) && symbolic_type(sym) != NotSymbolic() ||
+            throw(ArgumentError("Integer selections must be state or parameter symbols, got $sym."))
+    end
+    return ControlSymbolCache(sys, controls, quadratures, bounds, collect(Any, integers))
 end
 
 ControlSymbolCache(prob::SciMLBase.AbstractSciMLProblem; kwargs...) =
@@ -68,11 +76,12 @@ ControlSymbolCache(prob::SciMLBase.AbstractSciMLProblem; kwargs...) =
 
 function ControlSymbolCache(
         cache::ControlSymbolCache;
-        controls = cache.controls, quadratures = cache.quadratures, bounds = cache.bounds
+        controls = cache.controls, quadratures = cache.quadratures, bounds = cache.bounds,
+        integers = cache.integers
     )
     controls === cache.controls && quadratures === cache.quadratures &&
-        bounds === cache.bounds && return cache
-    return ControlSymbolCache(cache.sys; controls, quadratures, bounds)
+        bounds === cache.bounds && integers === cache.integers && return cache
+    return ControlSymbolCache(cache.sys; controls, quadratures, bounds, integers)
 end
 
 # SII already forwards its entire index-provider interface through this hook.
@@ -81,6 +90,8 @@ SymbolicIndexingInterface.symbolic_container(cache::ControlSymbolCache) = cache.
 __get_symbolic_container(cache::ControlSymbolCache) = cache
 
 default_bounds(cache::ControlSymbolCache) = cache.bounds
+default_integers(cache::ControlSymbolCache) = cache.integers
+default_integers(::Any) = ()
 # These bookkeeping queries belong to this wrapper, not the SII interface.
 """
 $(SIGNATURES)
@@ -89,6 +100,14 @@ Return the stored `(lower, upper)` bound pair for `sym`, or `(-Inf, Inf)`
 when no bounds are stored for that symbol.
 """
 get_bounds(cache::ControlSymbolCache, sym) = get(cache.bounds, sym, (-Inf, Inf))
+"""
+$(SIGNATURES)
+
+Return whether `sym` is an integer state or parameter in `cache`. Symbols not
+listed there fall back to their own metadata ([`is_integer_variable`](@ref)).
+"""
+is_integer_variable(cache::ControlSymbolCache, sym) =
+    any(isequal(sym), cache.integers) || is_integer_variable(sym)
 """
 $(SIGNATURES)
 

@@ -96,6 +96,7 @@ quadrature_symbols
 quadrature_indices
 default_bounds
 Corleone.get_bounds
+Corleone.is_integer_variable
 ```
 
 ## Internal layers and scheduling
@@ -133,8 +134,10 @@ MultipleShootingLayer
 ```@docs
 get_lower_bound
 get_upper_bound
+get_integrality
 get_number_of_shooting_constraints
 add_parameter_segments!
+adapt_timegrid!
 shooting_constraints
 shooting_constraints!
 ```
@@ -148,6 +151,7 @@ optimization_constraints
 optimization_constraints!
 constraint_jacobian_sparsity
 lagrangian_hessian_sparsity
+Corleone.elementwise_series_expression
 pack
 default_vectorizer
 default_evaluator

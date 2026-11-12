@@ -126,6 +126,52 @@ end
     @test optimization_objective(d) ≈ last(traj.u)[2]
     @test isempty(optimization_constraints(d))
     @test optimization_constraints!(Float64[], d) == Float64[]
-    terminal = CorleoneDynamicOptProblem(layer, :u₂, :u₁; ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
+    terminal = CorleoneDynamicOptProblem(layer, :u₂, :(u₁(1.0)); ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
     @test only(optimization_constraints(terminal)) ≈ last(traj.u)[1]
+    # A bare signal constraint is a path constraint on every saved sample.
+    n = length(terminal.times)
+    path = CorleoneDynamicOptProblem(layer, :u₂, :u₁; ps = d.ps, st = d.st, lcons = [zeros(n)], ucons = [fill(2.0, n)])
+    series = CorleoneDynamicOptProblem(layer, :u₂, :(identity(u₁)); ps = d.ps, st = d.st, lcons = [zeros(n)], ucons = [fill(2.0, n)])
+    @test optimization_constraints(path) ≈ optimization_constraints(series)
+    @test last(optimization_constraints(path)) ≈ last(traj.u)[1]
+    @test_throws ArgumentError CorleoneDynamicOptProblem(layer, :u₂, :unknown; ps = d.ps, st = d.st, lcons = [0.0], ucons = [2.0])
+end
+
+@testset "Integer annotations set the optimization int mask" begin
+    ad = Corleone.SciMLBase.ADTypes.AutoForwardDiff()
+    problem = ODEProblem((u, p, t) -> [p[1] - u[1], p[2] * u[1]], [1.0, 0.0], (0.0, 2.0), [1.0, 0.5, 0.2])
+    layer = ShootingLayer(
+        problem, Tsit5(),
+        Tunable(1; default = 1.0, lowerbound = 0.0, upperbound = 3.0, integer = true) => [0.5, 1.0, 1.5], # Integer control.
+        Tunable(2; default = 0.5, lowerbound = 0.0, upperbound = 1.0) => nothing, # Continuous parameter.
+        Tunable(3; default = 0.0, lowerbound = 0.0, upperbound = 1.0, integer = true) => nothing, # Integer parameter.
+        Tunable(1; kind = Val(:variable), default = 1.0, integer = true) => [1.0], # Integer shooting node.
+        Tunable(2; kind = Val(:variable), default = 0.0) => [1.0]
+    )
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    integrality = get_integrality(layer, ps, st)
+    @test integrality.parameter.parameters.p₁.parameter.ps == trues(4)
+    # Untimed parameters share one group with a member per parameter.
+    @test integrality.parameter.parameters.p₂.parameter.p₂.ps == [false]
+    @test integrality.parameter.parameters.p₂.parameter.p₃.ps == [true]
+    model = CorleoneDynamicOptProblem(layer, :(u₂(2.0)); ps, st)
+    opt = Corleone.SciMLBase.OptimizationProblem(model, ad)
+    q, rebuild = pack(default_vectorizer(), ps)
+    ids = rebuild(collect(eachindex(q)))
+    mask = falses(length(q))
+    mask[ids.parameter.parameters.p₁.parameter.ps] .= true
+    mask[ids.parameter.parameters.p₂.parameter.p₃.ps] .= true
+    nodes = ids.initialcondition.initialconditions.u₁.parameter # Shared node grid groups both states.
+    mask[nodes.u₁.ps] .= true
+    @test !any(mask[nodes.u₂.ps])
+    @test count(mask) == 6 # Four control values, one parameter and one node.
+    @test opt.int == mask
+    @test opt.int isa AbstractVector{Bool}
+    # An explicit mask replaces the derived one; continuous problems have none.
+    @test Corleone.SciMLBase.OptimizationProblem(model, ad; int = fill(false, length(q))).int == fill(false, length(q))
+    continuous = ShootingLayer(problem, Tsit5(), Tunable(1; default = 1.0) => [1.0])
+    @test isnothing(Corleone.SciMLBase.OptimizationProblem(CorleoneDynamicOptProblem(continuous, :(u₂(2.0))), ad).int)
+    @test !any(Iterators.flatten(values(ComponentArray(get_integrality(continuous, LuxCore.setup(MersenneTwister(1), continuous)...)))))
+    # The facade constructor forwards the mask as well.
+    @test Corleone.SciMLBase.OptimizationProblem(layer, ad; loss = :(u₂(2.0)), ps, st).int == mask
 end

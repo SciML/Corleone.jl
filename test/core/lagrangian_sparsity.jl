@@ -82,3 +82,25 @@ end
         end
     end
 end
+
+@testset "Elementwise series rows give per-sample Hessian blocks" begin
+    problem = ODEProblem((u, p, t) -> [u[1] * (1.0 - u[2]) - p[1] * u[1], u[2] * (u[1] - 1.0)], [0.5, 0.7], (0.0, 2.0), [0.3]; saveat = 0.5, abstol = 1.0e-11, reltol = 1.0e-11)
+    layer = ShootingLayer(problem, Tsit5(), Tunable(1; default = 0.3) => [0.5, 1.0, 1.5], Tunable([1, 2]; kind = Val(:variable)) => [1.0])
+    ps, st = LuxCore.setup(MersenneTwister(1), layer)
+    ps, st = add_parameter_segments!(layer, ps, st)
+    n = 6 # Five saved points plus the outgoing side of the reset at 1.0.
+    model = CorleoneDynamicOptProblem(layer, :(0.0 + 0.0), :(u₁ .^ 2 .* p₁); ps, st, lcons = [fill(-Inf, n)], ucons = [fill(Inf, n)])
+    dense = CorleoneDynamicOptProblem(layer, :(0.0 + 0.0), :(cumsum(u₁ .^ 2 .* p₁)); ps, st, lcons = [fill(-Inf, n)], ucons = [fill(Inf, n)])
+    q, rebuild = pack(default_vectorizer(), ps)
+    ids = rebuild(collect(eachindex(q)))
+    controls = ids.parameter.parameters.p₁.parameter.ps
+    pattern = lagrangian_hessian_sparsity(model)
+    @test issymmetric(pattern)
+    @test count(pattern) < count(lagrangian_hessian_sparsity(dense))
+    @test !pattern[controls[1], controls[end]] # Early and late controls never share a row.
+    for shift in (0.0, 0.02)
+        weights = [(-1.0)^i / i for i in eachindex(model.lcons)]
+        H = ForwardDiff.hessian(x -> dot(weights, optimization_constraints(model, rebuild(x), st)), q .+ shift)
+        @test maximum(abs, H[.!Matrix(pattern)]; init = 0.0) < 1.0e-8
+    end
+end

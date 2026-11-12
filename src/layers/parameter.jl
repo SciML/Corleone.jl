@@ -243,6 +243,49 @@ function expand_parameter_collections(layers::NamedTuple, ps, st, source)
     return NamedTuple{names}(map(first, updated)), NamedTuple{names}(map(last, updated))
 end
 
+# Time-grid adaptation. `plan` lists `(a, b, w)` per new interval: the new value
+# is `v[a] + w * (v[b] - v[a])`, so constant sampling uses `w = 0`.
+function resample_values(values, plan)
+    return [w == 0 ? values[a] : values[a] + w * (values[b] - values[a]) for (a, b, w) in plan]
+end
+
+function resample_parameter_collections(collection::ParameterCollection, ps, st, f, name)
+    return replace_parameter_fields(ps, (; ps = f(ps.ps, collection, name))), st
+end
+function resample_parameter_collections(layer::FixedLayer, ps, st, f, name)
+    parameters, state = resample_parameter_collections(layer.layer, st.parameters, st.states, f, name)
+    return ps, merge(st, (; parameters, states = state))
+end
+function resample_parameter_collections(layers::NamedTuple, ps, st, f, name)
+    names = keys(layers)
+    updated = map(names) do member
+        resample_parameter_collections(layers[member], getproperty(ps, member), st[member], f, member)
+    end
+    return NamedTuple{names}(map(first, updated)), NamedTuple{names}(map(last, updated))
+end
+
+grid_lookup_state(::PiecewiseConstant, st) = st.lookup
+grid_lookup_state(layer::FixedLayer, st) = grid_lookup_state(layer.layer, st.states)
+
+# Replace one shared-grid group's lookup and resample all of its members.
+# `f(values, plan, collection, member)` returns the member's new values.
+function adapt_parameter_grid(pc::PiecewiseConstant, ps, st, grid, plan_for, f, name)
+    plan = plan_for(st.lookup.collection)
+    member_values = (values, collection, member) -> f(values, plan, collection, member)
+    parameters, parameter_state = resample_parameter_collections(pc.parameter, ps.parameter, st.parameter, member_values, name)
+    lookup = merge(
+        st.lookup, (;
+            collection = grid, inserted = Int[],
+            cache = isnothing(st.lookup.cache) ? nothing : empty(st.lookup.cache),
+        )
+    )
+    return replace_parameter_fields(ps, (; parameter = parameters)), merge(st, (; lookup, parameter = parameter_state))
+end
+function adapt_parameter_grid(layer::FixedLayer, ps, st, args...)
+    parameters, state = adapt_parameter_grid(layer.layer, st.parameters, st.states, args...)
+    return ps, merge(st, (; parameters, states = state))
+end
+
 number_of_parameter_constraints(layer::PiecewiseConstant, st) =
     number_of_tunable_collections(layer.parameter) * length(st.lookup.inserted)
 number_of_parameter_constraints(::FixedLayer, st) = 0

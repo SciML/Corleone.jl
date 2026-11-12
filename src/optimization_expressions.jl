@@ -20,8 +20,23 @@ Parsing and index substitution are shared by both implementations.
 function compile_evaluator end
 
 call_eval_function(f, x) = Base.invokelatest(f, x)
-compile_evaluator(::Val{:Eval}, expression::Expr, eval_module::Module) =
-    Base.Fix1(call_eval_function, Core.eval(eval_module, expression))
+
+# Evaluated lambdas receive a fresh closure type on every `Core.eval`. Reuse the
+# function compiled for an identical expression and module, so rebuilt problems
+# retain their types and all code specialized on them.
+const EVAL_EXPRESSION_CACHE = Dict{Tuple{Module, Expr}, Any}()
+const EVAL_EXPRESSION_LOCK = ReentrantLock()
+function compile_evaluator(::Val{:Eval}, expression::Expr, eval_module::Module)
+    keyexpr = Base.remove_linenums!(Base.deepcopy(expression))
+    key = (eval_module, keyexpr)
+    f = lock(EVAL_EXPRESSION_LOCK) do
+        length(EVAL_EXPRESSION_CACHE) > 10_000 && empty!(EVAL_EXPRESSION_CACHE)
+        get!(EVAL_EXPRESSION_CACHE, key) do
+            Core.eval(eval_module, keyexpr)
+        end
+    end
+    return Base.Fix1(call_eval_function, f)
+end
 
 function ChainRulesCore.rrule(config::RuleConfig{>:HasReverseMode}, ::typeof(call_eval_function), f, x)
     y, pullback = Base.invokelatest(rrule_via_ad, config, f, x)
@@ -143,7 +158,9 @@ $(TYPEDEF)
 
 A compiled trajectory expression retaining parsed signal dependencies for structural
 Jacobian preparation. Literal vector expressions additionally retain dependencies
-per component; other vector-valued expressions use their combined dependencies.
+per component. Elementwise series expressions (see [`elementwise_series_expression`](@ref))
+depend per output row on one saved sample of each series plus their timed signals.
+Other vector-valued expressions use their combined dependencies.
 
 # Fields
 $(FIELDS)
@@ -155,7 +172,11 @@ struct ParsedTrajectoryExpression{F, D, C}
     dependencies::D
     "Per-component dependencies for a literal vector, or nothing."
     components::C
+    "Whether output row `k` reads only saved sample `k` of each referenced series."
+    elementwise::Bool
 end
+ParsedTrajectoryExpression(f, dependencies, components) =
+    ParsedTrajectoryExpression(f, dependencies, components, false)
 function (expression::ParsedTrajectoryExpression)(traj)
     return expression.f(
         (;
@@ -183,28 +204,100 @@ function expression_dependencies(expr, indices, times)
     return unique!(collect_expression_dependencies!(dependencies, expr, indices, times))
 end
 
-function compile_trajectory_expression(expr::Expr, indices, times, eval_module, evaluator)
-    input = gensym(:samples)
-    body = replace_expression_samples(expr, indices, times, input)
+# The generated argument name is fixed rather than a gensym: compiling the same
+# expression on the same saved grid must produce the same function type, so
+# rebuilt problems reuse derivative preparation and other specialized code.
+# The `#` prefix cannot be written as an ordinary user identifier.
+const EXPRESSION_SAMPLES_ARGUMENT = Symbol("##corleone_samples")
+
+function compile_trajectory_expression(expr::Union{Expr, Symbol}, indices, times, eval_module, evaluator)
+    input = EXPRESSION_SAMPLES_ARGUMENT
+    # Source locations would otherwise distinguish identical expressions.
+    body = Base.remove_linenums!(replace_expression_samples(expr, indices, times, input))
     f = compile_evaluator(evaluator, Expr(:->, input, body), eval_module)
-    components = if expr.head === :vect && !any(arg -> arg isa Expr && arg.head === :..., expr.args)
+    components = if expr isa Expr && expr.head === :vect && !any(arg -> arg isa Expr && arg.head === :..., expr.args)
         map(arg -> expression_dependencies(arg, indices, times), expr.args)
     else
         nothing
     end
     dependencies = isnothing(components) ? expression_dependencies(expr, indices, times) :
         unique!(reduce(vcat, components; init = Tuple{Symbol, Int, Union{Nothing, Real}}[]))
-    return ParsedTrajectoryExpression(f, dependencies, components)
+    elementwise = isnothing(components) && elementwise_series_expression(expr, indices) === :series
+    return ParsedTrajectoryExpression(f, dependencies, components, elementwise)
+end
+
+"""
+    elementwise_series_expression(expr, indices) -> :series, :scalar, or nothing
+
+Classify an expression syntactically for per-sample series sparsity. `:series`
+means output element `k` reads only saved sample `k` of every referenced series
+signal (plus scalar timed signals); `:scalar` means a timed signal or a constant;
+`nothing` means neither can be guaranteed.
+
+The rule is deliberately conservative. An expression is elementwise if it is
+
+- a bare series signal such as `u₁` or `p₂`;
+- `identity(x)` of an elementwise expression `x`;
+- a dotted call `f.(args...)` or dotted operator such as `a .* b`, `.-a` or
+  `a .<= b`, whose arguments are all elementwise or scalar, with at least one
+  series argument.
+
+Scalar arguments are timed signals such as `u₁(2.0)`, numeric literals,
+interpolated numeric values or arrays, and dotted calls of scalar arguments only. Everything else (for example `sum(u₁)`,
+`cumsum(u₁)`, undotted calls such as `u₁ * 2`, indexing, vector literals, global
+names, and `@.`/`.=` forms) is not elementwise and keeps the union of all its
+dependencies in every row. Row sparsity is additionally applied only when the
+output length equals the number of saved samples.
+"""
+function elementwise_series_expression(expr, indices)
+    expr isa Symbol && return haskey(indices, expr) ? :series : nothing
+    expr isa Expr || return expr isa Union{Number, AbstractArray{<:Number}} ? :scalar : nothing
+    if expr.head === :call
+        op = first(expr.args)
+        args = expr.args[2:end]
+        if op isa Symbol && haskey(indices, op)
+            return length(args) == 1 && args[1] isa Real ? :scalar : nothing # Timed signal.
+        elseif op === :identity && length(args) == 1
+            return elementwise_series_expression(only(args), indices) === :series ? :series : nothing
+        elseif dotted_operator(op)
+            return elementwise_broadcast(args, indices)
+        end
+        return nothing
+    elseif expr.head === :. && length(expr.args) == 2 && expr.args[2] isa Expr && expr.args[2].head === :tuple
+        # `f.(args...)` broadcasts f; f itself must not be a signal.
+        expr.args[1] isa Symbol && !haskey(indices, expr.args[1]) || return nothing
+        return elementwise_broadcast(expr.args[2].args, indices)
+    end
+    return nothing
+end
+function elementwise_broadcast(args, indices)
+    any(arg -> arg isa Expr && arg.head in (:..., :kw, :parameters), args) && return nothing
+    kinds = map(arg -> elementwise_series_expression(arg, indices), args)
+    any(isnothing, kinds) && return nothing
+    return any(==(:series), kinds) ? :series : :scalar
+end
+function dotted_operator(op)
+    op isa Symbol || return false
+    name = String(op)
+    return length(name) > 1 && startswith(name, '.') && Base.isoperator(Symbol(name[nextind(name, 1):end]))
 end
 
 # Opaque callbacks may read any trajectory value. Parsed expressions expose the
 # signals they read; unknown vector output structure shares their union per row.
-trajectory_constraint_dependencies(f, n, resolve, ncolumns) =
+# `resolve(signals, sample)` resolves series signals at one saved sample index,
+# or their whole history when `sample` is nothing.
+trajectory_constraint_dependencies(@nospecialize(f), n, resolve, ncolumns, nsamples) =
     fill(BitSet(1:ncolumns), n)
-function trajectory_constraint_dependencies(f::ParsedTrajectoryExpression, n, resolve, ncolumns)
+function trajectory_constraint_dependencies(@nospecialize(f::ParsedTrajectoryExpression), n, resolve, ncolumns, nsamples)
     if !isnothing(f.components) && length(f.components) == n
-        return map(resolve, f.components)
+        return map(signals -> resolve(signals, nothing), f.components)
     end
-    columns = resolve(f.dependencies)
+    if f.elementwise && n == nsamples
+        timed = filter(signal -> !isnothing(signal[3]), f.dependencies)
+        series = filter(signal -> isnothing(signal[3]), f.dependencies)
+        shared = resolve(timed, nothing)
+        return [union(shared, resolve(series, k)) for k in 1:n]
+    end
+    columns = resolve(f.dependencies, nothing)
     return fill(columns, n)
 end

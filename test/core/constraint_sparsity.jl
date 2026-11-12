@@ -168,3 +168,98 @@ end
     J = ForwardDiff.jacobian(x -> optimization_constraints(model, rebuild(x)), q)
     @test maximum(abs, J[.!Matrix(pattern)]; init = 0.0) < 1.0e-9
 end
+
+@testset "Rebuilt expression problems keep their types" begin
+    problem = ODEProblem((u, p, t) -> [p[1] * u[1]], [1.0], (0.0, 1.0), [0.2]; saveat = 0.25)
+    layer = ShootingLayer(problem, Tsit5(), Tunable(1; default = 0.2) => [0.5])
+    for evaluator in (Val(:Eval), default_evaluator())
+        build() = CorleoneDynamicOptProblem(
+            layer, :(u₁(1.0)^2), :(identity(u₁)), :(u₁(0.5) + p₁(0.75));
+            evaluator, lcons = [zeros(5), 0.0], ucons = [fill(Inf, 5), Inf]
+        )
+        first_model, second_model = build(), build()
+        @test typeof(first_model.constraints) === typeof(second_model.constraints)
+        @test typeof(first_model.objective) === typeof(second_model.objective)
+        @test typeof(first_model) === typeof(second_model)
+        optimization_constraints(first_model)
+        count_specializations() = sum(m -> count(!isnothing, Base.specializations(m)), methods(optimization_constraints))
+        before = count_specializations()
+        @test optimization_constraints(second_model) == optimization_constraints(first_model)
+        @test count_specializations() == before # The rebuilt problem compiles nothing new.
+    end
+    # Distinct expressions remain distinct functions.
+    a = CorleoneDynamicOptProblem(layer, :(u₁(1.0)^2))
+    b = CorleoneDynamicOptProblem(layer, :(u₁(1.0)^3))
+    @test typeof(a.objective) !== typeof(b.objective)
+    @test optimization_objective(a) ≈ optimization_objective(b)^(2 / 3)
+end
+
+@testset "Elementwise series expression classification" begin
+    indices = Dict(:u₁ => (:states, 1), :u₂ => (:states, 2), :p₁ => (:parameters, 1))
+    classify(expr) = Corleone.elementwise_series_expression(expr, indices)
+    for expr in (:u₁, :p₁, :(identity(u₁)), :(u₁ .- 0.5 .* u₂(1.0)), :(sin.(u₁) .+ p₁), :(.-u₁), :(ifelse.(u₁ .> 0.0, u₂, 1.0)), :(identity(u₁ .^ 2)))
+        @test classify(expr) === :series
+    end
+    for expr in (:(cumsum(u₁)), :(sum(u₁)), :(u₁ * 2.0), :(u₁ .+ sum(u₂)), :(u₁ .+ c), :(u₁(1.0) .+ 1.0), :(u₁[1:2] .+ 0.0), :(f.(u₁...)), :(u₁ .+ [1.0, 2.0]), :(identity(u₁(1.0))))
+        @test classify(expr) !== :series
+    end
+    @test classify(:(u₁ .+ $([1.0, 2.0]))) === :series # Interpolated constants are allowed.
+end
+
+@testset "Saved series rows depend on their own sample" begin
+    function lotka!(du, u, p, t)
+        du[1] = u[1] - p[1] * u[1] * u[2] - 0.4 * p[2] * u[1]
+        du[2] = -u[2] + p[1] * u[1] * u[2] - 0.2 * p[2] * u[2]
+        du[3] = (u[1] - 1.0)^2 + (u[2] - 1.0)^2
+        return nothing
+    end
+    problem = ODEProblem(lotka!, [0.5, 0.7, 0.0], (0.0, 3.0), [1.0, 0.3]; saveat = 0.25, abstol = 1.0e-10, reltol = 1.0e-10)
+    control = Tunable(2; default = 0.3, lowerbound = 0.0, upperbound = 1.0) => collect(0.5:0.5:2.5)
+    fixed = Constant(1) => nothing
+    nodes = [1.0, 2.0]
+    for shooting in (:single, :multiple)
+        lifted = shooting === :multiple ? (Tunable([1, 2]; kind = Val(:variable)) => nodes,) : ()
+        layer = ShootingLayer(problem, Tsit5(), control, fixed, lifted...; controls = [2], quadratures = [3])
+        ps, st = LuxCore.setup(MersenneTwister(1), layer)
+        ps, st = add_parameter_segments!(layer, ps, st)
+        nsamples = 13 + (shooting === :multiple ? length(nodes) : 0) # Both sides of saved resets.
+        expressions = (:(identity(u₁)), :(u₂ .* u₁(3.0) .- p₂), :(sin.(u₁) .+ 1.0), :u₂, :(cumsum(u₁))) # A bare signal is its series.
+        model = CorleoneDynamicOptProblem(
+            layer, :(u₃(3.0)), expressions...; ps, st,
+            lcons = [fill(-Inf, nsamples) for _ in expressions], ucons = [fill(Inf, nsamples) for _ in expressions]
+        )
+        @test length(model.times) == nsamples
+        q, rebuild = pack(default_vectorizer(), ps)
+        ids = rebuild(collect(eachindex(q)))
+        controls = ids.parameter.parameters.p₂.parameter.ps
+        pattern = constraint_jacobian_sparsity(model)
+        rows(j) = ((j - 1) * nsamples + 1):(j * nsamples)
+        path, timed, broadcast, bare, cumulative = map(rows, 1:5)
+        union_columns = reduce(.|, eachrow(pattern[path, :]))
+        @test all(row -> pattern[row, :] == union_columns, cumulative) # Non-elementwise stays dense.
+        @test count(pattern[path, :]) < length(path) * count(union_columns) # Strictly sparser.
+        @test !any(pattern[first(path), :]) # The fixed initial value has no decisions.
+        @test findall(pattern[path[2], :]) == [controls[1]] # t = 0.25 precedes later controls.
+        @test pattern[broadcast, :] == pattern[path, :]
+        @test !any(pattern[path[2], controls[2:end]])
+        terminal = findall(pattern[last(path), :])
+        for k in eachindex(path)
+            @test findall(pattern[timed[k], :]) == sort(union(findall(pattern[path[k], :]), terminal, findall(pattern[bare[k], :]), [controls[searchsortedlast([0.5, 1.0, 1.5, 2.0, 2.5], model.times[k]) + 1]]))
+        end
+        if shooting === :multiple
+            node = ids.initialcondition.initialconditions.u₁.parameter
+            incoming, outgoing = findall(==(1.0), model.times)
+            @test outgoing == incoming + 1
+            @test findall(pattern[path[outgoing], :]) == [node.u₁.ps[1]] # Reset side reads only its node.
+            @test findall(pattern[bare[outgoing], :]) == [node.u₂.ps[1]]
+            @test !pattern[path[incoming], node.u₁.ps[1]]
+            @test findall(pattern[path[incoming], :]) == sort(controls[1:2])
+            @test pattern[path[outgoing + 1], node.u₂.ps[1]] # Coupled states after integration.
+        end
+        for shift in (0.0, 0.01, -0.03)
+            input = q .+ shift .* cos.(eachindex(q))
+            J = ForwardDiff.jacobian(x -> optimization_constraints(model, rebuild(x), st), input)
+            @test maximum(abs, J[.!Matrix(pattern)]; init = 0.0) < 1.0e-9
+        end
+    end
+end

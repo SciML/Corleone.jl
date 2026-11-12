@@ -60,19 +60,38 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds)
     )
     effective_bounds = nothing
+    effective_integers = nothing
     for (i, definition) in enumerate(definitions)
         annotation = definition isa Pair ? first(definition) : definition
         annotation isa AbstractAnnotation || continue
-        has_lowerbound(annotation) || has_upperbound(annotation) || continue
+        bounded = has_lowerbound(annotation) || has_upperbound(annotation)
+        bounded || has_integer(annotation) || continue
         kind = i in ic_defs ? Val(:variable) : Val(:parameter)
         for scalar in scalar_annotations(annotation)
-            get_transform(scalar) isa BoundedTransform || continue
+            identity = get_transform(scalar) isa BoundedTransform
+            identity || has_integer(scalar) || continue
             resolved = update_annotation(set_kind(scalar, kind), cache)
-            isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
-            effective_bounds[get_sym(resolved)] = get_bounds(resolved)
+            sym = get_sym(resolved)
+            if bounded && identity
+                isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
+                effective_bounds[sym] = get_bounds(resolved)
+            end
+            if has_integer(scalar)
+                # Explicit flags override inherited metadata in either direction.
+                isnothing(effective_integers) && (effective_integers = collect(Any, cache.integers))
+                filter!(!isequal(sym), effective_integers)
+                if is_integer_variable(resolved)
+                    identity || throw(ArgumentError("Integer annotation $sym requires the identity (bounded) transform; the optimizer sees transformed values."))
+                    push!(effective_integers, sym)
+                end
+            end
         end
     end
-    return isnothing(effective_bounds) ? cache : ControlSymbolCache(cache; bounds = effective_bounds)
+    isnothing(effective_bounds) && isnothing(effective_integers) && return cache
+    return ControlSymbolCache(
+        cache; bounds = something(effective_bounds, cache.bounds),
+        integers = something(effective_integers, cache.integers)
+    )
 end
 
 
@@ -362,11 +381,24 @@ terminal_state(sol::AbstractArray) = sol[:, end]
     return unwrapbuffer(sols), unwrapbuffer(res), st
 end
 
-get_lower_bound(layer::ShootingLayer, ps, st = nothing) =
-    shooting_parameter_bounds(get_lower_bound, first, layer, ps, st)
-get_upper_bound(layer::ShootingLayer, ps, st = nothing) =
-    shooting_parameter_bounds(get_upper_bound, last, layer, ps, st)
+get_lower_bound(layer::ShootingLayer, ps, st = nothing) = shooting_parameter_bounds(
+    get_lower_bound, (child, cache, sym) -> first(internal_bounds(collection_transform(child), get_bounds(cache, sym))), layer, ps, st
+)
+get_upper_bound(layer::ShootingLayer, ps, st = nothing) = shooting_parameter_bounds(
+    get_upper_bound, (child, cache, sym) -> last(internal_bounds(collection_transform(child), get_bounds(cache, sym))), layer, ps, st
+)
+get_integrality(layer::ShootingLayer, ps, st = nothing) =
+    shooting_parameter_bounds(get_integrality, shooting_integrality, layer, ps, st)
 
+# Integer values are only meaningful when the optimizer sees natural values.
+function shooting_integrality(child, cache, sym)
+    is_integer_variable(cache, sym) || return false
+    collection_transform(child) isa BoundedTransform ||
+        throw(ArgumentError("Integer parameter $sym requires the identity (bounded) transform; the optimizer sees transformed values."))
+    return true
+end
+
+# `select(child, cache, sym)` gives each scheduled value's entry for its symbol.
 function shooting_parameter_bounds(operation, select, layer, ps, st)
     # Build the parameter tree through the same generic Lux recursion. Applying
     # symbolic metadata is the only ShootingLayer-specific part of this protocol.
@@ -396,14 +428,13 @@ function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select,
             inner = NamedTuple{inner_names}(
                 map(inner_names) do variable
                     sym = only(filter(sym -> Symbol(sym) == variable, symbols))
-                    bounds = internal_bounds(collection_transform(child.parameter[variable]), get_bounds(cache, sym))
-                    parameter_bound_tree(template[name].parameter[variable], select(bounds))
+                    parameter_bound_tree(template[name].parameter[variable], select(child.parameter[variable], cache, sym))
                 end
             )
             return merge(template[name], (; parameter = inner))
         end
         sym = only(filter(sym -> Symbol(sym) == name, symbols))
-        parameter_bound_tree(template[name], select(internal_bounds(collection_transform(child), get_bounds(cache, sym))))
+        parameter_bound_tree(template[name], select(child, cache, sym))
     end
     return NamedTuple{names}(fields)
 end
@@ -471,6 +502,146 @@ function add_parameter_segments!(layer::ShootingLayer, ps, st)
     return next_ps, next_st
 end
 
+"""
+    adapt_timegrid!(layer::ShootingLayer, ps, st, pairs...; interpolation = :constant, extrapolation = :constant)
+
+Move controls to new time grids and return `(new_ps, new_st)` for the same layer.
+Each pair is `parameter => grid`: the parameter as a `Symbol`, symbolic variable or
+original index, and the new sorted switching times strictly inside the problem
+time span (`nothing` or an empty grid gives one constant value). A grid of `n`
+times stores `n + 1` values. The inputs and the layer are not modified.
+
+Each new interval takes the old control's value at the interval midpoint:
+
+- `interpolation = :constant` uses the value of the old interval containing the
+  midpoint, so refining a grid reproduces the old control exactly.
+- `interpolation = :linear` interpolates linearly between the old values placed
+  at their interval midpoints. Outside the first and last old midpoints,
+  `extrapolation = :constant` holds the end value and `:linear` extends the end
+  slope. Results are rounded for integer parameters and clipped to the bounds of
+  identity-transformed parameters. Other transforms interpolate internal values.
+
+`extrapolation` has no effect with constant interpolation, since the old control
+covers the whole time span. Parameters that share a time grid (for example all
+untimed parameters) are stored together; supply the same grid for every member
+of such a group. Fixed (`Constant`) parameters are resampled the same way.
+Adapted groups lose their parameter matching equalities; if any were inserted by
+[`add_parameter_segments!`](@ref), segments are inserted again on the new grids.
+`st.timestops` is refreshed. Rebuild optimization problems afterwards.
+"""
+function adapt_timegrid!(
+        layer::ShootingLayer, ps, st, pairs::Pair...;
+        interpolation::Symbol = :constant, extrapolation::Symbol = :constant
+    )
+    interpolation in (:constant, :linear) || throw(ArgumentError("interpolation must be :constant or :linear, got :$interpolation."))
+    extrapolation in (:constant, :linear) || throw(ArgumentError("extrapolation must be :constant or :linear, got :$extrapolation."))
+    isempty(pairs) && return ps, st
+    tspan = layer.problem.tspan
+    parameter = layer.parameter
+    names = keys(parameter.parameters)
+    grids = Dict{Int, Any}()
+    named = Dict{Int, Set{Int}}()
+    for (key, grid) in pairs
+        index = timegrid_parameter_index(layer.sys, key)
+        group = findfirst(members -> index in members, parameter.indices)
+        isnothing(group) && throw(ArgumentError("Parameter $key has no time grid in this layer."))
+        normalized = normalize_timegrid(grid, tspan)
+        haskey(grids, group) && !isequal(grids[group], normalized) &&
+            throw(ArgumentError("Parameters sharing a time grid must receive the same new grid; $key differs."))
+        grids[group] = normalized
+        push!(get!(named, group, Set{Int}()), index)
+    end
+    symbols = parameter_symbols(layer.sys)
+    for (group, members) in named
+        missing_members = setdiff(parameter.indices[group], members)
+        isempty(missing_members) || throw(
+            ArgumentError(
+                "Parameters $(join(map(i -> parameter_name(layer.sys, symbols, i), parameter.indices[group]), ", ")) share one time grid; " *
+                    "also supply $(join(map(i -> parameter_name(layer.sys, symbols, i), missing_members), ", ")) with the same grid."
+            )
+        )
+    end
+    segmented = any(name -> !isempty(grid_lookup_state(parameter.parameters[name], st.parameter.parameters[name]).inserted), names)
+    resample = (values, plan, collection, member) -> resample_control(layer.sys, symbols, values, plan, collection, member, interpolation)
+    updated = map(enumerate(names)) do (group, name)
+        child, child_ps, child_st = parameter.parameters[name], getproperty(ps.parameter.parameters, name), st.parameter.parameters[name]
+        haskey(grids, group) || return child_ps, child_st
+        plan_for = old -> timegrid_plan(old, grids[group], tspan, interpolation, extrapolation)
+        return adapt_parameter_grid(child, child_ps, child_st, grids[group], plan_for, resample, name)
+    end
+    parameters = NamedTuple{names}(map(first, Tuple(updated)))
+    states = NamedTuple{names}(map(last, Tuple(updated)))
+    next_parameter_ps = replace_parameter_fields(ps.parameter, (; parameters))
+    next_ps = replace_parameter_fields(ps, (; parameter = next_parameter_ps))
+    next_st = merge(st, (; parameter = merge(st.parameter, (; parameters = states))))
+    next_st = merge(next_st, (; timestops = get_timestops(layer, nothing, next_st)))
+    segmented && return add_parameter_segments!(layer, next_ps, next_st)
+    return next_ps, next_st
+end
+
+function timegrid_parameter_index(sys, key)
+    key isa Integer && return Int(key)
+    if is_variable(sys, key) || (key isa Symbol && any(sym -> Symbol(sym) == key, variable_symbols(sys)))
+        throw(ArgumentError("$key is a state; only parameters and controls have time grids."))
+    end
+    index = is_parameter(sys, key) ? parameter_index(sys, key) : nothing
+    if isnothing(index) && key isa Symbol
+        position = findfirst(sym -> Symbol(sym) == key, parameter_symbols(sys))
+        index = isnothing(position) ? nothing : parameter_index(sys, parameter_symbols(sys)[position])
+    end
+    index isa Integer || throw(ArgumentError("Unknown parameter $key."))
+    return Int(index)
+end
+
+parameter_name(sys, symbols, index) = Symbol(only(filter(sym -> parameter_index(sys, sym) == index, symbols)))
+
+function normalize_timegrid(grid, (t0, tf))
+    (isnothing(grid) || isempty(grid)) && return nothing
+    times = collect(float.(grid))
+    issorted(times) && allunique(times) || throw(ArgumentError("Time grids must be sorted and contain unique times."))
+    all(t -> t0 < t < tf, times) || throw(DomainError(times, "New switching times must lie strictly inside the time span ($t0, $tf)."))
+    return times
+end
+
+# Intervals of a switching grid, clipped to the time span. Old grids may contain
+# switching times outside the span; those intervals are never active.
+function timegrid_intervals(grid, (t0, tf))
+    isnothing(grid) && return [(t0, tf)]
+    bounds = vcat(-Inf, grid, Inf)
+    return [(clamp(bounds[k], t0, tf), clamp(bounds[k + 1], t0, tf)) for k in 1:(length(grid) + 1)]
+end
+
+function timegrid_plan(old, new, tspan, interpolation, extrapolation)
+    midpoints = [(a + b) / 2 for (a, b) in timegrid_intervals(new, tspan)]
+    if interpolation === :constant
+        return [(k, k, 0.0) for k in (lookup!(nothing, old, m) for m in midpoints)]
+    end
+    intervals = timegrid_intervals(old, tspan)
+    active = findall(((a, b),) -> b > a, intervals)
+    nodes = [(intervals[k][1] + intervals[k][2]) / 2 for k in active]
+    length(active) == 1 && return fill((only(active), only(active), 0.0), length(midpoints))
+    return map(midpoints) do m
+        i = clamp(searchsortedlast(nodes, m), 1, length(nodes) - 1)
+        w = (m - nodes[i]) / (nodes[i + 1] - nodes[i])
+        if extrapolation === :constant
+            w <= 0 && return (active[i], active[i], 0.0)
+            w >= 1 && return (active[i + 1], active[i + 1], 0.0)
+        end
+        return (active[i], active[i + 1], w)
+    end
+end
+
+function resample_control(sys, symbols, values, plan, collection, member, interpolation)
+    resampled = resample_values(values, plan)
+    interpolation === :constant && return resampled
+    sym = only(filter(sym -> Symbol(sym) == member, symbols))
+    is_integer_variable(sys, sym) && (resampled = round.(resampled))
+    transform = collection_transform(collection)
+    transform isa BoundedTransform || return resampled
+    lower, upper = internal_bounds(transform, get_bounds(sys, sym))
+    return clamp.(resampled, lower, upper)
+end
+
 optimization_grid(layer::ShootingLayer, st, timepoints) = expression_evaluation_grid(layer, st, timepoints)
 optimization_schedule(::ShootingLayer, st) = st.timestops
 optimization_state(::ShootingLayer, st, grid) = merge(st, (; timestops = grid))
@@ -489,7 +660,11 @@ end
 
 # Arbitrary dynamics may couple all states. Propagate their combined dependency
 # set through each integration segment, retaining precision at scheduled resets.
-function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing, hessian = false)
+# `series_times` are the saved trajectory times, with both sides of saved resets.
+# When supplied, `state_samples[k]` holds per-state dependencies of saved sample k:
+# a segment start reads only its outgoing (reset) values, later samples read the
+# segment's combined set. It is nothing if the times do not match the schedule.
+function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_times = nothing, series_times = nothing, hessian = false)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
     dependencies = [BitSet() for _ in 1:sum(length, layer.initialcondition.indices; init = 0)]
     rows = BitSet[]
@@ -501,6 +676,9 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
     # state histories have the same union. It is only read after this walk.
     history = BitSet()
     state_series = fill(history, length(dependencies))
+    state_samples = isnothing(series_times) ? nothing : Vector{Vector{BitSet}}(undef, length(series_times))
+    next_sample = 1 # First saved sample not yet assigned to a segment.
+    pending = 0 # A single saved sample at the previous segment end, if any.
     callback = get(layer.problem.kwargs, :callback, nothing)
     has_callbacks = callback isa SciMLBase.CallbackSet ?
         !isempty(callback.continuous_callbacks) || !isempty(callback.discrete_callbacks) : !isnothing(callback)
@@ -508,6 +686,7 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
     initializes_state = has_callbacks || !hasproperty(f, :initialization_data) ||
         !isnothing(f.initialization_data) || !hasproperty(f, :mass_matrix) || f.mass_matrix != LinearAlgebra.I
     for (segment, t) in enumerate(st.timestops[1:(end - 1)])
+        incoming = isnothing(state_samples) ? dependencies : copy(dependencies)
         fill!(reset_rows, nothing)
         hessian && fill!(reset_hessian_rows, nothing)
         for (k, name) in enumerate(keys(layer.initialcondition.initialconditions))
@@ -531,17 +710,38 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             end
         end
         query = isnothing(sample_times) ? 0 : searchsortedfirst(sample_times, t)
-        if query > 0 && query <= length(sample_times) && sample_times[query] == t
+        saved_start = query > 0 && query <= length(sample_times) && sample_times[query] == t
+        if saved_start || !isnothing(state_samples)
             # A callback initializer can mix states and parameters before the
             # first saved value. Keep that boundary conservative when present.
             outgoing = !initializes_state ?
                 copy(dependencies) : fill(combined, length(dependencies))
-            states_at[t] = outgoing
+            saved_start && (states_at[t] = outgoing)
         end
         # Published dependency sets are read-only. Resets replace vector entries,
         # so coupled states can share one set without copying its bit storage.
         dependencies = fill(combined, length(dependencies))
         stop = st.timestops[segment + 1]
+        if !isnothing(state_samples)
+            k = next_sample
+            if k <= length(series_times) && series_times[k] == t
+                # An unassigned sample at the segment start is its outgoing side.
+                state_samples[k] = outgoing
+                k += 1
+            elseif pending > 0 && any(i -> incoming[i] !== outgoing[i], eachindex(outgoing))
+                # Only one side of a reset was saved; it may be either side.
+                state_samples[pending] = map(union, state_samples[pending], outgoing)
+            end
+            # Resets replace entries of `dependencies` in place; publish a copy.
+            interior = k <= length(series_times) && t < series_times[k] <= stop ? copy(dependencies) : dependencies
+            while k <= length(series_times) && t < series_times[k] <= stop
+                state_samples[k] = interior
+                k += 1
+                series_times[k - 1] == stop && break # The next copy belongs to the next segment.
+            end
+            pending = k > next_sample && series_times[k - 1] == stop ? k - 1 : 0
+            next_sample = k
+        end
         if !isnothing(sample_times)
             first_sample = searchsortedlast(sample_times, t) + 1
             last_sample = searchsortedlast(sample_times, stop)
@@ -555,6 +755,8 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             union!(history, combined)
         end
     end
+    # Saved times outside the schedule: fall back to the conservative history.
+    !isnothing(state_samples) && next_sample != length(series_times) + 1 && (state_samples = nothing)
     for entry in parameter_constraint_entries(layer.parameter, ids.parameter, st.parameter)
         entry.fixed && continue
         for i in entry.inserted
@@ -562,5 +764,5 @@ function shooting_constraint_dependencies(layer::ShootingLayer, ids, st; sample_
             hessian && push!(matching_hessian, BitSet()) # Affine parameter equality.
         end
     end
-    return (; matching = rows, states_at, state_series, matching_hessian)
+    return (; matching = rows, states_at, state_series, state_samples, matching_hessian)
 end
