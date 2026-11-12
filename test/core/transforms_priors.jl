@@ -152,3 +152,14 @@ end
     ps, st = LuxCore.setup(StableRNG(1), layer)
     @test_throws ArgumentError constant_initialization(StableRNG(1), layer, ps, st; u0 = [0.0, 0.0])
 end
+
+@testset "Integer annotations require natural optimization values" begin
+    @test_throws ArgumentError ShootingLayer(problem, Tsit5(), Tunable(1; transform = asℝ₊, integer = true) => nothing)
+    # A transformed continuous parameter remains valid next to an integer one.
+    layer = ShootingLayer(problem, Tsit5(), Tunable(1; transform = asℝ₊) => nothing, Tunable(2; integer = true, default = 0.0) => nothing)
+    ps, st = LuxCore.setup(StableRNG(1), layer)
+    integrality = get_integrality(layer, ps, st)
+    # Untimed parameters share one group with a member per parameter.
+    @test integrality.parameter.parameters.p₁.parameter.p₁.ps == [false]
+    @test integrality.parameter.parameters.p₁.parameter.p₂.ps == [true]
+end

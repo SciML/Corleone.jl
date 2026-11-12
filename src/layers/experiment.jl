@@ -525,3 +525,5 @@ function experiment_bounds(layers::NamedTuple, ps, select)
 end
 get_lower_bound(layer::Experiments, ps, st = nothing) = experiment_bounds(layer, ps, first)
 get_upper_bound(layer::Experiments, ps, st = nothing) = experiment_bounds(layer, ps, last)
+# Experiment parameters are continuous estimation variables.
+get_integrality(layer::Experiments, ps, st = nothing) = experiment_bounds(layer, ps, _ -> false)

@@ -275,6 +275,9 @@ end
 function get_upper_bound(stages::Stages, ps, st = nothing)
     return _multistage_bounds(get_upper_bound, stages, ps, st)
 end
+function get_integrality(stages::Stages, ps, st = nothing)
+    return _multistage_bounds(get_integrality, stages, ps, st)
+end
 
 function _multistage_bounds(operation, stages::Stages, ps, st)
     names = _multistage_keys(stages)

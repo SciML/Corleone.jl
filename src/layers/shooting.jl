@@ -60,19 +60,38 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         bounds = isnothing(bounds) ? parent.bounds : merge(parent.bounds, bounds)
     )
     effective_bounds = nothing
+    effective_integers = nothing
     for (i, definition) in enumerate(definitions)
         annotation = definition isa Pair ? first(definition) : definition
         annotation isa AbstractAnnotation || continue
-        has_lowerbound(annotation) || has_upperbound(annotation) || continue
+        bounded = has_lowerbound(annotation) || has_upperbound(annotation)
+        bounded || has_integer(annotation) || continue
         kind = i in ic_defs ? Val(:variable) : Val(:parameter)
         for scalar in scalar_annotations(annotation)
-            get_transform(scalar) isa BoundedTransform || continue
+            identity = get_transform(scalar) isa BoundedTransform
+            identity || has_integer(scalar) || continue
             resolved = update_annotation(set_kind(scalar, kind), cache)
-            isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
-            effective_bounds[get_sym(resolved)] = get_bounds(resolved)
+            sym = get_sym(resolved)
+            if bounded && identity
+                isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))
+                effective_bounds[sym] = get_bounds(resolved)
+            end
+            if has_integer(scalar)
+                # Explicit flags override inherited metadata in either direction.
+                isnothing(effective_integers) && (effective_integers = collect(Any, cache.integers))
+                filter!(!isequal(sym), effective_integers)
+                if is_integer_variable(resolved)
+                    identity || throw(ArgumentError("Integer annotation $sym requires the identity (bounded) transform; the optimizer sees transformed values."))
+                    push!(effective_integers, sym)
+                end
+            end
         end
     end
-    return isnothing(effective_bounds) ? cache : ControlSymbolCache(cache; bounds = effective_bounds)
+    isnothing(effective_bounds) && isnothing(effective_integers) && return cache
+    return ControlSymbolCache(
+        cache; bounds = something(effective_bounds, cache.bounds),
+        integers = something(effective_integers, cache.integers)
+    )
 end
 
 
@@ -362,11 +381,24 @@ terminal_state(sol::AbstractArray) = sol[:, end]
     return unwrapbuffer(sols), unwrapbuffer(res), st
 end
 
-get_lower_bound(layer::ShootingLayer, ps, st = nothing) =
-    shooting_parameter_bounds(get_lower_bound, first, layer, ps, st)
-get_upper_bound(layer::ShootingLayer, ps, st = nothing) =
-    shooting_parameter_bounds(get_upper_bound, last, layer, ps, st)
+get_lower_bound(layer::ShootingLayer, ps, st = nothing) = shooting_parameter_bounds(
+    get_lower_bound, (child, cache, sym) -> first(internal_bounds(collection_transform(child), get_bounds(cache, sym))), layer, ps, st
+)
+get_upper_bound(layer::ShootingLayer, ps, st = nothing) = shooting_parameter_bounds(
+    get_upper_bound, (child, cache, sym) -> last(internal_bounds(collection_transform(child), get_bounds(cache, sym))), layer, ps, st
+)
+get_integrality(layer::ShootingLayer, ps, st = nothing) =
+    shooting_parameter_bounds(get_integrality, shooting_integrality, layer, ps, st)
 
+# Integer values are only meaningful when the optimizer sees natural values.
+function shooting_integrality(child, cache, sym)
+    is_integer_variable(cache, sym) || return false
+    collection_transform(child) isa BoundedTransform ||
+        throw(ArgumentError("Integer parameter $sym requires the identity (bounded) transform; the optimizer sees transformed values."))
+    return true
+end
+
+# `select(child, cache, sym)` gives each scheduled value's entry for its symbol.
 function shooting_parameter_bounds(operation, select, layer, ps, st)
     # Build the parameter tree through the same generic Lux recursion. Applying
     # symbolic metadata is the only ShootingLayer-specific part of this protocol.
@@ -396,14 +428,13 @@ function symbolic_parameter_bounds(template::NamedTuple, cache, symbols, select,
             inner = NamedTuple{inner_names}(
                 map(inner_names) do variable
                     sym = only(filter(sym -> Symbol(sym) == variable, symbols))
-                    bounds = internal_bounds(collection_transform(child.parameter[variable]), get_bounds(cache, sym))
-                    parameter_bound_tree(template[name].parameter[variable], select(bounds))
+                    parameter_bound_tree(template[name].parameter[variable], select(child.parameter[variable], cache, sym))
                 end
             )
             return merge(template[name], (; parameter = inner))
         end
         sym = only(filter(sym -> Symbol(sym) == name, symbols))
-        parameter_bound_tree(template[name], select(internal_bounds(collection_transform(child), get_bounds(cache, sym))))
+        parameter_bound_tree(template[name], select(child, cache, sym))
     end
     return NamedTuple{names}(fields)
 end

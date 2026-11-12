@@ -27,6 +27,23 @@ function get_upper_bound end
 """
 $(SIGNATURES)
 
+Return a Boolean integrality tree with the parameter layout and array shapes of
+`ps`, following the same recursion as [`get_lower_bound`](@ref). An entry is
+`true` when its optimization value must be integral. Generic leaves are
+continuous (`false`).
+
+`ShootingLayer` marks every scheduled value of a state or parameter whose
+annotation sets `integer = true`, or whose symbol is integral in its
+`ControlSymbolCache` (for example, ModelingToolkit `Integer` variables). An
+explicit `integer = false` overrides inherited metadata. Integer values require
+the identity (bounded) transform. Pack the tree with the same vectorization as the
+parameters; `OptimizationProblem` does this and passes the result as `int`.
+"""
+function get_integrality end
+
+"""
+$(SIGNATURES)
+
 Return `(get_lower_bound(layer, ps, st), get_upper_bound(layer, ps, st))`. The
 returned trees follow the supplied parameter ordering and shapes; fixed data in
 Lux state is excluded. The two directional functions recursively traverse Lux
@@ -47,7 +64,7 @@ end
 
 # Mirror LuxCore.initialparameters: containers wrap declared fields, wrappers
 # delegate without an extra field, and NamedTuple/Tuple collections retain shape.
-for (operation, unbounded) in ((:get_lower_bound, -Inf), (:get_upper_bound, Inf))
+for (operation, unbounded) in ((:get_lower_bound, -Inf), (:get_upper_bound, Inf), (:get_integrality, false))
     @eval begin
         $(operation)(::Union{LuxCore.AbstractLuxLayer, Nothing}, ps, st = nothing) =
             unbounded_parameter_bounds(ps, $unbounded)

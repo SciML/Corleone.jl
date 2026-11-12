@@ -90,13 +90,17 @@ constraint Jacobian sparsely; objective differentiation retains `ad`. Load
 DifferentiationInterface and SparseMatrixColorings to enable it.
 `sparse_hessian = true` additionally prepares exact objective and Lagrangian
 Hessians with structural coloring; `ad` must support second differentiation.
-Remaining keywords are forwarded to OptimizationProblem.
+Integer states and parameters (annotations with `integer = true`, or integral
+symbols; see [`get_integrality`](@ref)) set the problem's `int` mask, one entry
+per packed value. It is `nothing` when every value is continuous. Supplying `int`
+explicitly replaces this mask. Remaining keywords are forwarded to
+OptimizationProblem.
 """
 function SciMLBase.OptimizationProblem(
         prob::CorleoneDynamicOptProblem, ad::SciMLBase.ADTypes.AbstractADType;
         vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st, inplace::Bool = true, sparse_constraints::Bool = false, sparse_hessian::Bool = false,
-        function_kwargs::NamedTuple = (;), kwargs...
+        function_kwargs::NamedTuple = (;), int = nothing, kwargs...
     )
     initial, reconstruct = pack(vectorize, ps)
     lower, upper = get_bounds(prob.layer, ps, st)
@@ -104,6 +108,11 @@ function SciMLBase.OptimizationProblem(
     ub, _ = pack(vectorize, upper)
     axes(lb) == axes(ub) == axes(initial) ||
         throw(ArgumentError("Packed parameter and bound axes must match."))
+    if isnothing(int)
+        integral, _ = pack(vectorize, get_integrality(prob.layer, ps, st))
+        axes(integral) == axes(initial) || throw(ArgumentError("Packed parameter and integrality axes must match."))
+        int = any(!iszero, integral) ? Bool.(collect(integral)) : nothing
+    end
     check_sparse_constraint_keywords(sparse_constraints, function_kwargs)
     sparse_constraints && !inplace && throw(ArgumentError("sparse_constraints requires inplace=true."))
     sparse_hessian && !inplace && throw(ArgumentError("sparse_hessian requires inplace=true."))
@@ -113,7 +122,7 @@ function SciMLBase.OptimizationProblem(
     options = merge(jacobian_options, hessian_options)
     f = optimization_function(prob, ad, reconstruct; st, inplace, options..., function_kwargs...)
     lcons, ucons = isempty(prob.lcons) ? (nothing, nothing) : (prob.lcons, prob.ucons)
-    return SciMLBase.OptimizationProblem(f, initial, st; lb, ub, lcons, ucons, kwargs...)
+    return SciMLBase.OptimizationProblem(f, initial, st; lb, ub, lcons, ucons, int, kwargs...)
 end
 
 """
