@@ -140,14 +140,14 @@ mutable struct MeasurementObjective{O, D, R}
     const data::D
     const reducer::R
 end
-# Experiments of one concrete type map over their indices with a single compiled
-# method; mixed experiment types keep an unrolled map, so each result stays
-# concrete. Mapping instead of filling a buffer keeps reverse-mode AD (Zygote)
-# working. Trajectories hold their heavy fields by reference, so capturing the
-# tuples is cheap.
+# Experiments of one concrete type use one compiled method in a comprehension
+# over their indices; mixed experiment types keep an unrolled map, so each result
+# stays concrete. Building the result without mutation keeps reverse-mode AD
+# (Zygote) working. Julia 1.10 infers the comprehension but not
+# `map(i -> ..., eachindex(a))` over these tuples.
 function paired_map(f, a::Tuple{A, Vararg{A}}, b::Tuple{B, Vararg{B}}) where {A, B}
     length(a) == length(b) || throw(DimensionMismatch("Expected $(length(a)) trajectories, got $(length(b))."))
-    return map(i -> f(a[i], b[i]), eachindex(a))
+    return [f(a[i], b[i]) for i in eachindex(a)]
 end
 paired_map(f, a::Tuple, b::Tuple) = map(f, a, b)
 paired_map(f, ::Tuple{}, ::Tuple{}) = ()
