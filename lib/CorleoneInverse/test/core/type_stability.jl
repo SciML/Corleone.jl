@@ -1,4 +1,4 @@
-using Test, CorleoneInverse, LuxCore, Random, ComponentArrays, OrdinaryDiffEqTsit5, ForwardDiff
+using Test, CorleoneInverse, LuxCore, Random, ComponentArrays, OrdinaryDiffEqTsit5, ForwardDiff, Zygote
 
 # Experiments share rates and an observation gain; each applies its own constant input.
 function stability_model(; heterogeneous)
@@ -43,4 +43,17 @@ end
     gradient = @inferred ForwardDiff.gradient(loss, q, config)
     @test gradient isa Vector{Float64}
     @test all(isfinite, gradient)
+end
+
+@testset "Reverse-mode residual assembly ($(heterogeneous ? "heterogeneous" : "homogeneous"))" for heterogeneous in (false, true)
+    model = stability_model(; heterogeneous)
+    trajectories = Corleone.optimization_trajectory(model, model.ps, model.st)
+    data = model.objective.data
+    # Differentiate the assembly alone; equally typed experiments share the mapped path.
+    loss(w) = sum(abs2, CorleoneInverse.measurement_residuals(data, trajectories, (only(w),)))
+    w = [0.7]
+    expected = ForwardDiff.gradient(loss, w)
+    gradient = only(Zygote.gradient(loss, w))
+    @test gradient ≈ expected
+    @test any(!iszero, expected)
 end

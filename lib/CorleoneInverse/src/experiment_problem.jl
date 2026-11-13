@@ -140,19 +140,14 @@ mutable struct MeasurementObjective{O, D, R}
     const data::D
     const reducer::R
 end
-# Experiments of one concrete type run in a loop over a single compiled method;
-# mixed experiment types keep an unrolled map, so each result stays concrete.
-# The explicit loop indexes the argument tuples instead of capturing them in a
-# generator closure, which would copy every experiment by value.
+# Experiments of one concrete type map over their indices with a single compiled
+# method; mixed experiment types keep an unrolled map, so each result stays
+# concrete. Mapping instead of filling a buffer keeps reverse-mode AD (Zygote)
+# working. Trajectories hold their heavy fields by reference, so capturing the
+# tuples is cheap.
 function paired_map(f, a::Tuple{A, Vararg{A}}, b::Tuple{B, Vararg{B}}) where {A, B}
     length(a) == length(b) || throw(DimensionMismatch("Expected $(length(a)) trajectories, got $(length(b))."))
-    value = f(a[1], b[1])
-    out = Vector{typeof(value)}(undef, length(a))
-    out[1] = value
-    for i in 2:length(a)
-        out[i] = f(a[i], b[i])
-    end
-    return out
+    return map(i -> f(a[i], b[i]), eachindex(a))
 end
 paired_map(f, a::Tuple, b::Tuple) = map(f, a, b)
 paired_map(f, ::Tuple{}, ::Tuple{}) = ()

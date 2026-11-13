@@ -99,7 +99,9 @@ model = CorleoneDynamicOptProblem(
     ),
 )
 ps = model.ps
-trajectory, _ = shooting(observations, ps.shooting, model.st)
+# Save the trajectory at the observation times before evaluating residuals.
+state = experiment_state(shooting, observations, model.st)
+trajectory, _ = shooting(observations, ps.shooting, state)
 residual(
     model.layer.evaluation, observations, trajectory, ps.evaluation;
     evaluation_state = model.st.evaluation,
