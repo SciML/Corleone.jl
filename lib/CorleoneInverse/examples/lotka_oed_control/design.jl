@@ -5,14 +5,23 @@ using Corleone: SciMLBase
 using CorleoneOED
 using SymbolicIndexingInterface: parameter_index, parameter_values_at_time
 
+# The parameter vector is `p = [v, β, δ, c₁, c₂]`: the fishing control, the two
+# interaction rates, and the fixed catch coefficients.
 function fishing_lotka!(du, u, p, t)
-    du[1] = u[1] - p[2] * u[1] * u[2] - 0.4 * p[1] * u[1]
-    du[2] = -u[2] + p[3] * u[1] * u[2] - 0.2 * p[1] * u[2]
+    v, β, δ, c₁, c₂ = p
+    du[1] = u[1] - β * u[1] * u[2] - c₁ * v * u[1]
+    du[2] = -u[2] + δ * u[1] * u[2] - c₂ * v * u[2]
     return nothing
 end
 
+# The catch coefficients are known model constants in every layer below.
+const catch_coefficients = Constant([4, 5]) => nothing
+
 function fishing_design(rng)
-    problem = ODEProblem(fishing_lotka!, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0]; abstol = 1.0e-8, reltol = 1.0e-8)
+    problem = ODEProblem(
+        fishing_lotka!, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0, 0.4, 0.2];
+        abstol = 1.0e-8, reltol = 1.0e-8
+    )
     times = collect(0.0:1.0:11.0)
     switches = times[2:end]
     control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => switches
@@ -20,12 +29,16 @@ function fishing_design(rng)
         ContinuousMeasurement(:w1, times, (x, p, t) -> x[1]),
         ContinuousMeasurement(:w2, times, (x, p, t) -> x[2]),
     )
-    oed = OEDLayer(problem, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+    oed = OEDLayer(
+        problem, Tsit5(), control, catch_coefficients;
+        params = [2, 3], measurements, controls = [1]
+    )
     ps, st = LuxCore.setup(rng, oed)
     model = CorleoneDynamicOptProblem(oed, DCriterion(); ps, st, M = [4.0, 4.0])
     fit = solve(
         OptimizationProblem(model, Optimization.AutoForwardDiff()), Ipopt.Optimizer();
-        print_level = 0, tol = 1.0e-6, hessian_approximation = "limited-memory", max_iter = 300
+        print_level = 0, tol = 1.0e-6, hessian_approximation = "limited-memory",
+        max_iter = 300
     )
     @assert SciMLBase.successful_retcode(fit)
     _, reconstruct = pack(default_vectorizer(), ps)
@@ -33,7 +46,10 @@ function fishing_design(rng)
     control_index = parameter_index(trajectory, 1)
     edges = vcat(times, last(problem.tspan))
     midpoints = (edges[1:(end - 1)] .+ edges[2:end]) ./ 2
-    controls = [parameter_values_at_time(trajectory, trajectory, t)[control_index] for t in midpoints]
+    controls = [
+        parameter_values_at_time(trajectory, trajectory, t)[control_index]
+            for t in midpoints
+    ]
     # Continuous measurement densities rank candidate times. Select six per species
     # for the discrete synthetic experiment, keeping each species' own schedule.
     measurement_times = map((:w1, :w2)) do name
@@ -48,7 +64,8 @@ function fishing_observations(design, controls, rng; σ = 0.02)
     times = sort(unique(vcat(design.measurement_times...)))
     simulation = ShootingLayer(
         remake(design.problem; saveat = times), Tsit5(),
-        Constant(1; default = controls) => design.switches; controls = [1]
+        Constant(1; default = controls) => design.switches, catch_coefficients;
+        controls = [1]
     )
     ps, st = LuxCore.setup(rng, simulation)
     trajectory, _ = simulation(nothing, ps, st)

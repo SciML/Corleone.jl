@@ -8,17 +8,23 @@
 # generate_cover: false
 # ---
 
-# Fit a hybrid mechanistic and neural model to synthetic population observations.
-# Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.
-# A universal differential equation (UDE) replaces an unknown part of the dynamics
-# with a trainable function. Here growth and decay rates are known, while the
-# predator-prey interaction is represented by a small neural network.
+# In this tutorial we fit a hybrid mechanistic and neural model to synthetic
+# population observations. A universal differential equation (UDE) replaces an
+# unknown part of the dynamics with a trainable function. Here the growth and decay
+# rates are known, while the predator–prey interaction is learned by a small
+# neural network.
+#
+# !!! info "Prerequisites"
+#     The [Getting Started](../getting_started.md) guide and basic ODE modeling.
+#     Some familiarity with [Lux.jl](https://lux.csail.mit.edu) helps, too.
 
 # ## Setup
-# Run `julia examples/install_deps.jl` once, then execute this script with
-# `julia --project=examples examples/lotka_universal_differential_equation/main.jl`.
 # Lux defines the network and its explicit parameter/state interface. Corleone
 # makes the ODE parameters tunable, and ComponentArrays connects the two layouts.
+#
+# !!! tip "Running the script locally"
+#     Run `julia examples/install_deps.jl` once, then execute
+#     `julia --project=examples examples/lotka_universal_differential_equation/main.jl`.
 using Corleone
 using Lux, Random
 using OrdinaryDiffEqTsit5
@@ -78,6 +84,11 @@ p0, rebuild_network = pack(default_vectorizer(), initial_network_parameters)
 
 # Use fixed test-mode state for these stateless Dense layers during integration,
 # and reconstruct the current weights at each right-hand-side call.
+#
+# !!! note "What the closure captures"
+#     The closure only captures the network *structure* and its fixed Lux state.
+#     Every trainable number reaches the right-hand side through `p`, so Corleone
+#     sees all of them as parameters.
 hybrid_lotka = let network = network, network_state = Lux.testmode(network_state),
         rebuild_network = rebuild_network
     function (u, p, t)
@@ -128,7 +139,7 @@ fitted_parameters = reconstruct(fit.u)
 fitted, _ = layer(nothing, fitted_parameters, optprob.p)
 final_loss = population_loss(fitted)
 @assert final_loss < initial_loss / 10
-(; initial_loss, final_loss)
+(; retcode = fit.retcode, initial_loss, final_loss)
 
 # ## Compare observations and fit
 # `trajectoryplot` draws the trained UDE states (`u₁`: prey, `u₂`: predator).
@@ -145,6 +156,10 @@ plot!(axis, truth, linestyle = :dash)
 figure[1, 2] = Legend(figure[1, 2], axis, framevisible = false)
 figure
 
-# A small trajectory error demonstrates a fit to these observations. A single
-# orbit does not identify the interaction over the whole state space, and this
-# training fit does not establish accuracy for new initial states or future times.
+# Nice work: the hybrid model reproduces the observed orbit closely.
+#
+# !!! warning "Interpret the learned term with care"
+#     A small trajectory error demonstrates a fit to *these* observations. A
+#     single orbit does not identify the interaction over the whole state space,
+#     so this fit does not establish accuracy for new initial states or future
+#     times.

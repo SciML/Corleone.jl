@@ -7,13 +7,15 @@
 # generate_cover: false
 # ---
 
-# Define symbolic dynamics and an integral objective, then solve with single and
-# multiple shooting. Prerequisites: [Getting Started](../getting_started.md) and
-# basic ModelingToolkit equations and metadata.
-# This tutorial models the [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
-# with [ModelingToolkit.jl](@extref ModelingToolkit :std:doc:`index`).
-# We solve it using single and multiple shooting, as in the
-# [numerical fishing example](@ref lotka_fishing).
+# In this tutorial we write the
+# [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
+# symbolically with [ModelingToolkit.jl](@extref ModelingToolkit :std:doc:`index`),
+# including its integral objective, and solve it with single and multiple shooting,
+# just like the [numerical fishing example](@ref lotka_fishing).
+#
+# !!! info "Prerequisites"
+#     The [Getting Started](../getting_started.md) guide and basic ModelingToolkit
+#     equations and metadata.
 
 # ## [Setup](@id mtk_setup)
 # ModelingToolkit defines the dynamics and cost. Corleone constructs the shooting
@@ -31,10 +33,14 @@ using CairoMakie
 
 # ## Model
 
-# The states `x` and `y` are prey and predator populations. Their global initial
-# values are fixed because `tunable = false`. The input `u` is fishing intensity,
-# bounded between zero and one. Population bounds apply to lifted state values
-# when using multiple shooting; they do not impose continuous path constraints.
+# The states `x` and `y` are prey and predator populations. Their initial values
+# are fixed because `tunable = false`. The input `u` is the fishing intensity,
+# bounded between zero and one. The catch coefficients are symbolic constants, so
+# they stay fixed during the optimization.
+#
+# !!! note "State bounds"
+#     Population bounds apply to lifted state values when using multiple shooting.
+#     They do not impose continuous path constraints.
 
 @variables begin
     x(..) = 0.5, [tunable = false, bounds = (0.0, 5.0)]
@@ -65,8 +71,12 @@ costs = [
 
 # Supply the system, initial-value overrides, and the control schedule. The empty
 # vector keeps the system defaults. The leading zero denotes the first control
-# interval; this grid gives 120 piecewise constant values, one per 0.1 time units.
-# The integral determines the time span, so it need not be specified separately.
+# interval, so this grid gives 120 piecewise-constant values, one per 0.1 time
+# units.
+#
+# !!! tip "No time span needed"
+#     The integral in the cost already determines the time span, so you do not
+#     need to specify it separately.
 dynopt = CorleoneDynamicOptProblem(
     lotka_volterra, [],
     u(t) => 0.0:0.1:11.9,
@@ -78,11 +88,11 @@ optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 
 # Use ForwardDiff derivatives and Ipopt's limited-memory Hessian approximation.
 uopt = solve(
-    optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-    hessian_approximation = "limited-memory",
-    print_level = 3
+    optprob, Ipopt.Optimizer(); max_iter = 1000, tol = 5.0e-6,
+    hessian_approximation = "limited-memory", print_level = 0
 )
 @assert successful_retcode(uopt)
+(; retcode = uopt.retcode, objective = uopt.objective)
 
 # Restore the parameter structure, evaluate the optimized layer, and plot it.
 _, reconstruct = pack(default_vectorizer(), dynopt.ps)
@@ -109,24 +119,23 @@ dynopt = CorleoneDynamicOptProblem(
 # Corleone appends the shooting equalities to the optimization constraints.
 optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 
-optsol = solve(
-    optprob,
-    Ipopt.Optimizer(),
-    tol = 1.0e-6,
-    hessian_approximation = "limited-memory",
-    max_iter = 300,
-    print_level = 3
+ms_uopt = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-6,
+    hessian_approximation = "limited-memory", max_iter = 300, print_level = 0
 )
-@assert successful_retcode(optsol)
+@assert successful_retcode(ms_uopt)
+(; retcode = ms_uopt.retcode, objective = ms_uopt.objective)
 
 # Reconstruct and plot the multiple-shooting solution in the same way.
 _, reconstruct_ms = pack(default_vectorizer(), dynopt.ps)
-optimized_parameters = reconstruct_ms(optsol.u)
-optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
-trajectoryplot(optsol)
+ms_optimized_parameters = reconstruct_ms(ms_uopt.u)
+ms_optsol, _ = dynopt.layer(nothing, ms_optimized_parameters, optprob.p)
+trajectoryplot(ms_optsol)
 
-# Check continuity after optimization. Small residuals connect the lifted physical
-# states and quadrature; integration and optimizer tolerances are separate controls
-# on the numerical result. The two formulations use different control grids, so
-# their objective values are not an exact discretization-to-discretization check.
-maximum(abs, shooting_constraints(optsol))
+# Finally, check continuity: small residuals mean the lifted physical states and
+# the quadrature connect seamlessly.
+maximum(abs, shooting_constraints(ms_optsol))
+
+# !!! note "Comparing objective values"
+#     The two formulations use different control grids, so their objective values
+#     are not an exact discretization-to-discretization comparison.

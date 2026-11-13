@@ -7,40 +7,58 @@
 # generate_cover: false
 # ---
 
-# Prerequisites: constructing a Corleone shooting layer and the
-# [measurement and information conventions](@ref oed_formulation).
-# We design an experiment to estimate the two interaction coefficients of a
-# Lotka–Volterra model. Fishing is a physical control; two measurement densities
-# select when to observe each population. This follows the
+# Let's design an experiment that estimates the two interaction coefficients of
+# a Lotka–Volterra model as precisely as possible. Fishing is a physical control,
+# and two measurement densities select when to observe each population. This
+# follows the
 # [Lotka experimental-design benchmark](https://mintoc.de/index.php?title=Lotka_Experimental_Design).
+#
+# !!! info "Prerequisites"
+#     Constructing a Corleone shooting layer and the
+#     [measurement and information conventions](@ref oed_formulation).
 
 using CorleoneOED, LuxCore, Random, OrdinaryDiffEqTsit5, LinearAlgebra
 using Optimization, OptimizationMOI, Ipopt, ComponentArrays, CairoMakie
 using SymbolicIndexingInterface: variable_symbols, variable_index
 
+# The parameter vector is `p = [v, β, δ, c₁, c₂]`: the fishing control, the two
+# interaction coefficients, and the fixed catch coefficients `c₁ = 0.4` and
+# `c₂ = 0.2`.
 function lotka_dynamics(du, x, p, t)
-    du[1] = x[1] - p[2] * x[1] * x[2] - 0.4 * p[1] * x[1]
-    du[2] = -x[2] + p[3] * x[1] * x[2] - 0.2 * p[1] * x[2]
+    v, β, δ, c₁, c₂ = p
+    du[1] = x[1] - β * x[1] * x[2] - c₁ * v * x[1]
+    du[2] = -x[2] + δ * x[1] * x[2] - c₂ * v * x[2]
     return nothing
 end
-problem = ODEProblem(lotka_dynamics, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0])
+problem = ODEProblem(lotka_dynamics, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0, 0.4, 0.2])
 
-# The original parameter vector is `p = [fishing, interaction_1, interaction_2]`.
-# We estimate indices `[2,3]` at their nominal values; only fishing and measurement
-# weights are design variables. The [formulation](@ref oed_formulation) explains
-# this distinction. No physical shooting resets are introduced in this tutorial,
-# so the automatic shooting-equality block is empty.
+# We estimate `β` and `δ` (indices `[2, 3]`) at their nominal values; only the
+# fishing control and the measurement weights are design variables.
+#
+# !!! note "Estimated parameters vs. design variables"
+#     `params` selects the parameters whose sensitivities determine the
+#     information. They stay fixed at their nominal values during the design. The
+#     [formulation](@ref oed_formulation) explains this distinction.
+#
+# No physical shooting resets are introduced in this tutorial, so the automatic
+# shooting-equality block is empty.
 #
 # ## Define controls and measurements
-# The fishing control has one value per interval, including the first interval.
-# Unannotated physical parameters remain fixed at their nominal values. `params`
-# selects the parameters whose sensitivities determine information.
-control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => collect(0.25:0.25:11.75)
+# The fishing control has one value per interval, including the first one. The
+# catch coefficients are `Constant`. Unannotated parameters (here `β` and `δ`)
+# also remain fixed at their nominal values.
+control = Tunable(
+    1; default = 0.0, lowerbound = 0.0, upperbound = 1.0
+) => collect(0.25:0.25:11.75)
+catch_coefficients = Constant([4, 5]) => nothing
 measurements = (
     ContinuousMeasurement(:w1, collect(0.0:0.25:11.75), (x, p, t) -> x[1]),
     ContinuousMeasurement(:w2, collect(0.0:0.25:11.75), (x, p, t) -> x[2]),
 )
-oed = OEDLayer(problem, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+oed = OEDLayer(
+    problem, Tsit5(), control, catch_coefficients;
+    params = [2, 3], measurements, controls = [1]
+)
 ps, st = LuxCore.setup(Xoshiro(1), oed);
 trajectory, _ = oed(nothing, ps, st);
 # Keep the physical states visible instead of overlaying the augmented G/F states.
@@ -49,9 +67,9 @@ augmented_states = filter(variable_symbols(trajectory)) do symbol
 end
 trajectoryplot(trajectory; skips = augmented_states, state_string = "Population")
 
-# Initial populations, fishing, and unit measurement densities. Controls and
-# measurement weights are parameter histories, not appended physical states.
-# The legend's `p₁` is fishing, while `w1` and `w2` are the two densities.
+# The plot shows the initial populations, fishing, and unit measurement densities.
+# Controls and measurement weights are parameter histories, not appended physical
+# states: the legend's `p₁` is fishing, while `w1` and `w2` are the two densities.
 
 # The layer integrates state sensitivities `G` and continuous information `F`:
 # ```math
@@ -65,12 +83,15 @@ budgets = sampling_sums(oed, trajectory)
 (; initial_information = F, initial_budgets = budgets)
 
 # ## Optimize the design
-# Minimize the trace of inverse information with at most four time units of
-# measurement for each population. The facade adds the sampling constraints after
-# user constraints and before automatic shooting equalities. All grids stay fixed
-# during optimization. ComponentArrays supplies the shared vectorizer; Optimization,
-# OptimizationMOI, and Ipopt supply the continuous optimizer, and CairoMakie supplies
-# plots. These packages are not required just to run an OED layer.
+# Minimize the trace of the inverse information (the A-criterion) with at most
+# four time units of measurement for each population. The facade adds the
+# sampling constraints after user constraints and before automatic shooting
+# equalities. All grids stay fixed during optimization.
+#
+# !!! tip "Optional packages"
+#     ComponentArrays supplies the shared vectorizer; Optimization, OptimizationMOI,
+#     and Ipopt the continuous optimizer; and CairoMakie the plots. None of them is
+#     required just to simulate an OED layer.
 model = CorleoneDynamicOptProblem(oed, ACriterion(); ps, st, M = [4.0, 4.0])
 optprob = OptimizationProblem(model, AutoForwardDiff())
 result = solve(
@@ -93,8 +114,13 @@ optimal_budgets = sampling_sums(oed, optimal_trajectory)
 # saved states do not change when parameter containers change.
 trajectoryplot(optimal_trajectory; skips = augmented_states, state_string = "Population")
 
-# Optimized populations and schedules. Densities may be fractional: this is a
-# continuous relaxation, not a binary sampling certificate or global-optimum proof.
+# These are the optimized populations and schedules. Nice: fishing now excites
+# the dynamics, and the densities concentrate where the populations are most
+# informative.
+#
+# !!! note "Relaxed designs"
+#     Densities may be fractional. This is a continuous relaxation, not a binary
+#     sampling certificate or a proof of global optimality.
 
 # ## Carry information into another experiment
 # Re-evaluate the completed experiment with its own parameter/state tree and add
@@ -102,4 +128,5 @@ trajectoryplot(optimal_trajectory; skips = augmented_states, state_string = "Pop
 next_st = update_fim(oed, [(; ps = optimal_ps, st)], st)
 @assert next_st.F_init ≈ optimal_F
 next_st.F_init
-# Prepare the next design using `ps=optimal_ps, st=next_st`.
+
+# Prepare the next design using `ps = optimal_ps, st = next_st`.
