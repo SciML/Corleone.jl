@@ -1,5 +1,5 @@
 # ---
-# title: LTI Control with Unknown Coefficients
+# title: LTI control with unknown coefficients
 # description: Optimize a scalar input and three constant coefficients under terminal state constraints
 # id: mtk_lti
 # julia: "1.10"

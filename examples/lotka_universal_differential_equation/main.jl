@@ -1,5 +1,5 @@
 # ---
-# title: Lotka Volterra Universal Differential Equation
+# title: Learning Lotka–Volterra interactions with a UDE
 # description: Learn an unknown predator-prey interaction from population observations
 # category: parameter_estimation
 # id: lotka_ude
@@ -12,7 +12,9 @@
 # population observations. A universal differential equation (UDE) replaces an
 # unknown part of the dynamics with a trainable function. Here the growth and decay
 # rates are known, while the predator–prey interaction is learned by a small
-# neural network.
+# neural network. The network is trained directly through Corleone's optimization
+# interface. For a fit across several experiments with a prior on the network
+# weights, see the [neural reaction term tutorial](@ref inverse_ude_growth).
 #
 # !!! info "Prerequisites"
 #     The [Getting Started](../getting_started.md) guide and basic ODE modeling.

@@ -1,5 +1,5 @@
 # ---
-# title: Joint Lotka–Volterra experiments
+# title: Multiple-experiment Lotka–Volterra design
 # description: Combine information from independent experimental designs.
 # id: lotka_multiexp
 # julia: "1.10"

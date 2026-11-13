@@ -1,14 +1,12 @@
-#src ---
-#src title: The Lotka Volterra Fishing Problem with a Terminal Inequality
-#src description: Optimize fishing intensity with a penalized terminal biomass constraint and a path constraint on the predator
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
-#src   - Path Constraints
-#src icon: 🎣
-#src ---
+# ---
+# title: Lotka–Volterra fishing with path and terminal constraints
+# description: Optimize fishing intensity with a penalized terminal biomass constraint and a path constraint on the predator
+# id: lotka_path
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Lotka–Volterra Fishing Problem with a Terminal Inequality](@id lotka_path)
 # This example adds a terminal inequality constraint to the
 # [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem).
 # A terminal prey biomass below ``1.1`` is allowed but penalized through the slack

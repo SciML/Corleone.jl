@@ -1,6 +1,8 @@
 # GitHub checks out a synthetic merge commit for pull requests. Its first
 # parent is the PR base, so this comparison covers the whole PR.
 function documentation_draft(; root = joinpath(@__DIR__, ".."), env = ENV)
+    # An explicit DOCS_DRAFT setting wins, e.g. for quick local builds.
+    haskey(env, "DOCS_DRAFT") && return env["DOCS_DRAFT"] == "true"
     get(env, "GITHUB_ACTIONS", "false") == "true" || return false
     ref = get(env, "GITHUB_REF", "")
     (ref == "refs/heads/main" || startswith(ref, "refs/tags/")) && return false

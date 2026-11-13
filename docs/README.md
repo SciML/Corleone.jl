@@ -1,112 +1,116 @@
-# Building the root package manual
+# Building the documentation
 
-Run from the repository root:
+The manual documents the checked-out Corleone, CorleoneOED, and CorleoneInverse
+packages. All commands run from the repository root.
+
+## Setup
+
+Develop the local packages into the documentation environment once:
 
 ```sh
 julia --project=docs -e 'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/CorleoneInverse")]); Pkg.instantiate()'
+```
+
+`make.jl` uses this environment as is and never resolves packages itself. If a
+manifest from an older checkout fails to load, delete `docs/Manifest.toml` and run
+the setup again.
+
+## Building
+
+```sh
 julia --project=docs docs/make.jl
 ```
 
-Serve the generated site locally so directory-style links resolve correctly:
+A full build executes every tutorial and `@example` block, runs the doctests,
+checks that all exported names are documented, and resolves cross-references.
+Useful environment variables:
+
+| Variable | Effect |
+|---|---|
+| `DOCS_DRAFT=true` | Draft build: skips all code execution, so tutorials have no output or plots. Much faster for checking prose and links. |
+| `DOCS_LINKCHECK=true` | Also checks external URLs. |
+| `CI=false` | Never deploy. Deployment only runs when `CI=true`. |
+
+On GitHub pull requests, the build is a draft unless the PR changes `examples/`,
+`lib/CorleoneOED/examples/`, `lib/CorleoneInverse/examples/`, or
+`docs/process_tutorials.jl`. Builds on `main`, tags, and local builds execute
+everything unless `DOCS_DRAFT` is set.
+
+## Previewing
+
+Serve the generated site so that directory-style links resolve:
 
 ```sh
 julia --project=docs -e 'using LiveServer; serve(dir="docs/build", host="127.0.0.1", port=8000)'
 ```
 
-Open <http://127.0.0.1:8000/> to inspect the result. LiveServer reloads the preview
-when generated files change. For source watching, run this from the repository
-root. Watch the authoritative sources and skip generated copies to avoid rebuild loops:
+and open <http://127.0.0.1:8000/>. To rebuild on changes, watch the authoritative
+sources and skip the generated copies:
 
 ```sh
 julia --project=docs -e '
 using LiveServer
 servedocs(
     skip_dirs = ["docs/src/examples", "docs/src/oed", "docs/src/inverse"],
-    include_dirs = ["examples", "lib/CorleoneOED/examples",
+    include_dirs = ["examples", "lib/CorleoneOED/examples", "lib/CorleoneInverse/examples",
         "lib/CorleoneOED/docs/src", "lib/CorleoneInverse/docs/src"],
 )
 '
 ```
 
-Each source rebuild runs `docs/make.jl`, including its executable tutorials.
+## Where the sources live
 
-The build executes the LQR,
-numerical Lotka–Volterra, ModelingToolkit Lotka–Volterra, and LTI coefficient/control
-optimization tutorials, and the Lotka–Volterra universal differential equation tutorial,
-plus CorleoneOED's continuous Lotka–Volterra, multiple-experiment, and discrete
-compartmental tutorials, the two-stage reactor tutorial. It checks exported 
-API coverage and resolves internal cross-references. External URL checks can be 
-enabled with `DOCS_LINKCHECK=true julia --project=docs docs/make.jl`.
+Several directories under `docs/src` are generated during the build and ignored by
+Git. Edit the sources instead:
 
-On GitHub pull requests, the build uses Documenter's `draft=true` mode unless
-the PR changes `examples/`, `lib/CorleoneOED/examples/`, or
-`docs/process_tutorials.jl`. This compares the PR merge commit with its first
-parent, fetching that parent for shallow checkouts.
-Draft builds generate tutorial Markdown without executing Literate code; outputs
-and plots are omitted. Builds on `main`, tags, and local builds always execute
-the full documentation. If change detection fails, a full build runs.
+| Generated | Source |
+|---|---|
+| `docs/src/examples/`, `docs/src/gallery/` | `examples/*/main.jl`, `lib/CorleoneInverse/examples/*/main.jl`, `lib/CorleoneOED/examples/*/main.jl` |
+| `docs/src/oed/` | `lib/CorleoneOED/docs/src/` (also used by CorleoneOED's own manual) |
+| `docs/src/inverse/` | `lib/CorleoneInverse/docs/src/` |
 
-External documentation links use DocumenterInterLinks. Configure inventory roots
-in `docs/interlinks.jl` and reference their entries with `@extref`, for example
-``[`OptimizationLBFGSB.LBFGSB`](@extref Optimization)``. Optimization's inventory
-also contains its solver packages, so they share the `Optimization` inventory.
+All other pages in `docs/src` are handwritten. When copying the OED pages, the build
+rewrites their GitHub links to Corleone guides into local links.
 
-MaterialDocs renders the manual with its Ocean Depth theme and a light/dark toggle.
-MaterialDocs provides code highlighting throughout the manual.
-`material_citations.jl` adapts the citation and bibliography nodes to MaterialDocs
-so the existing references and citation anchors are preserved.
-`material_images.jl` resolves Documenter's source-root figure paths relative to
-each MaterialDocs output page, keeping tutorial plots visible in local and deployed builds.
-DocumenterLandingPage is enabled for pages with `layout: home` YAML frontmatter
-inside a `@raw html` block; its stylesheet is added automatically.
-Navigation separates Getting Started, complete tutorials, a task-based Manual,
-sublibraries, and the docstring API reference. CorleoneOED and its guides appear
-directly under Sublibraries. Scheduling and sparse derivative
-preparation have separate guides. Historical validation and deprecated constructors
-retain their URLs but are hidden from the main navigation and linked from relevant pages.
+## Writing tutorials
 
-The home page uses this layout for the package introduction and guide links;
-the installation instructions and executable quickstart live in `getting_started.md`.
+Tutorials are [Literate](https://github.com/fredrikekre/Literate.jl) scripts that
+[DemoCards](https://github.com/JuliaDocs/DemoCards.jl) arranges into the gallery.
+To add one:
 
-Dependency setup is separate from the build: `make.jl` uses the active environment
-without developing or resolving packages again. Set `CI=false` for a local build
-if your shell otherwise sets `CI=true`; deployment runs only in CI.
+1. Create `main.jl` in the example folder, starting with DemoCards frontmatter:
 
-Edit tutorials in their `examples/<name>/main.jl` sources, not the generated
-Markdown. DemoCards stages the authoritative scripts and executes each tutorial
-once through Literate; Documenter includes its rendered output. Introductory
-guide examples and doctests execute through Documenter.
+   ```julia
+   # ---
+   # title: Short title in sentence case
+   # description: One sentence for the gallery card
+   # id: unique_anchor
+   # julia: "1.10"
+   # notebook: false
+   # generate_cover: false
+   # ---
+   ```
 
-The manual documents the checked-out Corleone, CorleoneOED, and CorleoneInverse
-modules. OED tutorials
-are executed from `lib/CorleoneOED/examples/*/main.jl`; its guide and API pages are
-generated from `lib/CorleoneOED/docs/src/`. Edit those authoritative sources, not
-`docs/src/oed/`. Both sites share the tutorial sources without handwritten Markdown
-duplicates. The root site retains main's established OED tutorial URLs.
-CorleoneInverse's overview and API pages are generated from
-`lib/CorleoneInverse/docs/src/`; edit those sources rather than `docs/src/inverse/`.
+   `id` is the anchor for `@ref` links. Keep `notebook: false` and
+   `generate_cover: false` so each tutorial executes only once. Optional keys:
+   `category` (`optimal_control`, `parameter_estimation`, or
+   `experimental_design`; the default depends on the folder) and `cover_figure`
+   (which plot to use as the gallery cover, default 1).
+2. Add the script and its output name to the list in `docs/process_tutorials.jl`.
+   The output name fixes the page URL, so don't change it once published.
+3. Add the page to the navigation in `docs/make.jl`.
 
-The generated manifest, tutorial Markdown and figures, and HTML output are
-ignored by Git. If a manifest from an older checkout references a removed local
-package, remove `docs/Manifest.toml` and run the setup command again.
+Each tutorial runs once through Literate during the build, and its plots are saved
+as PNG files next to the page. The build appends a dependency and system summary
+to every tutorial.
 
-DemoCards.jl builds the root-site tutorials via `docs/process_tutorials.jl`.
-Its temporary staging directory is ignored; edit the original example scripts.
-The Tutorials overview uses DemoCards’ `bokehlist` theme with Optimal Control,
-Optimal Experimental Design, and Parameter Estimation sections. The generated
-DemoCards stylesheet is loaded by MaterialDocs.
+## Other configuration
 
-Card metadata uses native DemoCards YAML frontmatter, with a leading `# ` on each
-line between `# ---` delimiters. Set `title`, `description`, `id` (the generated
-page’s heading anchor), and `julia` (the minimum Julia version). Keep
-`notebook: false` and `generate_cover: false` so each tutorial executes once.
-The build sets `execute` according to its draft mode.
-
-The optional project-specific `category` selects a gallery section; root examples
-otherwise use Optimal Control and CorleoneOED examples use Optimal Experimental
-Design. The optional `cover_figure` selects a numbered figure from the tutorial’s
-executed output (default: 1). The gallery copies this plot as its cover without
-executing the script again. Draft builds use the DemoCards placeholder when
-executed figures are unavailable. The standalone CorleoneOED manual strips the
-card frontmatter and generates the same heading before processing its tutorials
-with Literate.
+- External `@extref` links use DocumenterInterLinks; inventories are configured in
+  `docs/interlinks.jl`. Optimization's inventory also covers its solver packages,
+  for example ``[`OptimizationLBFGSB.LBFGSB`](@extref Optimization)``.
+- The home page uses DocumenterLandingPage: its hero and feature cards are YAML
+  frontmatter in a `@raw html` block in `index.md`.
+- The site uses Documenter's HTML theme. `material_citations.jl` and
+  `material_images.jl` adapt citations and figure paths for MaterialDocs, which is
+  currently disabled in `make.jl`.

@@ -1,5 +1,5 @@
 # ---
-# title: Joint parameter estimation over multiple experiments
+# title: Joint estimation over multiple Lotka–Volterra experiments
 # description: Combine two predator–prey experiments with shared rates and different initial states.
 # category: parameter_estimation
 # id: inverse_lotka_multiexperiment
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # More data usually means better estimates. Here two experiments start from
 # different initial conditions and share the four model rates. We first fit the
@@ -90,3 +87,9 @@ for (i, (trajectory, data)) in enumerate(zip(trajectories, (data_1, data_2)))
     axislegend(axis)
 end
 figure
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

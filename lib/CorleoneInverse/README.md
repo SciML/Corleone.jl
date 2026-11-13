@@ -24,7 +24,7 @@ Least squares supports parameter bounds and untransformed Normal priors.
 Use `OptimizationProblem(model, ad)` for general priors and constraints.
 Declare constraints on `CorleoneDynamicOptProblem(shooting, experiments, constraints...;
 ps, st, lcons, ucons)`. Scalar measurement expressions such as `:(p₁ * u₁)` compile
-once on each experiment's observation grid. See the [manual](docs/src/index.md) and the [API reference](docs/src/api.md).
+once on each experiment's observation grid. See the [manual](docs/src/index.md), with guides to [observations](docs/src/observations.md) and [multiple experiments](docs/src/experiments.md), and the [API reference](docs/src/api.md).
 
 `Experiments(problem, shared_annotations...; experiments=(name=(annotations=(...),
 observations=data), ...))` defines shared model parameters, experiment-local

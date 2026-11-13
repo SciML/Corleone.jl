@@ -1,5 +1,5 @@
 # ---
-# title: Universal differential equation with a Lux network
+# title: Neural reaction term with experiments and priors
 # description: Learn a nonlinear reaction from one experiment and warm-start a joint fit.
 # category: parameter_estimation
 # id: inverse_ude_growth
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # In this example a small neural network learns an unknown reaction term inside an
 # ODE. The known physics is a linear decay with rate ``k = 0.5``; the network
@@ -20,7 +17,9 @@
 # ```
 #
 # We fit one experiment, add a second one with a warm start, and finally
-# regularize the weights with an L1 penalty expressed as a Laplace prior.
+# regularize the weights with an L1 penalty expressed as a Laplace prior. For a
+# UDE trained directly through Corleone's optimization interface, see
+# [learning Lotka–Volterra interactions](@ref lotka_ude).
 #
 # !!! info "What you will learn"
 #     How to treat neural-network weights as shared `Tunable` parameters of
@@ -179,3 +178,9 @@ figure
 # !!! warning "Extrapolation"
 #     Outside the observed state range the learned term is not constrained by data
 #     and should not be trusted.
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

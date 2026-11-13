@@ -1,5 +1,5 @@
 # ---
-# title: Joint parameter estimation for an SIR epidemic across two regions
+# title: SIR estimation across two regions
 # description: Share transmission and recovery rates while fitting region-specific initial infections.
 # category: parameter_estimation
 # id: inverse_sir_multicity
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # Two regions share the transmission rate ``\beta`` and the recovery rate ``\gamma``
 # of an SIR epidemic but start from different outbreaks. We observe the infection
@@ -125,3 +122,9 @@ for (i, (trajectory, data)) in enumerate(zip(trajectories, (data_a, data_b)))
     axislegend(axis)
 end
 figure
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

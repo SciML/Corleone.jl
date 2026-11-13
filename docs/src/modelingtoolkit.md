@@ -1,14 +1,14 @@
-# ModelingToolkit frontend
+# [ModelingToolkit frontend](@id modelingtoolkit_guide)
 
-See the [ModelingToolkit Lotka–Volterra tutorial](examples/modelingtoolkit_integration.md)
-for a complete single- and multiple-shooting example. The
-[LTI tutorial](examples/lti_control_with_unknown_coefficients.md) jointly optimizes
-a scalar input and three constant coefficients under terminal state equalities.
+With ModelingToolkit loaded, you can describe the whole problem symbolically:
+dynamics, integral costs, constraints, bounds, and which values are tunable.
+Corleone then builds the shooting layer and the optimization model from the
+`System`.
 
-## Define the model
+## Defining the model
 
-Load ModelingToolkit to construct a `CorleoneDynamicOptProblem` from an uncompiled
-`System`, its initial values, and control schedules:
+Pass an uncompiled `System`, initial values (here none), and the control schedules
+to `CorleoneDynamicOptProblem`:
 
 ```@example modelingtoolkit_guide
 using Corleone, ModelingToolkit, OrdinaryDiffEqTsit5
@@ -33,68 +33,62 @@ model = CorleoneDynamicOptProblem(
 optprob = OptimizationProblem(model, AutoForwardDiff())
 ```
 
-The frontend sums the system's costs, replaces definite time integrals with
-quadrature states, and translates symbolic constraints into residuals and bounds.
-Equations have zero lower and upper bounds; inequalities use a residual bounded
-above by zero. Saved values at reset times select the post-reset state, as in the
-numerical expression API. Bare parameters refer to their terminal values.
+The frontend sums the system's `costs` and replaces each definite integral with a
+[quadrature state](@ref shooting_quadratures). Equations in `constraints` become
+equality constraints, and inequalities become residuals bounded above by zero.
+Timed reads such as `x(2.0)` follow the same rules as
+[timed expressions](@ref timed_expressions), and a bare parameter refers to its
+terminal value.
 
-## Annotations and metadata
+The [ModelingToolkit Lotka–Volterra tutorial](@ref mtk) shows a complete single-
+and multiple-shooting example, and the [LTI tutorial](@ref mtk_lti) jointly
+optimizes an input and three constant coefficients.
 
-`Annotations(sys)` reads MTK metadata directly and returns
-`(; variables, parameters)`. Each entry is a `Tunable` or `Constant` annotation
-with its index, symbol, kind, numerical default, bounds and integrality specified.
-Use `Annotations(sys; u0, p)` to apply numerical problem values instead of symbol
-defaults. The frontend uses this constructor before assigning control and shooting
-schedules; fixed parameters are represented by `Constant` annotations.
+## Controls and parameters
 
-## Control schedules
+Controls are parameters with a schedule. Write the grid as interval **start**
+times beginning at `tspan[1]`, like `0.0:0.25:1.75` above, or list only the
+interior switching times. Bounds come from the symbol metadata.
 
-Controls remain parameters. A grid beginning at `tspan[1]` describes interval
-starts, using interval-start notation. That first point is removed
-before constructing the native switching grid. Grids containing only interior
-switches are also accepted. Bounds come from symbol metadata; parameters marked
-`tunable = false` are fixed, except for explicitly selected controls.
+Parameters marked `tunable = false` stay fixed, unless you schedule them as
+controls. All other parameters are optimized.
 
 ## Initial values and time span
 
-State metadata such as `x(..) = 0.5 [tunable = true, bounds = (0.3, 1.0)]`
-makes the value at `tspan[1]` trainable, initialized to `0.5` and bounded by
-`0.3` and `1.0`. This value replaces the problem's initial state freely; no
-matching equality pins it to the original default. States without this metadata
-retain their numerical initial values.
+A state declared as `x(..) = 0.5 [tunable = true, bounds = (0.3, 1.0)]` gets a free
+initial value, starting at `0.5` and bounded by `0.3` and `1.0`. States without
+`tunable = true` start from their numerical initial values.
 
-The time span is inferred from integral endpoints, timed reads, and supplied
-grids. Pass `tspan = (start, stop)` to set it explicitly. All requested times must
-lie within that span. Pass solver options such as tolerances through
-`problem_kwargs = (; abstol = 1e-8, reltol = 1e-8)`.
-The frontend disables MTK initialization-system construction. Supply numerical
-initial values or defaults for the ODE states and parameters.
+The time span is inferred from the integral bounds, timed reads, and grids; pass
+`tspan = (start, stop)` to set it explicitly. Solver options go through
+`problem_kwargs`, for example `problem_kwargs = (; abstol = 1e-8, reltol = 1e-8)`.
+The frontend does not build MTK's initialization system, so give numerical values
+or defaults for all states and parameters.
 
-## Multiple shooting and state bounds
+## Multiple shooting
 
-For multiple shooting, add `shooting = [0.5, 1.0, 1.5]`. Every numerical state,
-including quadratures, receives tunable reset values at interior shooting times.
-Initial values are free only for states marked `tunable = true`; other states
-start from the ODE problem's values. The numerical facade appends continuity
-equalities at interior resets automatically. `ensemblealg` selects the execution
-method. Controls and physical parameters remain shared between segments.
+Add `shooting = [0.5, 1.0, 1.5]` to lift every state, including quadratures, at
+those times. The continuity equalities are added automatically, and `ensemblealg`
+selects [parallel execution](@ref parallel_shooting). Controls and parameters stay
+shared between segments.
 
-!!! note "State bounds constrain stored shooting values"
-    Bounds apply to lifted values at shooting times, including states marked
-    `tunable = false`. That metadata fixes the global initial value; it does not
-    disable interior shooting variables or their bounds. With no free initial
-    value or lifted states, state metadata adds no optimizer variable bounds.
-    To check limits away from shooting nodes, add
-    [sampled constraints](optimization_contracts.md).
+!!! note "State bounds and `tunable = false`"
+    `tunable = false` only fixes the value at `tspan[1]`. Interior shooting values
+    are still created, and a state's `bounds` apply to them.
 
-## Array parameters and expression evaluation
+## Inspecting annotations
 
-The system is compiled with `split = false` and uses flat numerical parameters.
-Array parameters are expanded into indexed scalar symbols during setup, in
-column-major order. Their defaults, bounds and tunability are preserved; each
-component keeps its own scalar vector buffer and components on the same grid
-share a lookup. Original component symbols such as `a[1]` remain usable for
-trajectory queries and symbolic costs or constraints. Timed state/control reads
-still require scalar signals. References to eliminated signals are rejected.
-The `evaluator` keyword selects the same expression compiler as the numerical facade.
+`Annotations(sys)` reads the metadata of a system and returns
+`(; variables, parameters)`: one `Tunable` or `Constant` annotation per entry, with
+its index, symbol, default, bounds, and integrality. Use `Annotations(sys; u0, p)` to
+take the values from numerical vectors instead of the symbolic defaults. The
+frontend uses these annotations before adding control and shooting schedules.
+
+## Array parameters
+
+The system is compiled with `split = false`, so all parameters are flat scalars.
+Array parameters are expanded in column-major order, keeping their defaults, bounds,
+and tunability, and names such as `a[1]` keep working in queries, costs, and
+constraints. Timed reads need scalar signals, and signals eliminated during
+simplification can't be referenced. The `evaluator` keyword selects the
+expression compiler, as in the [numerical interface](@ref timed_expressions).

@@ -1,14 +1,12 @@
-#src ---
-#src title: A Multistage Lotka Volterra Problem with a Third Species
-#src description: Optimize fishing intensity across two stages; a third species enters at the switch
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
-#src   - Multi-stage
-#src icon: 🎣
-#src ---
+# ---
+# title: Multistage Lotka–Volterra with a third species
+# description: Optimize fishing intensity across two stages; a third species enters at the switch
+# id: lotka_multistage
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Multistage Lotka–Volterra with a Third Species](@id lotka_multistage)
 # This example splits the
 # [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
 # into two stages. The first stage optimizes the classic two-species fishery on

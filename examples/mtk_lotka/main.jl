@@ -1,5 +1,5 @@
 # ---
-# title: ModelingToolkit Integration
+# title: ModelingToolkit integration
 # description: Define and solve an optimal control problem with ModelingToolkit
 # id: mtk
 # julia: "1.10"

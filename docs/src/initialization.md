@@ -1,21 +1,25 @@
-# [Initializing models](@id Initializing-shooting-variables)
+# [Initial guesses](@id initialization_guide)
+
+Good starting values matter, especially for multiple shooting. Corleone offers two
+ways to set them: annotation defaults, which are applied during `LuxCore.setup`,
+and initialization helpers, which improve the shooting values of an existing setup.
 
 ## Annotation defaults
 
-Set `default` on `Tunable` or `Constant` to initialize values during `LuxCore.setup`.
-The [scheduling guide](scheduling.md) explains selectors and interval counts.
+Set `default` on a `Tunable` or `Constant` annotation. It can be a value, a vector,
+or a function:
 
 | Default | Values supplied |
 |---|---|
-| Scalar | Repeated at every scheduled entry |
-| `AbstractVector` | Entries in schedule order |
-| `(rng, n::Int) -> values` | A vector of `n` values |
-| `(rng, times::AbstractVector) -> values` | A vector evaluated at initialization times |
+| Scalar | The same value for every interval or reset. |
+| `AbstractVector` | One entry per interval or reset, in grid order. |
+| `(rng, n::Int) -> values` | A vector of `n` values, for example random guesses. |
+| `(rng, times::AbstractVector) -> values` | One value per time, computed from the times. |
 
-State defaults have one value per reset, in supplied grid order. Parameter defaults
-have one value per interval; time callbacks receive `[tspan[1]; switching_times]`.
-A parameter with a `nothing` grid receives `[tspan[1]]`; a state with an empty or
-`nothing` grid has no reset values.
+Parameters have one value per interval; a time callback receives the interval start
+times `[tspan[1]; switching_times]`. States have one value per reset, at the reset
+times. In this example, each shooting value is initialized to ten times its reset
+time:
 
 ```@example initialize
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
@@ -30,25 +34,24 @@ trajectory, _ = layer(nothing, ps, st)
 trajectory[:u₁]
 ```
 
-The reset guesses are 10 and 20. For guesses from a reference solution, use a
-time callback that samples that solution; Corleone's `Trajectory` does not interpolate.
+The reset guesses are 10 and 20. To start from a reference solution, sample it in a
+time callback; a `Trajectory` itself does not interpolate.
 
-Callbacks must return numeric vectors of the required length within annotation
-bounds. The count signature wins if both are applicable: annotate `times` with
-`::AbstractVector` to request times. Exceptions propagate without retrying a
-callback. Scalar/vector defaults are checked during construction, and callback
-outputs during setup.
+!!! details "Callback rules"
+    - Callbacks must return a numeric vector of the right length, within the
+      annotation's bounds. Scalar and vector defaults are checked when the layer is
+      built, callback results during setup.
+    - Annotate the argument as `times::AbstractVector` to get times; otherwise the
+      count signature is used.
+    - Results are stored by reference, so return a fresh array if you call setup
+      repeatedly. For reproducible guesses, use a seeded RNG inside the callback.
 
-Supplied vectors and callback results are retained by reference. Return a fresh
-array from a callback for independent repeated setup calls. Reproducibility requires
-a fresh seeded RNG and callbacks that use it.
+## Improving shooting guesses
 
-## Improve shooting guesses
-
-The initialization helpers update existing **tunable state-reset buffers**, leaving
-parameters and fixed initial conditions unchanged. Pass `ps` and `st` explicitly
-to mutate those buffers and return the same `ps`; omit both to run setup and
-return `(ps, st)`. These are setup operations, separate from forward differentiation.
+The initialization helpers overwrite the **tunable state-reset values** of an
+existing setup, leaving parameters and fixed values untouched. The most useful one
+is `forward_initialization`, which solves the problem once with the current
+parameters and copies the incoming states into the shooting values:
 
 ```@example initialize
 forward_initialization(rng, layer, ps, st)
@@ -57,27 +60,29 @@ trajectory, next_st = layer(nothing, ps, st)
 round.(trajectory[:u₁]; digits = 6)
 ```
 
-Forward initialization replaces the interior guesses with incoming solution values,
-here 1 and 2, making the initial trajectory continuous.
+The guesses are now 1 and 2, and the initial trajectory is continuous.
 
 | Helper | Strategy |
 |---|---|
-| `forward_initialization` | Solve sequentially with current parameters and fixed resets. |
-| `linear_initialization` | Interpolate from `u0` (the problem initial state by default) to required `u_infinity`. |
-| `constant_initialization` | Repeat supplied `u0` values. |
-| `custom_initialization` | Use supplied per-variable vectors `u0s`. |
-| `random_initialization` | Sample uniformly within finite variable bounds. |
-| `hybrid_initialization` | Apply `variable_indices => helper` strategies in order. |
+| `forward_initialization` | Solve forward with the current parameters. |
+| `linear_initialization` | Interpolate linearly from `u0` (the problem's initial state by default) to the required `u_infinity`. |
+| `constant_initialization` | Repeat the given `u0` values. |
+| `custom_initialization` | Use the given per-variable vectors `u0s`. |
+| `random_initialization` | Sample uniformly within finite bounds. |
+| `hybrid_initialization` | Apply `variable_indices => helper` pairs in order. |
 
-Use `variables = [1, 3]` to select original state indices. Custom vectors follow
-each state's current grid. A dictionary of custom guesses selects its keys by
-default. Endpoints and custom guesses also accept `index => value` pairs; pass
-`variables` explicitly to select a subset. See the
-[helper docstrings](api.md#Shooting-layers) for accepted argument forms.
+Passing `ps` and `st` updates them in place and returns `ps`; leaving both out runs
+setup and returns `(ps, st)`. Use `variables = [1, 3]` to restrict a helper to some
+states. Custom vectors and dictionaries follow each state's grid, and endpoints
+accept `index => value` pairs. The [helper docstrings](@ref core_api) list all
+accepted forms.
 
-Forward initialization supports ODE problems and runs sequentially even for a
-parallel layer. It preserves tunable global-start assignments, fills selected
-interior and final reset values, and keeps unselected resets active. Other helpers
-also update selected global-start values. Each helper validates all its proposals
-before writing; a failed forward solve leaves caller buffers unchanged. Hybrid
-methods run in order, and a later failure does not undo earlier successful methods.
+A few details are worth knowing:
+
+- `forward_initialization` supports ODE problems and always runs sequentially,
+  even for a parallel layer. It keeps tunable initial values and fills interior
+  and final resets.
+- The other helpers also update tunable initial values of the selected states.
+- Each helper checks all its values before writing anything, so a failed forward
+  solve leaves `ps` unchanged. In a hybrid strategy, earlier successful steps are
+  kept if a later one fails.

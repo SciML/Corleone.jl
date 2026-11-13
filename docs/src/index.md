@@ -23,29 +23,53 @@ hero:
 features:
   - icon: 🎯
     title: Optimal control
-    details: Define control schedules, objectives, and constraints using single or multiple shooting.
+    details: Optimize piecewise-constant controls, free initial states, and stage durations with single or multiple shooting.
     link: /shooting/
+  - icon: 📈
+    title: Parameter estimation
+    details: Fit model parameters to measurements from one or many experiments, with priors, transforms, and uncertainty estimates in CorleoneInverse.
+    link: /inverse/
   - icon: 🔬
     title: Experimental design
-    details: Optimize measurements and combine experiments to learn model parameters with CorleoneOED.
+    details: Choose controls and measurement times that make parameters identifiable with CorleoneOED.
     link: /oed/
+  - icon: 🧠
+    title: Scientific machine learning
+    details: Embed Lux neural networks in the dynamics and train them like any other parameter.
+    link: /examples/lotka_volterra_universal_differential_equation/
   - icon: 🧩
     title: Symbolic models
-    details: Build dynamics and integral costs with ModelingToolkit, including parameter bounds and initial values.
+    details: Write dynamics, integral costs, and constraints in ModelingToolkit and let Corleone build the shooting problem.
     link: /modelingtoolkit/
-  - icon: ∇
-    title: Automatic differentiation
-    details: Choose a gradient backend for your solver and optimization problem using tested configurations.
-    link: /automatic_differentiation/
   - icon: ⚡
-    title: Parallel shooting
-    details: Evaluate independent shooting segments concurrently while retaining continuity constraints.
-    link: /parallel_shooting/
+    title: Fast derivatives
+    details: Use ForwardDiff, ReverseDiff, or Zygote, sparse Jacobians and Hessians, and threaded or distributed shooting.
+    link: /automatic_differentiation/
 ---
 ```
 
 ## Differentiable shooting for dynamic optimization
 
-Corleone turns differential-equation solves into Lux shooting layers for optimal control and experimental design. Use it to optimize piecewise-constant controls, model parameters, or shooting states with SciML solvers and trajectory-based objectives and constraints.
+Corleone turns a differential-equation solve into a Lux layer. You declare which
+parameters are controls, which initial states are free, and where the horizon is
+split into shooting segments; Corleone builds the layer, and Optimization.jl or
+NonlinearSolve.jl chooses the values. The same layer serves optimal control,
+parameter estimation, optimal experimental design, and universal differential
+equations.
 
-Start with [Getting Started](getting_started.md), follow a [worked tutorial](gallery/index.md), or use the [Manual](shooting.md) for individual tasks. The [API reference](api.md) covers constructors and functions. [CorleoneOED](oed/index.md) adds experimental design.
+New to Corleone? [Getting Started](getting_started.md) builds and optimizes a first
+problem in a few lines. The [tutorials](gallery/index.md) work through complete
+applications, the Manual explains each building block, starting with
+[parameter schedules](scheduling.md), and the [API reference](api.md) lists every
+exported function. [CorleoneInverse](inverse/index.md) and
+[CorleoneOED](oed/index.md) add parameter estimation and experimental design.
+
+## How the pieces fit together
+
+Corleone sits between the SciML solvers and Lux. Its key dependencies are the
+problem and layer interfaces of SciMLBase and LuxCore; you choose the integrator,
+sensitivity method, optimizer, and neural-network components for each problem.
+CorleoneOED and CorleoneInverse build on the same shooting layers, and
+ModelingToolkit and Makie support is loaded as package extensions.
+
+![Corleone's architecture: optional extensions (ModelingToolkit, Makie) and ecosystem tools (OrdinaryDiffEq, SciMLSensitivity, Optimization, Lux) feed into the Corleone core, which builds on SciMLBase and LuxCore and supports the companion libraries CorleoneOED, CorleoneInverse, and CorleoneGame.](assets/corleone-architecture.svg)

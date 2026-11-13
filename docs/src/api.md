@@ -1,4 +1,4 @@
-# [API Reference](@id core_api)
+# [API reference](@id core_api)
 
 For workflows, use the [Manual](shooting.md). This page includes docstrings for
 exported APIs and supporting layer types.
@@ -47,7 +47,8 @@ hybrid_initialization
 Chain multiple shooting stages with `Stages` and connect consecutive stages with
 `StageTransition` (substitution) or `StageLinkage` (a free interface state coupled by
 a residual constraint). Each layer is stored under the key `stage_i` following the
-layer order. See the [two-stage reactor tutorial](examples/optimal_control_of_a_two_stage_reactor_system.md).
+layer order. See the [multi-stage guide](@ref multistage_guide) and the
+[two-stage reactor tutorial](@ref two_stage_reactor).
 
 ```@docs
 StageTransition

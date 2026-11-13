@@ -1,5 +1,5 @@
 # ---
-# title: The Lotka Volterra Fishing Problem
+# title: Lotka–Volterra fishing problem
 # description: Optimize fishing intensity in a predator-prey model
 # id: lotka_fishing
 # julia: "1.10"

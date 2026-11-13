@@ -1,15 +1,37 @@
-# [Trajectories and reset samples](@id trajectory_guide)
+# [Trajectories](@id trajectory_guide)
 
-[`ShootingLayer`](@ref) returns `(trajectory, next_st)`. A [`Trajectory`](@ref)
-contains saved state samples and access to the parameters used for prediction.
-It does not interpolate or integrate between those samples.
+Calling a [`ShootingLayer`](@ref) returns `(trajectory, next_st)`. The
+[`Trajectory`](@ref) holds the saved state samples and gives access to the
+parameter values used in the solve. It stores samples only; it does not interpolate
+between them.
 
-## Saved grids and both sides of a reset
+## Reading states and parameters
 
-Continuous handoffs appear once in `trajectory.t`. A scheduled interior reset
-retains both the incoming endpoint and outgoing start, even if their values are
-equal. `reset_indices` points to the **outgoing** samples. The immediately
-preceding samples contain the incoming values.
+Numerical problems name their states `:u₁`, `:u₂`, … and their parameters `:p₁`,
+`:p₂`, …. Problems with a symbolic system, for example from ModelingToolkit, keep
+their own names.
+
+| Query | Result |
+|---|---|
+| `trajectory.t[i]`, `trajectory.u[i]` | The time and state vector of saved sample `i`. |
+| `trajectory[state_symbol]` | The state's values at all saved times. |
+| `trajectory[parameter_symbol]` | The parameter's values at its own switching times. |
+| `parameter_values_at_time(trajectory, trajectory, t)` | The full parameter vector at time `t`. |
+
+The last query comes from SymbolicIndexingInterface. Parameters are piecewise
+constant and right-continuous, and their switching times usually differ from the
+state sample times, so don't pair the two series by index.
+
+Read `trajectory.t` and `trajectory.u` together rather than predicting the saved
+grid from switching times: solver options such as `saveat` add samples, and not
+every integration stop is saved. For values at specific times in an objective, use
+[timed expressions](@ref timed_expressions).
+
+## Both sides of a reset
+
+At an interior state reset the trajectory keeps two samples with the same time: the
+incoming endpoint and the outgoing start. `reset_indices` points to the
+**outgoing** samples, so the incoming value sits just before each one.
 
 ```@example reset_samples
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
@@ -23,8 +45,8 @@ trajectory, next_st = layer(nothing, ps, st)
 (; times = trajectory.t, outgoing_indices = trajectory.reset_indices)
 ```
 
-The saved times are `[0, 1, 1, 2, 2, 3]`. The two states at time 1 are the
-incoming value of approximately 1 and the assigned value 0.5:
+The saved times are `[0, 1, 1, 2, 2, 3]`. At time 1 the incoming value is about 1
+and the assigned value is 0.5:
 
 ```@example reset_samples
 k = first(trajectory.reset_indices)
@@ -33,11 +55,8 @@ k = first(trajectory.reset_indices)
 round.([trajectory.u[k - 1][1], trajectory.u[k][1]]; digits = 6)
 ```
 
-`trajectory.residuals` stores state matching residual vectors per integration
-segment start. Their entries are compressed to the active tunable variables;
-they are not a matrix indexed by every state and saved time. Use
-[`shooting_constraints`](@ref) for the complete optimizer residual vector,
-including any inserted-parameter equalities:
+[`shooting_constraints`](@ref) returns the matching residuals, with the sign defined
+in [multiple shooting](@ref shooting_formulation):
 
 ```@example reset_samples
 residuals = shooting_constraints(trajectory)
@@ -45,53 +64,26 @@ residuals = shooting_constraints(trajectory)
 round.(residuals; digits = 6)
 ```
 
-The [shooting formulation](@ref shooting_formulation) defines the residual sign.
-The [plotting API](@ref trajectoryplot) draws reset segments without a continuous
-line across each jump and can show variable matching residuals.
+The raw field `trajectory.residuals` stores these residuals per segment, for the
+tunable states only; prefer `shooting_constraints`, which also includes
+inserted-parameter equalities. The [plotting recipe](@ref trajectoryplot) draws each
+segment separately, so jumps appear as gaps rather than vertical lines.
 
-## Symbolic state and parameter queries
+## [Shared data and differentiation](@id trajectory_ownership)
 
-For an ordinary numerical problem, the generated state and parameter names are
-`:u₁`, `:u₂`, … and `:p₁`, `:p₂`, …. Problems with a symbolic container retain its
-original symbols and indices.
+A trajectory keeps references to the layer, the parameters, and the returned Lux
+state, and its state arrays are shared with the segment solutions. Parameter values
+are looked up on demand from those references.
 
-| Query | Result |
-|---|---|
-| `trajectory.u[i]` | State vector at saved index `i`. |
-| `trajectory.t[i]` | Time associated with that state vector. |
-| `trajectory[state_symbol]` | State values on the saved trajectory grid, including both reset sides. |
-| `trajectory[parameter_symbol]` | Parameter values on the parameter-change grid. |
-| `parameter_values_at_time(trajectory, trajectory, t)` | Full parameter vector at time `t`, for SII callers. |
+In practice this means:
 
-The last query is from SymbolicIndexingInterface. Parameters are piecewise
-constant and right-continuous, and their history grid can differ from the state
-sample grid. Do not combine the two histories by assuming matching column indices.
+- Changing `ps` afterwards changes what parameter queries return, but not the saved
+  states. Run the layer again to get a consistent trajectory.
+- Don't mutate any of this data between a forward call and its pullback.
 
-For timed expressions, terminal selectors, and full-series expressions, see
-[expression evaluation](optimization_contracts.md#Timed-Julia-expressions).
+`symbolic_container(trajectory)` returns the layer's [`ControlSymbolCache`](@ref),
+which answers control and quadrature queries; see [symbolic metadata](@ref symbolic_metadata_guide).
 
-Internal solver saving options, including `saveat`, can add state samples.
-Integration stops need not each be saved. Read the actual `trajectory.t` and
-`trajectory.u` together rather than reconstructing a saved grid from control
-switches or segment endpoints.
-
-## Ownership and differentiation
-
-The trajectory retains the layer, supplied parameters, and returned Lux state by
-reference. Its numerical state arrays are shared with the segment solutions.
-Parameter histories are evaluated on demand through the retained parameter layer;
-there is no detached parameter-history copy.
-
-Consequently, changing a parameter buffer changes later parameter queries, but
-does not recompute saved state values. Run the layer again for a trajectory
-consistent with changed parameters. Avoid mutating retained numerical data between
-a forward evaluation and its pullback.
-
-Symbolic metadata is shared through `symbolic_container(trajectory)`, which returns
-the layer's [`ControlSymbolCache`](@ref). Query control and quadrature subsets on
-that wrapper; see [symbolic bookkeeping](symbolic_metadata.md).
-
-Differentiation is validated for numerical values on fixed time grids. It does
-not establish derivatives through changing reset times, grid topology, or event
-schedules. Backend and sensitivity requirements are documented in
-[automatic differentiation](automatic_differentiation.md).
+Derivatives are supported with respect to numerical values on a fixed time grid, not
+with respect to reset or switching times. See
+[automatic differentiation](@ref automatic_differentiation) for backends.

@@ -1,5 +1,5 @@
 # ---
-# title: Multiple-shooting parameter estimation with fixed controls
+# title: Multiple-shooting parameter estimation
 # description: Fit fishing-model rates and a shooting-node state with exact continuity constraints.
 # category: parameter_estimation
 # id: inverse_multiple_shooting
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # Multiple shooting splits a trajectory into segments that are integrated
 # independently. This makes fits more robust for oscillatory or unstable models.
@@ -92,3 +89,9 @@ end
 vlines!(axis, [6.0]; color = :gray, linestyle = :dash, label = "Shooting node")
 axislegend(axis)
 figure
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

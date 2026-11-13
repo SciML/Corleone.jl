@@ -1,3 +1,4 @@
 # Tutorials
 
-Browse the [tutorial gallery](gallery/index.md) for optimal control, parameter estimation, and optimal experimental design examples.
+The tutorials have moved to the [tutorial gallery](gallery/index.md), which covers
+optimal control, parameter estimation, and optimal experimental design.

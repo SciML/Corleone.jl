@@ -1,13 +1,14 @@
-# [Adding objectives and constraints](@id Optimization-facing-contracts)
+# [Objectives and constraints](@id optimization_guide)
 
-Wrap an initialized shooting layer in [`CorleoneDynamicOptProblem`](@ref), then
-construct an Optimization.jl problem. The model evaluates trajectory objectives
-and constraints; the solver chooses the parameters.
+To optimize, wrap an initialized shooting layer in a
+[`CorleoneDynamicOptProblem`](@ref) together with an objective and constraints, and
+convert it to an Optimization.jl problem. The model evaluates the trajectory; the
+solver chooses the values in `ps`.
 
-## Prepared optimization models
+## A complete example
 
-This example minimizes a terminal error subject to four sampled state limits.
-The interior tunable state introduces a continuity equality automatically.
+This example minimizes a terminal error, subject to bounds on the state at four
+times. The interior shooting node adds a continuity equality automatically.
 
 ```@example optimization_workflow
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
@@ -33,18 +34,51 @@ optimized = reconstruct(result.u)
     constraints = optimization_constraints(model, optimized, optprob.p))
 ```
 
-Supplying `ps` and `st` together retains them by reference; omitting both runs
-setup once. Preparation performs one prediction to validate dimensions and saved
-indices. Each later objective or constraint evaluation makes one prediction;
-there is no shared numerical-solution cache. Reprepare after changing schedules,
-saved layout, expression times, or callback output sizes.
+The first four constraint values are the sampled states; the last one is the
+continuity residual, which the solver drives to zero.
 
-## Callbacks and structured bounds
+When you pass `ps` and `st`, the model keeps them by reference; leave both out to
+let it run setup. Building the model runs one prediction to check dimensions, and
+each later objective or constraint call runs one more.
 
-An objective returns a real scalar: `traj -> scalar`, or `(prediction, st) -> scalar`
-when it needs the current optimizer state. The one-argument form takes precedence.
-A constraint returns a real scalar or flat vector, or writes into `f!(res, traj)`.
-In-place return values are ignored. Bounds specify the output sizes:
+!!! note "Rebuild after structural changes"
+    A prepared model, and any sparsity or AD preparation built from it, assumes fixed
+    schedules, saved times, and output sizes. Rebuild it after changing any of these.
+    Changing only numerical values is fine.
+
+## [Timed expressions](@id timed_expressions)
+
+The simplest way to write objectives and constraints is a Julia expression. A
+signal followed by a time, such as `:(p₁(0.5) * u₁(1.5))`, reads that signal at that
+time:
+
+- Times must be literal numbers within the time span. Interpolate computed times,
+  for example `:(u₁($(3 / 2)))`.
+- The requested times are added to the integration grid, so the values are exact
+  samples, not interpolations.
+- At a reset, a state read returns the post-reset value; parameters are
+  right-continuous.
+
+A bare signal stands for its full saved series, so `:(sum(u₁))` sums every sample,
+including both sides of resets. As an objective, a plain `Symbol` or integer selects
+a terminal value. If you leave out the objective entirely, Corleone sums the
+terminal values of all quadrature states.
+
+Expressions see the functions of Corleone and Base. To call your own helpers, pass
+`eval_module = @__MODULE__`; local variables are not captured, so interpolate
+constants with `$`. Expressions are compiled with RuntimeGeneratedFunctions when it
+is loaded, and with `eval` otherwise; see [`compile_evaluator`](@ref) to plug in
+your own compiler. The [ModelingToolkit frontend](@ref modelingtoolkit_guide)
+translates symbolic costs and constraints into this form.
+
+## Callbacks
+
+For anything an expression can't express, pass functions:
+
+- An objective is `traj -> scalar`, or `(prediction, st) -> scalar` if it needs the
+  Lux state.
+- A constraint returns a scalar or a flat vector, or writes in place as
+  `f!(res, traj)`.
 
 ```@example optimization_workflow
 terminal(traj) = last(traj.u)[1]
@@ -59,59 +93,30 @@ callback_model = CorleoneDynamicOptProblem(layer, traj -> terminal(traj)^2,
 length(optimization_constraints(callback_model))
 ```
 
-Supply both `lcons` and `ucons`, with one matching top-level subtree per constraint.
-A single vector constraint accepts flat bound vectors directly. Constraint outputs
-are flattened in declaration order, followed by automatic shooting equalities
-with zero bounds. Comparisons are not numerical constraints: return a value and
-supply its limits separately.
+Supply `lcons` and `ucons` with one entry per constraint, as above; for a single
+vector constraint, flat vectors are enough. Constraint values are concatenated in
+declaration order, followed by the shooting equalities with zero bounds. A
+constraint returns a value, never a comparison: put the limits in the bounds.
 
-`optimization_constraints(model, ps, st)` allocates the output;
-`optimization_constraints!(res, model, ps, st)` writes into a buffer of the exact
-length. In-place callbacks receive their own slices. Use allocating callbacks for
-reverse AD backends that cannot differentiate mutation. Callback-based Lux
-containers may also return collections of trajectories; timed expressions and
-terminal selectors require a `ShootingLayer`.
+`optimization_constraints(model, ps, st)` returns the constraint vector, and
+`optimization_constraints!(res, model, ps, st)` writes it into a buffer. Prefer
+allocating callbacks with reverse-mode AD backends that cannot differentiate
+mutation. Callback models also accept other Lux containers that return several
+trajectories, whereas timed expressions need a `ShootingLayer`.
 
-## Timed Julia expressions
+## [Variable bounds](@id variable_bounds)
 
-An expression such as `:(p₁(0.5) * u₁(1.5))` reads signals at specified times.
-Times must be finite real literals within the problem span; interpolate computed
-times, for example `:(u₁($(3 / 2)))`. Preparation adds requested times to the
-integration grid and resolves indices against actual saved samples, including
-`saveat` samples. It performs no interpolation. At resets, state reads select the
-post-reset sample; parameter reads are right-continuous.
-
-Within an expression, a bare signal denotes its full saved series:
-`:(sum(u₁))` includes both sides of resets. A plain Symbol or integer objective
-selector instead denotes a terminal value. Omitting the objective sums terminal
-quadratures and requires quadrature metadata. The
-[ModelingToolkit frontend](modelingtoolkit.md) translates symbolic costs and
-constraints into this interface.
-
-Expressions resolve functions and constants in `eval_module` (Corleone by default,
-including Base functions). Use `eval_module = @__MODULE__` for global helpers or
-interpolate literal constants; expressions do not capture local bindings.
-`default_evaluator()` selects RuntimeGeneratedFunctions when loaded, otherwise
-Julia eval. See [`compile_evaluator`](@ref) for custom evaluator implementations.
-
-## Variable bounds
-
-`lower, upper = get_bounds(layer, ps, st)` returns trees with the parameter layout
-and array shapes of `ps`. Fixed values in Lux state have no optimizer entries.
-Missing bounds are infinite. The helper reads metadata without setup or solving.
-A larger Lux container can include shooting layers and ordinary layers, whose
-leaves are unbounded unless they specialize the bound methods.
-
-Flatten parameters and both bound trees with the same vectorizer. The optimization
-bridge does this automatically. State bounds apply to stored initial/shooting
-values; use sampled constraints for limits elsewhere. See
-[numerical accuracy](shooting.md#Bounds-and-numerical-accuracy) for the limits of
-sampled feasibility checks.
+`lower, upper = get_bounds(layer, ps, st)` returns bound trees with the same layout
+as `ps`, reading the annotation metadata without solving. Missing bounds are
+infinite, and fixed values have no entries. In a larger Lux container, ordinary Lux
+layers are unbounded unless they define the bound methods. The optimization bridge
+flattens parameters and bounds for you. See [bounds and accuracy](@ref shooting_bounds)
+for what these bounds constrain.
 
 ## Shooting equality constraints
 
-The model appends the equalities defined by the [shooting formulation](@ref shooting_formulation).
-For a custom optimizer integration, use:
+The model appends the equalities of [multiple shooting](@ref shooting_formulation)
+automatically. If you connect an optimizer yourself, get them directly:
 
 ```@example optimization_workflow
 n = get_number_of_shooting_constraints(layer, ps, st) # No solve.
@@ -121,44 +126,41 @@ residuals = shooting_constraints(trajectory)
 residuals
 ```
 
-Set both equality bounds to `zeros(n)`. Use [`shooting_constraints!`](@ref) to
-write into a preallocated buffer; its element type must accommodate AD values.
-State residuals precede inserted-parameter residuals; their signs and ordering
-are defined in [shooting](shooting.md). The helpers add neither an objective nor
-sampled constraints. Run [`add_parameter_segments!`](@ref), if needed, **before**
-packing parameters, querying bounds, or preparing a model.
+Bound them by `zeros(n)` from both sides. [`shooting_constraints!`](@ref) writes
+into a preallocated buffer, whose element type must accept AD numbers.
 
-## SciMLBase optimization bridge
+## The Optimization.jl bridge
 
-Load Optimization.jl, a solver, and ComponentArrays for the default bridge.
-`OptimizationProblem(model, adtype)` packs variables and bounds, stores Lux state
-in `optprob.p`, and creates objective and constraint callbacks. With no constraints,
-`cons`, `lcons`, and `ucons` are `nothing`. Choose a supported
-[differentiation configuration](automatic_differentiation.md).
+`OptimizationProblem(model, adtype)` needs Optimization.jl and ComponentArrays to be
+loaded. It flattens the variables and bounds, stores the Lux state in `optprob.p`,
+and builds the objective and constraint functions. Choose `adtype` from the
+[supported AD configurations](@ref automatic_differentiation).
 
-Pass derivative options through `function_kwargs`, for example
-`function_kwargs = (; cons_j = custom_jacobian!)`; other keywords configure the
-optimization problem. Declare constraints on the model: the bridge's generated
-`cons` callback cannot be replaced. `inplace = false` selects allocating constraints
-and the out-of-place derivative convention. See [sparse derivatives](sparse_derivatives.md)
-for optional Jacobian and Hessian preparation.
+- Pass derivative options through `function_kwargs`, for example
+  `function_kwargs = (; cons_j = custom_jacobian!)`. Other keywords go to the
+  optimization problem.
+- Declare constraints on the model; the generated `cons` function cannot be
+  replaced.
+- `inplace = false` selects out-of-place constraints and derivatives.
+- [Sparse derivatives](@ref sparse_derivatives) explains `sparse_constraints` and
+  `sparse_hessian`.
 
-After solving, reconstruct parameters from `result.u`. For timed expressions,
-evaluate with `(model.layer.problem, model.evaluation_grid)` as the layer input
-to include all requested times, or use `optimization_objective` and
-`optimization_constraints` with the reconstructed parameters and current state.
-
-## [Sparse derivatives](@id Sparse-constraint-Jacobians)
+After solving, reconstruct the parameters from `result.u` as shown below. To see
+every time requested by an expression, evaluate the layer with
+`(model.layer.problem, model.evaluation_grid)` as input, or call
+`optimization_objective` and `optimization_constraints` with the reconstructed
+parameters.
 
 ```@raw html
+<span id="Sparse-constraint-Jacobians"></span>
 <span id="Lagrangian-Hessian-structure"></span>
 <span id="Sparse-exact-Hessians"></span>
 ```
 
-See [Preparing sparse derivatives](sparse_derivatives.md) for colored constraint
-Jacobians, Lagrangian structure, and exact Hessians.
+## [Parameter packing](@id parameter_packing)
 
-## Parameter packing interface
+Optimizers work with a flat vector. `pack` creates it from the structured
+parameters, together with a function that maps a vector back:
 
 ```@example optimization_workflow
 q0, reconstruct = pack(default_vectorizer(), ps)
@@ -166,12 +168,10 @@ parameters = reconstruct(q0)
 length(q0)
 ```
 
-ComponentArrays reconstruction wraps the **current** vector with the retained
-axes and scalar type, including AD values. Packing a native NamedTuple allocates
-flat storage; packing an existing ComponentVector reuses its backing storage.
-Retain or copy optimizer vectors deliberately when preserving earlier results.
+`reconstruct` wraps the vector it receives without copying, keeping its element
+type, including AD numbers. So if you want to keep an earlier result, copy the
+optimizer vector.
 
-Custom vectorizers implement [`pack`](@ref), returning a flat vector and a callable
-that restores named parameter access from its argument. They must order parameters
-and bounds identically. Select one with `vectorize = Val(:YourExtension)`;
-`default_vectorizer()` requires a supported loaded extension, currently ComponentArrays.
+The default vectorizer uses ComponentArrays and requires it to be loaded. A custom
+vectorizer implements [`pack`](@ref), ordering parameters and bounds identically,
+and is selected with `vectorize = Val(:YourExtension)`.

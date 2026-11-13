@@ -1,14 +1,12 @@
-#src ---
-#src title: A Minimal Time Lotka Volterra Problem
-#src description: Steer the fishery to its steady state in minimal time on a normalized horizon
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
-#src   - Minimal Time
-#src icon: ⏱️
-#src ---
+# ---
+# title: Minimal-time Lotka–Volterra problem
+# description: Steer the fishery to its steady state in minimal time on a normalized horizon
+# id: lotka_min_time
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Minimal-Time Lotka–Volterra Problem](@id lotka_min_time)
 # This example steers the
 # [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
 # from its initial state ``(x, y) = (0.5, 0.7)`` to the steady state ``(1, 1)`` in

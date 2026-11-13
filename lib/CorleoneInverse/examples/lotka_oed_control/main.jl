@@ -1,5 +1,5 @@
 # ---
-# title: Parameter estimation with controls from optimal experimental design
+# title: Estimation with controls from experimental design
 # description: Design a fishing schedule and fit interaction rates with the input held fixed.
 # category: parameter_estimation
 # id: inverse_lotka_oed_control
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # Good experiments make parameter estimation easier. Here, optimal experimental
 # design (OED) first selects a fishing input and measurement times for the
@@ -90,3 +87,9 @@ for (i, observation) in enumerate(data_control.observations)
 end
 axislegend(axis)
 figure
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
