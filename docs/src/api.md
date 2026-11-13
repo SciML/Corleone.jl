@@ -146,6 +146,7 @@ shooting_constraints!
 
 ```@docs
 CorleoneDynamicOptProblem
+EvaluationLayer
 optimization_objective
 optimization_constraints
 optimization_constraints!
@@ -159,4 +160,25 @@ compile_evaluator
 Corleone.SciMLBase.OptimizationFunction(::CorleoneDynamicOptProblem, ::Corleone.SciMLBase.ADTypes.AbstractADType)
 Corleone.SciMLBase.OptimizationProblem(::CorleoneDynamicOptProblem, ::Corleone.SciMLBase.ADTypes.AbstractADType)
 Corleone.SciMLBase.OptimizationProblem(::ShootingLayer, ::Corleone.SciMLBase.ADTypes.AbstractADType)
+```
+
+## Sublibrary integration hooks
+
+These public, unexported functions let packages such as CorleoneInverse wrap
+shooting layers in their own prediction layers. They compose evaluation
+parameters, select experiments, compile observation expressions, and build
+structural derivative patterns without relying on internal functions.
+
+```@docs
+Corleone.evaluation_parameters
+Corleone.compose_evaluation
+Corleone.compile_observation_expression
+Corleone.experiment_components
+Corleone.experiment_trajectories
+Corleone.optimization_dependency_rows
+Corleone.dependency_column_ids
+Corleone.shooting_dependency_context
+Corleone.trajectory_constraint_dependencies
+Corleone.expression_signals
+Corleone.dependency_pattern
 ```

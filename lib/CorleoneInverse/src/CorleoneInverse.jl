@@ -4,14 +4,20 @@ using Reexport: @reexport
 @reexport using Corleone
 import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajectory_objective,
     get_number_of_shooting_constraints, n_observations, optimization_matching,
-    optimization_matching!, optimization_prediction, optimization_schedule, residual
-using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, compile_evaluator,
-    default_evaluator, default_vectorizer, get_bounds, log_prior, natural_values, optimization_constraints,
-    pack, parameter_collections, shooting_constraints,
-    collect_expression_times!, compile_trajectory_expression, experiment_fields, expression_sample_grid,
-    expression_symbol_indices, expression_symbol_name, get_saveat, observation_residual, optimization_times,
-    optimization_trajectory, prepare_constraint_bounds, prepare_dynamic_opt_problem, replace_expression_samples,
+    optimization_matching!, optimization_prediction, optimization_schedule, residual, log_prior, parameter_collections,
+    optimization_dependency_rows
+using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, EvaluationLayer,
+    default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
+    pack, shooting_constraints,
+    collect_expression_times!, compile_trajectory_expression,
+    experiment_fields, expression_sample_grid,
+    expression_symbol_indices, get_saveat, observation_residual, optimization_times,
+    optimization_trajectory, prepare_constraint_bounds, prepare_dynamic_opt_problem,
     sample_indices, scalar_objective, state_index
+# Public integration hooks for layers that wrap shooting layers.
+using Corleone: compile_observation_expression, compose_evaluation, dependency_column_ids, dependency_pattern,
+    evaluation_parameters, experiment_components, experiment_trajectories, expression_signals, shooting_dependency_context,
+    trajectory_constraint_dependencies
 using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete
@@ -26,9 +32,11 @@ using OrdinaryDiffEqTsit5: Tsit5
 using PrecompileTools: @setup_workload, @compile_workload
 using Random: Random
 using SciMLBase: SciMLBase
-using SymbolicIndexingInterface: independent_variable_symbols
+using SymbolicIndexingInterface: symbolic_container
 
 include("experiment_problem.jl")
+include("experiment_sparsity.jl")
+export residual_jacobian_sparsity
 include("problem.jl")
 include("statistics.jl")
 export ParameterEstimate, mean_squared_residual

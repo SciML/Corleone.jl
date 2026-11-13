@@ -7,12 +7,48 @@ as_experiments(experiments::ObservationExperiments) = experiments
 is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
 
 # The wrapper delegates Lux setup and bounds to the owner of the tunable tree.
-struct ExperimentPrediction{S, L, D, P} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    shooting::S
-    layer::L
-    data::D
-    definition::P
+mutable struct ExperimentPrediction{S, L, D, P, E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    const shooting::S
+    const layer::L
+    const data::D
+    const definition::P
+    const evaluation::E
 end
+
+experiment_parameters(::Nothing, ps) = ps
+experiment_parameters(::EvaluationLayer, ps) = ps.shooting
+experiment_parameters(layer::ExperimentPrediction, ps) = experiment_parameters(layer.evaluation, ps)
+
+function LuxCore.initialparameters(rng::Random.AbstractRNG, layer::ExperimentPrediction)
+    ps = LuxCore.initialparameters(rng, layer.layer)
+    isnothing(layer.evaluation) && return ps
+    return (; shooting = ps, evaluation = layer.evaluation.trainable)
+end
+LuxCore.parameterlength(layer::ExperimentPrediction) =
+    LuxCore.parameterlength(layer.layer) + (isnothing(layer.evaluation) ? 0 : length(layer.evaluation.trainable))
+LuxCore.statelength(layer::ExperimentPrediction) =
+    LuxCore.statelength(layer.layer) + (isnothing(layer.evaluation) ? 0 : length(layer.evaluation.fixed))
+
+for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
+    @eval function Corleone.$operation(layer::ExperimentPrediction, ps, st = nothing)
+        shooting = Corleone.$operation(layer.layer, experiment_parameters(layer, ps), st)
+        return compose_evaluation(Corleone.$operation, layer.evaluation, ps, shooting)
+    end
+end
+
+function LuxCore.initialstates(rng::Random.AbstractRNG, layer::ExperimentPrediction)
+    return experiment_evaluation_state(layer.evaluation, LuxCore.initialstates(rng, layer.layer))
+end
+
+experiment_evaluation_state(::Nothing, st) = st
+experiment_evaluation_state(layer::EvaluationLayer, st) =
+    isempty(layer.fixed) ? st : merge(st, (; evaluation = layer.fixed))
+
+log_prior(layer::ExperimentPrediction, ps, st) =
+    compose_evaluation(log_prior, layer.evaluation, ps, log_prior(layer.layer, experiment_parameters(layer, ps), st))
+
+parameter_collections(layer::ExperimentPrediction, ps, st) =
+    compose_evaluation(parameter_collections, layer.evaluation, ps, parameter_collections(layer.layer, experiment_parameters(layer, ps), st))
 
 function experiment_data(layer::Experiments)
     data = map(experiment -> experiment.observations, layer.experiments)
@@ -40,21 +76,29 @@ function (layer::ExperimentPrediction)(::Any, ps, st)
 end
 
 function optimization_prediction(layer::ExperimentPrediction, ps, st, grid)
-    return experiment_prediction(layer.layer, layer.shooting, layer.data, ps, st, grid)
+    return experiment_prediction(layer.layer, layer, ps, st, grid)
 end
-function experiment_prediction(owner::Experiments, shooting, data, ps, st, grid)
-    trajectories, _ = shooting(owner, ps, merge(st, (; saveat = grid)))
-    return NamedTuple{keys(data)}(Tuple(trajectories))
-end
-function experiment_prediction(owner::ShootingLayer, shooting, data, ps, st, grid)
+function experiment_prediction(owner::Experiments, layer, ps, st, grid)
     state = merge(st, (; saveat = grid))
-    return map(data) do experiment
-        first(shooting(experiment, ps, state))
+    # The tuple form keeps one concrete trajectory type per experiment; converting
+    # the public Vector result with Tuple(...) loses its length during inference.
+    if isnothing(layer.evaluation)
+        trajectories, _ = experiment_trajectories(layer.shooting, owner, ps, state)
+    else
+        trajectories, _ = experiment_trajectories(layer.evaluation, owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
+    end
+    return NamedTuple{keys(layer.data)}(trajectories)
+end
+function experiment_prediction(owner::ShootingLayer, layer, ps, st, grid)
+    state = merge(st, (; saveat = grid))
+    parameters = experiment_parameters(layer, ps)
+    return map(layer.data) do experiment
+        first(layer.shooting(experiment, parameters, state))
     end
 end
 
 function get_number_of_shooting_constraints(layer::ExperimentPrediction, ps, st)
-    n = get_number_of_shooting_constraints(layer.layer, ps, st)
+    n = get_number_of_shooting_constraints(layer.layer, experiment_parameters(layer, ps), st)
     return layer.layer isa Experiments ? n : length(layer.data) * n
 end
 optimization_matching(::ExperimentPrediction, trajectories) = reduce(vcat, map(shooting_constraints, values(trajectories)))
@@ -69,37 +113,21 @@ struct PreparedObservation{F, T, Y, S, I}
     σ::S
     indices::I
 end
-residual(observation::PreparedObservation, trajectory) = observation_residual(observation, trajectory, observation.indices)
+residual(observation::PreparedObservation, trajectory, evaluation = ()) =
+    observation_residual(observation, trajectory, observation.indices, evaluation)
 
-struct ObservationExpression{F}
-    f::F
-end
-(expression::ObservationExpression)(u, p, t) = expression.f((; states = u, parameters = p, time = (t,)))
-
-prepare_observable(selector, metadata, trajectory, eval_module, evaluator) = selector
-function prepare_observable(selector::Union{Symbol, Integer}, metadata, trajectory, eval_module, evaluator)
+prepare_observable(selector, trajectory, eval_module, evaluator, layer) = selector
+function prepare_observable(selector::Union{Symbol, Integer}, trajectory, eval_module, evaluator, layer)
     index = state_index(trajectory, selector)
     isnothing(index) && throw(ArgumentError("Unknown observed state $selector."))
     return index
 end
-function prepare_observable(expression::Expr, metadata, trajectory, eval_module, evaluator)
-    indices = expression_symbol_indices(metadata)
-    for symbol in independent_variable_symbols(metadata.sys)
-        name = expression_symbol_name(symbol)
-        haskey(indices, name) && throw(ArgumentError("Independent variables and signals must have distinct names."))
-        indices[name] = (:time, 1)
-    end
-    timepoints = Dict{Symbol, Vector{Real}}()
-    collect_expression_times!(timepoints, expression, indices)
-    all(isempty, values(timepoints)) ||
-        throw(ArgumentError("Observation expressions use current-time signal names; sampling times belong in the observation grid."))
-    input = gensym(:observation)
-    body = replace_expression_samples(expression, indices, trajectory.t, input)
-    return ObservationExpression(compile_evaluator(evaluator, Expr(:->, input, body), eval_module))
-end
-function prepare_observations(data::Experiment, metadata, trajectory, eval_module, evaluator)
+prepare_observable(expression::Expr, trajectory, eval_module, evaluator, layer) =
+    compile_observation_expression(expression, symbolic_container(trajectory), trajectory.t, layer, eval_module, evaluator)
+
+function prepare_observations(data::Experiment, trajectory, eval_module, evaluator, layer)
     observations = map(data.observations) do observation
-        selector = prepare_observable(observation.selector, metadata, trajectory, eval_module, evaluator)
+        selector = prepare_observable(observation.selector, trajectory, eval_module, evaluator, layer)
         indices = sample_indices(trajectory.t, observation.t)
         all(!isnothing, indices) || throw(ArgumentError("Every observation time must be saved in its experiment's trajectory."))
         PreparedObservation(selector, observation.t, observation.y, observation.σ, Int.(indices))
@@ -107,17 +135,43 @@ function prepare_observations(data::Experiment, metadata, trajectory, eval_modul
     return Experiment(observations, data.u0, data.t)
 end
 
-struct MeasurementObjective{O, D, R}
-    owner::O
-    data::D
-    reducer::R
+mutable struct MeasurementObjective{O, D, R}
+    const owner::O
+    const data::D
+    const reducer::R
 end
-(objective::MeasurementObjective)(trajectories) = scalar_objective(reduce_measurements(objective.reducer, objective.data, trajectories))
-reduce_measurements(reducer, data, trajectories) = reducer(abs2.(residual(data, trajectories)))
-reduce_measurements(::typeof(mean), data, trajectories) = mean_squared_residual(data, trajectories)
+# Experiments of one concrete type use one compiled method in a comprehension
+# over their indices; mixed experiment types keep an unrolled map, so each result
+# stays concrete. Building the result without mutation keeps reverse-mode AD
+# (Zygote) working. Julia 1.10 infers the comprehension but not
+# `map(i -> ..., eachindex(a))` over these tuples.
+function paired_map(f, a::Tuple{A, Vararg{A}}, b::Tuple{B, Vararg{B}}) where {A, B}
+    length(a) == length(b) || throw(DimensionMismatch("Expected $(length(a)) trajectories, got $(length(b))."))
+    return [f(a[i], b[i]) for i in eachindex(a)]
+end
+paired_map(f, a::Tuple, b::Tuple) = map(f, a, b)
+paired_map(f, ::Tuple{}, ::Tuple{}) = ()
+
+@noinline experiment_residuals(experiment, trajectory, evaluation) =
+    reduce(vcat, map(observation -> residual(observation, trajectory, evaluation), experiment.observations))
+
+# Named experiments are matched by name; positional experiments by position.
+aligned_trajectories(data::NamedTuple, trajectories::NamedTuple) = values(NamedTuple{keys(data)}(trajectories))
+aligned_trajectories(data, trajectories) = values(trajectories)
+
+function measurement_residuals(data, trajectories, evaluation)
+    aligned = aligned_trajectories(data, trajectories)
+    groups = paired_map((experiment, trajectory) -> experiment_residuals(experiment, trajectory, evaluation), values(data), aligned)
+    return reduce(vcat, groups)
+end
+
+reduce_measurements(reducer, data, trajectories, evaluation) = reducer(abs2.(measurement_residuals(data, trajectories, evaluation)))
+reduce_measurements(::typeof(mean), data, trajectories, evaluation) = mean_squared_residual(data, trajectories, evaluation)
 
 function evaluate_trajectory_objective(objective::MeasurementObjective, trajectories, ps, st)
-    return objective(trajectories) - log_prior(objective.owner, ps, st)
+    evaluation = evaluation_parameters(objective.owner.evaluation, ps, st)
+    loss = reduce_measurements(objective.reducer, objective.data, trajectories, evaluation)
+    return scalar_objective(loss) - log_prior(objective.owner, ps, st)
 end
 
 # A key in the type keeps heterogeneous experiment selection inferable.
@@ -143,7 +197,7 @@ end
 $(SIGNATURES)
 
 Build `CorleoneDynamicOptProblem(shooting, experiments, constraints...; ps, st,
-lcons, ucons, reducer = mean, eval_module, evaluator)` from an [`Experiments`](@ref) container or
+lcons, ucons, reducer = mean, observation_parameters = (;), eval_module, evaluator)` from an [`Experiments`](@ref) container or
 observation [`Experiment`](@ref), tuple, or NamedTuple. Lux parameters and state
 follow their owner, initialized once when omitted.
 
@@ -157,6 +211,15 @@ such as `:(p₁ * u₁)`. Expressions use current-time signal names and the inde
 variable; each observation supplies its own sampling grid. They compile once
 against the experiment's symbolic metadata. `eval_module` resolves custom helpers.
 
+`observation_parameters = (w = Tunable(default = 0.5), offset = Constant(default = 0.0))`
+declares shared observation-only values. Numeric declarations are shorthand for
+unbounded tunables.
+The fit creates an [`EvaluationLayer`](@ref) at `model.layer.evaluation`. The
+prepared parameter tree stores the shooting values in `model.ps.shooting` and the
+extra tunables in `model.ps.evaluation`. Constants are stored in
+`model.st.evaluation`. If supplied, `ps` and `st` are the shooting or
+experiments owner's Lux setup values.
+
 A tagged constraint `:experiment => :(u₁(2.0))` evaluates on that experiment.
 Untagged expressions apply to a single experiment. Callbacks receive the complete
 NamedTuple or tuple of trajectories; tagged callbacks receive one trajectory.
@@ -169,7 +232,8 @@ function CorleoneDynamicOptProblem(
         shooting::ShootingLayer, experiments::Union{Experiments, ObservationExperiments}, constraints...;
         ps = nothing, st = nothing, rng::Random.AbstractRNG = Random.default_rng(),
         lcons = nothing, ucons = nothing, reducer = mean,
-        eval_module::Module = Corleone, evaluator = default_evaluator()
+        eval_module::Module = Corleone, evaluator = default_evaluator(),
+        observation_parameters::NamedTuple = (;)
     )
     owner = experiments isa Experiments ? experiments : shooting
     data = experiments isa Experiments ? experiment_data(experiments) : as_experiments(experiments)
@@ -182,7 +246,12 @@ function CorleoneDynamicOptProblem(
         throw(ArgumentError("Shared shooting-node values require a single observation experiment; use Experiments for local nodes."))
     end
     bounds = prepare_constraint_bounds(lcons, ucons, length(constraints))
-    layer = ExperimentPrediction(shooting, owner, data, (; constraints, lcons, ucons, eval_module, evaluator))
+    evaluation = isempty(observation_parameters) ? nothing : EvaluationLayer(shooting, nothing; observation_parameters...)
+    layer = ExperimentPrediction(shooting, owner, data, (; constraints, lcons, ucons, eval_module, evaluator), evaluation)
+    if !isnothing(evaluation)
+        ps = (; shooting = ps, evaluation = evaluation.trainable)
+        st = experiment_evaluation_state(evaluation, st)
+    end
     metadata = experiment_metadata(layer)
     indices = map(expression_symbol_indices, metadata)
     timepoints = map(_ -> Dict{Symbol, Vector{Real}}(), data)
@@ -196,8 +265,10 @@ function CorleoneDynamicOptProblem(
     expression_times = Iterators.flatten(map(values, values(timepoints)))
     grid = expression_sample_grid(shooting.problem.tspan, grid, expression_times)
     trajectory = optimization_prediction(layer, ps, st, grid)
-    prepared = map((experiment, symbols, prediction) -> prepare_observations(experiment, symbols, prediction, eval_module, evaluator), data, metadata, trajectory)
-    objective = MeasurementObjective(owner, prepared, reducer)
+    prepared = map(data, trajectory) do experiment, prediction
+        prepare_observations(experiment, prediction, eval_module, evaluator, evaluation)
+    end
+    objective = MeasurementObjective(layer, prepared, reducer)
     prepared_constraints = map(constraints, descriptions) do constraint, description
         isnothing(description) && return constraint
         key, expression = description
@@ -217,7 +288,7 @@ model. Parameters and state default to those retained by the model. Priors are
 handled separately by optimization and least-squares problem construction.
 """
 residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st) =
-    residual(model.objective.data, optimization_trajectory(model, ps, st))
+    measurement_residuals(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps, st))
 n_observations(model::ExperimentDynamicOptProblem) = n_observations(model.objective.data)
 
 """
@@ -233,12 +304,12 @@ concatenating their residual vectors. Parameters and state default to those
 retained by the model.
 """
 function mean_squared_residual(model::ExperimentDynamicOptProblem, ps = model.ps, st = model.st)
-    return mean_squared_residual(model.objective.data, optimization_trajectory(model, ps, st))
+    return mean_squared_residual(model.objective.data, optimization_trajectory(model, ps, st), evaluation_parameters(model.layer.evaluation, ps, st))
 end
 
-function mean_squared_residual(data, trajectories)
+function mean_squared_residual(data, trajectories, evaluation = ())
     totals = map(data, trajectories) do experiment, trajectory
-        sum(map(observation -> sum(abs2, residual(observation, trajectory)), experiment.observations))
+        sum(map(observation -> sum(abs2, residual(observation, trajectory, evaluation)), experiment.observations))
     end
     return sum(values(totals)) / n_observations(data)
 end

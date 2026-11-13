@@ -90,6 +90,16 @@ end
     @test (@inferred appended.problem.f(appended.problem.u0, appended.problem.p)) ≈ [-0.5, 0.5, 1.5]
     @test ls.u0 == [1.0, 0.5, 1.0]
     @test_throws ArgumentError append_experiment(model, ls, :a => b)
+
+    with_observation_parameter = CorleoneDynamicOptProblem(shooting, batch; observation_parameters = (w = 0.5,))
+    ls_with_observation_parameter = NonlinearLeastSquaresProblem(with_observation_parameter)
+    observed_b = merge(b, (; observations = Experiment(:(u₁ - w) => ([0.25, 0.75], [1.0, 3.0]))))
+    next_with_observation_parameter = append_experiment(
+        with_observation_parameter, ls_with_observation_parameter, :b => observed_b; u0 = vcat(q, 2.0)
+    )
+    @test next_with_observation_parameter.model.ps.evaluation == (w = 2.0,)
+    @test residual(next_with_observation_parameter.model) ≈ [-0.5, 2.5, 3.5]
+
     state = deepcopy(appended.problem.p)
     state.experiments.b.parameter.parameters.p₂.parameters.parameter.ps .= 1.0
     c = (

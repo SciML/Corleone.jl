@@ -74,16 +74,18 @@ Base.getindex(samples::ExpressionSamples, j::Int) =
 expression_symbol_name(sym::Symbol) = sym
 expression_symbol_name(sym) = throw(ArgumentError("Expression parsing is not implemented for $(typeof(sym))."))
 
-function expression_symbol_indices(layer)
+expression_symbol_indices(layer) = signal_symbol_indices(layer.sys)
+
+function signal_symbol_indices(sys)
     indices = Dict{Symbol, Tuple{Symbol, Int}}()
     for (kind, symbols, indexof) in (
-            (:states, variable_symbols(layer.sys), variable_index),
-            (:parameters, parameter_symbols(layer.sys), parameter_index),
+            (:states, variable_symbols(sys), variable_index),
+            (:parameters, parameter_symbols(sys), parameter_index),
         )
         for sym in symbols
             name = expression_symbol_name(sym)
             haskey(indices, name) && throw(ArgumentError("State and parameter names must be distinct in timed expressions."))
-            indices[name] = (kind, indexof(layer.sys, sym))
+            indices[name] = (kind, indexof(sys, sym))
         end
     end
     return indices
@@ -107,6 +109,7 @@ function collect_expression_times!(timepoints, expr::Expr, indices)
     if expr.head === :call
         op = first(expr.args)
         if op isa Symbol && haskey(indices, op)
+            first(indices[op]) === :evaluation && throw(ArgumentError("Evaluation parameter $op is scalar. Use $op without a time argument."))
             length(expr.args) == 2 || throw(ArgumentError("A signal call must have exactly one time argument: $expr."))
             push!(get!(timepoints, op, Real[]), expression_time(expr.args[2]))
             return timepoints
@@ -118,7 +121,7 @@ function collect_expression_times!(timepoints, expr::Expr, indices)
     return timepoints
 end
 function collect_expression_times!(timepoints, sym::Symbol, indices)
-    haskey(indices, sym) && get!(timepoints, sym, Real[])
+    haskey(indices, sym) && first(indices[sym]) !== :evaluation && get!(timepoints, sym, Real[])
     return timepoints
 end
 collect_expression_times!(timepoints, x, indices) = timepoints
@@ -177,11 +180,12 @@ struct ParsedTrajectoryExpression{F, D, C}
 end
 ParsedTrajectoryExpression(f, dependencies, components) =
     ParsedTrajectoryExpression(f, dependencies, components, false)
-function (expression::ParsedTrajectoryExpression)(traj)
+function (expression::ParsedTrajectoryExpression)(traj, evaluation = ())
     return expression.f(
         (;
             states = ExpressionSamples{typeof(traj), :states}(traj),
             parameters = ExpressionSamples{typeof(traj), :parameters}(traj),
+            evaluation,
         )
     )
 end
@@ -209,6 +213,55 @@ end
 # rebuilt problems reuse derivative preparation and other specialized code.
 # The `#` prefix cannot be written as an ordinary user identifier.
 const EXPRESSION_SAMPLES_ARGUMENT = Symbol("##corleone_samples")
+
+struct ObservationExpression{F, D}
+    f::F
+    dependencies::D
+end
+
+(expression::ObservationExpression)(u, p, t, evaluation = ()) =
+    expression.f((; states = u, parameters = p, time = (t,), evaluation))
+
+function observe(expression::ObservationExpression, traj, k, evaluation)
+    t = traj.t[k]
+    parameters = SymbolicIndexingInterface.parameter_values_at_time(traj, traj, t)
+    return expression(traj.u[k], parameters, t, evaluation)
+end
+
+function observation_symbol_indices(sys, layer)
+    indices = signal_symbol_indices(sys)
+    for symbol in independent_variable_symbols(sys)
+        name = expression_symbol_name(symbol)
+        haskey(indices, name) && throw(ArgumentError("Independent variables and signals must have distinct names."))
+        indices[name] = (:time, 1)
+    end
+    return add_evaluation_symbols!(indices, layer)
+end
+
+"""
+    compile_observation_expression(expression, sys, times, layer, eval_module, evaluator)
+
+Compile an observation `expression` in current-time signal names of `sys`, such as
+`:(w * u₂)`, into a callable `f(u, p, t, evaluation = ())` that evaluates it at one
+state, parameter vector, and time. `layer` supplies the symbols of an
+[`EvaluationLayer`](@ref) (or `nothing`); pass [`evaluation_parameters`](@ref) as
+`evaluation`. `times` is the saved grid, and timed reads such as `u₁(0.5)` are
+rejected. [`expression_signals`](@ref) returns the signals the result reads.
+"""
+function compile_observation_expression(expression, sys, times, layer, eval_module, evaluator)
+    indices = observation_symbol_indices(sys, layer)
+    timepoints = Dict{Symbol, Vector{Real}}()
+    collect_expression_times!(timepoints, expression, indices)
+    all(isempty, values(timepoints)) ||
+        throw(ArgumentError("Observation expressions use current-time signal names; sampling times belong in the observation grid."))
+    input = EXPRESSION_SAMPLES_ARGUMENT
+    body = Base.remove_linenums!(replace_expression_samples(expression, indices, times, input))
+    return ObservationExpression(
+        compile_evaluator(evaluator, Expr(:->, input, body), eval_module),
+        expression_dependencies(expression, indices, times)
+    )
+end
+@non_differentiable compile_observation_expression(::Any, ::Any, ::Any, ::Any, ::Any, ::Any)
 
 function compile_trajectory_expression(expr::Union{Expr, Symbol}, indices, times, eval_module, evaluator)
     input = EXPRESSION_SAMPLES_ARGUMENT
@@ -250,7 +303,10 @@ dependencies in every row. Row sparsity is additionally applied only when the
 output length equals the number of saved samples.
 """
 function elementwise_series_expression(expr, indices)
-    expr isa Symbol && return haskey(indices, expr) ? :series : nothing
+    if expr isa Symbol
+        haskey(indices, expr) || return nothing
+        return first(indices[expr]) === :evaluation ? :scalar : :series
+    end
     expr isa Expr || return expr isa Union{Number, AbstractArray{<:Number}} ? :scalar : nothing
     if expr.head === :call
         op = first(expr.args)
@@ -282,19 +338,43 @@ function dotted_operator(op)
     return length(name) > 1 && startswith(name, '.') && Base.isoperator(Symbol(name[nextind(name, 1):end]))
 end
 
+"""
+    expression_signals(f)
+
+Return the `(kind, index, time)` signals read by a compiled trajectory or observation
+expression, or `nothing` for an opaque callback. `kind` is `:states`, `:parameters`,
+`:time`, or `:evaluation`; `time === nothing` denotes a read of the entire series
+(or, for observations, of the current sample). Resolve them to columns with the
+`resolve` function of [`shooting_dependency_context`](@ref).
+"""
+expression_signals(@nospecialize(f)) = nothing
+expression_signals(f::Union{ParsedTrajectoryExpression, ObservationExpression}) = f.dependencies
+
 # Opaque callbacks may read any trajectory value. Parsed expressions expose the
 # signals they read; unknown vector output structure shares their union per row.
 # `resolve(signals, sample)` resolves series signals at one saved sample index,
 # or their whole history when `sample` is nothing.
-trajectory_constraint_dependencies(@nospecialize(f), n, resolve, ncolumns, nsamples) =
-    fill(BitSet(1:ncolumns), n)
+"""
+    trajectory_constraint_dependencies(f, n, resolve, columns, nsamples)
+
+Return `n` dependency rows (`BitSet`s of column ids) for the constraint or objective
+function `f` with `n` outputs on a trajectory with `nsamples` saved samples.
+Parsed expressions resolve their signals with `resolve` from
+[`shooting_dependency_context`](@ref). Opaque callbacks may read any value they can
+access: every row then holds `columns`, either a `BitSet` or a column count `ncolumns`
+for `1:ncolumns`.
+"""
+trajectory_constraint_dependencies(@nospecialize(f), n, resolve, columns, nsamples) =
+    fill(opaque_columns(columns), n)
+opaque_columns(ncolumns::Integer) = BitSet(1:ncolumns)
+opaque_columns(columns::BitSet) = columns
 function trajectory_constraint_dependencies(@nospecialize(f::ParsedTrajectoryExpression), n, resolve, ncolumns, nsamples)
     if !isnothing(f.components) && length(f.components) == n
         return map(signals -> resolve(signals, nothing), f.components)
     end
     if f.elementwise && n == nsamples
-        timed = filter(signal -> !isnothing(signal[3]), f.dependencies)
-        series = filter(signal -> isnothing(signal[3]), f.dependencies)
+        series = filter(signal -> signal[1] !== :evaluation && isnothing(signal[3]), f.dependencies)
+        timed = filter(signal -> signal[1] === :evaluation || !isnothing(signal[3]), f.dependencies)
         shared = resolve(timed, nothing)
         return [union(shared, resolve(series, k)) for k in 1:n]
     end

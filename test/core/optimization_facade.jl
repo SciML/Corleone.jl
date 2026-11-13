@@ -1,8 +1,95 @@
 using Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, ComponentArrays, Random, ForwardDiff
 using RuntimeGeneratedFunctions
 using SymbolicIndexingInterface
+using Distributions: Normal, logpdf
+using TransformVariables: asℝ₊
 
 facade_helper(x) = 2x + 1
+
+@testset "Evaluation layer parameters" begin
+    problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 2.0), [2.0])
+    shooting = ShootingLayer(problem, Tsit5(), Tunable(1; default = 2.0) => nothing)
+    layer = EvaluationLayer(shooting, :((gain * u₁(0.5) + offset)^2), :(gain * p₁(0.5)), :offset; gain = 3, offset = 1.0)
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    @test ps.evaluation === (gain = 3.0, offset = 1.0)
+    @test LuxCore.parameterlength(layer) == LuxCore.parameterlength(shooting) + 2
+    @test_throws ArgumentError EvaluationLayer(shooting, :(p₁(0.5)); p₁ = 1.0)
+    invalid = EvaluationLayer(shooting, :(gain(0.5)); gain = 1.0)
+    @test_throws ArgumentError CorleoneDynamicOptProblem(invalid)
+    @test optimization_objective(CorleoneDynamicOptProblem(EvaluationLayer(shooting, :gain; gain = 4.0))) == 4.0
+
+    for evaluator in (Val(:Eval), Val(:RuntimeGeneratedFunctions))
+        model = CorleoneDynamicOptProblem(layer; lcons = (0.0, 0.0), ucons = (Inf, Inf), ps, st, evaluator)
+        @test isnothing(layer.sparsity)
+        stored = model.layer.sparsity
+        @test stored.jacobian == constraint_jacobian_sparsity(model)
+        @test stored.hessian == lagrangian_hessian_sparsity(model)
+        @test optimization_objective(model) ≈ 49.0
+        @test optimization_constraints(model) ≈ [6.0, 1.0]
+        @test !haskey(model.timepoints, :gain)
+        @test !haskey(model.timepoints, :offset)
+        packed_ps = (; evaluation = (offset = 2.0, gain = 4.0), ps.shooting)
+        opt = Corleone.SciMLBase.OptimizationProblem(model, Corleone.SciMLBase.ADTypes.AutoForwardDiff(); ps = packed_ps)
+        q, rebuild = pack(default_vectorizer(), packed_ps)
+        ids = rebuild(collect(eachindex(q)))
+        gain, offset = ids.evaluation.gain, ids.evaluation.offset
+        @test opt.lb[[gain, offset]] == [-Inf, -Inf]
+        @test opt.ub[[gain, offset]] == [Inf, Inf]
+        @test optimization_objective(model, rebuild(q), st) ≈ 100.0
+        @test optimization_constraints!(zeros(2), model, rebuild(q), st) ≈ [8.0, 2.0]
+        gradient = ForwardDiff.gradient(q -> optimization_objective(model, rebuild(q), st), q)
+        @test gradient[[gain, offset]] ≈ [40.0, 20.0]
+        pattern = constraint_jacobian_sparsity(model; ps = packed_ps)
+        @test Matrix(pattern[:, [gain, offset]]) == Bool[1 0; 0 1]
+        jacobian = ForwardDiff.jacobian(q -> optimization_constraints(model, rebuild(q), st), q)
+        @test all(pattern[i] || iszero(jacobian[i]) for i in eachindex(jacobian))
+        hessian = lagrangian_hessian_sparsity(model; ps = packed_ps)
+        @test hessian[gain, offset] && hessian[offset, gain]
+        lagrangian(q) = Corleone.optimization_lagrangian(model, rebuild(q), st, 1.0, [1.0, 2.0])
+        dense_hessian = ForwardDiff.hessian(lagrangian, q)
+        @test dense_hessian[gain, offset] ≈ 4.0
+        @test all(hessian[i] || iszero(dense_hessian[i]) for i in eachindex(hessian))
+        @test model.layer.sparsity === stored
+    end
+end
+
+@testset "Named evaluation annotations" begin
+    problem = ODEProblem((u, p, t) -> [p[1]], [1.0], (0.0, 1.0), [2.0])
+    shooting = ShootingLayer(problem, Tsit5(), Tunable(1) => nothing)
+    layer = EvaluationLayer(
+        shooting, :(offset), :offset, :(gain + scale + offset);
+        gain = Tunable(default = 2.0, lowerbound = 1.0, upperbound = 5.0, integer = true),
+        scale = Tunable(default = 3.0, transform = asℝ₊, prior = Normal(3.0, 1.0)),
+        offset = Constant(default = 4.0)
+    )
+    model = CorleoneDynamicOptProblem(layer; lcons = (0.0, 0.0), ucons = (Inf, Inf))
+    @test model.ps.evaluation.gain == 2.0
+    @test model.ps.evaluation.scale ≈ log(3.0)
+    @test model.st.evaluation == (offset = 4.0,)
+    @test LuxCore.parameterlength(layer) == LuxCore.parameterlength(shooting) + 2
+    @test LuxCore.statelength(layer) == LuxCore.statelength(shooting) + 1
+    @test optimization_constraints(model) ≈ [4.0, 9.0]
+    @test optimization_constraints(model, model.ps, merge(model.st, (; evaluation = (offset = 5.0,)))) ≈ [5.0, 10.0]
+    @test log_prior(layer, model.ps, model.st) ≈ logpdf(Normal(3.0, 1.0), 3.0) + log(3.0)
+    @test optimization_objective(model) ≈ 4.0 - log_prior(layer, model.ps, model.st)
+    opt = Corleone.SciMLBase.OptimizationProblem(model, Corleone.SciMLBase.ADTypes.AutoForwardDiff())
+    q, rebuild = pack(default_vectorizer(), model.ps)
+    ids = rebuild(collect(eachindex(q)))
+    @test opt.lb[ids.evaluation.gain] == 1.0
+    @test opt.ub[ids.evaluation.gain] == 5.0
+    @test opt.int[ids.evaluation.gain] && !opt.int[ids.evaluation.scale]
+    @test Matrix(constraint_jacobian_sparsity(model)) == Bool[0 0 0; 0 1 1]
+    @test findall(lagrangian_hessian_sparsity(model)[:, ids.evaluation.scale]) == [ids.evaluation.gain, ids.evaluation.scale]
+    @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(:gain; default = 1.0))
+    @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(default = -1.0, lowerbound = 0.0))
+    # An integer mask on log(gain) would constrain the wrong coordinate.
+    @test_throws "identity (bounded) transform" EvaluationLayer(shooting, :gain; gain = Tunable(default = 3.0, transform = asℝ₊, integer = true))
+
+    fixed = CorleoneDynamicOptProblem(EvaluationLayer(shooting, :offset, :offset; offset = Constant(default = 4.0)); lcons = 0.0, ucons = Inf)
+    @test isempty(fixed.ps.evaluation)
+    @test optimization_objective(fixed) == 4.0
+    @test Matrix(constraint_jacobian_sparsity(fixed)) == falses(1, 1)
+end
 
 @testset "Timed expressions and structured constraint bounds" begin
     calls = Ref(0)

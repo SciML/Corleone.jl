@@ -157,8 +157,8 @@ expressions such as `:(identity(u₁))` or `:(u₁ .- 0.5 .* p₂)` (see
 dependencies of saved sample `k`, plus any timed signals. A saved sample depends on
 the values starting its segment, the active parameters and the controls applied
 before it; both sides of a saved reset are kept apart. Other vector-valued
-expressions use their combined dependencies. Arbitrary callback rows are dense.
-Shooting rows
+expressions use their combined dependencies. Arbitrary callback rows are dense
+over the parameters they can access. Shooting rows
 propagate all state dependencies within each integration segment, replace them
 at scheduled resets, and include active tunable parameters. Fixed resets erase
 state dependencies; partial resets retain dependencies of the other states.
@@ -173,18 +173,30 @@ function constraint_jacobian_sparsity(
         @nospecialize(prob::CorleoneDynamicOptProblem); vectorize = default_vectorizer(),
         ps = prob.ps, st = prob.st
     )
-    prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
     initial, reconstruct = pack(vectorize, ps)
     return constraint_sparsity(prob, initial, reconstruct, st)
 end
 
 function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
-    prob.layer isa ShootingLayer || throw(ArgumentError("Constraint sparsity currently requires a ShootingLayer."))
-    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
-    prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Sparse shooting dependencies currently require an ODEProblem."))
-    isempty(prob.lcons) && return spzeros(Bool, 0, length(initial))
+    if prob.layer isa EvaluationLayer && isnothing(prob.layer.sparsity)
+        return copy(prepare_evaluation_sparsity!(prob, initial, reconstruct, st).jacobian)
+    end
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st)
-    all_rows = vcat(dependencies.user, dependencies.matching)
+    return constraint_pattern(dependencies, length(prob.lcons), length(initial))
+end
+
+function constraint_pattern(dependencies, nrows, ncolumns)
+    return dependency_pattern(vcat(dependencies.user, dependencies.matching), nrows, ncolumns)
+end
+
+"""
+    dependency_pattern(rows, nrows, ncolumns)
+
+Return the `nrows × ncolumns` Boolean sparse matrix whose row `i` has entries at
+the column ids in `rows[i]`, typically `BitSet`s produced by
+[`optimization_dependency_rows`](@ref) or [`shooting_dependency_context`](@ref).
+"""
+function dependency_pattern(all_rows, nrows, ncolumns)
     rows, columns = Int[], Int[]
     entries = sum(length, all_rows; init = 0)
     sizehint!(rows, entries)
@@ -193,28 +205,91 @@ function constraint_sparsity(@nospecialize(prob), initial, reconstruct, st)
         push!(rows, i)
         push!(columns, column)
     end
-    return sparse(rows, columns, trues(length(rows)), length(prob.lcons), length(initial))
+    return sparse(rows, columns, trues(length(rows)), nrows, ncolumns)
+end
+
+"""
+    dependency_column_ids(prob, reconstruct, ncolumns, st)
+
+Return the parameter tree of `prob` with each leaf replaced by its packed column id,
+`reconstruct(1:ncolumns)` normalized for repeated tree access. Throw `ArgumentError`
+when the shooting schedule in `st` no longer matches the one `prob` was prepared for.
+Pass the result, or its subtrees, as `ids` to [`shooting_dependency_context`](@ref).
+"""
+function dependency_column_ids(@nospecialize(prob), reconstruct, ncolumns, st)
+    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
+    return sparsity_indices(reconstruct(collect(1:ncolumns)))
 end
 
 # Shared setup-time signal resolution for Jacobian and Hessian patterns.
 # Structural setup does not specialize on the problem type: each distinct set of
 # compiled expressions would otherwise recompile this whole analysis.
+"""
+    optimization_dependency_rows(prob, initial, reconstruct, st; hessian = false)
+
+Return the structural column dependencies of a prepared problem as
+`(; user, matching, matching_hessian, objective)`, each a vector of `BitSet`s of
+packed column ids. `user` has one row per user constraint entry and `matching` one
+per shooting equality; with `hessian = true`, `matching_hessian` holds the
+curvature rows of the shooting equalities and `objective` the objective's coupled
+column cliques, otherwise both are empty. [`constraint_jacobian_sparsity`](@ref)
+and [`lagrangian_hessian_sparsity`](@ref) build their patterns from these rows.
+
+Sublibraries add methods for problems whose layer is not a shooting layer, building
+the rows with [`dependency_column_ids`](@ref), [`shooting_dependency_context`](@ref)
+and [`trajectory_constraint_dependencies`](@ref).
+"""
 function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct, st; hessian = false)
-    prob.layer isa ShootingLayer || throw(ArgumentError("Structural derivatives currently require a ShootingLayer."))
-    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
-    prob.layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
-    ids = sparsity_indices(reconstruct(collect(1:length(initial))))
-    state = optimization_state(prob.layer, st, prob.evaluation_grid)
-    state_reads = false
-    series_reads = false
+    prob.layer isa Union{ShootingLayer, EvaluationLayer} || throw(ArgumentError("Structural derivatives currently require a shooting layer."))
+    packed_ids = dependency_column_ids(prob, reconstruct, length(initial), st)
+    prepared_state = optimization_state(prob.layer, st, prob.evaluation_grid)
+    layer, ids, state = shooting_components(prob.layer, packed_ids, prepared_state)
+    layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
     times = prob.times
-    state_times = eltype(times)[]
     # Builtin field access keeps the heterogeneous constraint tuple from
     # specializing setup code (and its closures) on each expression type.
     constraints = prob.constraints
     functions = Any[getfield(getfield(constraints, i), :f) for i in 1:nfields(constraints)]
     lengths = Int[getfield(getfield(constraints, i), :n) for i in 1:nfields(constraints)]
     inspected = hessian ? vcat(functions, Any[prob.objective]) : functions
+    dependencies, resolve = shooting_dependency_context(layer, ids, state, times, inspected; evaluation = prob.layer, packed_ids, hessian)
+    length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
+    user_rows = BitSet[]
+    for (f, n) in zip(functions, lengths)
+        append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
+    end
+    objective = hessian ? trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times)) : BitSet[]
+    hessian && append!(objective, evaluation_prior_columns(prob.layer, packed_ids))
+    return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
+end
+
+# Saved-index reads may distinguish the two sides of a reset. Include the
+# history as a conservative fallback when the saved grid cannot be walked.
+"""
+    shooting_dependency_context(shooting, ids, st, times, expressions; evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false)
+
+Analyze which packed columns the trajectory of `shooting` depends on, without solving.
+`ids` is the shooting parameter tree of column ids, `st` the prepared shooting state,
+and `times` the saved time grid. `expressions` lists the constraint and objective
+functions to inspect; parsed expressions refine which samples are resolved and other
+values are ignored. Pass the wrapping `evaluation::EvaluationLayer` and the packed
+`packed_ids` tree containing `ps.evaluation` ids to resolve evaluation signals.
+Set `saved_samples = true` to resolve states at individual saved samples.
+
+Return `(dependencies, resolve)`. `dependencies.matching` and
+`dependencies.matching_hessian` hold the shooting-equality rows.
+`resolve(signals, sample)` returns the `BitSet` of columns that the
+`(kind, index, time)` signals read, where `sample` selects a saved sample index for
+series reads, or `nothing` for their entire history. See [`expression_signals`](@ref).
+"""
+function shooting_dependency_context(
+        layer, ids, state, times, inspected;
+        evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false
+    )
+    evaluation_ids = evaluation_coordinate_ids(evaluation, packed_ids)
+    state_reads = saved_samples
+    series_reads = saved_samples
+    state_times = eltype(times)[]
     for f in inspected
         f isa ParsedTrajectoryExpression || continue
         for (kind, index, time) in f.dependencies
@@ -225,11 +300,10 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     end
     sort!(unique!(state_times))
     dependencies = shooting_constraint_dependencies(
-        prob.layer, ids, state; sample_times = state_reads ? state_times : nothing,
+        layer, ids, state; sample_times = state_reads ? state_times : nothing,
         series_times = series_reads ? times : nothing, hessian
     )
-    length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
-    parameter_layer = prob.layer.parameter
+    parameter_layer = layer.parameter
     parameter_locations = parameter_signal_locations(parameter_layer, state.parameter)
     parameter_samples = Dict{Tuple{Int, Real}, BitSet}()
     parameter_series = Dict{Int, BitSet}()
@@ -241,7 +315,11 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
             # A series read at one saved sample is a timed read at that sample.
             sampled = isnothing(time) && !isnothing(sample)
             time = sampled ? times[sample] : time
-            if kind === :states
+            kind === :time && continue
+            if kind === :evaluation
+                id = evaluation_ids[index]
+                isnothing(id) || push!(columns, id)
+            elseif kind === :states
                 values = if sampled
                     isnothing(state_samples) ? dependencies.state_series : state_samples[sample]
                 else
@@ -265,12 +343,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
         end
         columns
     end
-    user_rows = BitSet[]
-    for (f, n) in zip(functions, lengths)
-        append!(user_rows, trajectory_constraint_dependencies(f, n, resolve, length(initial), length(times)))
-    end
-    objective = hessian ? only(trajectory_constraint_dependencies(prob.objective, 1, resolve, length(initial), length(times))) : BitSet()
-    return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
+    return dependencies, resolve
 end
 
 function check_sparse_constraint_keywords(enabled, kwargs)
@@ -296,12 +369,14 @@ The pattern is independent of the current objective factor and multipliers.
 Parsed expressions (including lowered MTK expressions) conservatively couple all
 parameter columns on which each output depends. This covers general nonlinear
 operations and curvature introduced by the ODE solution without differentiating
-expression syntax. Unknown callbacks conservatively couple all columns.
+expression syntax. Unknown callbacks conservatively couple accessible columns.
 This is a structural superset, not symbolic second differentiation.
-State matching rows use their incoming solution dependencies; the assigned lifted
-value is affine. Parameter matching equalities are affine and add no entries.
+State matching rows include curvature from the incoming solution and from
+nonlinear transforms on assigned values. Parameter matching equalities are affine
+and add no entries.
 
-Supports prepared ODE ShootingLayer models. Rebuild after schedule or layout
+Supports prepared ODE shooting models, including experiment fits via CorleoneInverse.
+Rebuild after schedule or layout
 changes. Load OptimizationBase to obtain its canonical upper-triangle coordinates
 with `OptimizationBase.lag_hess_structure(prob; vectorize, ps, st)`.
 This helper supplies structure only. Use `sparse_hessian=true` when constructing
@@ -316,13 +391,20 @@ function lagrangian_hessian_sparsity(
 end
 
 function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
+    if prob.layer isa EvaluationLayer && isnothing(prob.layer.sparsity)
+        return copy(prepare_evaluation_sparsity!(prob, initial, reconstruct, st).hessian)
+    end
     dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
-    cliques = unique(vcat([dependencies.objective], dependencies.user, dependencies.matching_hessian))
-    columns = [BitSet() for _ in eachindex(initial)]
+    return lagrangian_pattern(dependencies, length(initial))
+end
+
+function lagrangian_pattern(dependencies, ncolumns)
+    cliques = unique(vcat(dependencies.objective, dependencies.user, dependencies.matching_hessian))
+    columns = [BitSet() for _ in 1:ncolumns]
     for clique in cliques, column in clique
         union!(columns[column], clique)
     end
-    colptr = Vector{Int}(undef, length(initial) + 1)
+    colptr = Vector{Int}(undef, ncolumns + 1)
     rows = Int[]
     sizehint!(rows, sum(length, columns; init = 0))
     for (j, indices) in enumerate(columns)
@@ -330,7 +412,28 @@ function lagrangian_sparsity(@nospecialize(prob), initial, reconstruct, st)
         append!(rows, indices)
     end
     colptr[end] = length(rows) + 1
-    return SparseMatrixCSC(length(initial), length(initial), colptr, rows, fill(true, length(rows)))
+    return SparseMatrixCSC(ncolumns, ncolumns, colptr, rows, fill(true, length(rows)))
+end
+
+function initialize_evaluation_sparsity!(prob)
+    prob.layer.shooting.problem isa SciMLBase.AbstractODEProblem || return nothing
+    isnothing(Base.get_extension(@__MODULE__, :CorleoneComponentArraysExtension)) && return nothing
+    vectorize = default_vectorizer()
+    applicable(pack, vectorize, prob.ps) || return nothing
+    initial, reconstruct = pack(vectorize, prob.ps)
+    prepare_evaluation_sparsity!(prob, initial, reconstruct, prob.st)
+    return nothing
+end
+
+function prepare_evaluation_sparsity!(prob, initial, reconstruct, st)
+    dependencies = optimization_dependency_rows(prob, initial, reconstruct, st; hessian = true)
+    ncolumns = length(initial)
+    patterns = EvaluationSparsity(
+        constraint_pattern(dependencies, length(prob.lcons), ncolumns),
+        lagrangian_pattern(dependencies, ncolumns)
+    )
+    prob.layer.sparsity = patterns
+    return patterns
 end
 
 function check_sparse_hessian_keywords(enabled, kwargs)

@@ -63,7 +63,7 @@ function local_experiment_entries(layer, definitions, variables, controls, obser
             definition isa Pair && first(definition) isa AbstractAnnotation ||
                 throw(ArgumentError("Use a control annotation or an annotation => timegrid pair."))
             kind = is_variable(first(definition)) ? Val(:variable) : Val(:parameter)
-            process_definition(layer.sys, kind, definition...)
+            process_definition(layer.sys, kind, definition...; layer.problem)
         end; init = Pair[]
     )
     identities = [(is_variable(first(definition)), get_index(first(definition))) for definition in resolved]
@@ -120,6 +120,9 @@ function merge_experiment_collection(global_layer, local_layer, variable)
         Parameter(global_layer.name, global_layer.repack, children, indices)
 end
 
+# A heap-allocated container with constant, concretely typed fields: passing or
+# capturing it moves a pointer instead of copying several kilobytes of inline
+# layer data, while field access stays fully inferable.
 """
 $(TYPEDEF)
 
@@ -131,18 +134,20 @@ A separate ShootingLayer executes the experiments.
 # Fields
 $(FIELDS)
 """
-@concrete terse struct Experiments <: LuxCore.AbstractLuxContainerLayer{(:shared, :experiments)}
+mutable struct Experiments{S, E, C, P, D} <: LuxCore.AbstractLuxContainerLayer{(:shared, :experiments)}
     "Shared initial variables and model parameters, initialized once."
-    shared
+    const shared::S
     "Internal local-value providers, with no shooting layers."
-    experiments
+    const experiments::E
     "Prepared per-experiment assignments, problems, and symbol metadata."
-    configurations
+    const configurations::C
     "The problem supplying symbols, shapes, and natural defaults; no solver is stored."
-    problem
+    const problem::P
     "The original annotation layers and experiment specifications."
-    definition
+    const definition::D
 end
+# Match the terse type printing of the other layers.
+Base.show(io::IO, T::Type{<:Experiments}) = print(io, T isa UnionAll ? "Experiments" : "Experiments{}")
 
 """
     Experiments(problem, shared_definitions...; experiments, kwargs...)
@@ -409,15 +414,36 @@ end
 
 get_saveat(::Experiments, st) = st.saveat
 
-function prepare_experiment(layer, ::Val{name}, ps, st) where {name}
-    experiment, config = getproperty(layer.experiments, name), getproperty(layer.configurations, name)
-    local_ps, local_st = experiment(nothing, getproperty(ps.experiments, name), getproperty(st.experiments, name))
-    merged_ps = merge_experiment_ps(ps.shared, local_ps, st.shared, local_st)
-    execution = getproperty(st.execution, name)
+prepare_experiment(layer, ::Val{name}, ps, st) where {name} = prepare_experiment(
+    getproperty(layer.experiments, name), getproperty(layer.configurations, name), layer.problem,
+    ps.shared, getproperty(ps.experiments, name), st.shared, getproperty(st.experiments, name),
+    getproperty(st.execution, name), get_saveat(layer, st)
+)
+
+"""
+    experiment_components(experiments::Experiments, shooting::ShootingLayer, name::Symbol, ps, st)
+
+Return `(; shooting, parameters, state)` for experiment `name`: the shooting layer
+running that experiment's problem and annotations, and its merged shared and local
+parameter and state trees. Calling `shooting(nothing, parameters, state)` reproduces
+the experiment's trajectory. `ps` may hold numerical values or packed column ids,
+which makes this suitable for structural derivative analysis.
+"""
+function experiment_components(experiments::Experiments, shooting::ShootingLayer, name::Symbol, ps, st)
+    parameters, state = prepare_experiment(experiments, Val(name), ps, st)
+    return (; shooting = experiment_shooting(shooting, getproperty(experiments.configurations, name)), parameters, state)
+end
+
+# Experiments are selected by the caller, so this barrier sees only their values:
+# experiments with equal types share one compiled method, and the unrolled
+# per-experiment body stays a short list of calls.
+@noinline function prepare_experiment(experiment, config, problem, shared_ps, experiment_ps, shared_st, experiment_st, execution, saveat)
+    local_ps, local_st = experiment(nothing, experiment_ps, experiment_st)
+    merged_ps = merge_experiment_ps(shared_ps, local_ps, shared_st, local_st)
     merged_st = merge(
-        merge_experiment_st(config, st.shared, local_st, execution.active), (;
-            timestops = execution.timestops, saveat = get_saveat(layer, st),
-            experiment_configuration = (; problem = layer.problem, configuration = config),
+        merge_experiment_st(config, shared_st, local_st, execution.active), (;
+            timestops = execution.timestops, saveat,
+            experiment_configuration = (; problem, configuration = config),
         )
     )
     return merged_ps, merged_st
@@ -455,10 +481,12 @@ function (shooting::ShootingLayer)(::Nothing, ps, st::NamedTuple)
     return shooting(shooting.problem, ps, st)
 end
 
-function execute_experiment(shooting, layer, ::Val{name}, call, state) where {name}
-    experiment = getproperty(layer.experiments, name)
+execute_experiment(shooting, layer, ::Val{name}, call, state) where {name} = execute_experiment(
+    shooting, getproperty(layer.experiments, name), call, getproperty(state.experiments, name), getproperty(state.execution, name)
+)
+
+@noinline function execute_experiment(shooting, experiment, call, local_st, experiment_execution)
     trajectory, next = shooting(nothing, call...)
-    local_st = getproperty(state.experiments, name)
     local_initials = experiment_fields(next.initialcondition.initialconditions, local_st.initialcondition.initialconditions)
     local_parameters = experiment_fields(next.parameter.parameters, local_st.parameter.parameters)
     local_active = update_active_ics!(
@@ -469,7 +497,7 @@ function execute_experiment(shooting, layer, ::Val{name}, call, state) where {na
         initialcondition = merge(local_st.initialcondition, (; initialconditions = local_initials, active = local_active)),
         parameter = merge(local_st.parameter, (; parameters = local_parameters)),
     )
-    execution = merge(getproperty(state.execution, name), (; active = next.initialcondition.active))
+    execution = merge(experiment_execution, (; active = next.initialcondition.active))
     return (; trajectory, state = local_next, execution)
 end
 
@@ -480,7 +508,23 @@ function experiment_trajectory_vector(trajectories::T) where {T <: Tuple}
     return element_type[trajectories...]
 end
 
-@generated function (shooting::ShootingLayer)(layer::Experiments, ps, st::NamedTuple)
+function (shooting::ShootingLayer)(layer::Experiments, ps, st::NamedTuple)
+    trajectories, next = experiment_trajectories(shooting, layer, ps, st)
+    return experiment_trajectory_vector(trajectories), next
+end
+
+# A Vector would lose the length and a Union the element types.
+"""
+    experiment_trajectories(shooting::ShootingLayer, experiments::Experiments, ps, st)
+    experiment_trajectories(layer::EvaluationLayer, experiments::Experiments, ps, st)
+
+Run every experiment like `shooting(experiments, ps, st)`, but return the trajectories
+as a `Tuple` in declaration order, together with the updated state. Each element keeps
+its concrete trajectory type, so code indexing or mapping over the experiments stays
+inferable; the `Vector` returned by the layer call has a `Union` element type when
+experiments differ.
+"""
+@generated function experiment_trajectories(shooting::ShootingLayer, layer::Experiments, ps, st::NamedTuple)
     names = experiment_state_names(layer, st)
     isnothing(names) && return :(throw(ArgumentError("Experiment state fields must match the declared experiments.")))
     results = [gensym(:experiment) for _ in names]
@@ -491,7 +535,7 @@ end
     return quote
         calls, state = layer(nothing, ps, st)
         $(evaluations...)
-        trajectories = experiment_trajectory_vector(($(trajectories...),))
+        trajectories = ($(trajectories...),)
         next = merge(
             state, (;
                 experiments = NamedTuple{$(QuoteNode(names))}(($(states...),)),
@@ -502,12 +546,15 @@ end
     end
 end
 
+# Map over the NamedTuples (reordered to declaration order) rather than indexing
+# them with runtime Symbols, so every experiment's count stays inferable.
 function get_number_of_shooting_constraints(layer::Experiments, ps, st)
-    return sum(keys(layer.experiments)) do name
-        config = layer.configurations[name]
-        state = merge(merge_experiment_st(config, st.shared, st.experiments[name], st.execution[name].active), (; timestops = st.execution[name].timestops))
+    names = keys(layer.configurations)
+    counts = map(layer.configurations, NamedTuple{names}(st.experiments), NamedTuple{names}(st.execution)) do config, local_st, execution
+        state = merge(merge_experiment_st(config, st.shared, local_st, execution.active), (; timestops = execution.timestops))
         shooting_constraint_count(config.initialcondition, config.parameter, config.problem, state)
     end
+    return sum(values(counts); init = 0)
 end
 
 # Keep the generic container bounds contract unchanged. Within experiment

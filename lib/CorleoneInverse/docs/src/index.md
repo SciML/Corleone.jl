@@ -84,6 +84,110 @@ sampling grid and noise scale, for example
 observations = Experiment(:(p₁ * u₁ + t) => (times, values, 0.1))
 ```
 
+An observation expression can also use shared trainables that belong to the
+observation model. Declare them with `observation_parameters`. The keyword
+names each value, so the annotation only needs its default and metadata.
+The names must differ from the state, ODE parameter, and time names.
+
+```julia
+observations = Experiment(:(u₁^2 - w + offset) => (times, values, 0.1))
+model = CorleoneDynamicOptProblem(
+    shooting, observations;
+    observation_parameters = (
+        w = Tunable(default = 0.5, lowerbound = 0.0),
+        offset = Constant(default = 0.0),
+    ),
+)
+ps = model.ps
+# Save the trajectory at the observation times before evaluating residuals.
+state = experiment_state(shooting, observations, model.st)
+trajectory, _ = shooting(observations, ps.shooting, state)
+residual(
+    model.layer.evaluation, observations, trajectory, ps.evaluation;
+    evaluation_state = model.st.evaluation,
+)
+```
+
+The fit packs the shooting values and observation tunables together. The ODE
+receives `ps.shooting`, and all experiments share the tunables in `ps.evaluation`
+and constants in `model.st.evaluation`. A numeric declaration such as
+`w = 0.5` is shorthand for an unbounded tunable. Expressions see natural
+values when a tunable has a transform. Direct evaluation uses the constant
+defaults when `evaluation_state` is omitted. Expressions that read only
+trajectory values also work with `residual(observations, trajectory)`. The direct residual methods accept
+`eval_module` and `evaluator` when expressions use custom helpers.
+
+#### Experiment sparsity
+
+For an ODE fit, `residual_jacobian_sparsity(model)` returns one row per
+measurement in residual order. Shared parameters use the same packed columns
+in every experiment, and local parameters keep their own columns. The existing
+`constraint_jacobian_sparsity(model)` and `lagrangian_hessian_sparsity(model)`
+queries use the same packing. Constraint rows include shooting equalities.
+
+In this example, two experiments share the ODE rate `p₁`, the observation
+parameter `w`, and a fixed offset. Each experiment fits its own initial state.
+The tagged constraint reads only experiment `a` at time `0.75`.
+
+```@example experiment_sparsity
+using CorleoneInverse, ComponentArrays, OrdinaryDiffEqTsit5
+
+ode = ODEProblem((u, p, t) -> [p[1]], [0.0], (0.0, 1.0), [2.0])
+shooting = ShootingLayer(ode, Tsit5(), Tunable(1) => nothing)
+times = [0.25, 0.75]
+
+specification(x0, measurements) = (;
+    annotations = Tunable(1; kind = Val(:variable), default = x0) => [0.0],
+    observations = Experiment(:(u₁^2 - w + offset) => (times, measurements, 0.5)),
+)
+batch = Experiments(shooting, (
+    a = specification(1.0, [1.75, 5.75]),
+    b = specification(2.0, [5.75, 11.75]),
+))
+model = CorleoneDynamicOptProblem(
+    shooting, batch, :a => :(u₁(0.75));
+    observation_parameters = (w = Tunable(default = 0.5, lowerbound = 0.0), offset = Constant(default = 0.0)),
+    lcons = 0.0, ucons = 3.0,
+)
+
+J = residual_jacobian_sparsity(model)
+C = constraint_jacobian_sparsity(model)
+H = lagrangian_hessian_sparsity(model)
+
+# Columns are (p₁, initial state of a, initial state of b, w).
+Int.(Matrix(J))
+```
+
+The first two residuals depend on the initial state of `a`, and the last two
+depend on the initial state of `b`. The fixed offset has no column.
+The tagged constraint has support in
+columns 1 and 2. The Hessian entry between the two initial states, `H[2, 3]`,
+is absent.
+
+The default mean and the sum of squared residuals contribute curvature one
+residual at a time. This preserves zeros between parameters from different
+experiments when their only connection is a shared parameter. A custom reducer
+may couple residuals, so it uses their combined dependency set. Priors and
+constraints contribute their own curvature.
+
+Load DifferentiationInterface and SparseMatrixColorings and pass
+`sparse_constraints = true` or `sparse_hessian = true` to
+`OptimizationProblem(model, ad)` to prepare colored derivatives.
+
+```julia
+using Optimization
+import DifferentiationInterface, SparseMatrixColorings
+
+opt = OptimizationProblem(
+    model, AutoForwardDiff(); sparse_constraints = true, sparse_hessian = true,
+)
+```
+
+The residual pattern is available separately for inspection. Rebuild after changing the
+packing, schedules, saved samples, or observation layout.
+
+#### Tagged constraints
+
 Tagged constraints select an experiment, and timed signal calls request their
 sampling points during preparation. Callbacks receive the collection of
 trajectories and can couple experiments. Ordinary `lcons`/`ucons` bounds apply,
@@ -149,6 +253,14 @@ grids, constants, and transforms. Output remains a vector: matching result types
 use a concrete element type, and mixed result types use a finite union of concrete
 trajectory types. State field order may differ without changing declaration order.
 
+
+An `EvaluationLayer` can call the same batch directly. For a fit with observation
+parameters, use the fit's packed-tree layout and the original experiment Lux state.
+
+```julia
+layer = model.layer.evaluation
+trajectories, next_st = layer(experiments, model.ps, (; shooting = model.st, evaluation = (;)))
+```
 
 `Experiments(base_shooting, specs)` may inherit an existing layer's definitions at
 construction; the resulting container retains no shooting layer or solver.
@@ -261,3 +373,7 @@ The tutorial gallery includes examples adapted from Christoph Plate
 - [SIR estimation across two regions](@ref inverse_sir_multicity)
 - [Robertson DAE estimation](@ref inverse_rober_dae)
 - [Lux universal differential equation](@ref inverse_ude_growth)
+
+The [EGF signaling example](@ref inverse_egf_signaling) fits a published
+signaling model to six stimulation doses with shared observation gains and
+checks which parameter combinations the data identify.

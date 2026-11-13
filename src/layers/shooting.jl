@@ -70,7 +70,7 @@ function shooting_metadata(problem, definitions, ic_defs; controls, quadratures,
         for scalar in scalar_annotations(annotation)
             identity = get_transform(scalar) isa BoundedTransform
             identity || has_integer(scalar) || continue
-            resolved = update_annotation(set_kind(scalar, kind), cache)
+            resolved = update_annotation(set_kind(scalar, kind), cache, problem)
             sym = get_sym(resolved)
             if bounded && identity
                 isnothing(effective_bounds) && (effective_bounds = Dict{Any, Any}(cache.bounds))

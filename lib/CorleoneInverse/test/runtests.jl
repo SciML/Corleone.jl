@@ -18,6 +18,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Experiment dynamic optimization problems" begin
                 include("core/experiment_model.jl")
             end
+            @safetestset "Experiment sparsity" begin
+                include("core/experiment_sparsity.jl")
+            end
             @safetestset "Experiment layers" begin
                 include("core/experiment_layers.jl")
             end
@@ -30,8 +33,11 @@ withenv("GROUP" => GROUP) do
             @safetestset "Lotka Volterra" begin
                 include("core/lotka_volterra.jl")
             end
-            return @safetestset "Multiple shooting" begin
+            @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
+            end
+            return @safetestset "Type-stable experiment pipeline" begin
+                include("core/type_stability.jl")
             end
         end,
         qa = (; env = joinpath(@__DIR__, "qa"), body = joinpath(@__DIR__, "qa", "qa.jl")),

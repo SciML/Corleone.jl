@@ -88,15 +88,16 @@ end
 function ParameterEstimate(
         shooting::ShootingLayer, experiments::Union{ObservationExperiments, Experiments}, q::AbstractVector, ps, st;
         α::Real = 0.05, vectorize = default_vectorizer(), eval_module::Module = Corleone,
-        evaluator = Corleone.default_evaluator()
+        evaluator = Corleone.default_evaluator(), observation_parameters::NamedTuple = (;)
     )
-    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator)
+    model = CorleoneDynamicOptProblem(shooting, experiments; ps, st, eval_module, evaluator, observation_parameters)
     return ParameterEstimate(model, q; α, vectorize)
 end
 
 # The natural values of the tunable parameters, in packed order.
 natural_vector(layer, ps, st) = reduce(
-    vcat, map(((collection, values),) -> natural_values(collection.transform, values.ps), parameter_collections(layer, ps, st))
+    vcat, map(((collection, values),) -> natural_values(collection.transform, values.ps), parameter_collections(layer, ps, st));
+    init = Union{}[]
 )
 
 function Base.show(io::IO, ::MIME"text/plain", est::ParameterEstimate)
