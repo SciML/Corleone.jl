@@ -34,9 +34,14 @@
 # J_2 = t_P - \sum_i \Delta t_i \ge 0 .
 # ```
 #
-# The two stages live on normalized time ``\tau \in [0, 1]`` and their right-hand sides are scaled
-# by the (optimized) stage durations ``T_1`` and ``T_2``. The added volume enters as the
-# parameter of the `StageTransition`, which applies the **mixing** relations of the paper.
+# The two stages live on normalized time ``\tau \in [0, 1]`` and their right-hand sides are
+# scaled by the (optimized) stage durations ``T_1`` and ``T_2``. The added volume enters as
+# the parameter of a [`StageLinkage`](@ref), which applies the **mixing** relations of the
+# paper.
+#
+# !!! info "What you will learn"
+#     How to optimize free stage durations, couple stages through a parameterized
+#     interface map, and add parameter and terminal constraints across stages.
 
 # ## Setup
 
@@ -154,7 +159,7 @@ T2_init = 15.0
 prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], abstol = 1.0e-10)
 prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], abstol = 1.0e-10)
 
-# The temperature is a piecewise-constant control on ``P - 1 = 5`` uniform intervals of the
+# The temperature is a piecewise-constant control on ``P = 20`` uniform intervals of the
 # first stage (normalized time), bounded to the reactor limits ``[298, 398]\,\mathrm{K}``.
 
 P = 20
@@ -176,11 +181,9 @@ stage2 = ShootingLayer(
 # The linkage owns the second stage's initial state. It is initialized consistently with
 # the first stage's forward solution for ``S = 0.1``, so the residual starts at zero, and
 # the added volume ``S`` is bounded to ``[0, 0.1]``.
-let ps1, st1
-    ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
-    traj1, _ = stage1(nothing, ps1, st1)
-    global u0_linkage = switch_at_ts(last(traj1.u), [0.1])
-end
+ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
+traj1, _ = stage1(nothing, ps1, st1)
+u0_linkage = switch_at_ts(last(traj1.u), [0.1])
 
 linkage = StageLinkage(
     switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
@@ -205,18 +208,16 @@ duration_constraint = (
 optprob = OptimizationProblem(
     stages, AutoForwardDiff(), Val(:ComponentArrays);
     loss = :(-u₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
-    constraints = (
-        (:u₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
-        #(:u₂, 1) => (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
-    ),
+    constraints = ((:u₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),),
     parameter_constraints = duration_constraint,
 )
 
 uopt = solve(
     optprob, Ipopt.Optimizer();
     hessian_approximation = "limited-memory",
-    max_iter = 500, print_level = 5,
-);
+    max_iter = 500, print_level = 0,
+)
+@assert successful_retcode(uopt)
 
 # ## Results
 
@@ -228,15 +229,24 @@ uopt = solve(
 ps, st = LuxCore.setup(Random.default_rng(), stages)
 ps_opt = uopt + zero(ComponentArray(ps))
 
-println("J0 = V2*c_D(t_P) = ", -uopt.objective)
-println("t_s = T1 = ", ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1], " min,  T2 = ", ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1], " min")
-println("S = ", ps_opt.stage_2.θ[1], " m^3")
-println("c_D(t_P) = ", last((stages(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
+final_trajectory, _ = stages(nothing, ps_opt, st)
+(;
+    J0 = -uopt.objective,                                              # mol
+    t_s = ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1],      # min
+    T2 = ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1],       # min
+    S = ps_opt.stage_2.θ[1],                                           # m³
+    c_D_final = last(final_trajectory.u)[4],                           # mol/m³
+)
+
+# !!! tip "Reproducing the reference"
+#     It is a nice sanity check that a generic shooting formulation recovers the
+#     published optimum. Try changing `P` to see how the control discretization
+#     affects ``J_0``.
 
 # ### Simulating and plotting
 
-# The trajectories are sparsely sampled for efficiency. However, this is not useful for plotting.
-# We remake the layers with more densely sampled trajectories.
+# The trajectories are sparsely sampled for efficiency, which is too coarse for plotting.
+# We remake the layers with densely sampled trajectories.
 
 stage1 = ShootingLayer(
     remake(prob1, saveat = 0.001), Tsit5(),
@@ -263,7 +273,8 @@ u2 = reduce(hcat, traj.u)
 # The temperature control is piecewise constant on `grid`; resample it on the dense
 # normalized trajectory time so it can be drawn as a stair plot.
 temp_series = Vector(ps_opt.stage_1.parameter.parameters.p₂.parameter.ps)
-temperature = temp_series[clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))]
+interval = clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))
+temperature = temp_series[interval]
 
 function plot_reactor(u1, t1p, u2, t2p, temperature)
     f = Figure(size = (1000, 750))

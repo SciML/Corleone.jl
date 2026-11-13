@@ -7,17 +7,24 @@
 # generate_cover: false
 # ---
 
-# Minimize a tracking cost for two linear states with one shared input.
-# Prerequisites: [Getting Started](../getting_started.md) and basic ODE modeling.
-# The cost penalizes the first state's deviation from three and the control effort:
-
+# Welcome! This first tutorial walks through a complete optimal-control workflow
+# in Corleone: define the dynamics, declare which parameters are controls and
+# which are fixed, simulate, optimize, and inspect the result.
+#
+# We steer two linear states with one shared input. The cost penalizes the first
+# state's deviation from three and the control effort:
+#
 # ```math
 # \begin{aligned}
 # \min_u & \int_0^{12} \bigl(10 (x_1 - 3)^2 + 0.1 u^2\bigr) \, dt \\
-# \text{s.t.} \quad & \dot{x}_i = -x_i + u, \quad i = 1, 2, \\
-# & x_1(0)=1,\quad x_2(0)=2.
+# \text{s.t.} \quad & \dot{x}_i = a x_i + b u, \quad i = 1, 2, \\
+# & x_1(0)=1,\quad x_2(0)=2, \quad a = -1, \quad b = 1.
 # \end{aligned}
 # ```
+#
+# !!! info "Prerequisites"
+#     You only need the [Getting Started](../getting_started.md) guide and some
+#     familiarity with ODE models in SciML.
 
 # ## Setup
 
@@ -33,10 +40,13 @@ using ComponentArrays
 using SymbolicIndexingInterface
 using CairoMakie
 Makie.inline!()
+
 # ## LQR Dynamics
 
-# The first two states follow the linear dynamics. The third accumulates the
-# running cost, which depends on the first state and the control.
+# The first two states follow the linear dynamics. The third state accumulates
+# the running cost, which turns the integral objective into a terminal value.
+# All model quantities live in the parameter vector `p = [a, b, u]`, so the
+# right-hand side never reads global variables.
 
 function lqr_dynamics(x, p, t)
     a, b, u = p
@@ -52,7 +62,13 @@ lqr_problem = ODEProblem(lqr_dynamics, u0, tspan, p0)
 
 # ## [Optimal Control Problem](@id control_lqr)
 
-# Make the third parameter a piecewise constant control and keep `a` and `b` fixed.
+# Annotations tell Corleone how to treat each parameter:
+#
+# - `Tunable(3; ...) => control_grid` makes `u` a piecewise-constant control.
+#   The 119 switching times define 120 control intervals, and the initial values
+#   are sampled uniformly from `[0, 1)`.
+# - `Constant(1) => nothing` and `Constant(2) => nothing` keep `a` and `b` fixed
+#   at their values from `p0`. `nothing` means "no switching times".
 
 control_grid = collect(0.1:0.1:11.9)
 predictor = ShootingLayer(
@@ -62,10 +78,13 @@ predictor = ShootingLayer(
     Constant(2; kind = Val(:parameter)) => nothing;
     controls = [3], quadratures = [3],
 )
-# The 119 switching times define 120 control intervals. Initial control values
-# are sampled uniformly from [0, 1). The fixed parameters are stored in Lux state.
 
-# Preview the trajectory with the initialized control.
+# !!! tip "Tunable vs. Constant"
+#     `Tunable` values are stored in the Lux parameters and become optimization
+#     variables. `Constant` values are stored in the Lux state: they enter the
+#     dynamics exactly like tunable ones but are never changed by the optimizer.
+
+# Preview the trajectory with the initial control guess.
 
 ps, st = LuxCore.setup(MersenneTwister(42), predictor)
 solution, _ = predictor(nothing, ps, st)
@@ -73,26 +92,33 @@ trajectoryplot(solution)
 
 # ## Optimize
 
-# Use the accumulated cost `u₃` at the final time as the objective. Retain the
-# seeded parameters and state from the preview as the optimization's initial guess.
+# The objective is the accumulated cost `u₃` at the final time. We reuse the
+# seeded parameters and state from the preview as the initial guess.
 
 dynprob = CorleoneDynamicOptProblem(
     predictor, :(u₃(12.0)); ps, st
 )
 
-# OptimizationProblem packs the parameters and uses ForwardDiff for gradients.
-# Solve it with [`OptimizationLBFGSB.LBFGSB`](@extref Optimization).
+# `OptimizationProblem` packs the parameters into a flat vector and uses
+# ForwardDiff for gradients. We solve with
+# [`OptimizationLBFGSB.LBFGSB`](@extref Optimization).
 opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
-usol = solve(opt, OptimizationLBFGSB.LBFGSB());
+usol = solve(opt, OptimizationLBFGSB.LBFGSB())
 @assert successful_retcode(usol)
+(; retcode = usol.retcode, objective = usol.objective)
 
-# Reconstruct the optimized parameters and plot the trajectory.
+# Reconstruct the structured parameters from the optimizer's vector and plot the
+# optimized trajectory.
 _, reconstruct = pack(default_vectorizer(), dynprob.ps)
 optimized_parameters = reconstruct(usol.u)
 optimized_solution, _ = predictor(nothing, optimized_parameters, opt.p)
 trajectoryplot(optimized_solution)
 
-# The optimized first state approaches the target of three. The second state
-# follows the same input but does not enter the objective. This example uses an
-# unbounded piecewise-constant control; the random initial guesses are not bounds.
-usol.objective
+# Well done! The first state now approaches the target of three. The second state
+# follows the same input but does not enter the objective.
+#
+# !!! note "No control bounds here"
+#     The control is unbounded in this tutorial: the random initial guesses in
+#     `[0, 1)` are only a starting point. Add `lowerbound` and `upperbound` to the
+#     `Tunable` annotation to restrict it, as in the
+#     [Lotka–Volterra fishing problem](@ref lotka_fishing).

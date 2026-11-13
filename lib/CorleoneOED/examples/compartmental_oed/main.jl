@@ -7,11 +7,14 @@
 # generate_cover: false
 # ---
 
-# Prerequisites: the [measurement formulation](@ref oed_formulation) and basic ODE
-# modeling. The solver imports below are needed for optimization and plots.
-# Estimate three parameters by observing one state. We optimize a relaxed
-# selection of six measurements from 19 candidate times, following the
+# Which six of 19 candidate sampling times tell us the most about three model
+# parameters, if we can only observe one state? We answer this with a relaxed
+# discrete design, following the
 # [compartmental OED benchmark](https://mintoc.de/index.php?title=Compartmental_OED).
+#
+# !!! info "Prerequisites"
+#     The [measurement formulation](@ref oed_formulation) and basic ODE modeling.
+#
 # The nominal vector is `p = [θ₁, θ₂, θ₃]`. All three parameters are estimated but
 # fixed as design inputs; only measurement weights are optimized. We use no
 # physical control or shooting resets, hence no shooting matching equalities.
@@ -75,14 +78,22 @@ axis = CairoMakie.Axis(figure[1, 1]; xlabel = "Time", ylabel = "Measurement weig
 scatter!(axis, measurement_points, weights)
 figure
 
-# Optimized relaxed weights at the 19 candidate times. A point near one is a heavily
-# weighted event; fractional values are not rounded here. Successful local solver
-# termination and feasible budgets do not prove a globally optimal integer design.
+# These are the optimized relaxed weights at the 19 candidate times. A point near
+# one is a heavily weighted measurement; fractional values are not rounded here.
+#
+# !!! warning "Local, relaxed optimum"
+#     Successful local solver termination and feasible budgets do not prove a
+#     globally optimal integer design.
 #
 # ## Integer sampling decisions
 # To require binary selections, construct the problem below and choose an
 # integer-capable optimizer. Ipopt solves the continuous relaxation only.
-integer_problem = OptimizationProblem(oed, DCriterion(); ps, st, M = [6.0], integer_weights = true);
+integer_problem = OptimizationProblem(
+    oed, DCriterion(); ps, st, M = [6.0], integer_weights = true
+);
 @assert sum(integer_problem.int) == length(measurement_points)
-# This creates a binary-weight problem description; it does not solve it. Passing
-# the integer mask to a continuous solver does not enforce binary choices.
+
+# !!! note "Solving the integer problem"
+#     This creates a binary-weight problem description but does not solve it.
+#     Passing the integer mask to a continuous solver does not enforce binary
+#     choices; use a mixed-integer solver instead.

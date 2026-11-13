@@ -11,8 +11,14 @@
 # Adapted from Christoph Plate (@chplate)'s example in
 # [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
-# Two experiments start from different initial conditions and share four model rates.
-# Compare a first-experiment fit with a warm-started joint fit.
+# More data usually means better estimates. Here two experiments start from
+# different initial conditions and share the four model rates. We first fit the
+# first experiment alone, then use it to warm-start a joint fit, and compare the
+# uncertainties.
+#
+# !!! info "What you will learn"
+#     How [`Experiments`](@ref) separates shared parameters from experiment-local
+#     data and initial states.
 using Corleone: SciMLBase
 using CorleoneInverse, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, NonlinearSolve
 using StableRNGs, CairoMakie
@@ -27,7 +33,9 @@ function lotka_volterra!(du, u, p, t)
 end
 rng = StableRNG(42)
 p_true = [1.5, 1.0, 3.0, 1.0]
-prob = ODEProblem(lotka_volterra!, [1.0, 1.0], (0.0, 10.0), p_true; abstol = 1.0e-9, reltol = 1.0e-9)
+prob = ODEProblem(
+    lotka_volterra!, [1.0, 1.0], (0.0, 10.0), p_true; abstol = 1.0e-9, reltol = 1.0e-9
+)
 t = collect(0.0:0.1:10.0)
 function measure(u0)
     truth = solve(remake(prob; u0), Tsit5(); saveat = t)
@@ -35,6 +43,10 @@ function measure(u0)
     return Experiment(1 => (t, y[1, :], 0.05), 2 => (t, y[2, :], 0.05); u0)
 end
 data_1, data_2 = measure([1.0, 1.0]), measure([0.4, 2.5])
+
+# ## Fit the first experiment
+# The shooting layer only supplies the solver. The experiments own the parameters:
+# the four rates are shared and positive.
 shooting = ShootingLayer(prob, Tsit5())
 shared = Tunable(1:4; default = [1.4, 0.95, 2.8, 0.95], transform = asℝ₊) => nothing
 first_experiment = Experiments(prob, shared; experiments = (first = data_1,))
@@ -45,7 +57,8 @@ fit_1 = solve(NonlinearLeastSquaresProblem(model_1), LevenbergMarquardt())
 estimate_1 = ParameterEstimate(model_1, fit_1.u)
 
 # ## Add the second experiment
-# Initial values belong to each experiment. The tunable rates belong to `shared`.
+# Initial values belong to each experiment; the tunable rates belong to `shared`.
+# Because the shared layout is unchanged, the first fit is a valid warm start.
 experiments = Experiments(prob, shared; experiments = (first = data_1, second = data_2))
 ps, st = LuxCore.setup(rng, experiments)
 _, reconstruct = pack(default_vectorizer(), ps)
@@ -54,15 +67,22 @@ model = CorleoneDynamicOptProblem(shooting, experiments; ps = warm_start, st)
 fit = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt())
 @assert SciMLBase.successful_retcode(fit)
 estimate = ParameterEstimate(model, fit.u)
-println("Single-experiment standard errors = ", estimate_1.std_errors)
-println("Joint standard errors = ", estimate.std_errors)
 @assert all(estimate.std_errors .< estimate_1.std_errors)
+(;
+    joint_estimate = estimate.x,
+    single_experiment_std_errors = estimate_1.std_errors,
+    joint_std_errors = estimate.std_errors,
+)
+
+# Every standard error shrinks with the second experiment: the extra data pays off.
 trajectories, _ = shooting(experiments, reconstruct(fit.u), st)
 @assert first(trajectories[2].u) == [0.4, 2.5]
 
 figure = Figure()
 for (i, (trajectory, data)) in enumerate(zip(trajectories, (data_1, data_2)))
-    axis = CairoMakie.Axis(figure[1, i]; xlabel = "Time", ylabel = "Population", title = "Experiment $i")
+    axis = CairoMakie.Axis(
+        figure[1, i]; xlabel = "Time", ylabel = "Population", title = "Experiment $i"
+    )
     for (j, observation) in enumerate(data.observations)
         lines!(axis, trajectory.t, getindex.(trajectory.u, j); label = "Fitted species $j")
         scatter!(axis, observation.t, observation.y; markersize = 4)

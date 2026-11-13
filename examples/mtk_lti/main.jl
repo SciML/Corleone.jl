@@ -7,12 +7,15 @@
 # generate_cover: false
 # ---
 
-# Prerequisites: the [ModelingToolkit tutorial](@ref mtk) and basic linear systems.
-# This problem adds terminal equalities and a feasible multiple-shooting guess.
-# We jointly optimize a scalar input and three constant coefficients in
+# This tutorial adds terminal equalities and a feasible multiple-shooting
+# initialization to the ModelingToolkit workflow. We jointly optimize a scalar
+# input and three constant coefficients in
 # ``\dot{x} = A x + b u``, with ``x(0)=0`` and
 # ``x(10)=[3,1,-2]^T``. The objective is minimum control energy,
 # ``\frac12\int_0^{10}u(t)^2\,dt``.
+#
+# !!! info "Prerequisites"
+#     The [ModelingToolkit tutorial](@ref mtk) and basic linear systems.
 
 using Corleone, ModelingToolkit
 using ModelingToolkit: t_nounits as t, D_nounits as D
@@ -32,6 +35,8 @@ using LuxCore, Random, LinearAlgebra
 # The physical initial state is fixed; interior shooting values remain tunable.
 # The MTK array `a` contains the two unknown entries of A. Corleone scalarizes
 # its components during setup and stores each in its own scalar vector buffer.
+# The target state `x_t` is a symbolic constant, so it never becomes a decision
+# variable.
 
 @variables begin
     x₁(t) = 0.0, [tunable = false]
@@ -80,6 +85,11 @@ dynopt = CorleoneDynamicOptProblem(
 # input that reaches the target. This initializes the control without changing
 # the layer or its parameter layout. Forward initialization fills the lifted
 # states and quadrature from that input.
+#
+# !!! tip "A good start pays off"
+#     Starting multiple shooting from a feasible guess often saves many optimizer
+#     iterations. [`forward_initialization`](@ref) integrates once and copies the
+#     resulting states into all shooting nodes.
 
 A_nominal = [0.0 1.0 0.0; -0.2 0.0 1.0; 0.0 0.0 -0.1]
 b_nominal = [0.5, 0.0, 1.0]
@@ -95,6 +105,7 @@ dynopt.ps.parameter.parameters[input_name].parameter.ps .= control_guess
 forward_initialization(MersenneTwister(42), dynopt.layer, dynopt.ps, dynopt.st)
 initial_energy = optimization_objective(dynopt)
 @assert maximum(abs, optimization_constraints(dynopt)) < 1.0e-7
+(; initial_energy, max_initial_violation = maximum(abs, optimization_constraints(dynopt)))
 
 # ## Joint optimization
 # The target alone does not identify unique coefficients. We treat them as design
@@ -111,11 +122,15 @@ _, reconstruct = pack(default_vectorizer(), dynopt.ps)
 optimized = reconstruct(result.u)
 trajectory, _ = dynopt.layer(nothing, optimized, optprob.p)
 terminal_state = [last(trajectory[state]) for state in x]
-coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]))
+coefficients = (;
+    A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]),
+)
 @assert isapprox(terminal_state, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
 @assert maximum(abs, optimization_constraints(dynopt, optimized, optprob.p)) < 1.0e-5
 @assert result.objective <= initial_energy + 1.0e-6
-# Replaying the fitted constant system provides a check independent of lifted states.
+
+# Replaying the optimized constant system with the exact discretization provides a
+# check that is independent of the lifted states.
 A_fitted = [0.0 1.0 0.0; coefficients.A₂₁ 0.0 1.0; 0.0 0.0 coefficients.A₃₃]
 b_fitted = [coefficients.b₁, 0.0, 1.0]
 fitted_transition = exp([A_fitted b_fitted; zeros(1, 4)] * step)
@@ -124,8 +139,13 @@ replayed_terminal = foldl(
     (state, input) -> Φ_fitted * state + Γ_fitted * input,
     trajectory[u]; init = zeros(3)
 )
-@assert isapprox(replayed_terminal, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
-(; coefficients, terminal_state, energy = result.objective)
+@assert isapprox(
+    replayed_terminal, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0
+)
+(; retcode = result.retcode, coefficients, terminal_state, energy = result.objective)
+
+# The terminal equalities hold, and the energy did not increase compared to the
+# feasible initialization. Great!
 
 # ## Plot
 # Plot the three physical states and the scalar input. The energy is reported above.
