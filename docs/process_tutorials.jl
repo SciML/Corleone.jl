@@ -151,6 +151,7 @@ tutorials = map(
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "sir_multicity", "main.jl"), "inverse_sir_multicity"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "rober_dae", "main.jl"), "inverse_rober_dae"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "ude_growth", "main.jl"), "inverse_ude_growth"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "egf_signaling", "main.jl"), "inverse_egf_signaling"),
         (
             joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
             "the_lotka_volterra_optimal_experimental_design_problem",

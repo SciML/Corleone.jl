@@ -371,3 +371,7 @@ The tutorial gallery includes examples adapted from Christoph Plate
 - [SIR estimation across two regions](@ref inverse_sir_multicity)
 - [Robertson DAE estimation](@ref inverse_rober_dae)
 - [Lux universal differential equation](@ref inverse_ude_growth)
+
+The [EGF signaling example](@ref inverse_egf_signaling) fits a published
+signaling model to six stimulation doses with shared observation gains and
+checks which parameter combinations the data identify.

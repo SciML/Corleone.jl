@@ -66,6 +66,7 @@ makedocs(
                 "SIR Estimation Across Two Regions" => "examples/inverse_sir_multicity.md",
                 "Robertson DAE Parameter Estimation" => "examples/inverse_rober_dae.md",
                 "Universal Differential Equation with Lux" => "examples/inverse_ude_growth.md",
+                "EGF Signaling Across Doses" => "examples/inverse_egf_signaling.md",
                 "Lotka–Volterra Universal Differential Equation" => "examples/lotka_volterra_universal_differential_equation.md",
             ],
             "Optimal Experimental Design" => [
