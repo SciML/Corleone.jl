@@ -189,6 +189,13 @@ function constraint_pattern(dependencies, nrows, ncolumns)
     return dependency_pattern(vcat(dependencies.user, dependencies.matching), nrows, ncolumns)
 end
 
+"""
+    dependency_pattern(rows, nrows, ncolumns)
+
+Return the `nrows × ncolumns` Boolean sparse matrix whose row `i` has entries at
+the column ids in `rows[i]`, typically `BitSet`s produced by
+[`optimization_dependency_rows`](@ref) or [`shooting_dependency_context`](@ref).
+"""
 function dependency_pattern(all_rows, nrows, ncolumns)
     rows, columns = Int[], Int[]
     entries = sum(length, all_rows; init = 0)
@@ -201,17 +208,43 @@ function dependency_pattern(all_rows, nrows, ncolumns)
     return sparse(rows, columns, trues(length(rows)), nrows, ncolumns)
 end
 
+"""
+    dependency_column_ids(prob, reconstruct, ncolumns, st)
+
+Return the parameter tree of `prob` with each leaf replaced by its packed column id,
+`reconstruct(1:ncolumns)` normalized for repeated tree access. Throw `ArgumentError`
+when the shooting schedule in `st` no longer matches the one `prob` was prepared for.
+Pass the result, or its subtrees, as `ids` to [`shooting_dependency_context`](@ref).
+"""
+function dependency_column_ids(@nospecialize(prob), reconstruct, ncolumns, st)
+    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
+    return sparsity_indices(reconstruct(collect(1:ncolumns)))
+end
+
+"""
+    optimization_dependency_rows(prob, initial, reconstruct, st; hessian = false)
+
+Return the structural column dependencies of a prepared problem as
+`(; user, matching, matching_hessian, objective)`, each a vector of `BitSet`s of
+packed column ids. `user` has one row per user constraint entry and `matching` one
+per shooting equality; with `hessian = true`, `matching_hessian` holds the
+curvature rows of the shooting equalities and `objective` the objective's coupled
+column cliques, otherwise both are empty. [`constraint_jacobian_sparsity`](@ref)
+and [`lagrangian_hessian_sparsity`](@ref) build their patterns from these rows.
+
+Sublibraries add methods for problems whose layer is not a shooting layer, building
+the rows with [`dependency_column_ids`](@ref), [`shooting_dependency_context`](@ref)
+and [`trajectory_constraint_dependencies`](@ref).
+"""
 # Shared setup-time signal resolution for Jacobian and Hessian patterns.
 # Structural setup does not specialize on the problem type: each distinct set of
 # compiled expressions would otherwise recompile this whole analysis.
 function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct, st; hessian = false)
     prob.layer isa Union{ShootingLayer, EvaluationLayer} || throw(ArgumentError("Structural derivatives currently require a shooting layer."))
-    check_optimization_schedule(prob.source_timestops, optimization_schedule(prob.layer, st))
-    packed_ids = sparsity_indices(reconstruct(collect(1:length(initial))))
+    packed_ids = dependency_column_ids(prob, reconstruct, length(initial), st)
     prepared_state = optimization_state(prob.layer, st, prob.evaluation_grid)
     layer, ids, state = shooting_components(prob.layer, packed_ids, prepared_state)
     layer.problem isa SciMLBase.AbstractODEProblem || throw(ArgumentError("Structural derivatives currently require an ODEProblem."))
-    evaluation_ids = evaluation_coordinate_ids(prob.layer, packed_ids)
     times = prob.times
     # Builtin field access keeps the heterogeneous constraint tuple from
     # specializing setup code (and its closures) on each expression type.
@@ -219,7 +252,7 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     functions = Any[getfield(getfield(constraints, i), :f) for i in 1:nfields(constraints)]
     lengths = Int[getfield(getfield(constraints, i), :n) for i in 1:nfields(constraints)]
     inspected = hessian ? vcat(functions, Any[prob.objective]) : functions
-    dependencies, resolve = shooting_dependency_context(layer, ids, state, times, evaluation_ids, inspected; hessian)
+    dependencies, resolve = shooting_dependency_context(layer, ids, state, times, inspected; evaluation = prob.layer, packed_ids, hessian)
     length(dependencies.matching) == prob.nshooting || throw(ArgumentError("Shooting layout changed; reconstruct CorleoneDynamicOptProblem."))
     user_rows = BitSet[]
     for (f, n) in zip(functions, lengths)
@@ -230,9 +263,30 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
 end
 
+"""
+    shooting_dependency_context(shooting, ids, st, times, expressions; evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false)
+
+Analyze which packed columns the trajectory of `shooting` depends on, without solving.
+`ids` is the shooting parameter tree of column ids, `st` the prepared shooting state,
+and `times` the saved time grid. `expressions` lists the constraint and objective
+functions to inspect; parsed expressions refine which samples are resolved and other
+values are ignored. Pass the wrapping `evaluation::EvaluationLayer` and the packed
+`packed_ids` tree containing `ps.evaluation` ids to resolve evaluation signals.
+Set `saved_samples = true` to resolve states at individual saved samples.
+
+Return `(dependencies, resolve)`. `dependencies.matching` and
+`dependencies.matching_hessian` hold the shooting-equality rows.
+`resolve(signals, sample)` returns the `BitSet` of columns that the
+`(kind, index, time)` signals read, where `sample` selects a saved sample index for
+series reads, or `nothing` for their entire history. See [`expression_signals`](@ref).
+"""
 # Saved-index reads may distinguish the two sides of a reset. Include the
 # history as a conservative fallback when the saved grid cannot be walked.
-function shooting_dependency_context(layer, ids, state, times, evaluation_ids, inspected; hessian = false, saved_samples = false)
+function shooting_dependency_context(
+        layer, ids, state, times, inspected;
+        evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false
+    )
+    evaluation_ids = evaluation_coordinate_ids(evaluation, packed_ids)
     state_reads = saved_samples
     series_reads = saved_samples
     state_times = eltype(times)[]

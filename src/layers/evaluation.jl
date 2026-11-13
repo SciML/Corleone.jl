@@ -79,6 +79,9 @@ function evaluation_annotation(name, annotation::DynamicVariable)
         throw(ArgumentError("Evaluation parameter $name requires a finite real scalar default."))
     transform = resolve_transform(annotation.transform, (-Inf, Inf))
     validate_transform(transform)
+    # The optimizer's integer mask applies to internal coordinates.
+    is_integer_variable(annotation) && !(transform isa BoundedTransform) &&
+        throw(ArgumentError("Integer evaluation parameter $name requires the identity (bounded) transform; the optimizer sees transformed values."))
     lower, upper = get_bounds(transform)
     lower <= upper || throw(ArgumentError("Lower bound exceeds upper bound for evaluation parameter $name."))
     validate_annotation_default(default, transform)
@@ -115,10 +118,35 @@ end
 for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
     @eval function $operation(layer::EvaluationLayer, ps, st = nothing)
         shooting = $operation(layer.shooting, ps.shooting, bound_child_state(st, :shooting))
-        evaluation = evaluation_parameter_metadata($operation, layer, ps.evaluation)
-        return evaluation_parameter_tree(ps, shooting, evaluation)
+        return compose_evaluation($operation, layer, ps, shooting)
     end
 end
+
+"""
+    compose_evaluation(operation, evaluation, ps, inner)
+
+Combine `inner`, the result of `operation` on the layer wrapped by `evaluation`,
+with the evaluation parameters of `evaluation::EvaluationLayer`. `ps` is the
+wrapper tree with fields `shooting` and `evaluation`; `inner` is computed from
+its `shooting` subtree. Pass `evaluation = nothing` to return `inner` unchanged.
+
+| `operation` | `inner` | Result |
+|:--|:--|:--|
+| `get_lower_bound`, `get_upper_bound`, `get_integrality` | metadata tree | `(; shooting = inner, evaluation)` restricted to the fields of `ps` |
+| `parameter_collections` | collection tuple | `inner` followed by one collection per tunable |
+| `log_prior` | scalar | `inner` plus the evaluation parameters' log prior |
+
+Sublibraries use this to support evaluation parameters in layers that wrap
+something other than a single [`ShootingLayer`](@ref).
+"""
+compose_evaluation(operation, ::Nothing, ps, inner) = inner
+for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
+    @eval compose_evaluation(::typeof($operation), layer::EvaluationLayer, ps, inner) =
+        evaluation_parameter_tree(ps, inner, evaluation_parameter_metadata($operation, layer, ps.evaluation))
+end
+compose_evaluation(::typeof(parameter_collections), layer::EvaluationLayer, ps, inner) =
+    Tuple(Iterators.flatten(evaluation_parameter_tree(ps, inner, evaluation_collections(layer, ps))))
+compose_evaluation(::typeof(log_prior), layer::EvaluationLayer, ps, inner) = inner + evaluation_log_prior(layer, ps)
 
 function evaluation_parameter_tree(ps, shooting, evaluation)
     parts = (; shooting, evaluation)
@@ -148,6 +176,15 @@ evaluation_metadata(::typeof(get_lower_bound), annotation) = first(get_bounds(an
 evaluation_metadata(::typeof(get_upper_bound), annotation) = last(get_bounds(annotation.transform))
 evaluation_metadata(::typeof(get_integrality), annotation) = is_integer_variable(annotation)
 
+"""
+    evaluation_parameters(layer, ps, st)
+
+Return the natural values of the evaluation parameters of `layer::EvaluationLayer`
+in declaration order, reading tunables from `ps.evaluation` and constants from
+`st.evaluation` (or the layer defaults). Other layers, including `nothing`, return `()`.
+Pass the result as the `evaluation` argument of compiled trajectory and observation
+expressions.
+"""
 evaluation_parameters(layer, ps, st) = ()
 evaluation_parameters(layer::EvaluationLayer, ps, st) =
     evaluation_values(layer, ps.evaluation, get(st, :evaluation, layer.fixed))
@@ -190,12 +227,10 @@ function with_evaluation_prior(layer::EvaluationLayer, ps, objective)
 end
 
 log_prior(layer::EvaluationLayer, ps, st) =
-    log_prior(layer.shooting, ps.shooting, st.shooting) + evaluation_log_prior(layer, ps)
+    compose_evaluation(log_prior, layer, ps, log_prior(layer.shooting, ps.shooting, st.shooting))
 
-function parameter_collections(layer::EvaluationLayer, ps, st, inserted)
-    shooting = parameter_collections(layer.shooting, ps.shooting, st.shooting, inserted)
-    return Tuple(Iterators.flatten(evaluation_parameter_tree(ps, shooting, evaluation_collections(layer, ps))))
-end
+parameter_collections(layer::EvaluationLayer, ps, st, inserted) =
+    compose_evaluation(parameter_collections, layer, ps, parameter_collections(layer.shooting, ps.shooting, st.shooting, inserted))
 
 function evaluation_prior_columns(layer::EvaluationLayer, ids)
     return [BitSet((getproperty(ids.evaluation, name),)) for name in keys(layer.trainable) if !isnothing(layer.evaluation[name].prior)]

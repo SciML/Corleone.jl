@@ -420,6 +420,20 @@ prepare_experiment(layer, ::Val{name}, ps, st) where {name} = prepare_experiment
     getproperty(st.execution, name), get_saveat(layer, st)
 )
 
+"""
+    experiment_components(experiments::Experiments, shooting::ShootingLayer, name::Symbol, ps, st)
+
+Return `(; shooting, parameters, state)` for experiment `name`: the shooting layer
+running that experiment's problem and annotations, and its merged shared and local
+parameter and state trees. Calling `shooting(nothing, parameters, state)` reproduces
+the experiment's trajectory. `ps` may hold numerical values or packed column ids,
+which makes this suitable for structural derivative analysis.
+"""
+function experiment_components(experiments::Experiments, shooting::ShootingLayer, name::Symbol, ps, st)
+    parameters, state = prepare_experiment(experiments, Val(name), ps, st)
+    return (; shooting = experiment_shooting(shooting, getproperty(experiments.configurations, name)), parameters, state)
+end
+
 # Experiments are selected by the caller, so this barrier sees only their values:
 # experiments with equal types share one compiled method, and the unrolled
 # per-experiment body stays a short list of calls.
@@ -499,9 +513,17 @@ function (shooting::ShootingLayer)(layer::Experiments, ps, st::NamedTuple)
     return experiment_trajectory_vector(trajectories), next
 end
 
-# Internal form of the experiment forward pass: one trajectory per declared
-# experiment as a Tuple, so callers that know the experiment names keep each
-# trajectory's concrete type (a Vector would lose the length, a Union the type).
+"""
+    experiment_trajectories(shooting::ShootingLayer, experiments::Experiments, ps, st)
+    experiment_trajectories(layer::EvaluationLayer, experiments::Experiments, ps, st)
+
+Run every experiment like `shooting(experiments, ps, st)`, but return the trajectories
+as a `Tuple` in declaration order, together with the updated state. Each element keeps
+its concrete trajectory type, so code indexing or mapping over the experiments stays
+inferable; the `Vector` returned by the layer call has a `Union` element type when
+experiments differ.
+"""
+# A Vector would lose the length and a Union the element types.
 @generated function experiment_trajectories(shooting::ShootingLayer, layer::Experiments, ps, st::NamedTuple)
     names = experiment_state_names(layer, st)
     isnothing(names) && return :(throw(ArgumentError("Experiment state fields must match the declared experiments.")))

@@ -32,9 +32,7 @@ LuxCore.statelength(layer::ExperimentPrediction) =
 for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
     @eval function Corleone.$operation(layer::ExperimentPrediction, ps, st = nothing)
         shooting = Corleone.$operation(layer.layer, experiment_parameters(layer, ps), st)
-        isnothing(layer.evaluation) && return shooting
-        evaluation = evaluation_parameter_metadata(Corleone.$operation, layer.evaluation, ps.evaluation)
-        return evaluation_parameter_tree(ps, shooting, evaluation)
+        return compose_evaluation(Corleone.$operation, layer.evaluation, ps, shooting)
     end
 end
 
@@ -47,13 +45,10 @@ experiment_evaluation_state(layer::EvaluationLayer, st) =
     isempty(layer.fixed) ? st : merge(st, (; evaluation = layer.fixed))
 
 log_prior(layer::ExperimentPrediction, ps, st) =
-    log_prior(layer.layer, experiment_parameters(layer, ps), st) + evaluation_log_prior(layer.evaluation, ps)
+    compose_evaluation(log_prior, layer.evaluation, ps, log_prior(layer.layer, experiment_parameters(layer, ps), st))
 
-function parameter_collections(layer::ExperimentPrediction, ps, st)
-    shooting = parameter_collections(layer.layer, experiment_parameters(layer, ps), st)
-    isnothing(layer.evaluation) && return shooting
-    return Tuple(Iterators.flatten(evaluation_parameter_tree(ps, shooting, evaluation_collections(layer.evaluation, ps))))
-end
+parameter_collections(layer::ExperimentPrediction, ps, st) =
+    compose_evaluation(parameter_collections, layer.evaluation, ps, parameter_collections(layer.layer, experiment_parameters(layer, ps), st))
 
 function experiment_data(layer::Experiments)
     data = map(experiment -> experiment.observations, layer.experiments)
@@ -88,9 +83,9 @@ function experiment_prediction(owner::Experiments, layer, ps, st, grid)
     # The tuple form keeps one concrete trajectory type per experiment; converting
     # the public Vector result with Tuple(...) loses its length during inference.
     if isnothing(layer.evaluation)
-        trajectories, _ = Corleone.experiment_trajectories(layer.shooting, owner, ps, state)
+        trajectories, _ = experiment_trajectories(layer.shooting, owner, ps, state)
     else
-        trajectories, _ = Corleone.experiment_trajectories(layer.evaluation, owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
+        trajectories, _ = experiment_trajectories(layer.evaluation, owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
     end
     return NamedTuple{keys(layer.data)}(trajectories)
 end
@@ -149,11 +144,12 @@ end
 # mixed experiment types keep an unrolled map, so each result stays concrete.
 # The explicit loop indexes the argument tuples instead of capturing them in a
 # generator closure, which would copy every experiment by value.
-function paired_map(f, a::NTuple{N, A}, b::NTuple{N, B}) where {N, A, B}
+function paired_map(f, a::Tuple{A, Vararg{A}}, b::Tuple{B, Vararg{B}}) where {A, B}
+    length(a) == length(b) || throw(DimensionMismatch("Expected $(length(a)) trajectories, got $(length(b))."))
     value = f(a[1], b[1])
-    out = Vector{typeof(value)}(undef, N)
+    out = Vector{typeof(value)}(undef, length(a))
     out[1] = value
-    for i in 2:N
+    for i in 2:length(a)
         out[i] = f(a[i], b[i])
     end
     return out
@@ -258,7 +254,6 @@ function CorleoneDynamicOptProblem(
     evaluation = isempty(observation_parameters) ? nothing : EvaluationLayer(shooting, nothing; observation_parameters...)
     layer = ExperimentPrediction(shooting, owner, data, (; constraints, lcons, ucons, eval_module, evaluator), evaluation)
     if !isnothing(evaluation)
-        observation_symbol_indices(shooting.sys, evaluation)
         ps = (; shooting = ps, evaluation = evaluation.trainable)
         st = experiment_evaluation_state(evaluation, st)
     end

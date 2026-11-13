@@ -10,6 +10,7 @@ using Random
 using ConcreteStructs
 
 using SciMLBase
+using SciMLPublic: @public
 using SciMLStructures
 using SymbolicIndexingInterface
 import RecursiveArrayTools
@@ -73,6 +74,10 @@ include("dynprob.jl")
 export CorleoneDynamicOptProblem, optimization_objective, optimization_constraints, optimization_constraints!
 include("optimization_bridge.jl")
 export pack, default_vectorizer, constraint_jacobian_sparsity, lagrangian_hessian_sparsity
+# Supported hooks for sublibraries that wrap shooting layers; see the API reference.
+@public evaluation_parameters, compose_evaluation, compile_observation_expression, experiment_components, experiment_trajectories
+@public optimization_dependency_rows, dependency_column_ids, shooting_dependency_context
+@public trajectory_constraint_dependencies, expression_signals, dependency_pattern
 
 include("deprecation/controls.jl")
 include("deprecation/single_shooting.jl")

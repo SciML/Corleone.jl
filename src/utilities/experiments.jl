@@ -150,9 +150,11 @@ function residual(observation::Observation, traj; eval_module::Module = @__MODUL
 end
 
 function residual_from_samples(layer, experiment::Experiment, traj, values, eval_module, evaluator)
-    return reduce(vcat, map(experiment.observations) do observation
-        residual_from_samples(layer, observation, traj, values, eval_module, evaluator)
-    end)
+    return reduce(
+        vcat, map(experiment.observations) do observation
+            residual_from_samples(layer, observation, traj, values, eval_module, evaluator)
+        end
+    )
 end
 
 function residual_from_samples(layer, observation::Observation, traj, values, eval_module, evaluator)

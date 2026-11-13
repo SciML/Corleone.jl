@@ -238,6 +238,16 @@ function observation_symbol_indices(sys, layer)
     return add_evaluation_symbols!(indices, layer)
 end
 
+"""
+    compile_observation_expression(expression, sys, times, layer, eval_module, evaluator)
+
+Compile an observation `expression` in current-time signal names of `sys`, such as
+`:(w * u₂)`, into a callable `f(u, p, t, evaluation = ())` that evaluates it at one
+state, parameter vector, and time. `layer` supplies the symbols of an
+[`EvaluationLayer`](@ref) (or `nothing`); pass [`evaluation_parameters`](@ref) as
+`evaluation`. `times` is the saved grid, and timed reads such as `u₁(0.5)` are
+rejected. [`expression_signals`](@ref) returns the signals the result reads.
+"""
 function compile_observation_expression(expression, sys, times, layer, eval_module, evaluator)
     indices = observation_symbol_indices(sys, layer)
     timepoints = Dict{Symbol, Vector{Real}}()
@@ -328,12 +338,36 @@ function dotted_operator(op)
     return length(name) > 1 && startswith(name, '.') && Base.isoperator(Symbol(name[nextind(name, 1):end]))
 end
 
+"""
+    expression_signals(f)
+
+Return the `(kind, index, time)` signals read by a compiled trajectory or observation
+expression, or `nothing` for an opaque callback. `kind` is `:states`, `:parameters`,
+`:time`, or `:evaluation`; `time === nothing` denotes a read of the entire series
+(or, for observations, of the current sample). Resolve them to columns with the
+`resolve` function of [`shooting_dependency_context`](@ref).
+"""
+expression_signals(@nospecialize(f)) = nothing
+expression_signals(f::Union{ParsedTrajectoryExpression, ObservationExpression}) = f.dependencies
+
+"""
+    trajectory_constraint_dependencies(f, n, resolve, columns, nsamples)
+
+Return `n` dependency rows (`BitSet`s of column ids) for the constraint or objective
+function `f` with `n` outputs on a trajectory with `nsamples` saved samples.
+Parsed expressions resolve their signals with `resolve` from
+[`shooting_dependency_context`](@ref). Opaque callbacks may read any value they can
+access: every row then holds `columns`, either a `BitSet` or a column count `ncolumns`
+for `1:ncolumns`.
+"""
 # Opaque callbacks may read any trajectory value. Parsed expressions expose the
 # signals they read; unknown vector output structure shares their union per row.
 # `resolve(signals, sample)` resolves series signals at one saved sample index,
 # or their whole history when `sample` is nothing.
-trajectory_constraint_dependencies(@nospecialize(f), n, resolve, ncolumns, nsamples) =
-    fill(BitSet(1:ncolumns), n)
+trajectory_constraint_dependencies(@nospecialize(f), n, resolve, columns, nsamples) =
+    fill(opaque_columns(columns), n)
+opaque_columns(ncolumns::Integer) = BitSet(1:ncolumns)
+opaque_columns(columns::BitSet) = columns
 function trajectory_constraint_dependencies(@nospecialize(f::ParsedTrajectoryExpression), n, resolve, ncolumns, nsamples)
     if !isnothing(f.components) && length(f.components) == n
         return map(signals -> resolve(signals, nothing), f.components)

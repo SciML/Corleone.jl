@@ -9,14 +9,15 @@ import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajecto
 using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, EvaluationLayer,
     default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
     pack, shooting_constraints,
-    collect_expression_times!, compile_observation_expression, compile_trajectory_expression, evaluation_parameter_tree, evaluation_parameters,
-    evaluation_collections, evaluation_coordinate_ids, evaluation_log_prior, evaluation_parameter_metadata,
+    collect_expression_times!, compile_trajectory_expression,
     experiment_fields, expression_sample_grid,
-    expression_symbol_indices, get_saveat, observation_residual, observation_symbol_indices, optimization_times,
+    expression_symbol_indices, get_saveat, observation_residual, optimization_times,
     optimization_trajectory, prepare_constraint_bounds, prepare_dynamic_opt_problem,
-    sample_indices, scalar_objective, state_index, check_optimization_schedule, dependency_pattern,
-    experiment_shooting, ObservationExpression, ParsedTrajectoryExpression, prepare_experiment,
-    shooting_dependency_context, sparsity_indices, trajectory_constraint_dependencies
+    sample_indices, scalar_objective, state_index
+# Public integration hooks for layers that wrap shooting layers.
+using Corleone: compile_observation_expression, compose_evaluation, dependency_column_ids, dependency_pattern,
+    evaluation_parameters, experiment_components, experiment_trajectories, expression_signals, shooting_dependency_context,
+    trajectory_constraint_dependencies
 using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete

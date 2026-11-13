@@ -82,6 +82,8 @@ end
     @test findall(lagrangian_hessian_sparsity(model)[:, ids.evaluation.scale]) == [ids.evaluation.gain, ids.evaluation.scale]
     @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(:gain; default = 1.0))
     @test_throws ArgumentError EvaluationLayer(shooting, :gain; gain = Tunable(default = -1.0, lowerbound = 0.0))
+    # An integer mask on log(gain) would constrain the wrong coordinate.
+    @test_throws "identity (bounded) transform" EvaluationLayer(shooting, :gain; gain = Tunable(default = 3.0, transform = asℝ₊, integer = true))
 
     fixed = CorleoneDynamicOptProblem(EvaluationLayer(shooting, :offset, :offset; offset = Constant(default = 4.0)); lcons = 0.0, ucons = Inf)
     @test isempty(fixed.ps.evaluation)
