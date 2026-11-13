@@ -12,7 +12,9 @@ function lotka_volterra!(du, u, p, t)
 end
 rng = StableRNG(42)
 p_true = [1.5, 1.0, 3.0, 1.0]
-prob = ODEProblem(lotka_volterra!, [1.0, 1.0], (0.0, 10.0), p_true; abstol = 1.0e-9, reltol = 1.0e-9)
+prob = ODEProblem(
+    lotka_volterra!, [1.0, 1.0], (0.0, 10.0), p_true; abstol = 1.0e-9, reltol = 1.0e-9
+)
 t = collect(0.0:0.1:10.0)
 function measure(u0)
     truth = solve(remake(prob; u0), Tsit5(); saveat = t)
@@ -20,6 +22,7 @@ function measure(u0)
     return Experiment(1 => (t, y[1, :], 0.05), 2 => (t, y[2, :], 0.05); u0)
 end
 data_1, data_2 = measure([1.0, 1.0]), measure([0.4, 2.5])
+
 shooting = ShootingLayer(prob, Tsit5())
 shared = Tunable(1:4; default = [1.4, 0.95, 2.8, 0.95], transform = asℝ₊) => nothing
 first_experiment = Experiments(prob, shared; experiments = (first = data_1,))
@@ -37,15 +40,21 @@ model = CorleoneDynamicOptProblem(shooting, experiments; ps = warm_start, st)
 fit = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt())
 @assert SciMLBase.successful_retcode(fit)
 estimate = ParameterEstimate(model, fit.u)
-println("Single-experiment standard errors = ", estimate_1.std_errors)
-println("Joint standard errors = ", estimate.std_errors)
 @assert all(estimate.std_errors .< estimate_1.std_errors)
+(;
+    joint_estimate = estimate.x,
+    single_experiment_std_errors = estimate_1.std_errors,
+    joint_std_errors = estimate.std_errors,
+)
+
 trajectories, _ = shooting(experiments, reconstruct(fit.u), st)
 @assert first(trajectories[2].u) == [0.4, 2.5]
 
 figure = Figure()
 for (i, (trajectory, data)) in enumerate(zip(trajectories, (data_1, data_2)))
-    axis = CairoMakie.Axis(figure[1, i]; xlabel = "Time", ylabel = "Population", title = "Experiment $i")
+    axis = CairoMakie.Axis(
+        figure[1, i]; xlabel = "Time", ylabel = "Population", title = "Experiment $i"
+    )
     for (j, observation) in enumerate(data.observations)
         lines!(axis, trajectory.t, getindex.(trajectory.u, j); label = "Fitted species $j")
         scatter!(axis, observation.t, observation.y; markersize = 4)

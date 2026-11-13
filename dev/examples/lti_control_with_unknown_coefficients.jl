@@ -52,6 +52,7 @@ dynopt.ps.parameter.parameters[input_name].parameter.ps .= control_guess
 forward_initialization(MersenneTwister(42), dynopt.layer, dynopt.ps, dynopt.st)
 initial_energy = optimization_objective(dynopt)
 @assert maximum(abs, optimization_constraints(dynopt)) < 1.0e-7
+(; initial_energy, max_initial_violation = maximum(abs, optimization_constraints(dynopt)))
 
 optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 result = solve(
@@ -63,7 +64,9 @@ _, reconstruct = pack(default_vectorizer(), dynopt.ps)
 optimized = reconstruct(result.u)
 trajectory, _ = dynopt.layer(nothing, optimized, optprob.p)
 terminal_state = [last(trajectory[state]) for state in x]
-coefficients = (; A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]))
+coefficients = (;
+    A₂₁ = last(trajectory[a[1]]), A₃₃ = last(trajectory[a[2]]), b₁ = last(trajectory[b₁]),
+)
 @assert isapprox(terminal_state, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
 @assert maximum(abs, optimization_constraints(dynopt, optimized, optprob.p)) < 1.0e-5
 @assert result.objective <= initial_energy + 1.0e-6
@@ -76,8 +79,10 @@ replayed_terminal = foldl(
     (state, input) -> Φ_fitted * state + Γ_fitted * input,
     trajectory[u]; init = zeros(3)
 )
-@assert isapprox(replayed_terminal, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0)
-(; coefficients, terminal_state, energy = result.objective)
+@assert isapprox(
+    replayed_terminal, ModelingToolkit.getdefault(x_t); atol = 1.0e-5, rtol = 0.0
+)
+(; retcode = result.retcode, coefficients, terminal_state, energy = result.objective)
 
 using CairoMakie
 trajectoryplot(

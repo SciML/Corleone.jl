@@ -39,11 +39,11 @@ dynopt = CorleoneDynamicOptProblem(
 optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 
 uopt = solve(
-    optprob, Ipopt.Optimizer(), max_iter = 1000, tol = 5.0e-6,
-    hessian_approximation = "limited-memory",
-    print_level = 3
+    optprob, Ipopt.Optimizer(); max_iter = 1000, tol = 5.0e-6,
+    hessian_approximation = "limited-memory", print_level = 0
 )
 @assert successful_retcode(uopt)
+(; retcode = uopt.retcode, objective = uopt.objective)
 
 _, reconstruct = pack(default_vectorizer(), dynopt.ps)
 optimized_parameters = reconstruct(uopt.u)
@@ -60,22 +60,19 @@ dynopt = CorleoneDynamicOptProblem(
 
 optprob = OptimizationProblem(dynopt, AutoForwardDiff())
 
-optsol = solve(
-    optprob,
-    Ipopt.Optimizer(),
-    tol = 1.0e-6,
-    hessian_approximation = "limited-memory",
-    max_iter = 300,
-    print_level = 3
+ms_uopt = solve(
+    optprob, Ipopt.Optimizer(); tol = 1.0e-6,
+    hessian_approximation = "limited-memory", max_iter = 300, print_level = 0
 )
-@assert successful_retcode(optsol)
+@assert successful_retcode(ms_uopt)
+(; retcode = ms_uopt.retcode, objective = ms_uopt.objective)
 
 _, reconstruct_ms = pack(default_vectorizer(), dynopt.ps)
-optimized_parameters = reconstruct_ms(optsol.u)
-optsol, _ = dynopt.layer(nothing, optimized_parameters, optprob.p)
-trajectoryplot(optsol)
+ms_optimized_parameters = reconstruct_ms(ms_uopt.u)
+ms_optsol, _ = dynopt.layer(nothing, ms_optimized_parameters, optprob.p)
+trajectoryplot(ms_optsol)
 
-maximum(abs, shooting_constraints(optsol))
+maximum(abs, shooting_constraints(ms_optsol))
 
         using Pkg
         Pkg.status()

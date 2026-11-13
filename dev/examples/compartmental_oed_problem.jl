@@ -45,7 +45,9 @@ axis = CairoMakie.Axis(figure[1, 1]; xlabel = "Time", ylabel = "Measurement weig
 scatter!(axis, measurement_points, weights)
 figure
 
-integer_problem = OptimizationProblem(oed, DCriterion(); ps, st, M = [6.0], integer_weights = true);
+integer_problem = OptimizationProblem(
+    oed, DCriterion(); ps, st, M = [6.0], integer_weights = true
+);
 @assert sum(integer_problem.int) == length(measurement_points)
 
         using Pkg

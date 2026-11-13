@@ -32,8 +32,8 @@ published_gains = (pAkt = 41.38, pEGFR = 5.648e-8, pS6 = 7.852e4)
 u0 = zeros(9)
 u0[[1, 4, 6]] .= values(published_totals)
 problem = ODEProblem(
-    ODEFunction(egf_signaling!; sys = SymbolCache(states, parameters, :t)), u0, (0.0, 3600.0),
-    [published_rates; 0.0]; abstol = 1.0e-9, reltol = 1.0e-9
+    ODEFunction(egf_signaling!; sys = SymbolCache(states, parameters, :t)),
+    u0, (0.0, 3600.0), [published_rates; 0.0]; abstol = 1.0e-9, reltol = 1.0e-9
 )
 
 times = [0.0, 60.0, 120.0, 300.0, 600.0, 900.0, 1800.0, 3600.0]
@@ -103,7 +103,9 @@ log10_scale = asℝ₊ ∘ TVScale(log(10.0))
 fitted = setdiff(1:13, [4, 9])
 rates = Tunable(fitted; default = published_rates[fitted], transform = log10_scale) => nothing
 fixed_rates = Constant([4, 9]) => nothing
-egfr_total = Tunable([1]; kind = Val(:variable), default = [published_totals.EGFR], transform = log10_scale) => [0.0]
+egfr_total = Tunable(
+    [1]; kind = Val(:variable), default = [published_totals.EGFR], transform = log10_scale
+) => [0.0]
 
 function dose_experiment(j)
     observations = (
@@ -115,40 +117,50 @@ function dose_experiment(j)
 end
 names = (:egf_0_1, :egf_0_3, :egf_1, :egf_3, :egf_10, :egf_30)
 experiments = Experiments(
-    problem, rates, fixed_rates, egfr_total;
-    controls = [14], experiments = NamedTuple{names}(map(dose_experiment, eachindex(doses)))
+    problem, rates, fixed_rates, egfr_total; controls = [14],
+    experiments = NamedTuple{names}(map(dose_experiment, eachindex(doses)))
 )
+
 gains = map(gain -> Tunable(; default = gain, transform = log10_scale), published_gains)
 shooting = ShootingLayer(problem, Rodas5P())
 model = CorleoneDynamicOptProblem(
     shooting, experiments; reducer = sum,
-    observation_parameters = (gain_pAkt = gains.pAkt, gain_pEGFR = gains.pEGFR, gain_pS6 = gains.pS6)
+    observation_parameters = (
+        gain_pAkt = gains.pAkt, gain_pEGFR = gains.pEGFR, gain_pS6 = gains.pS6,
+    )
 )
 
 q, reconstruct = pack(default_vectorizer(), model.ps)
 σ = vcat(vec(σ_pAkt), vec(σ_pEGFR), vec(σ_pS6))
-negative_log_likelihood(x) = optimization_objective(model, reconstruct(x)) / 2 + sum(log, σ) + length(σ) * log(2π) / 2
-println("Negative log-likelihood at the published values = ", negative_log_likelihood(q))
+function negative_log_likelihood(x)
+    return optimization_objective(model, reconstruct(x)) / 2 + sum(log, σ) +
+        length(σ) * log(2π) / 2
+end
+negative_log_likelihood(q)
 
 singular_values = svdvals(ForwardDiff.jacobian(x -> residual(model, reconstruct(x)), q))
-println("Singular values = ", round.(singular_values; sigdigits = 3))
 @assert minimum(singular_values) > 1.0e-2
+round.(singular_values; sigdigits = 3)
 
 ids = reconstruct(collect(1:length(q)))
 gain_columns = [ids.evaluation.gain_pAkt, ids.evaluation.gain_pEGFR, ids.evaluation.gain_pS6]
 pattern = residual_jacobian_sparsity(model)
-@assert vec(sum(pattern[:, gain_columns]; dims = 1)) == fill(length(times) * length(doses), 3)
+@assert vec(sum(pattern[:, gain_columns]; dims = 1)) ==
+    fill(length(times) * length(doses), 3)
 
 start = q .+ [isodd(i) ? 0.3 : -0.3 for i in eachindex(q)]
-println("Negative log-likelihood at the start = ", negative_log_likelihood(start))
 optimization = SciMLBase.remake(OptimizationProblem(model, AutoForwardDiff()); u0 = start)
 fit = solve(optimization, LBFGSB(); maxiters = 1000)
 @assert SciMLBase.successful_retcode(fit)
-println("Negative log-likelihood after the fit = ", negative_log_likelihood(fit.u))
 @assert negative_log_likelihood(fit.u) < negative_log_likelihood(q)
+(;
+    retcode = fit.retcode,
+    nll_start = negative_log_likelihood(start),
+    nll_published = negative_log_likelihood(q),
+    nll_fit = negative_log_likelihood(fit.u),
+)
 
 estimate = ParameterEstimate(model, fit.u)
-estimate
 
 fitted_ps = reconstruct(fit.u)
 trajectories, _ = shooting(experiments, fitted_ps.shooting, model.st)
@@ -159,9 +171,9 @@ responses = map(trajectories) do trajectory
 end
 fitted_gains = estimate.x[gain_columns]
 signals = (
-    ("pAkt", solution -> fitted_gains[1] .* (solution[:pAkt] .+ solution[:pAkt_S6]), y_pAkt, σ_pAkt),
-    ("pEGFR", solution -> fitted_gains[2] .* (solution[:pEGFR] .+ solution[:pEGFR_Akt]), y_pEGFR, σ_pEGFR),
-    ("pS6", solution -> fitted_gains[3] .* solution[:pS6], y_pS6, σ_pS6),
+    ("pAkt", s -> fitted_gains[1] .* (s[:pAkt] .+ s[:pAkt_S6]), y_pAkt, σ_pAkt),
+    ("pEGFR", s -> fitted_gains[2] .* (s[:pEGFR] .+ s[:pEGFR_Akt]), y_pEGFR, σ_pEGFR),
+    ("pS6", s -> fitted_gains[3] .* s[:pS6], y_pS6, σ_pS6),
 )
 figure = Figure(; size = (900, 360))
 for (column, (label, observe, y, noise)) in enumerate(signals)

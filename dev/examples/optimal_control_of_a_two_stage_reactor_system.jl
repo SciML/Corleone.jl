@@ -77,11 +77,9 @@ stage2 = ShootingLayer(
     Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) => nothing,
 )
 
-let ps1, st1
-    ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
-    traj1, _ = stage1(nothing, ps1, st1)
-    global u0_linkage = switch_at_ts(last(traj1.u), [0.1])
-end
+ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
+traj1, _ = stage1(nothing, ps1, st1)
+u0_linkage = switch_at_ts(last(traj1.u), [0.1])
 
 linkage = StageLinkage(
     switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
@@ -98,26 +96,28 @@ duration_constraint = (
 optprob = OptimizationProblem(
     stages, AutoForwardDiff(), Val(:ComponentArrays);
     loss = :(-u₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
-    constraints = (
-        (:u₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),
-        #(:u₂, 1) => (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
-    ),
+    constraints = ((:u₄, 2) => (t = [1.0], bounds = (c_d_w, Inf)),),
     parameter_constraints = duration_constraint,
 )
 
 uopt = solve(
     optprob, Ipopt.Optimizer();
     hessian_approximation = "limited-memory",
-    max_iter = 500, print_level = 5,
-);
+    max_iter = 500, print_level = 0,
+)
+@assert successful_retcode(uopt)
 
 ps, st = LuxCore.setup(Random.default_rng(), stages)
 ps_opt = uopt + zero(ComponentArray(ps))
 
-println("J0 = V2*c_D(t_P) = ", -uopt.objective)
-println("t_s = T1 = ", ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1], " min,  T2 = ", ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1], " min")
-println("S = ", ps_opt.stage_2.θ[1], " m^3")
-println("c_D(t_P) = ", last((stages(nothing, ps_opt, st))[1].u)[4], " mol/m^3")
+final_trajectory, _ = stages(nothing, ps_opt, st)
+(;
+    J0 = -uopt.objective,                                              # mol
+    t_s = ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1],      # min
+    T2 = ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1],       # min
+    S = ps_opt.stage_2.θ[1],                                           # m³
+    c_D_final = last(final_trajectory.u)[4],                           # mol/m³
+)
 
 stage1 = ShootingLayer(
     remake(prob1, saveat = 0.001), Tsit5(),
@@ -141,7 +141,8 @@ u1 = reduce(hcat, traj_stage1.u)
 u2 = reduce(hcat, traj.u)
 
 temp_series = Vector(ps_opt.stage_1.parameter.parameters.p₂.parameter.ps)
-temperature = temp_series[clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))]
+interval = clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))
+temperature = temp_series[interval]
 
 function plot_reactor(u1, t1p, u2, t2p, temperature)
     f = Figure(size = (1000, 750))

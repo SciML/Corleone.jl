@@ -79,7 +79,7 @@ fitted_parameters = reconstruct(fit.u)
 fitted, _ = layer(nothing, fitted_parameters, optprob.p)
 final_loss = population_loss(fitted)
 @assert final_loss < initial_loss / 10
-(; initial_loss, final_loss)
+(; retcode = fit.retcode, initial_loss, final_loss)
 
 figure = trajectoryplot(fitted; show_legend = false, state_string = "Population")
 axis = content(figure[1, 1][1, 1])

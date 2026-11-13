@@ -41,15 +41,14 @@ dynprob = CorleoneDynamicOptProblem(
 )
 
 opt = OptimizationProblem(dynprob, AutoForwardDiff(); function_kwargs = (;))
-usol = solve(opt, OptimizationLBFGSB.LBFGSB());
+usol = solve(opt, OptimizationLBFGSB.LBFGSB())
 @assert successful_retcode(usol)
+(; retcode = usol.retcode, objective = usol.objective)
 
 _, reconstruct = pack(default_vectorizer(), dynprob.ps)
 optimized_parameters = reconstruct(usol.u)
 optimized_solution, _ = predictor(nothing, optimized_parameters, opt.p)
 trajectoryplot(optimized_solution)
-
-usol.objective
 
         using Pkg
         Pkg.status()

@@ -3,18 +3,25 @@ using Optimization, OptimizationMOI, Ipopt, ComponentArrays, CairoMakie
 using SymbolicIndexingInterface: variable_symbols, variable_index
 
 function lotka_dynamics(du, x, p, t)
-    du[1] = x[1] - p[2] * x[1] * x[2] - 0.4 * p[1] * x[1]
-    du[2] = -x[2] + p[3] * x[1] * x[2] - 0.2 * p[1] * x[2]
+    v, β, δ, c₁, c₂ = p
+    du[1] = x[1] - β * x[1] * x[2] - c₁ * v * x[1]
+    du[2] = -x[2] + δ * x[1] * x[2] - c₂ * v * x[2]
     return nothing
 end
-problem = ODEProblem(lotka_dynamics, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0])
+problem = ODEProblem(lotka_dynamics, [0.5, 0.7], (0.0, 12.0), [0.0, 1.0, 1.0, 0.4, 0.2])
 
-control = Tunable(1; default = 0.0, lowerbound = 0.0, upperbound = 1.0) => collect(0.25:0.25:11.75)
+control = Tunable(
+    1; default = 0.0, lowerbound = 0.0, upperbound = 1.0
+) => collect(0.25:0.25:11.75)
+catch_coefficients = Constant([4, 5]) => nothing
 measurements = (
     ContinuousMeasurement(:w1, collect(0.0:0.25:11.75), (x, p, t) -> x[1]),
     ContinuousMeasurement(:w2, collect(0.0:0.25:11.75), (x, p, t) -> x[2]),
 )
-oed = OEDLayer(problem, Tsit5(), control; params = [2, 3], measurements, controls = [1])
+oed = OEDLayer(
+    problem, Tsit5(), control, catch_coefficients;
+    params = [2, 3], measurements, controls = [1]
+)
 ps, st = LuxCore.setup(Xoshiro(1), oed);
 trajectory, _ = oed(nothing, ps, st);
 

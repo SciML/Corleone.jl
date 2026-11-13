@@ -2,17 +2,19 @@ using Corleone: SciMLBase
 using CorleoneInverse, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, NonlinearSolve
 using Optimization, OptimizationMOI, Ipopt, StableRNGs, CairoMakie
 using TransformVariables: asℝ₊
+
 include(joinpath(pkgdir(CorleoneInverse), "examples", "lotka_oed_control", "design.jl"))
 
 rng = StableRNG(7)
 design = fishing_design(rng)
 data_control = fishing_observations(design, design.controls, rng)
 data_free = fishing_observations(design, zeros(length(design.controls)), rng)
+(; designed_controls = round.(design.controls; digits = 3), design.measurement_times)
 
 shared = Tunable(2:3; default = [1.3, 0.8], transform = asℝ₊) => nothing
 function estimation_experiments(data, controls)
     return Experiments(
-        design.problem, shared; controls = [1], experiments = (
+        design.problem, shared, catch_coefficients; controls = [1], experiments = (
             run = (
                 observations = data,
                 annotations = (Constant(1; default = controls) => design.switches,),
@@ -23,6 +25,7 @@ end
 controlled = estimation_experiments(data_control, design.controls)
 free = estimation_experiments(data_free, zeros(length(design.controls)))
 shooting = ShootingLayer(design.problem, Tsit5())
+
 function fit_experiment(experiments)
     ps, st = LuxCore.setup(rng, experiments)
     model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
@@ -37,9 +40,11 @@ function fit_experiment(experiments)
 end
 estimate, trajectory = fit_experiment(controlled)
 estimate_free, _ = fit_experiment(free)
-println("Designed-input standard errors = ", estimate.std_errors)
-println("Zero-input standard errors = ", estimate_free.std_errors)
-println("Fitted interaction rates = ", estimate.x)
+(;
+    fitted_rates = estimate.x,
+    designed_input_std_errors = estimate.std_errors,
+    zero_input_std_errors = estimate_free.std_errors,
+)
 
 figure = Figure()
 axis = CairoMakie.Axis(figure[1, 1]; xlabel = "Time", ylabel = "Population")
