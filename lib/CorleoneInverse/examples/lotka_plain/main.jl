@@ -1,5 +1,5 @@
 # ---
-# title: Parameter estimation for the Lotka–Volterra ODE
+# title: Lotka–Volterra parameter estimation
 # description: Fit four predator–prey parameters and report asymptotic uncertainties.
 # category: parameter_estimation
 # id: inverse_lotka_plain
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # Let's estimate the four rates `p = [α, β, δ, γ]` of the classical predator–prey
 # model from one noisy experiment with a known initial state. Along the way we
@@ -106,3 +103,9 @@ ParameterEstimate(model, ipopt_fit.u)
 #     `NonlinearLeastSquaresProblem` exploits the least-squares structure and is
 #     usually the fastest choice. Use `OptimizationProblem` when you need general
 #     priors, constraints, or multiple shooting.
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

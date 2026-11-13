@@ -1,38 +1,35 @@
-# Automatic differentiation
+# [Automatic differentiation](@id automatic_differentiation)
 
-AD compatibility depends on both the outer backend and the sensitivity strategy
-used by the SciML solve. A passing forward solve does not establish that a
-particular gradient configuration works.
+Corleone's layers can be differentiated with several AD backends. Whether a
+particular setup works depends on two choices: the outer AD backend, and the
+sensitivity algorithm used inside the SciML solve. A forward solve working is not
+evidence that its gradient does.
 
-## Maintained coverage
+## Supported configurations
 
-The test suite checks the following configurations through full ODE solves,
-including saved-state and continuity losses. See the [validation sources](#Validation-sources)
-for reproduction instructions.
+The test suite checks these configurations on full ODE solves, including losses on
+saved states and continuity residuals:
 
-| Backend | Serial ODE solves | Threaded layer | Distributed layer |
+| Backend | Serial | Threaded layer | Distributed layer |
 |---|---|---|---|
-| ForwardDiff | Tested | Tested | Tested with two local workers and a named objective |
-| ReverseDiff | Tested with full specialization and pass-through sensitivities | Not established | Not established |
-| Zygote | Tested with the default sensitivity path | Tested; reverse block evaluation runs serially | Not established |
+| ForwardDiff | ✓ | ✓ | ✓ (with a named objective) |
+| ReverseDiff | ✓ (pass-through sensitivities, see below) | — | — |
+| Zygote | ✓ (default sensitivities) | ✓ (reverse pass runs serially) | — |
 
-These are the maintained configurations, not guarantees for arbitrary solver
-algorithms, user callbacks, or array types. Compiled ReverseDiff tapes, GPU solves,
-DAEs, SDEs, higher-order derivatives, and differentiation of schedule times are
-outside this coverage.
+Configurations outside the table may work but are not tested. That includes
+compiled ReverseDiff tapes, GPU solves, DAEs, SDEs, higher-order derivatives other
+than the [sparse Hessians](@ref sparse_derivatives), and derivatives with respect to
+switching or reset times. Earlier experiments with Mooncake and Enzyme are recorded
+in the [validation archive](automatic_differentiation_history.md).
 
-Historical serial experiments also passed with Mooncake reverse mode and recorded
-Enzyme forward and default ReverseDiff failures. Their exact settings, versions,
-and measurements are preserved in the [validation archive](automatic_differentiation_history.md).
-They do not extend the maintained matrix above.
+**Recommendation:** start with ForwardDiff. For problems with many parameters, try
+Zygote.
 
-## Choosing a configuration
+## ForwardDiff
 
-### ForwardDiff
-
-ForwardDiff works through the regular layer call with the tested default solver
-configuration. Reconstruct structured parameters from the **current** optimizer
-vector inside the differentiated function:
+ForwardDiff works with the default solver settings. Reconstruct the structured
+parameters from the vector *inside* the differentiated function, so that they
+carry dual numbers:
 
 ```@example forwarddiff
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, ComponentArrays, ForwardDiff
@@ -51,14 +48,14 @@ gradient = ForwardDiff.gradient(loss, q0)
 gradient
 ```
 
-Fixed initial states are promoted internally when tunable values introduce AD
-scalar types. See the [optimization guide](optimization_contracts.md) for packing
-and reconstruction in optimizer callbacks.
+Fixed initial states are promoted to dual numbers automatically.
+`OptimizationProblem(model, AutoForwardDiff())` does all of this for you; see
+[objectives and constraints](@ref optimization_guide).
 
-### ReverseDiff
+## ReverseDiff
 
-The maintained serial configuration uses a fully specialized ODE function and
-pass-through sensitivities. For an in-place right-hand side `rhs!`:
+ReverseDiff needs a fully specialized ODE function and pass-through sensitivities,
+which let ReverseDiff trace the solver directly:
 
 ```julia
 using SciMLBase, SciMLSensitivity, ReverseDiff
@@ -70,60 +67,33 @@ problem = ODEProblem(f, [1.0], (0.0, 2.0), [-1.0];
     abstol = 1e-10, reltol = 1e-10)
 ```
 
-Construct the shooting layer from that problem. Pass-through lets the outer
-backend differentiate the numerical solver directly and retains the solution
-interface needed for segment handoff and trajectory assembly. This differs from
-using a SciML adjoint algorithm and can have different memory and runtime costs.
-The maintained tests use uncompiled ReverseDiff tapes.
+Build the shooting layer from this problem as usual. Memory use and run time differ
+from an adjoint method. The tests use uncompiled tapes.
 
-!!! warning "The default ReverseDiff sensitivity route is a different configuration"
-    The array-returning solve adapter does not retain the full solution interface
-    required by the shooting layer. Use the tested pass-through configuration.
-    Extracting a terminal matrix column alone does not recover actual saved times,
-    solver metadata, or full trajectory support. The
-    [archive](automatic_differentiation_history.md#ReverseDiff) records the failure
-    and the relevant upstream adapter version.
+!!! warning "The default ReverseDiff sensitivity does not work"
+    With SciMLSensitivity's default route, the solve returns a plain array instead
+    of a solution object, and the shooting layer needs the saved times and solver
+    metadata of the full solution. Use pass-through sensitivities as above. The
+    [archive](automatic_differentiation_history.md#ReverseDiff) records the details.
 
-### Zygote
+## Zygote
 
-The maintained tests use the default SciMLSensitivity path. Trajectory gathering
-has a dedicated pullback; segment solve buffers use the Zygote extension when it
-is loaded. These rules support Corleone's own assembly, not arbitrary mutation in
-user callbacks.
+Zygote works with the default SciMLSensitivity path. Corleone provides the rules it
+needs for its own trajectory assembly, but not for mutation in your callbacks: use
+allocating objective and constraint functions. For threaded layers, the forward
+solve runs in parallel but the reverse pass runs serially.
 
-Use allocating objective and constraint callbacks when relying on mutation-free
-reverse AD. An in-place constraint callback requires support for its particular
-mutation pattern; see [optimization contracts](optimization_contracts.md).
+## What is differentiated
 
-For threaded layers, the configured ChainRules map rule records block solves
-serially and accumulates contributions from shared inputs. This establishes
-correct gradients in the maintained tests, not parallel reverse execution. See
-[parallel shooting](parallel_shooting.md) for execution and cache ownership.
+Everything numerical that you pass in is differentiable, including values marked
+`Constant`: "constant" means "not an optimization variable", not "detached from
+AD". Grids, sample selection, and symbolic metadata are discrete and are not
+differentiated, so derivatives hold for a fixed schedule. Don't mutate the
+trajectory's data between the forward and the reverse pass; see
+[trajectories](@ref trajectory_ownership).
 
-## Fixed grids, parameters, and state
+## [Validation sources](@id ad_validation)
 
-Numerical values in `ps` and fixed values in Lux state remain part of the
-computation when supplied as differentiated inputs. “Fixed” means excluded from
-the layer's trainable parameter tree; it does not detach a value from AD.
-
-Grids, activity masks, sample selection, and symbolic bookkeeping are discrete
-metadata. Tests establish derivatives on a fixed schedule. Changing dimensions,
-types, or traced control flow can require new AD preparation; changing schedules
-or expression layouts also requires re-preparing the optimization model.
-
-A trajectory shares numerical data with its layer inputs and segment solutions.
-Do not mutate those data between a forward call and its pullback. Parameter
-queries and saved states have different ownership implications; see
-[trajectories](@ref trajectory_guide).
-
-For distributed ForwardDiff, load the same named objective or callable type and
-model functions on every worker. Anonymous objective closures can change type
-through serialization and produce ForwardDiff tag-ordering errors. Distributed
-reverse AD is not established by those forward-mode checks.
-
-## Validation sources
-
-See `test/README.md` for maintained test groups and the
-[validation archive](automatic_differentiation_history.md#Reproducing-checks-and-measurements)
-for reproduction commands and dated measurements. Benchmark results do not extend
-the support matrix above.
+`test/README.md` lists the maintained test groups. Reproduction commands and dated
+measurements are in the
+[validation archive](automatic_differentiation_history.md#Reproducing-checks-and-measurements).

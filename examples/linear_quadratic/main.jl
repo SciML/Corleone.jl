@@ -1,5 +1,5 @@
 # ---
-# title: The Linear Quadratic Regulator
+# title: Linear quadratic regulator
 # description: Control a linear system with a tracking cost and a control penalty
 # id: linear_quad_reg
 # julia: "1.10"
@@ -7,7 +7,7 @@
 # generate_cover: false
 # ---
 
-# Welcome! This first tutorial walks through a complete optimal-control workflow
+# This tutorial walks through a complete optimal-control workflow
 # in Corleone: define the dynamics, declare which parameters are controls and
 # which are fixed, simulate, optimize, and inspect the result.
 #
@@ -114,7 +114,7 @@ optimized_parameters = reconstruct(usol.u)
 optimized_solution, _ = predictor(nothing, optimized_parameters, opt.p)
 trajectoryplot(optimized_solution)
 
-# Well done! The first state now approaches the target of three. The second state
+# The first state now approaches the target of three. The second state
 # follows the same input but does not enter the objective.
 #
 # !!! note "No control bounds here"

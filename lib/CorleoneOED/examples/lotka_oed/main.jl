@@ -1,5 +1,5 @@
 # ---
-# title: Lotka–Volterra optimal experimental design
+# title: Lotka–Volterra experimental design
 # description: Jointly optimize fishing and continuous measurement schedules.
 # id: lotka_oed
 # julia: "1.10"

@@ -1,113 +1,116 @@
-# [Constructing shooting problems](@id shooting_formulation)
+# [Single and multiple shooting](@id shooting_formulation)
 
-A shooting method replaces a continuous dynamic optimization problem with an
-optimization over parameter values and, optionally, intermediate state values.
-Corleone integrates each segment with a SciML solver. The optimization model
-combines the resulting trajectory with an objective and constraint callbacks.
+A shooting method turns a continuous dynamic optimization problem into a
+finite-dimensional one. The optimizer chooses parameter values and, optionally,
+state values at chosen times; Corleone integrates the ODE between those times with
+a SciML solver and hands the resulting trajectory to your objective and constraints.
 
-## Dynamics and parameter schedules
+## Dynamics and the integration grid
 
-Consider the ODE
+Corleone works with an ordinary `ODEProblem`
 
 ```math
 \dot{x}(t)=f(x(t),p(t),t),\qquad
-x(t)\in\mathbb{R}^{n_x},\quad p(t)\in\mathbb{R}^{n_p},\quad t\in[t_0,t_f].
+x(t)\in\mathbb{R}^{n_x},\quad p(t)\in\mathbb{R}^{n_p},\quad t\in[t_0,t_f],
 ```
 
-Here ``x`` denotes the numerical state. The parameter vector ``p`` includes any
-control inputs. Julia's ODE interface conventionally calls the state argument
-`u`; `trajectory.u` therefore stores samples of ``x``, not just control inputs.
+where ``x`` is the state and ``p`` the parameter vector, including any controls.
+Following SciML convention, the state is called `u` in code, so `trajectory.u`
+holds samples of ``x``.
 
-Construct an `ODEProblem`, choose a solver, and pass `annotation => grid` pairs to
-[`ShootingLayer`](@ref), as in [Getting Started](getting_started.md). Parameter
-switches split the integration without resetting states. The
-[scheduling guide](scheduling.md) defines interval values, defaults, and storage.
+Pass the problem, a solver, and your [schedules](@ref scheduling_guide) to
+[`ShootingLayer`](@ref). Corleone integrates piece by piece between the problem
+endpoints, the parameter switching times, and any state resets. Setup caches the
+sorted union of these times, ``t_0=\tau_0<\cdots<\tau_N=t_f``, in `st.timestops`.
+A parameter switch only splits the integration; the state carries over unchanged.
 
-The integration grid is the sorted union of problem endpoints, parameter switches,
-and state resets within the span. Prepared expressions may add evaluation times.
-Write it as ``t_0=\tau_0<\cdots<\tau_N=t_f``. Setup caches it in `st.timestops`;
-see [schedule changes](scheduling.md#Defaults-and-schedule-changes) before modifying grids.
+## Single shooting
 
-## Single and multiple shooting
+Without state resets, each piece starts where the previous one ended. This is
+**single shooting**: the only optimization variables are the parameters, and the
+trajectory is always continuous.
 
-With no interior state resets, each segment starts from the preceding endpoint.
-Parameter switches still split integration, but they do not create independent
-shooting blocks or state continuity constraints. This is single shooting.
+## Multiple shooting
 
-For multiple shooting, select state components at interior times and introduce
-independent assigned values ``s_{i,k}``. At time ``\tau_k``, an assigned component
-starts the next segment at ``x_i(\tau_k^+)=s_{i,k}``. Other components pass through
-the incoming endpoint. For an active **tunable** assignment, Corleone forms
+**Multiple shooting** adds new optimization variables for the state at chosen
+interior times. Annotate a state with `kind = Val(:variable)` and give it a grid:
+
+```julia
+Tunable(1; kind = Val(:variable), default = [0.5, 1.5]) => [1.0, 2.0]
+```
+
+At each such time ``\tau_k``, the next piece starts from the assigned value
+``s_{i,k}`` instead of the incoming state. To recover a continuous trajectory,
+Corleone adds the matching residual
 
 ```math
-r_{i,k}=s_{i,k}-x_i(\tau_k^-).
+r_{i,k}=s_{i,k}-x_i(\tau_k^-),
 ```
 
-An optimizer enforces ``r_{i,k}=0`` to recover continuity. Before optimization,
-the trajectory may contain jumps. A full-state reset permits an independent
-block solve; a partial reset retains sequential dependence for the remaining
-components.
+and the optimizer drives it to zero. Before optimization the trajectory may
+therefore have jumps. Multiple shooting usually makes unstable or long-horizon
+problems easier to solve, and segments that reset every state can be
+[solved in parallel](@ref parallel_shooting).
 
-| Assignment | Meaning |
+Not every state annotation creates a residual:
+
+| Assignment | Effect |
 |---|---|
-| No reset | Pass through the incoming state. |
-| Tunable assignment at ``t_0`` | Free initial value, with no continuity equality to the original `u0`. |
-| Tunable interior assignment | Shooting value with an assigned-minus-incoming residual. |
-| Constant interior assignment | Prescribed reset, with no matching residual. |
-| Assignment at ``t_f`` | No outgoing segment or shooting residual. |
+| No annotation | The state passes through unchanged. |
+| Tunable value at ``t_0`` | A free initial value, with no residual. |
+| Tunable value at an interior time | A shooting variable with a matching residual. |
+| Constant value at an interior time | A prescribed reset, with no residual. |
+| Value at ``t_f`` | No residual, since no segment follows. |
 
-[`shooting_constraints`](@ref) flattens state residuals in chronological order,
-then state-index order. [`get_number_of_shooting_constraints`](@ref) counts them
-from the cached schedules without solving. Parameter residuals follow, as defined below.
+[`shooting_constraints`](@ref) returns all residuals, ordered by time and then by
+state index, and [`get_number_of_shooting_constraints`](@ref) counts them without
+solving. When you use [`CorleoneDynamicOptProblem`](@ref), they are added as
+equality constraints automatically.
 
-## Shared parameters and inserted intervals
+## [Shared parameters across segments](@id shooting_parameter_segments)
 
-Lifting states does not automatically split parameter intervals. The existing
-parameter values remain shared across all segments where they are active.
-
-If independent parameter storage is required at full-state shooting boundaries,
-call [`add_parameter_segments!`](@ref) after setup. Newly inserted right-hand
-intervals duplicate the existing value. For an inserted interval index ``\ell``,
-the matching residual is
+Adding shooting nodes does not split the parameter intervals: a parameter value
+that spans several segments is shared between them. If each segment needs its own
+copy, call [`add_parameter_segments!`](@ref) after setup. It splits the intervals at
+full-state shooting boundaries, copies the existing values, and adds the equality
 
 ```math
-d_{j,\ell}=p_{j,\ell}-p_{j,\ell-1}.
+d_{j,\ell}=p_{j,\ell}-p_{j,\ell-1}
 ```
 
-These residuals follow state residuals, in canonical parameter order and then
-increasing inserted interval index. Original parameter switches are unconstrained;
-fixed parameters do not acquire matching residuals. The layer computes these differences on demand from `ps` and
-`st`, rather than storing them in `trajectory.residuals`.
+for each new interval ``\ell``. These residuals follow the state residuals in
+[`shooting_constraints`](@ref). Original switching times stay unconstrained, and
+fixed parameters get no residuals. Call it **before** packing parameters, querying
+bounds, or building an optimization model.
 
-## Integral costs and quadrature states
+## [Integral costs](@id shooting_quadratures)
 
-A running cost can be represented by a quadrature state:
+A running cost is handled by adding a quadrature state that integrates it:
 
 ```math
 J=\Phi(x(t_f),p(t_f)) + \int_{t_0}^{t_f}L(x(t),p(t),t)\,dt,
-\qquad \dot{q}=L(x,p,t),\quad q(t_0)=0.
+\qquad \dot{q}=L(x,p,t),\quad q(t_0)=0,
 ```
 
-Then ``J=\Phi(x(t_f),p(t_f))+q(t_f)``. A numerical model supplies this additional
-state explicitly and can mark it as a quadrature. The ModelingToolkit frontend
-introduces quadratures for supported definite integrals.
+so that ``J=\Phi(x(t_f),p(t_f))+q(t_f)``. In a numerical model you add ``q`` to the
+dynamics yourself and mark it with `quadratures = [i]`; the ModelingToolkit
+frontend does both for you. The [LQR tutorial](@ref linear_quad_reg) and the
+[ModelingToolkit tutorial](@ref mtk) show the two approaches.
 
-When a quadrature is lifted, its continuity equality preserves the accumulated
-cost from earlier segments. Its terminal value represents the whole horizon
-only when those matching constraints are satisfied. Quadrature metadata alone
-does not add a differential equation. See the [LQR tutorial](@ref linear_quad_reg)
-and [ModelingToolkit tutorial](@ref mtk) for both constructions.
+With multiple shooting, a quadrature is lifted like any other state. Its terminal
+value equals the whole-horizon cost only once the matching residuals are zero.
 
-## Bounds and numerical accuracy
+## [Bounds and accuracy](@id shooting_bounds)
 
-Parameter bounds apply to stored interval values. State annotation bounds apply
-to tunable initial or shooting values; they are not continuous path constraints.
-User constraint callbacks and expressions constrain the samples they evaluate.
-Neither finite sampling nor shooting-value bounds certify a condition between
-samples.
+Bounds on annotations constrain **stored values**: parameter bounds apply to each
+interval value, and state bounds apply to tunable initial and shooting values. They
+are not path constraints. To limit a state over time, add a
+[sampled constraint](@ref optimization_guide), and choose the sample
+times densely enough for your application; no sampled check certifies what happens
+between the samples.
 
-The ODE solver's tolerances control integration error; the optimizer's tolerances
-control its stopping criteria and constraint feasibility. A successful optimization
-return code alone does not establish a global optimum or a verified continuous
-solution. Inspect constraint residuals and, where useful, replay the optimized
-controls without lifted resets, as in the [LTI tutorial](@ref mtk_lti).
+Integration accuracy is set by the ODE solver's tolerances, and the optimizer's
+tolerances decide when it stops. A successful return code does not prove a global
+optimum. After optimizing, check the constraint residuals and, if needed, replay the
+optimized controls in a single-shooting solve, as the [LTI tutorial](@ref mtk_lti)
+does.

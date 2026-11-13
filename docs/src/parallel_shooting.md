@@ -1,8 +1,14 @@
-# [Running parallel shooting](@id Parallel-shooting)
+# [Parallel shooting](@id parallel_shooting)
 
-Use `ensemblealg = EnsembleThreads()` for threaded ODE block solves, or
-`EnsembleDistributed()` for worker processes. `EnsembleSerial()` is the default.
-Start Julia with the required thread count, for example `julia --threads=4`.
+With multiple shooting, segments that start from assigned states don't depend on
+each other, so they can be solved at the same time. Select the execution with the
+`ensemblealg` keyword of `ShootingLayer`:
+
+| `ensemblealg` | Execution |
+|---|---|
+| `EnsembleSerial()` | One segment after another (default). |
+| `EnsembleThreads()` | Threads; start Julia with, for example, `julia --threads=4`. |
+| `EnsembleDistributed()` | Worker processes. |
 
 ```@example parallel_shooting
 using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random
@@ -16,48 +22,46 @@ trajectory, next_st = layer(nothing, ps, st)
 shooting_constraints(trajectory)
 ```
 
-## Independent blocks
+The result is the same trajectory, with the same [reset samples](@ref trajectory_guide)
+and [residuals](@ref shooting_formulation), as with serial execution.
 
-An interior reset starts a new block only when **every state** has an assigned
-value there. Both tunable and fixed assignments count. Partial resets and parameter
-switches stay within sequential blocks; final-time resets create no block. Without
-an independent interior restart, evaluation uses the serial solve.
+## Which segments run in parallel
 
-After solving, each block's first matching residual is computed against the
-preceding block's actual endpoint. The [residual conventions](shooting.md) and
-[reset samples](trajectories.md) are the same as for serial shooting. Parameters
-remain shared unless explicitly split with [`add_parameter_segments!`](@ref).
+An interior reset starts an independent block only if it assigns **every state**,
+whether tunable or fixed. Partial resets and parameter switches stay inside a
+block, and resets at the final time create no block. Without any independent block,
+the layer solves serially. Parameters remain shared between blocks unless you split
+them with [`add_parameter_segments!`](@ref).
 
-## State and worker ownership
+Parallel execution supports ODE problems. A full reset does not make a DAE's
+algebraic states or a random process independent, so these are not split.
+All blocks must reach the end of their spans; a callback that terminates one block
+early cannot cancel the others.
 
-Each block has private activity and lookup caches. Within a process, numerical
-parameters and fixed values retain their references and AD paths. Distributed
-workers receive serialized inputs. The returned Lux state is the last block's
-state; its caches can differ from serial execution. See
-[scheduling](scheduling.md#Defaults-and-schedule-changes) to refresh cached grids.
+## Thread safety and distributed workers
 
-Treat grids and numerical buffers as read-only during evaluation. Model functions
-and callbacks must be safe for concurrent calls; shared mutable callback state is
-not isolated. Concurrent outer layer calls need separate Lux state, including
-when execution falls back to serial solving.
+Each block works on its own copies of the activity and lookup caches. Beyond that:
 
-For distributed execution, start workers with the intended project and load
-Corleone, the solver, and named model functions on every worker. Distributed
-ForwardDiff also requires the same named objective function or callable type on
-every worker; serialized anonymous objectives can cause tag-ordering errors.
+- Treat grids and numerical buffers as read-only during a call, and make model
+  functions and callbacks safe to call concurrently.
+- Concurrent calls of the same layer need separate Lux states, even if execution
+  falls back to serial solving.
+- The returned Lux state is that of the last block, so its caches can differ from a
+  serial run; see [changing a schedule](@ref schedule_changes) to refresh them.
 
-## Differentiation and limits
+For distributed execution, start the workers with the intended project and load
+Corleone, the solver, and the model functions on every worker. Workers receive
+serialized copies of the inputs. **ForwardDiff** additionally needs the objective to
+be a named function or callable type defined on every worker: anonymous functions
+can change type during serialization and cause tag-ordering errors.
 
-ForwardDiff follows the parallel forward path. ChainRules reverse AD records block
-solves serially and accumulates shared-input cotangents; it does not provide
-parallel reverse execution. See the [AD guide](automatic_differentiation.md) for
-maintained backend configurations and fixed-grid restrictions.
+## Differentiation and performance
 
-Parallel dispatch supports ODE problems. A full state reset alone does not establish
-independence for a DAE's derivative state or a random process. All blocks must
-complete their requested spans; early termination callbacks cannot cancel later blocks.
+ForwardDiff runs through the parallel forward solve. Reverse-mode AD records the
+blocks serially and adds up their contributions, so the reverse pass is not
+parallel; see [automatic differentiation](@ref automatic_differentiation).
 
-Private buffers, scheduling, and assembly add overhead. Measure the actual model,
-reset density, and worker/thread count with `benchmark/shooting_parallel.jl`;
-cheap or short blocks may not benefit. Dated measurements are in the
+Parallel execution has overhead for buffers, scheduling, and assembly, and cheap or
+short segments may not benefit. Measure your own model with
+`benchmark/shooting_parallel.jl`; dated measurements are in the
 [validation archive](automatic_differentiation_history.md#Initial-forward-measurements).

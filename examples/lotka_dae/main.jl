@@ -1,14 +1,12 @@
-#src ---
-#src title: The Lotka Volterra Fishing Problem with an Index-1 DAE
-#src description: Optimize fishing intensity in a predator-prey model written as an index-1 DAE
-#src tags:
-#src   - Lotka Volterra
-#src   - Optimal Control
-#src   - DAE
-#src icon: 🎣
-#src ---
+# ---
+# title: Lotka–Volterra fishing as an index-1 DAE
+# description: Optimize fishing intensity in a predator-prey model written as an index-1 DAE
+# id: lotka_dae
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# # [Lotka–Volterra Fishing Problem as a DAE](@id lotka_dae)
 # This example rewrites the
 # [Lotka–Volterra fishing problem](https://mintoc.de/index.php?title=Lotka_Volterra_fishing_problem)
 # as an index-1 DAE. It builds on the [fishing tutorial](@ref lotka_fishing) and shows
@@ -33,7 +31,7 @@ using ComponentArrays
 using ForwardDiff
 using LinearAlgebra
 using CairoMakie
-using SciMLBase
+using Corleone: SciMLBase
 Makie.inline!()
 
 # ## Index-1 DAE Dynamics

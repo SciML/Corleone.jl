@@ -1,15 +1,12 @@
-#src ---
-#src title: Switching Time Optimization of the Lotka Volterra Fishing Problem
-#src description: Bang-bang optimal control by stage-duration optimization with the multistage machinery
-#src tags:
-#src   - Multi-stage
-#src   - Optimal Control
-#src   - Switching time
-#src   - Lotka Volterra
-#src icon: 🎣
-#src ---
+# ---
+# title: Switching-time optimization of Lotka–Volterra fishing
+# description: Bang-bang optimal control by stage-duration optimization with the multistage machinery
+# id: lotka_sto
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# ## Switching-Time Optimization of the Lotka–Volterra Fishing Problem
 
 # In [the Lotka–Volterra fishing problem](@ref lotka_fishing) the fishing effort
 # ``w(t) \in [0, 1]`` is a **continuous** control, discretized into piecewise-constant

@@ -1,14 +1,12 @@
-#src ---
-#src title: Optimal Control of a Two Stage Reactor System
-#src description: Two optimal-control stages joined by a parameterized mixing transition, free stage durations and a terminal state constraint
-#src tags:
-#src   - Multi-stage
-#src   - Optimal Control
-#src   - Reactor
-#src icon: ⚗️
-#src ---
+# ---
+# title: Two-stage chemical reactor
+# description: Two optimal-control stages joined by a parameterized mixing transition, free stage durations and a terminal state constraint
+# id: two_stage_reactor
+# julia: "1.10"
+# notebook: false
+# generate_cover: false
+# ---
 
-# ## Optimal Control of a Two-Stage Reactor System
 
 # This tutorial reproduces the two-stage **batch reactor** optimal-control problem of
 # Hirmajer & Fikar, *Optimal Control of a Two-Stage Reactor System*, Chem. Pap.

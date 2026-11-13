@@ -1,5 +1,5 @@
 # ---
-# title: Parameter estimation for the Robertson DAE
+# title: Robertson DAE parameter estimation
 # description: Estimate two positive rates in a stiff differential-algebraic reaction model.
 # category: parameter_estimation
 # id: inverse_rober_dae
@@ -7,9 +7,6 @@
 # notebook: false
 # generate_cover: false
 # ---
-
-# Adapted from Christoph Plate (@chplate)'s example in
-# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
 
 # Robertson's stiff reaction kinetics couple two differential equations to mass
 # conservation, giving a differential-algebraic equation (DAE). The rate ``k_2`` is
@@ -90,3 +87,9 @@ for i in 1:3
 end
 axislegend(axis)
 figure
+
+# ## Acknowledgements
+#
+# This example is adapted from Christoph Plate
+# ([@chplate](https://github.com/chplate))'s example in
+# [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).

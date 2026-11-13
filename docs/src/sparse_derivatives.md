@@ -1,8 +1,15 @@
-# Preparing sparse derivatives
+# [Sparse derivatives](@id sparse_derivatives)
 
-For ODE shooting problems on fixed schedules, structural patterns can reduce the
-number of differentiation directions. Load DifferentiationInterface and
-SparseMatrixColorings and enable preparation explicitly:
+In a shooting problem, most constraints depend on only a few variables: a sampled
+state depends on the controls before it, and a continuity residual on its two
+neighboring segments. Corleone derives these sparsity patterns from the problem
+structure, and with them, colored AD needs far fewer directions than a dense
+Jacobian or Hessian.
+
+## Enabling sparse derivatives
+
+Load DifferentiationInterface and SparseMatrixColorings, then request sparse
+preparation when you build the optimization problem:
 
 ```julia
 using Corleone, OrdinaryDiffEqTsit5, ComponentArrays, ForwardDiff
@@ -20,69 +27,60 @@ optprob = OptimizationProblem(model, AutoForwardDiff();
 solution = solve(optprob, Ipopt.Optimizer())
 ```
 
-The two options are independent. `sparse_constraints=true` prepares a colored
-constraint Jacobian and retains the selected AD backend for the objective.
-`sparse_hessian=true` prepares exact objective and Lagrangian Hessians. Both require
-`inplace=true`; do not also supply custom callbacks, prototypes, or color vectors
-for the derivatives they prepare.
+The two options are independent:
 
-## Sparse constraint Jacobians
+- `sparse_constraints = true` prepares a colored constraint Jacobian. The objective
+  gradient still uses the AD backend you chose.
+- `sparse_hessian = true` prepares exact Hessians of the objective and the
+  Lagrangian. Objective and constraints then share one solve per evaluation.
 
-Inspect the Boolean pattern with `constraint_jacobian_sparsity(model)`. Columns
-follow the parameter vectorizer; rows follow user constraints, then shooting
-equalities. Patterns are constructed from model dependencies rather than by
-tracing the adaptive solver.
+Both require `inplace = true`, the default. Don't also pass your own derivative
+functions, prototypes, or colorings for the parts they prepare.
 
-Parsed expressions, including those lowered by ModelingToolkit, track referenced
-signals and times. Literal vectors retain separate dependencies per component;
-other vector expressions share their combined dependencies. Arbitrary callback
-rows are dense. State dependencies propagate conservatively through integration
-and partial resets; fixed resets replace them. Inserted-parameter equalities have
-two entries each. Fixed numerical values in Lux state are excluded from columns.
-ODE callbacks, initialization metadata, and nonidentity mass matrices keep
-segment-start dependencies conservative.
+!!! note "Ipopt and exact Hessians"
+    With `hessian_approximation = "limited-memory"`, Ipopt never calls the exact
+    Hessian. Whether exact or approximate Hessians are faster depends on the
+    problem, so measure the total solve time.
 
-Dense callback rows can limit coloring's benefit. See
-[`constraint_jacobian_sparsity`](@ref) for the structural rules.
+Exact Hessians need a backend that supports second derivatives of the model;
+ForwardDiff is covered by the integration tests.
 
-## Lagrangian Hessian structure
+## Inspecting the patterns
 
-For packed parameters ``q``, objective factor ``\sigma``, and constraint multipliers
-``\lambda``, the Lagrangian Hessian is
+`constraint_jacobian_sparsity(model)` returns the Boolean Jacobian pattern, with
+columns in the order of the [packed parameters](@ref parameter_packing) and rows for
+your constraints followed by the shooting equalities.
+`lagrangian_hessian_sparsity(model)` returns the symmetric pattern of
 
 ```math
 \nabla_q^2 L(q,\sigma,\lambda)
-=\sigma\nabla_q^2 f(q)+\sum_i\lambda_i\nabla_q^2 c_i(q).
+=\sigma\nabla_q^2 f(q)+\sum_i\lambda_i\nabla_q^2 c_i(q),
 ```
 
-`lagrangian_hessian_sparsity(model)` returns a symmetric Boolean pattern. With
-OptimizationBase loaded, `OptimizationBase.lag_hess_structure(model)` returns
-upper-triangle coordinates in CSC column order. These structural queries include
-possible curvature independently of current multipliers and do not enable
-numerical Hessian evaluation themselves.
+for the packed parameters ``q``, objective factor ``\sigma``, and multipliers
+``\lambda``. With OptimizationBase loaded, `OptimizationBase.lag_hess_structure(model)`
+returns its upper triangle as coordinates in CSC order. These queries only describe
+structure; they don't evaluate anything.
 
-Expression patterns retain all pairs within each output's dependency set. State
-reads include possible nonlinear dependence through the ODE solution, even for a
-linear expression in states. Matching residuals include incoming-solution curvature;
-inserted parameter equalities are affine. Arbitrary callbacks use a dense fallback.
-Patterns are conservative supersets and do not detect algebraic cancellation.
+The patterns are conservative: they may contain entries that turn out to be zero,
+but never miss a nonzero. How sparse they are depends on how you write the model:
 
-## Sparse exact Hessians
+- **Expressions** are analyzed: Corleone tracks which signals and times each
+  output reads. The entries of a literal vector, such as `:([u₁(0.5), u₁(1.5)])`,
+  get separate rows; other vector expressions share one combined pattern.
+- **Callbacks** are opaque and get dense rows, which can remove most of the
+  benefit.
+- **State reads** depend on all earlier controls and shooting values of their
+  segment, possibly nonlinearly. Fixed resets cut this dependence; ODE callbacks,
+  initialization metadata, and non-identity mass matrices keep it conservative.
+- **Inserted-parameter equalities** are affine, with two entries each.
 
-With `sparse_hessian=true`, objective and constraints share one prediction per
-Lagrangian evaluation. Prepared callbacks use current objective factors,
-multipliers, and Lux state. This requires a backend supporting second derivatives
-of the model; ForwardDiff is covered by integration tests. First-order support
-does not establish second-order support.
-
-!!! note "Ipopt Hessian choice"
-    `hessian_approximation="limited-memory"` does not use exact Hessian callbacks.
-    Measure total solve time before choosing an exact or approximate Hessian.
+The [`constraint_jacobian_sparsity`](@ref) docstring lists the exact rules.
 
 ## Reusing preparation
 
-Rebuild after changing schedules, scalar/container types, or parameter/output
-layouts. Numerical values may change with the same types and layout. Prepared
-functions own mutable differentiation buffers: concurrent evaluations need separate
-preparations and Lux states. DAE problems and other Lux layer types are outside
-this structural pattern generator's scope.
+Prepared derivatives can be reused as long as the schedules, the scalar and
+container types, and the parameter and output layouts stay the same; only numerical
+values may change. They own mutable buffers, so concurrent evaluations need separate
+preparations and Lux states. The pattern generator covers ODE shooting layers;
+DAEs and other Lux layers are outside its scope.

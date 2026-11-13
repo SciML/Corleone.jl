@@ -4,13 +4,10 @@ function extract_metadata(file_path)
     content = read(file_path, String)
     # Read DemoCards' native commented YAML frontmatter.
     m = match(r"\A# ---(?:\r?\n)((?:# .*\r?\n)*)# ---", content)
-    if isnothing(m)
-        m = match(r"\A#src ---(?:\r?\n)((?:#src .*\r?\n)*)#src ---", content)
-    end
 
     if m !== nothing
         # Remove the comment prefix to obtain YAML.
-        yaml_text = replace(m.captures[1], r"^#(?:src)? "m => "")
+        yaml_text = replace(m.captures[1], r"^# "m => "")
         return YAML.load(yaml_text)
     end
     # Try to get the first header for the title
@@ -101,18 +98,6 @@ function make_tutorial(path; name = nothing, draft = false)
     )
     staged = joinpath(demo_source, category, "$fname.jl")
     content = preprocess_script(read(path, String))
-    if startswith(content, "#src ---")
-        # Adapt older tutorials at staging time, retaining their published anchors.
-        heading = match(r"^# ## [^\n]+(?:\n|$)"m, content)
-        anchor = isnothing(heading) ? nothing : match(r"@id ([^)]+)", heading.match)
-        metadata["id"] = isnothing(anchor) ? fname : anchor.captures[1]
-        header = match(r"\A#src ---\r?\n(?:#src .*\r?\n)*#src ---", content).match
-        native_header = replace(header, r"^#src"m => "#")
-        native_header = native_header[1:(end - 5)] *
-            "# id: $(metadata["id"])\n# julia: \"1.10\"\n# notebook: false\n# generate_cover: false\n# ---"
-        content = replace(content, header => native_header; count = 1)
-        isnothing(heading) || (content = replace(content, heading.match => ""; count = 1))
-    end
     # Each tutorial disables cover/notebook execution in its native frontmatter.
     # Only the documentation build's draft mode needs a staging-time override.
     content = replace(content, "# ---\n" => "# ---\n# execute: $(!draft)\n"; count = 1)
@@ -123,27 +108,31 @@ function make_tutorial(path; name = nothing, draft = false)
     return metadata
 end
 
-# Both sites execute the same authoritative OED examples. Explicit names preserve
-# the OED tutorial URLs already published by main, independently of source titles.
+# Explicit output names keep published tutorial URLs stable when titles change.
 example_output = joinpath(@__DIR__, "src", "examples")
 isdir(example_output) && rm(example_output; recursive = true)
 
 demo_source = joinpath(@__DIR__, ".democards", "gallery")
 isdir(demo_source) && rm(demo_source; recursive = true)
-for (folder, title) in (("optimal_control", "Optimal Control"), ("experimental_design", "Optimal Experimental Design"), ("parameter_estimation", "Parameter Estimation"))
+for (folder, title) in (("optimal_control", "Optimal control"), ("parameter_estimation", "Parameter estimation"), ("experimental_design", "Optimal experimental design"))
     mkpath(joinpath(demo_source, folder))
     write(joinpath(demo_source, folder, "config.json"), "{\"title\":\"$title\"}")
 end
-write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"bokehlist\",\"order\":[\"optimal_control\",\"experimental_design\",\"parameter_estimation\"]}")
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"bokehlist\",\"order\":[\"optimal_control\",\"parameter_estimation\",\"experimental_design\"]}")
 
 tutorials = map(
     [
-        (joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"), nothing),
-        (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), nothing),
-        (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), nothing),
-        (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), nothing),
-        (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), nothing),
-        (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), nothing),
+        (joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"), "the_linear_quadratic_regulator"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), "the_lotka_volterra_fishing_problem"),
+        (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), "modelingtoolkit_integration"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), "lotka_volterra_universal_differential_equation"),
+        (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), "lti_control_with_unknown_coefficients"),
+        (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), "optimal_control_of_a_two_stage_reactor_system"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_path", "main.jl"), "lotka_volterra_path_constraints"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_min_time", "main.jl"), "minimal_time_lotka_volterra"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_dae", "main.jl"), "lotka_volterra_fishing_dae"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_multistage", "main.jl"), "multistage_lotka_volterra"),
+        (joinpath(@__DIR__, "..", "examples", "lotka_sto", "main.jl"), "lotka_volterra_switching_times"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_plain", "main.jl"), "inverse_lotka_plain"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_multiexperiment", "main.jl"), "inverse_lotka_multiexperiment"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_oed_control", "main.jl"), "inverse_lotka_oed_control"),
@@ -242,7 +231,7 @@ end
 inverse_output = joinpath(@__DIR__, "src", "inverse")
 isdir(inverse_output) && rm(inverse_output; recursive = true)
 mkpath(inverse_output)
-for page in ("index", "api")
+for page in ("index", "observations", "experiments", "api")
     source = joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "docs", "src", "$page.md")
     edit_url = replace(relpath(source, inverse_output), '\\' => '/')
     write(
