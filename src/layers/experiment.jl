@@ -63,7 +63,7 @@ function local_experiment_entries(layer, definitions, variables, controls, obser
             definition isa Pair && first(definition) isa AbstractAnnotation ||
                 throw(ArgumentError("Use a control annotation or an annotation => timegrid pair."))
             kind = is_variable(first(definition)) ? Val(:variable) : Val(:parameter)
-            process_definition(layer.sys, kind, definition...)
+            process_definition(layer.sys, kind, definition...; layer.problem)
         end; init = Pair[]
     )
     identities = [(is_variable(first(definition)), get_index(first(definition))) for definition in resolved]

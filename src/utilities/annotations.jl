@@ -79,8 +79,10 @@ $(SIGNATURES)
 Resolve an annotation against symbolic index provider `indep`. Fill missing
 index, symbol, default, bounds, and integrality metadata. Reject unknown selectors,
 inconsistent symbol/index pairs, reversed bounds, and defaults outside bounds.
+A missing default takes the current value in `problem`; without a problem, it
+falls back to the symbolic default of `indep`, then zero.
 """
-function update_annotation(x::AbstractAnnotation, indep)
+function update_annotation(x::AbstractAnnotation, indep, problem = nothing)
     is_minimum_specified(x) || throw(
         ArgumentError(
             "Provide an index or symbol and a parameter or variable kind for $x."
@@ -104,8 +106,7 @@ function update_annotation(x::AbstractAnnotation, indep)
         index = indexof(indep, sym)
         isnothing(index) && throw(ArgumentError("Unknown annotation symbol: $sym"))
     end
-    default = has_default(x) ? get_default(x) :
-        get(SymbolicIndexingInterface.default_values(indep), sym, 0.0)
+    default = has_default(x) ? get_default(x) : fallback_default(problem, x, indep, sym, index)
     transform = resolve_transform(get_transform(x), get(default_bounds(indep), sym, (-Inf, Inf)))
     validate_transform(transform)
     lowerbound, upperbound = get_bounds(transform)
@@ -116,6 +117,15 @@ function update_annotation(x::AbstractAnnotation, indep)
     integer = has_integer(x) ? get_integer(x) : is_integer_variable(sym)
     validate_prior(get_prior(x))
     return remake(x; index, sym, default, transform, integer)
+end
+
+# The problem holds the values a simulation would use; symbolic defaults may predate them.
+fallback_default(::Nothing, x, indep, sym, index) = get(SymbolicIndexingInterface.default_values(indep), sym, 0.0)
+function fallback_default(problem, x, indep, sym, index)
+    index isa Integer || return fallback_default(nothing, x, indep, sym, index)
+    source = is_parameter(x) ? problem.p : problem.u0
+    values, _, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), source)
+    return values[index]
 end
 
 # Prior support is supplied by the Distributions extension.
@@ -354,26 +364,26 @@ function scalar_annotations(annotation::AbstractAnnotation)
 end
 
 
-process_definition(y, x::Val, ks::Tuple, v) = reduce(
+process_definition(y, x::Val, ks::Tuple, v; problem = nothing) = reduce(
     vcat, map(ks) do k
-        process_definition(y, x, k, v)
+        process_definition(y, x, k, v; problem)
     end
 )
 
-process_definition(y, x::Val, ks::AbstractArray, v) = map(ks) do k
-    process_definition(y, x, k, v)
+process_definition(y, x::Val, ks::AbstractArray, v; problem = nothing) = map(ks) do k
+    process_definition(y, x, k, v; problem)
 end
 
-function process_definition(indep, kind::Val, k, v)
+function process_definition(indep, kind::Val, k, v; problem = nothing)
     var = Tunable(k, kind = kind)
-    return update_annotation(var, indep) => v
+    return update_annotation(var, indep, problem) => v
 end
 
-function process_definition(indep, kind::Val, annotation::AbstractAnnotation, grid)
+function process_definition(indep, kind::Val, annotation::AbstractAnnotation, grid; problem = nothing)
     has_kind(annotation) && get_kind(annotation) != kind &&
         throw(ArgumentError("Annotation kind does not match the layer being constructed."))
     resolved = map(scalar_annotations(annotation)) do scalar
-        update_annotation(set_kind(scalar, kind), indep) => grid
+        update_annotation(set_kind(scalar, kind), indep, problem) => grid
     end
     return resolved isa Tuple ? only(resolved) : resolved
 end

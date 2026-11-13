@@ -140,3 +140,22 @@ end
         Tunable(1; kind = Val(:parameter), default = 3.0) => [1.0]; bounds = limits
     )
 end
+
+@testset "Missing annotation defaults use the problem values" begin
+    decay!(du, u, p, t) = (du[1] = -p[1] * u[1] + p[2]; nothing)
+    # Symbolic defaults that disagree with the problem must not replace its values.
+    sys = SymbolCache([:x], [:a, :b], :t; defaults = Dict(:x => 5.0, :b => 22.0))
+    prob = ODEProblem(ODEFunction(decay!; sys), [1.0], (0.0, 1.0), [10.0, 20.0])
+    annotations = (Tunable(:a) => nothing, Constant(:b) => nothing, Tunable(:x; kind = Val(:variable)) => [0.0])
+    layer = ShootingLayer(prob, Tsit5(), annotations...)
+    ps, st = LuxCore.setup(Random.default_rng(), layer)
+    traj, _ = layer(nothing, ps, st)
+    @test only(traj[:a]) == 10.0
+    @test only(traj[:b]) == 20.0
+    @test first(traj.u)[1] == 1.0
+    experiments = Experiments(prob, annotations...; experiments = (single = (; annotations = ()),))
+    ps, st = LuxCore.setup(Random.default_rng(), experiments)
+    batch, _ = ShootingLayer(prob, Tsit5())(experiments, ps, st)
+    @test only(only(batch)[:b]) == 20.0
+    @test first(only(batch).u)[1] == 1.0
+end

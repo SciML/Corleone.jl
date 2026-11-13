@@ -103,7 +103,7 @@ function Parameter(
     )
     definitions = reduce(
         vcat, map(raw_definitions) do definition
-            process_definition(sys, Val(:parameter), definition...)
+            process_definition(sys, Val(:parameter), definition...; problem = prob)
         end; init = Pair[]
     )
     indices = map(definition -> get_index(first(definition)), definitions)

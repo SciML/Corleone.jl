@@ -157,7 +157,7 @@ function InitialConditions(
     vals, repack, _ = SciMLStructures.canonicalize(SciMLStructures.Tunable(), problem.u0)
     processed = reduce(
         vcat, map(definitions) do definition
-            process_definition(sys, Val(:variable), definition...)
+            process_definition(sys, Val(:variable), definition...; problem)
         end; init = Pair[]
     )
     indices = map(definition -> get_index(first(definition)), processed)
