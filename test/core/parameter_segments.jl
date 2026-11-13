@@ -51,6 +51,10 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
         @test trajectory.t == original.t
         @test trajectory.u ≈ original.u
         @test shooting_constraints(trajectory) ≈ vcat(shooting_constraints(original), zeros(5))
+        # Mixed fixed and tunable parameters must not widen the residual type.
+        @test (@inferred shooting_constraints(trajectory)) isa Vector{Float64}
+        buffer = zeros(get_number_of_shooting_constraints(layer, expanded, state))
+        @test (@inferred shooting_constraints!(buffer, trajectory)) ≈ shooting_constraints(trajectory)
         @test get_number_of_shooting_constraints(layer, expanded, state) == count + 5
         lower, upper = get_bounds(layer, expanded, state)
         @test length(lower.parameter.parameters.p₁.parameter.ps) == 4
@@ -63,6 +67,7 @@ using Corleone, LuxCore, OrdinaryDiffEqTsit5, Random, Test, ComponentArrays
         @test array_st.parameter.parameters.p₁.lookup.inserted == [2, 3, 4]
         array_trajectory, _ = layer(nothing, array_ps, array_st)
         @test array_trajectory.u ≈ original.u
+        @test (@inferred shooting_constraints(array_trajectory)) ≈ shooting_constraints(trajectory)
     end
 end
 

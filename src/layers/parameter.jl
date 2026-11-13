@@ -308,30 +308,54 @@ function parameter_constraint_entries(layer::PiecewiseConstant, ps, st)
     return (parameter_constraint_entry(layers, ps.parameter, st.lookup.inserted),)
 end
 parameter_constraint_entries(::FixedLayer, ps, st) = ((; fixed = true, values = nothing, inserted = Int[]),)
+# Entries in declaration order. Fixed and tunable entries have different types,
+# so the tuple is heterogeneous; `st.permutation` maps canonical to declaration order.
+function declared_parameter_constraint_entries(layer::Parameter, ps, st)
+    names = Val(keys(layer.parameters))
+    parts = map(
+        parameter_constraint_entries, values(layer.parameters),
+        property_values(ps.parameters, names), property_values(st.parameters, names)
+    )
+    return concatenate_tuples(parts...)
+end
+# Constant property names keep NamedTuple and ComponentArray access inferable.
+@generated function property_values(x, ::Val{names}) where {names}
+    return Expr(:tuple, (:(getproperty(x, $(QuoteNode(name)))) for name in names)...)
+end
+# Recursion keeps the element types concrete; foldl over splats widens them.
+concatenate_tuples() = ()
+concatenate_tuples(a::Tuple, rest::Tuple...) = (a..., concatenate_tuples(rest...)...)
 function parameter_constraint_entries(layer::Parameter, ps, st)
-    parts = map(keys(layer.parameters)) do name
-        parameter_constraint_entries(layer.parameters[name], getproperty(ps.parameters, name), st.parameters[name])
-    end
-    flat = foldl((a, b) -> (a..., b...), parts; init = ())
+    flat = declared_parameter_constraint_entries(layer, ps, st)
     return map(i -> flat[i], st.permutation)
 end
 
+parameter_constraint_values(::Nothing, inserted, residuals) = similar(residuals, 0)
+parameter_constraint_values(values, inserted, residuals) = [values[i] - values[i - 1] for i in inserted]
+
 function append_parameter_constraints(layer::Parameter, ps, st, residuals)
     number_of_parameter_constraints(layer, st) == 0 && return residuals
-    parts = map(parameter_constraint_entries(layer, ps, st)) do entry
-        entry.fixed ? similar(residuals, 0) :
-            [entry.values[i] - entry.values[i - 1] for i in entry.inserted]
+    # Convert entries to residual vectors before permuting: indexing a tuple of equal
+    # vector types with a runtime index stays concrete, whereas the entries do not.
+    parts = map(declared_parameter_constraint_entries(layer, ps, st)) do entry
+        parameter_constraint_values(entry.values, entry.inserted, residuals)
     end
-    return vcat(residuals, parts...)
+    return vcat(residuals, reduce(vcat, [parts[i] for i in st.permutation]))
 end
 
+write_parameter_entry!(res, index, ::Nothing, inserted) = index
+function write_parameter_entry!(res, index, values, inserted)
+    for i in inserted
+        res[index] = values[i] - values[i - 1]
+        index += 1
+    end
+    return index
+end
 function write_parameter_constraints!(res, index, layer::Parameter, ps, st)
-    for entry in parameter_constraint_entries(layer, ps, st)
-        entry.fixed && continue
-        for i in entry.inserted
-            res[index] = entry.values[i] - entry.values[i - 1]
-            index += 1
-        end
+    flat = declared_parameter_constraint_entries(layer, ps, st)
+    for i in st.permutation
+        entry = flat[i]
+        index = write_parameter_entry!(res, index, entry.values, entry.inserted)
     end
     return index
 end
