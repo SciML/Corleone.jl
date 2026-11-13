@@ -63,3 +63,13 @@ applications, the Manual explains each building block, starting with
 [parameter schedules](scheduling.md), and the [API reference](api.md) lists every
 exported function. [CorleoneInverse](inverse/index.md) and
 [CorleoneOED](oed/index.md) add parameter estimation and experimental design.
+
+## How the pieces fit together
+
+Corleone sits between the SciML solvers and Lux. Its key dependencies are the
+problem and layer interfaces of SciMLBase and LuxCore; you choose the integrator,
+sensitivity method, optimizer, and neural-network components for each problem.
+CorleoneOED and CorleoneInverse build on the same shooting layers, and
+ModelingToolkit and Makie support is loaded as package extensions.
+
+![Corleone's architecture: optional extensions (ModelingToolkit, Makie) and ecosystem tools (OrdinaryDiffEq, SciMLSensitivity, Optimization, Lux) feed into the Corleone core, which builds on SciMLBase and LuxCore and supports the companion libraries CorleoneOED, CorleoneInverse, and CorleoneGame.](assets/corleone-architecture.svg)
