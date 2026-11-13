@@ -513,6 +513,7 @@ function (shooting::ShootingLayer)(layer::Experiments, ps, st::NamedTuple)
     return experiment_trajectory_vector(trajectories), next
 end
 
+# A Vector would lose the length and a Union the element types.
 """
     experiment_trajectories(shooting::ShootingLayer, experiments::Experiments, ps, st)
     experiment_trajectories(layer::EvaluationLayer, experiments::Experiments, ps, st)
@@ -523,7 +524,6 @@ its concrete trajectory type, so code indexing or mapping over the experiments s
 inferable; the `Vector` returned by the layer call has a `Union` element type when
 experiments differ.
 """
-# A Vector would lose the length and a Union the element types.
 @generated function experiment_trajectories(shooting::ShootingLayer, layer::Experiments, ps, st::NamedTuple)
     names = experiment_state_names(layer, st)
     isnothing(names) && return :(throw(ArgumentError("Experiment state fields must match the declared experiments.")))

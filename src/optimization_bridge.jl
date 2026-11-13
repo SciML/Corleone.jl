@@ -221,6 +221,9 @@ function dependency_column_ids(@nospecialize(prob), reconstruct, ncolumns, st)
     return sparsity_indices(reconstruct(collect(1:ncolumns)))
 end
 
+# Shared setup-time signal resolution for Jacobian and Hessian patterns.
+# Structural setup does not specialize on the problem type: each distinct set of
+# compiled expressions would otherwise recompile this whole analysis.
 """
     optimization_dependency_rows(prob, initial, reconstruct, st; hessian = false)
 
@@ -236,9 +239,6 @@ Sublibraries add methods for problems whose layer is not a shooting layer, build
 the rows with [`dependency_column_ids`](@ref), [`shooting_dependency_context`](@ref)
 and [`trajectory_constraint_dependencies`](@ref).
 """
-# Shared setup-time signal resolution for Jacobian and Hessian patterns.
-# Structural setup does not specialize on the problem type: each distinct set of
-# compiled expressions would otherwise recompile this whole analysis.
 function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct, st; hessian = false)
     prob.layer isa Union{ShootingLayer, EvaluationLayer} || throw(ArgumentError("Structural derivatives currently require a shooting layer."))
     packed_ids = dependency_column_ids(prob, reconstruct, length(initial), st)
@@ -263,6 +263,8 @@ function optimization_dependency_rows(@nospecialize(prob), initial, reconstruct,
     return (; user = user_rows, matching = dependencies.matching, matching_hessian = dependencies.matching_hessian, objective)
 end
 
+# Saved-index reads may distinguish the two sides of a reset. Include the
+# history as a conservative fallback when the saved grid cannot be walked.
 """
     shooting_dependency_context(shooting, ids, st, times, expressions; evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false)
 
@@ -280,8 +282,6 @@ Return `(dependencies, resolve)`. `dependencies.matching` and
 `(kind, index, time)` signals read, where `sample` selects a saved sample index for
 series reads, or `nothing` for their entire history. See [`expression_signals`](@ref).
 """
-# Saved-index reads may distinguish the two sides of a reset. Include the
-# history as a conservative fallback when the saved grid cannot be walked.
 function shooting_dependency_context(
         layer, ids, state, times, inspected;
         evaluation = nothing, packed_ids = nothing, hessian = false, saved_samples = false

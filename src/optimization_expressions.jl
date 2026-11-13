@@ -350,6 +350,10 @@ expression, or `nothing` for an opaque callback. `kind` is `:states`, `:paramete
 expression_signals(@nospecialize(f)) = nothing
 expression_signals(f::Union{ParsedTrajectoryExpression, ObservationExpression}) = f.dependencies
 
+# Opaque callbacks may read any trajectory value. Parsed expressions expose the
+# signals they read; unknown vector output structure shares their union per row.
+# `resolve(signals, sample)` resolves series signals at one saved sample index,
+# or their whole history when `sample` is nothing.
 """
     trajectory_constraint_dependencies(f, n, resolve, columns, nsamples)
 
@@ -360,10 +364,6 @@ Parsed expressions resolve their signals with `resolve` from
 access: every row then holds `columns`, either a `BitSet` or a column count `ncolumns`
 for `1:ncolumns`.
 """
-# Opaque callbacks may read any trajectory value. Parsed expressions expose the
-# signals they read; unknown vector output structure shares their union per row.
-# `resolve(signals, sample)` resolves series signals at one saved sample index,
-# or their whole history when `sample` is nothing.
 trajectory_constraint_dependencies(@nospecialize(f), n, resolve, columns, nsamples) =
     fill(opaque_columns(columns), n)
 opaque_columns(ncolumns::Integer) = BitSet(1:ncolumns)
