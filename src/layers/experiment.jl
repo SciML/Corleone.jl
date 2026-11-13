@@ -120,6 +120,9 @@ function merge_experiment_collection(global_layer, local_layer, variable)
         Parameter(global_layer.name, global_layer.repack, children, indices)
 end
 
+# A heap-allocated container with constant, concretely typed fields: passing or
+# capturing it moves a pointer instead of copying several kilobytes of inline
+# layer data, while field access stays fully inferable.
 """
 $(TYPEDEF)
 
@@ -131,9 +134,6 @@ A separate ShootingLayer executes the experiments.
 # Fields
 $(FIELDS)
 """
-# A heap-allocated container with constant, concretely typed fields: passing or
-# capturing it moves a pointer instead of copying several kilobytes of inline
-# layer data, while field access stays fully inferable.
 mutable struct Experiments{S, E, C, P, D} <: LuxCore.AbstractLuxContainerLayer{(:shared, :experiments)}
     "Shared initial variables and model parameters, initialized once."
     const shared::S
