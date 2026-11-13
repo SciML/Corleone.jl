@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Lotka–Volterra Universal Differential Equation · Corleone.jl</title><meta name="title" content="Lotka–Volterra Universal Differential Equation · Corleone.jl"/><meta property="og:title" content="Lotka–Volterra Universal Differential Equation · Corleone.jl"/><meta property="twitter:title" content="Lotka–Volterra Universal Differential Equation · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/documenterlandingpage/landing.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting_started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../gallery/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Optimal Control</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li><li><a class="tocitem" href="../optimal_control_of_a_two_stage_reactor_system/">Two-Stage Chemical Reactor</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Parameter Estimation</span><i class="docs-chevron"></i></label><ul class="collapsed"><li class="is-active"><a class="tocitem" href>Lotka–Volterra Universal Differential Equation</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Synthetic-observations"><span>Synthetic observations</span></a></li><li><a class="tocitem" href="#Hybrid-dynamics"><span>Hybrid dynamics</span></a></li><li><a class="tocitem" href="#Fit-the-population-trajectories"><span>Fit the population trajectories</span></a></li><li><a class="tocitem" href="#Compare-observations-and-fit"><span>Compare observations and fit</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Optimal Experimental Design</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete Compartmental Design</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a></li></ul></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../shooting/">Constructing Shooting Problems</a></li><li><a class="tocitem" href="../../scheduling/">Scheduling Parameters</a></li><li><a class="tocitem" href="../../initialization/">Initializing Models</a></li><li><a class="tocitem" href="../../trajectories/">Inspecting Trajectories</a></li><li><a class="tocitem" href="../../optimization_contracts/">Adding Objectives and Constraints</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../automatic_differentiation/">Selecting Differentiation Methods</a></li><li><a class="tocitem" href="../../sparse_derivatives/">Preparing Sparse Derivatives</a></li><li><a class="tocitem" href="../../parallel_shooting/">Running Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Querying Symbolic Metadata</a></li></ul></li><li><span class="tocitem">Sublibraries</span><ul><li><a class="tocitem" href="../../sublibraries/">Overview</a></li><li><a class="tocitem" href="../../oed/">CorleoneOED</a></li><li><a class="tocitem" href="../../oed/formulation/">Measurements and Information</a></li><li><a class="tocitem" href="../../oed/designs/">Constructing and Optimizing Designs</a></li><li><a class="tocitem" href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a></li><li><a class="tocitem" href="../../oed/api/">API Reference</a></li><li><a class="tocitem" href="../../oed/references/">References and Attribution</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Parameter Estimation</a></li><li class="is-active"><a href>Lotka–Volterra Universal Differential Equation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Lotka–Volterra Universal Differential Equation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl/blob/main/examples/lotka_universal_differential_equation/main.jl" title="View source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="lotka_ude"><a class="docs-heading-anchor" href="#lotka_ude">Lotka Volterra Universal Differential Equation</a><a id="lotka_ude-1"></a><a class="docs-heading-anchor-permalink" href="#lotka_ude" title="Permalink"></a></h1><p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/examples/lotka_universal_differential_equation/main.jl"><img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code"/></a> <img src="https://img.shields.io/badge/julia-1.10.0-blue.svg" alt="compat"/></p><p>Fit a hybrid mechanistic and neural model to synthetic population observations. Prerequisites: <a href="../../getting_started/">Getting Started</a> and basic ODE modeling. A universal differential equation (UDE) replaces an unknown part of the dynamics with a trainable function. Here growth and decay rates are known, while the predator-prey interaction is represented by a small neural network.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>Run <code>julia examples/install_deps.jl</code> once, then execute this script with <code>julia --project=examples examples/lotka_universal_differential_equation/main.jl</code>. Lux defines the network and its explicit parameter/state interface. Corleone makes the ODE parameters tunable, and ComponentArrays connects the two layouts.</p><pre><code class="language-julia hljs">using Corleone
+using Lux, Random
+using OrdinaryDiffEqTsit5
+using Optimization, OptimizationLBFGSB
+using ForwardDiff, ComponentArrays
+using CairoMakie
+Makie.inline!()</code></pre><pre><code class="nohighlight hljs">Makie.Automatic()</code></pre><h2 id="Synthetic-observations"><a class="docs-heading-anchor" href="#Synthetic-observations">Synthetic observations</a><a id="Synthetic-observations-1"></a><a class="docs-heading-anchor-permalink" href="#Synthetic-observations" title="Permalink"></a></h2><p>Generate trajectories of both populations and add Gaussian observation noise with standard deviation 0.05. The data-generation model uses the interaction <code>x * y</code>. We fix the initial populations and the linear growth and decay rates.</p><pre><code class="language-julia hljs">function true_lotka(u, p, t)
+    x, y = u
+    interaction = x * y
+    return [x - interaction, interaction - y]
+end
+
+rng = MersenneTwister(42)
+
+observation_times = collect(0.0:0.1:5.0)
+u0 = [0.8, 1.2]
+tspan = (first(observation_times), last(observation_times))
+truth_problem = ODEProblem(true_lotka, u0, tspan)
+truth = solve(
+    truth_problem, Tsit5(); saveat = observation_times,
+    abstol = 1.0e-9, reltol = 1.0e-9
+)
+@assert successful_retcode(truth)
+observations = Array(truth)
+observations .+= 0.05 * randn(rng, size(observations))</code></pre><pre><code class="nohighlight hljs">2×51 Matrix{Float64}:
+ 0.860514  0.805294  0.769107  0.81284  0.725159  0.736897  0.765292  0.750005  0.652089  0.675036  0.816778  0.797515  0.827773  0.716631  0.876258  0.801035  0.797969  0.851193  0.837197  0.838741  0.710703  0.860164  0.915861  0.976833  1.03779  1.08787   0.936042  1.11387   1.06453   1.13903   1.14351   1.27432   1.25395   1.22883   1.20485   1.31935   1.27711   1.31227   1.37437   1.2859    1.35605   1.29137   1.3415   1.33907  1.35116  1.23324  1.21045  1.19821  1.30003  1.2228   1.17783
+ 1.19605   1.18984   1.18031   1.12044  1.05336   1.02654   0.976578  1.00304   0.981896  0.901081  0.969456  1.00524   0.914743  0.843069  0.821258  0.841977  0.905593  0.811662  0.826948  0.807515  0.735062  0.81593   0.820353  0.729199  0.75529  0.711596  0.75441   0.770365  0.758462  0.688485  0.758537  0.813978  0.719697  0.664489  0.784927  0.945536  0.935629  0.910322  0.920129  0.909071  0.932404  0.961565  1.08381  1.00029  1.00551  1.13334  1.13598  1.1935   1.19475  1.19551  1.27561</code></pre><h2 id="Hybrid-dynamics"><a class="docs-heading-anchor" href="#Hybrid-dynamics">Hybrid dynamics</a><a id="Hybrid-dynamics-1"></a><a class="docs-heading-anchor-permalink" href="#Hybrid-dynamics" title="Permalink"></a></h2><p>Use a 2 → 5 → 1 network with tanh hidden activations. Store its 21 weights and biases in a flat ODE parameter vector. Squaring the output makes the learned interaction nonnegative. The same interaction removes prey and adds predators:</p><p class="math-container">\[\dot{x} = x - N_\theta(x,y), \qquad
+\dot{y} = N_\theta(x,y) - y.\]</p><p>This sign structure shares mechanistic information between the two equations. It does not enforce positive populations: the network need not vanish on the axes. Training and interpretation below are restricted to the observed orbit.</p><pre><code class="language-julia hljs">network = Lux.Chain(
+    hidden = Lux.Dense(2 =&gt; 5, tanh),
+    interaction = Lux.Dense(5 =&gt; 1),
+)
+network_parameters, network_state = Lux.setup(rng, network)</code></pre><pre><code class="nohighlight hljs">((hidden = (weight = Float32[1.6482856 2.0020008; 1.7821175 -0.08151769; -1.0484217 0.42020586; 1.81545 1.8604304; -1.6150724 -0.66073126], bias = Float32[-0.6290955, 0.047778003, 0.64267164, 0.037633594, 0.011862484]), interaction = (weight = Float32[-0.68340814 -0.19411345 0.74864477 0.6590524 0.74813527], bias = Float32[-0.11435896])), (hidden = NamedTuple(), interaction = NamedTuple()))</code></pre><p>Start with small Float64 weights and a positive output bias. <code>pack</code> supplies a flat ODE parameter vector and a constructor that restores Lux&#39;s named layers.</p><pre><code class="language-julia hljs">initial_network_parameters = ComponentArray{Float64}(network_parameters)
+initial_network_parameters .*= 0.1
+initial_network_parameters.interaction.bias .= 0.7
+p0, rebuild_network = pack(default_vectorizer(), initial_network_parameters)</code></pre><pre><code class="nohighlight hljs">([0.16482856273651125, 0.1782117486000061, -0.10484217405319214, 0.18154499530792237, -0.16150723695755007, 0.20020008087158203, -0.008151768893003465, 0.04202058613300324, 0.18604303598403932, -0.06607312560081482, -0.06290954947471619, 0.004777800291776657, 0.06426716446876526, 0.0037633594125509266, 0.001186248380690813, -0.06834081411361695, -0.019411344826221467, 0.0748644769191742, 0.06590523719787598, 0.07481352686882019, 0.7], Base.Fix2{Type{ComponentArrays.ComponentArray}, Tuple{ComponentArrays.Axis{(hidden = ViewAxis(1:15, Axis(weight = ViewAxis(1:10, ShapedAxis((5, 2))), bias = ViewAxis(11:15, Shaped1DAxis((5,))))), interaction = ViewAxis(16:21, Axis(weight = ViewAxis(1:5, ShapedAxis((1, 5))), bias = ViewAxis(6:6, Shaped1DAxis((1,))))))}}}(ComponentArrays.ComponentArray, (Axis(hidden = ViewAxis(1:15, Axis(weight = ViewAxis(1:10, ShapedAxis((5, 2))), bias = ViewAxis(11:15, Shaped1DAxis((5,))))), interaction = ViewAxis(16:21, Axis(weight = ViewAxis(1:5, ShapedAxis((1, 5))), bias = ViewAxis(6:6, Shaped1DAxis((1,)))))),)))</code></pre><p>Use fixed test-mode state for these stateless Dense layers during integration, and reconstruct the current weights at each right-hand-side call.</p><pre><code class="language-julia hljs">hybrid_lotka = let network = network, network_state = Lux.testmode(network_state),
+        rebuild_network = rebuild_network
+    function (u, p, t)
+        output, _ = Lux.apply(network, u, rebuild_network(p), network_state)
+        interaction = only(output)^2
+        return [u[1] - interaction, interaction - u[2]]
+    end
+end
+
+hybrid_problem = ODEProblem(
+    hybrid_lotka, u0, tspan, p0;
+    saveat = observation_times, abstol = 1.0e-8, reltol = 1.0e-8
+)</code></pre><pre><code class="nohighlight hljs">ODEProblem with uType Vector{Float64} and tType Float64. In-place: false
+Non-trivial mass matrix: false
+timespan: (0.0, 5.0)
+u0: 2-element Vector{Float64}:
+ 0.8
+ 1.2</code></pre><p>All network parameters are tunable and constant over time (<code>nothing</code> is the switching grid). Bounds keep trial network weights in a moderate range. The initial populations remain fixed at <code>u0</code> from the ODE problem.</p><pre><code class="language-julia hljs">layer = ShootingLayer(
+    hybrid_problem, Tsit5(),
+    Tunable(
+        collect(eachindex(p0)); kind = Val(:parameter),
+        lowerbound = -3.0, upperbound = 3.0
+    ) =&gt; nothing
+)
+ps, st = Lux.setup(rng, layer)</code></pre><pre><code class="nohighlight hljs">((initialcondition = (initialconditions = (u₁ = NamedTuple(), u₂ = NamedTuple()),), parameter = (parameters = (p₁ = (lookup = NamedTuple(), parameter = (p₁ = (ps = [0.16482856273651125],), p₂ = (ps = [0.1782117486000061],), p₃ = (ps = [-0.10484217405319214],), p₄ = (ps = [0.18154499530792237],), p₅ = (ps = [-0.16150723695755007],), p₆ = (ps = [0.20020008087158203],), p₇ = (ps = [-0.008151768893003465],), p₈ = (ps = [0.04202058613300324],), p₉ = (ps = [0.18604303598403932],), p₁₀ = (ps = [-0.06607312560081482],), p₁₁ = (ps = [-0.06290954947471619],), p₁₂ = (ps = [0.004777800291776657],), p₁₃ = (ps = [0.06426716446876526],), p₁₄ = (ps = [0.0037633594125509266],), p₁₅ = (ps = [0.001186248380690813],), p₁₆ = (ps = [-0.06834081411361695],), p₁₇ = (ps = [-0.019411344826221467],), p₁₈ = (ps = [0.0748644769191742],), p₁₉ = (ps = [0.06590523719787598],), p₂₀ = (ps = [0.07481352686882019],), p₂₁ = (ps = [0.7],))),),)), (initialcondition = (initialconditions = (u₁ = NamedTuple(), u₂ = NamedTuple()), active = Bool[0, 0], permutation = [1, 2]), parameter = (parameters = (p₁ = (lookup = (collection = nothing, inserted = Int64[], cache = nothing), parameter = (p₁ = NamedTuple(), p₂ = NamedTuple(), p₃ = NamedTuple(), p₄ = NamedTuple(), p₅ = NamedTuple(), p₆ = NamedTuple(), p₇ = NamedTuple(), p₈ = NamedTuple(), p₉ = NamedTuple(), p₁₀ = NamedTuple(), p₁₁ = NamedTuple(), p₁₂ = NamedTuple(), p₁₃ = NamedTuple(), p₁₄ = NamedTuple(), p₁₅ = NamedTuple(), p₁₆ = NamedTuple(), p₁₇ = NamedTuple(), p₁₈ = NamedTuple(), p₁₉ = NamedTuple(), p₂₀ = NamedTuple(), p₂₁ = NamedTuple())),), permutation = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]), timestops = [0.0, 5.0]))</code></pre><h2 id="Fit-the-population-trajectories"><a class="docs-heading-anchor" href="#Fit-the-population-trajectories">Fit the population trajectories</a><a id="Fit-the-population-trajectories-1"></a><a class="docs-heading-anchor-permalink" href="#Fit-the-population-trajectories" title="Permalink"></a></h2><p><code>saveat</code> fixes the observation grid; no interior resets are introduced. Compare saved states directly rather than interpolating Corleone&#39;s trajectory object.</p><pre><code class="language-julia hljs">function population_loss(trajectory)
+    @assert trajectory.t ≈ observation_times
+    return sum(
+        sum(abs2, trajectory.u[i] .- observations[:, i])
+            for i in eachindex(observation_times)
+    ) / length(observations)
+end
+
+model = CorleoneDynamicOptProblem(layer, population_loss; ps, st)
+initial_loss = optimization_objective(model)
+optprob = OptimizationProblem(model, AutoForwardDiff())
+fit = solve(optprob, OptimizationLBFGSB.LBFGSB(); maxiters = 1_000)
+@assert successful_retcode(fit)</code></pre><p>ForwardDiff differentiates through the ODE solve and neural network. Reconstruct the structured Lux parameters from the optimizer&#39;s packed vector for prediction.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), model.ps)
+fitted_parameters = reconstruct(fit.u)
+fitted, _ = layer(nothing, fitted_parameters, optprob.p)
+final_loss = population_loss(fitted)
+@assert final_loss &lt; initial_loss / 10
+(; initial_loss, final_loss)</code></pre><pre><code class="nohighlight hljs">(initial_loss = 139.9162738319526, final_loss = 0.0025732087583409027)</code></pre><h2 id="Compare-observations-and-fit"><a class="docs-heading-anchor" href="#Compare-observations-and-fit">Compare observations and fit</a><a id="Compare-observations-and-fit-1"></a><a class="docs-heading-anchor-permalink" href="#Compare-observations-and-fit" title="Permalink"></a></h2><p><code>trajectoryplot</code> draws the trained UDE states (<code>u₁</code>: prey, <code>u₂</code>: predator). Overlay the synthetic observations on its population axis, matching state colors.</p><pre><code class="language-julia hljs">figure = trajectoryplot(fitted; show_legend = false, state_string = &quot;Population&quot;)
+axis = content(figure[1, 1][1, 1])
+for (i, label) in ((1, &quot;Prey&quot;), (2, &quot;Predator&quot;))
+    scatter!(
+        axis, observation_times, observations[i, :]; color = Cycled(i),
+        markersize = 6, label = &quot;$label observations&quot;
+    )
+end
+plot!(axis, truth, linestyle = :dash)
+figure[1, 2] = Legend(figure[1, 2], axis, framevisible = false)
+figure</code></pre><p><img src="../lotka_volterra_universal_differential_equation-figure-1.png" alt="Trajectory plot for Lotka Volterra Universal Differential Equation"/></p><p>A small trajectory error demonstrates a fit to these observations. A single orbit does not identify the interaction over the whole state space, and this training fit does not establish accuracy for new initial states or future times.</p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+  [13f3f980] CairoMakie v0.15.17
+  [b0b7db55] ComponentArrays v0.15.50
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [311a05b2] DemoCards v0.5.5
+  [e30172f5] Documenter v1.20.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [1c52b33b] DocumenterLandingPage v0.2.2
+  [f6369f11] ForwardDiff v1.4.7
+  [b6b21f68] Ipopt v1.16.0
+  [98b081ad] Literate v2.21.0
+⌃ [16fef848] LiveServer v1.5.0
+  [b2108857] Lux v1.31.5
+  [bb33d45b] LuxCore v1.5.4
+  [10bdffc8] MaterialDocs v0.2.2
+  [961ee093] ModelingToolkit v11.46.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [7f7a1694] Optimization v5.9.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [43230ef6] OrdinaryDiffEqRosenbrock v2.7.5
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [0bca4576] SciMLBase v3.58.0
+  [860ef19b] StableRNGs v1.1.0
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [ddb6d928] YAML v0.4.17
+  [2a0f44e3] Base64 v1.11.0
+  [9a3f8284] Random v1.11.0
+Info Packages marked with ⌃ have new versions available and may be upgradable.
+</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre><pre><code class="nohighlight hljs">Julia Version 1.13.3
+Commit 67ac47b9cd8 (2026-10-25 15:28 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+  [47edcb42] ADTypes v1.24.0
+  [14f7f29c] AMD v0.5.4
+  [a4c015fc] ANSIColoredPrinters v0.0.1
+  [621f4979] AbstractFFTs v1.5.0
+  [6e696c72] AbstractPlutoDingetjes v1.4.1
+  [1520ce14] AbstractTrees v0.4.5
+  [7d9f7c33] Accessors v0.1.46
+  [79e6a3ab] Adapt v4.8.0
+  [4f381ef7] AdaptiveArrayPools v0.3.12
+  [35492f91] AdaptivePredicates v1.2.0
+  [66dad0bd] AliasTables v1.1.3
+  [27a7e980] Animations v0.4.2
+  [ec485272] ArnoldiMethod v0.4.0
+  [4fba245c] ArrayInterface v7.30.2
+  [4c555306] ArrayLayouts v1.16.0
+  [a9b6321e] Atomix v1.7.0
+  [67c07d97] Automa v1.2.0
+  [13072b0f] AxisAlgorithms v1.1.0
+  [39de3d68] AxisArrays v0.4.8
+  [ab4f0b2a] BFloat16s v0.6.5
+  [aae01518] BandedMatrices v1.14.0
+  [198e06fe] BangBang v0.4.9
+  [18cc8868] BaseDirs v1.4.0
+  [2027ae74] BibInternal v0.4.0
+  [13533e5b] BibParser v0.3.0
+  [f1be7e48] Bibliography v0.4.0
+  [e2ed5e7c] Bijections v0.2.2
+  [b2a6c25c] BinaryHeaps v1.1.0
+  [caf10ac8] BipartiteGraphs v0.1.15
+  [d1d4a3ce] BitFlags v0.1.10
+  [8e7c35d0] BlockArrays v1.10.3
+  [70df07ce] BracketingNonlinearSolve v1.12.8
+⌅ [fa961155] CEnum v0.5.0
+  [2a0fbf3d] CPUSummary v0.2.7
+  [96374032] CRlibm v1.2.0
+  [159f3aea] Cairo v1.1.1
+  [13f3f980] CairoMakie v0.15.17
+  [d360d2e6] ChainRulesCore v1.26.8
+  [ae650224] ChunkSplitters v3.2.0
+  [523fee87] CodecBzip2 v0.8.5
+  [944b1d66] CodecZlib v0.7.9
+  [6b39b394] CodecZstd v0.8.7
+  [a2cac450] ColorBrewer v0.4.2
+  [35d6a980] ColorSchemes v3.32.0
+  [3da002f7] ColorTypes v0.12.5
+  [c3611d14] ColorVectorSpace v0.11.2
+  [5ae59095] Colors v0.13.4
+⌅ [861a8166] Combinatorics v1.0.2
+  [38540f10] CommonSolve v0.2.14
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [f70d9fcc] CommonWorldInvalidations v1.2.2
+  [34da2185] Compat v4.18.1
+  [b0b7db55] ComponentArrays v0.15.50
+  [b152e2b5] CompositeTypes v0.1.4
+  [a33af91c] CompositionsBase v0.1.2
+  [95dc2771] ComputePipeline v0.1.9
+  [2569d6c7] ConcreteStructs v0.2.8
+  [f0e56b4a] ConcurrentUtilities v2.8.0
+  [88cd18e8] ConsoleProgressMonitor v0.1.2
+  [187b0558] ConstructionBase v1.6.1
+  [d38c429a] Contour v0.6.3
+  [b7a15901] CoreMath v0.1.0
+  [2751e0db] Corleone v2.0.0 `~/work/Corleone.jl/Corleone.jl`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [adafc99b] CpuId v0.3.3
+  [a8cc5b0e] Crayons v4.2.0
+  [9a962f9c] DataAPI v1.16.0
+  [a93c6f00] DataFrames v1.8.3
+  [864edb3b] DataStructures v0.19.6
+  [e2d170a0] DataValueInterfaces v1.0.0
+  [927a84f5] DelaunayTriangulation v1.7.0
+  [8bb1440f] DelimitedFiles v1.9.1
+  [311a05b2] DemoCards v0.5.5
+  [2b5f629d] DiffEqBase v7.21.6
+  [459566f4] DiffEqCallbacks v4.19.6
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.17.0
+  [a0c0ee7d] DifferentiationInterface v0.7.22
+  [8d63f2c5] DispatchDoctor v0.4.29
+  [31c24e10] Distributions v0.25.134
+  [43dc2714] DocInventories v1.0.0
+⌅ [ffbed154] DocStringExtensions v0.9.5
+  [e30172f5] Documenter v1.20.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [1c52b33b] DocumenterLandingPage v0.2.2
+  [5b8099bc] DomainSets v0.8.3
+⌅ [7c1d4256] DynamicPolynomials v0.6.8
+  [4e289a0a] EnumX v1.0.7
+  [f151be2c] EnzymeCore v0.8.27
+  [429591f6] ExactPredicates v2.2.9
+  [460bff9d] ExceptionUnwrapping v0.1.12
+  [e2ba6199] ExprTools v0.1.11
+  [21656369] ExpressionExplorer v1.1.6
+  [55351af7] ExproniconLite v0.10.16
+  [b86e33f2] FFTA v0.3.3
+  [7034ab61] FastBroadcast v1.5.1
+  [9aa1b823] FastClosures v0.3.2
+  [9ea80cae] FastInterpolations v0.4.20
+  [a4df4552] FastPower v1.5.1
+  [5789e2e9] FileIO v1.20.0
+  [8fc22ac5] FilePaths v0.9.0
+  [48062228] FilePathsBase v0.9.24
+  [1a297f60] FillArrays v1.18.2
+  [64ca27bc] FindFirstFunctions v3.4.1
+  [6a86dc24] FiniteDiff v2.33.0
+⌅ [53c48c17] FixedPointNumbers v0.8.6
+  [1fa38f19] Format v1.3.7
+  [f6369f11] ForwardDiff v1.4.7
+  [b38be410] FreeType v4.1.1
+  [663a7486] FreeTypeAbstraction v0.10.8
+  [a85aefff] FunctionMaps v0.1.2
+  [069b7b12] FunctionWrappers v1.1.3
+  [77dc65aa] FunctionWrappersWrappers v1.13.0
+  [d9f16b24] Functors v0.5.4
+  [46192b85] GPUArraysCore v0.2.2
+  [a0844989] Gamma v1.2.1
+  [5c1252a2] GeometryBasics v0.5.13
+  [d7ba0133] Git v1.5.0
+  [a2bd30eb] Graphics v1.1.3
+  [86223c79] Graphs v1.15.0
+  [3955a311] GridLayoutBase v0.11.3
+⌅ [cd3eb016] HTTP v1.11.1
+  [076d061b] HashArrayMappedTries v0.2.0
+  [5880b2e8] HelpPlots v1.1.1
+  [34004b35] HypergeometricFunctions v0.3.31
+  [b5f81e59] IOCapture v1.0.0
+  [615f187c] IfElse v0.1.1
+  [2803e5a7] ImageAxes v0.6.12
+  [c817782e] ImageBase v0.1.7
+  [a09fc81d] ImageCore v0.10.5
+  [82e4d734] ImageIO v0.6.10
+  [bc367c6b] ImageMetadata v0.9.10
+  [3263718b] ImplicitDiscreteSolve v2.3.0
+  [9b13fd28] IndirectArrays v1.0.0
+  [d25df0c9] Inflate v0.1.5
+  [22cec73e] InitialValues v0.3.1
+  [842dd82b] InlineStrings v2.0.1
+  [18e54dd8] IntegerMathUtils v0.1.4
+  [a98d9a8b] Interpolations v0.16.3
+  [d1acc4aa] IntervalArithmetic v1.0.14
+  [8197267c] IntervalSets v0.7.15
+  [3587e190] InverseFunctions v0.1.18
+  [41ab1584] InvertedIndices v1.3.1
+  [b6b21f68] Ipopt v1.16.0
+  [92d709cd] IrrationalConstants v0.2.7
+  [f1662d9f] Isoband v0.1.1
+  [c8e1da08] IterTools v1.11.0
+  [82899510] IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] JLLWrappers v1.8.0
+⌅ [682c06a0] JSON v0.21.4
+  [7d188eb4] JSONSchema v1.6.0
+  [ae98c720] Jieko v0.2.1
+  [b835a17e] JpegTurbo v0.1.6
+  [ccbc3e58] JumpProcesses v10.2.0
+⌃ [63c18a36] KernelAbstractions v0.9.45
+  [5ab0869b] KernelDensity v0.6.13
+  [ba0b0d4f] Krylov v0.10.12
+  [5be7bae1] LBFGSB v0.4.1
+  [2faa5264] LHLFactorization v2.2.2
+  [929cbde3] LLVM v10.4.3
+  [b964fa9f] LaTeXStrings v1.4.1
+  [0e77f7df] LazilyInitializedFields v1.3.0
+  [8cdb02fc] LazyModules v0.3.1
+  [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
+  [87fe0de2] LineSearch v0.1.20
+  [7ed4a6bd] LinearSolve v5.18.3
+  [98b081ad] Literate v2.21.0
+⌃ [16fef848] LiveServer v1.5.0
+  [2ab3a3ac] LogExpFunctions v1.0.4
+  [e6f89c97] LoggingExtras v1.2.0
+  [b2108857] Lux v1.31.5
+  [bb33d45b] LuxCore v1.5.4
+  [82251201] LuxLib v1.15.10
+⌅ [6c6e2e6c] MIMEs v0.1.4
+  [7e8f7934] MLDataDevices v1.18.0
+  [1914dd2f] MacroTools v0.5.16
+  [ee78f7c6] Makie v0.24.17
+  [dbb5928d] MappedArrays v0.4.3
+  [d0879d2d] MarkdownAST v0.1.3
+  [3927ea69] MaterialDesignColors v0.1.0
+  [10bdffc8] MaterialDocs v0.2.2
+  [b8f27783] MathOptInterface v1.54.0
+  [0a4f8689] MathTeXEngine v0.6.9
+  [bb5d69b7] MaybeInplace v0.1.8
+  [739be429] MbedTLS v1.2.0
+  [e1d29d7a] Missings v1.2.1
+  [961ee093] ModelingToolkit v11.46.1
+  [7771a370] ModelingToolkitBase v1.80.0
+  [6bb917b9] ModelingToolkitTearing v1.20.9
+  [e94cdb99] MosaicViews v0.3.4
+  [2e0e35c7] Moshi v0.3.13
+  [46d2c3a1] MuladdMacro v0.2.7
+⌅ [102ac46a] MultivariatePolynomials v0.5.20
+  [ffc61752] Mustache v1.1.0
+  [d8a4904e] MutableArithmetics v1.9.3
+  [872c559c] NNlib v0.9.59
+  [77ba4419] NaNMath v1.1.5
+  [f09324ee] Netpbm v1.1.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [be0214bd] NonlinearSolveBase v2.55.1
+  [5959db7a] NonlinearSolveFirstOrder v2.10.0
+  [9a2c21bd] NonlinearSolveQuasiNewton v1.15.3
+  [26075421] NonlinearSolveSpectralMethods v1.8.3
+  [510215fc] Observables v0.5.5
+  [6fe1bfb0] OffsetArrays v1.18.0
+  [67456a42] OhMyThreads v0.8.9
+  [52e1d378] OpenEXR v0.3.3
+  [4d8831e6] OpenSSL v1.12.0
+  [3bd65402] Optimisers v0.4.11
+  [7f7a1694] Optimization v5.9.1
+  [bca83a33] OptimizationBase v5.10.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [bac558e1] OrderedCollections v2.0.3
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [bbf590c4] OrdinaryDiffEqCore v4.19.1
+  [4302a76b] OrdinaryDiffEqDifferentiation v3.12.5
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [43230ef6] OrdinaryDiffEqRosenbrock v2.7.5
+  [b4bd8bb3] OrdinaryDiffEqRosenbrockTableaus v2.4.2
+  [2d112036] OrdinaryDiffEqSDIRK v2.9.8
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [90014a1f] PDMats v0.11.41
+  [f57f5aa1] PNGFiles v0.4.5
+  [19eb6ba3] Packing v0.5.1
+  [5432bcbf] PaddedViews v0.5.12
+⌅ [69de0a69] Parsers v2.8.11
+  [eebad327] PkgVersion v0.3.3
+  [995b91a9] PlotUtils v1.5.1
+  [e409e4f3] PoissonRandom v0.4.14
+  [647866c9] PolygonOps v0.1.2
+  [2dfb63ee] PooledArrays v1.4.3
+  [d236fae5] PreallocationTools v1.7.1
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [08abe8d2] PrettyTables v3.5.1
+  [27ebfcd6] Primes v0.5.7
+  [33c8b6b6] ProgressLogging v0.1.6
+  [92933f4c] ProgressMeter v1.13.0
+  [43287f4e] PtrArrays v1.4.0
+  [0c0d3e7f] PureKLU v1.6.0
+  [4b34888f] QOI v1.0.2
+  [1fd47b50] QuadGK v2.11.3
+  [b3c3ace0] RangeArrays v0.3.2
+  [c84ed2f1] Ratios v0.4.5
+  [a3311ec8] ReactantCore v0.1.26
+  [988b38a3] ReadOnlyArrays v0.2.0
+  [795d4caa] ReadOnlyDicts v1.0.1
+  [3cdcf5f2] RecipesBase v1.4.0
+  [731186ca] RecursiveArrayTools v4.5.6
+  [189a3867] Reexport v1.2.2
+  [2792f1a3] RegistryInstances v0.1.0
+  [05181044] RelocatableFolders v1.0.1
+  [ae029012] Requires v1.3.1
+  [9fe22ead] RespecializeParams v1.3.0
+  [79098fc4] Rmath v0.9.0
+  [f2b01f46] Roots v3.0.14
+  [5eaf0fd0] RoundingEmulator v0.2.1
+  [7e49a35a] RuntimeGeneratedFunctions v0.5.27
+  [9dfe8606] SCCNonlinearSolve v1.16.0
+  [fdea26ae] SIMD v3.8.2
+  [0bca4576] SciMLBase v3.58.0
+  [19f34311] SciMLJacobianOperators v0.1.20
+  [a6db7da4] SciMLLogging v2.1.0
+  [c0aeaf25] SciMLOperators v1.30.4
+  [431bcebd] SciMLPublic v1.3.0
+  [53ae85a6] SciMLStructures v1.10.6
+  [7e506255] ScopedValues v1.6.2
+  [6c6a2e73] Scratch v1.3.0
+  [91c51154] SentinelArrays v1.4.11
+  [efcf1570] Setfield v1.2.0
+  [65257c39] ShaderAbstractions v0.5.1
+  [73760f76] SignedDistanceFields v0.4.1
+  [777ac1f9] SimpleBufferStream v1.2.0
+  [67d14529] SimpleImageMetadata v0.1.0
+  [727e6d20] SimpleNonlinearSolve v2.14.6
+  [699a6c99] SimpleTraits v0.9.6
+  [45858cf5] Sixel v0.1.6
+  [ed01d8cd] Sobol v1.5.0
+  [a2af1166] SortingAlgorithms v1.2.3
+  [a57abbd0] SparseColumnPivotedQR v2.1.8
+  [9f842d2f] SparseConnectivityTracer v1.2.4
+  [0a514795] SparseMatrixColorings v0.4.29
+  [276daf66] SpecialFunctions v2.9.2
+  [860ef19b] StableRNGs v1.1.0
+  [91464d47] StableTasks v0.1.7
+  [cae243ae] StackViews v0.1.2
+⌅ [0c0c59c1] StarAlgebras v0.3.1
+  [64909d44] StateSelection v1.11.1
+  [aedffcd0] Static v1.4.6
+  [0d7ed370] StaticArrayInterface v1.10.0
+  [90137ffa] StaticArrays v1.9.24
+  [1e83bf80] StaticArraysCore v1.4.5
+  [10745b16] Statistics v1.11.5
+  [82ae8749] StatsAPI v1.8.0
+  [2913bbd2] StatsBase v0.34.13
+  [4c63d2b9] StatsFuns v2.2.1
+  [69024149] StringEncodings v0.3.7
+  [892a3eda] StringManipulation v0.6.1
+  [09ab397b] StructArrays v0.7.4
+  [fd094767] Suppressor v0.2.8
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [19f23fe9] SymbolicLimits v1.2.2
+  [d1185830] SymbolicUtils v4.55.0
+  [0c5d862f] Symbolics v7.48.0
+  [3783bdb8] TableTraits v1.0.1
+  [bd369af6] Tables v1.14.0
+  [ed4db957] TaskLocalValues v0.1.3
+  [62fd8b95] TensorCore v0.1.1
+  [8ea1fca8] TermInterface v2.0.1
+  [5d786b92] TerminalLoggers v0.1.8
+  [1c621080] TestItems v1.1.0
+  [731e570b] TiffImages v0.11.10
+  [a759f4b9] TimerOutputs v1.2.3
+  [3bb67fe8] TranscodingStreams v0.11.3
+  [981d1d27] TriplotBase v0.1.0
+  [781d530d] TruncatedStacktraces v1.4.0
+  [5c2747f8] URIs v1.7.3
+  [3a884ed6] UnPack v1.0.2
+  [1cfade01] UnicodeFun v0.4.1
+  [1986cc42] Unitful v1.29.0
+  [013be700] UnsafeAtomics v0.4.0
+  [d30d5f5c] WeakCacheSets v0.1.0
+  [e3aaa7dc] WebP v0.1.3
+  [d49dbf32] WeightInitializers v1.3.5
+  [efce3f68] WoodburyMatrices v1.1.0
+  [ddb6d928] YAML v0.4.17
+  [ae81ac8f] ASL_jll v0.1.5+0
+  [6e34b625] Bzip2_jll v1.0.9+0
+  [4e9b3aee] CRlibm_jll v1.0.3+0
+  [83423d85] Cairo_jll v1.18.8+1
+  [a38c48d9] CoreMath_jll v0.1.0+0
+⌅ [5ae413db] EarCut_jll v2.2.4+0
+  [2e619515] Expat_jll v2.10.0+0
+  [b22a6f82] FFMPEG_jll v9.0.2+0
+  [a3f928ae] Fontconfig_jll v2.18.3+0
+⌅ [d7e528f0] FreeType2_jll v2.14.3+1
+  [559328eb] FriBidi_jll v1.0.19+0
+⌅ [b0724c58] GettextRuntime_jll v0.22.4+0
+  [59f7168a] Giflib_jll v6.1.3+0
+  [020c3dae] Git_LFS_jll v3.8.1+0
+  [f8c6e375] Git_jll v2.56.0+0
+  [7746bdde] Glib_jll v2.90.1+0
+  [3b182d85] Graphite2_jll v1.3.16+0
+  [2e76f6c2] HarfBuzz_jll v100.15001.0+0
+  [e33a78d0] Hwloc_jll v2.15.0+3
+  [905a6f67] Imath_jll v3.2.2+0
+  [1d5cc7b8] IntelOpenMP_jll v2025.2.0+0
+⌅ [9cc047cb] Ipopt_jll v300.1400.1902+0
+  [aacddb02] JpegTurbo_jll v3.2.1+0
+  [c1c5ebd0] LAME_jll v3.100.3+0
+  [88015f11] LERC_jll v4.3.0+0
+  [dad2f222] LLVMExtra_jll v0.0.56+0
+  [1d63c593] LLVMOpenMP_jll v23.1.1+0
+  [81d17ec3] L_BFGS_B_jll v3.0.1+0
+⌅ [e9f186c6] Libffi_jll v3.4.7+0
+  [7e76a0d4] Libglvnd_jll v1.7.1+1
+  [94ce4f54] Libiconv_jll v1.18.0+0
+  [4b2f31a3] Libmount_jll v2.42.4+0
+  [89763e89] Libtiff_jll v4.7.3+0
+  [38a345b3] Libuuid_jll v2.42.4+0
+  [d00139f3] METIS_jll v5.1.4+0
+  [856f044c] MKL_jll v2025.2.0+0
+  [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [e7412a2a] Ogg_jll v1.3.6+0
+  [656ef2d0] OpenBLAS32_jll v0.3.34+1
+  [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
+  [18a262bb] OpenEXR_jll v3.5.3+0
+⌅ [95196869] OpenJPH_jll v0.32.0+0
+  [9bd350c2] OpenSSH_jll v10.6.2+0
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [91d4177d] Opus_jll v1.6.1+0
+  [36c8627f] Pango_jll v1.58.2+0
+  [30392449] Pixman_jll v0.46.4+0
+  [f50d1b31] Rmath_jll v0.5.2+0
+  [319450e9] SPRAL_jll v2025.9.18+1
+  [02c8fc9c] XML2_jll v2.15.4+0
+  [ffd25f8a] XZ_jll v5.8.4+0
+  [4f6342f7] Xorg_libX11_jll v1.8.14+0
+  [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
+  [a3789734] Xorg_libXdmcp_jll v1.1.6+0
+  [1082639a] Xorg_libXext_jll v1.3.8+0
+  [d091e8ba] Xorg_libXfixes_jll v6.0.2+0
+  [ea2f1a96] Xorg_libXrender_jll v0.9.13+0
+  [a65dc6b1] Xorg_libpciaccess_jll v0.19.0+0
+  [c7cfdc94] Xorg_libxcb_jll v1.17.1+0
+  [c5fb5394] Xorg_xtrans_jll v1.6.0+0
+  [9a68df92] isoband_jll v0.2.3+0
+  [a4ae2306] libaom_jll v3.15.3+0
+  [0ac62f75] libass_jll v0.17.5+0
+  [46979653] libdeflate_jll v1.26.0+1
+  [8e53e030] libdrm_jll v2.4.134+0
+⌅ [f638f0a6] libfdk_aac_jll v2.0.4+0
+  [b53b4c65] libpng_jll v1.6.59+1
+  [075b6546] libsixel_jll v1.80.702+0
+  [9a156e7d] libva_jll v2.24.1+0
+  [f27f6e37] libvorbis_jll v1.3.8+0
+  [c5f90fcd] libwebp_jll v1.6.1+0
+  [1317d2d5] oneTBB_jll v2023.1.0+0
+⌅ [1270edf5] x264_jll v10164.0.1+0
+⌅ [dfaa095f] x265_jll v4.1.0+0
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [8bf52ea8] CRC32c v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [9fa8497b] Future v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] LazyArtifacts v1.11.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [a63ad114] Mmap v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [3fa0cd96] REPL v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [1a1011a3] SharedArrays v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [4607b0f0] SuiteSparse
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [05823500] OpenLibm_jll v0.8.7+0
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
+</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../optimal_control_of_a_two_stage_reactor_system/">« Two-Stage Chemical Reactor</a><a class="docs-footer-nextpage" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Wednesday 11 November 2026 09:21">Wednesday 11 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

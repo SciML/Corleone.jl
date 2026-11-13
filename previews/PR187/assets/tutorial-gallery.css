@@ -1,0 +1,26 @@
+.bokeh-list-card table {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.bokeh-list-card td:first-child {
+    width: 45%;
+    vertical-align: top;
+}
+
+.bokeh-list-card-cover img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    background-color: white;
+}
+
+@media (max-width: 600px) {
+    .bokeh-list-card td,
+    .bokeh-list-card td:first-child {
+        display: block;
+        width: 100%;
+    }
+}
