@@ -41,7 +41,9 @@ end
 function collection_log_prior(collection, values, inserted)
     isnothing(collection.prior) && return 0.0
     x = values.ps
-    return sum(eachindex(x); init = 0.0) do i
+    isempty(x) && return zero(eltype(x))
+    # Zygote has no rule for `sum(f, itr; init)`.
+    return sum(eachindex(x)) do i
         term = log_density(collection.prior, natural_value(collection.transform, x[i])) +
             log_jacobian(collection.transform, x[i])
         i in inserted ? zero(term) : term
@@ -72,11 +74,13 @@ function container_prior_expression(::Type{L}, fields, layer, ps, st, inserted) 
             fieldtype(L, field), :(getfield($layer, $name)), :(getproperty($ps, $name)), :(getproperty($st, $name)), inserted
         )
     end
-    # Literal zeros (no prior below this field) are dropped from the sum.
+    # Literal zeros (no prior below this field) are dropped from the sum. A plain
+    # `+` call keeps the reduction differentiable under Zygote, whose rule for
+    # `sum(::Tuple; init)` returns `nothing`.
     terms = filter(term -> term !== 0.0, collect(terms))
     return quote
         optimization_parameter_names($ps, $(QuoteNode(fields)))
-        $(isempty(terms) ? 0.0 : :(sum(($(terms...),); init = 0.0)))
+        +(0.0, $(terms...))
     end
 end
 child_prior_expression(T, layer, ps, st, inserted) =

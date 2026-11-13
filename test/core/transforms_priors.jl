@@ -2,7 +2,8 @@ using Test, Corleone, LuxCore, OrdinaryDiffEqTsit5, StableRNGs, ComponentArrays
 using TransformVariables: asℝ₊, asℝ₋, as𝕀
 using Distributions: Normal, LogNormal, logpdf
 using SymbolicIndexingInterface: parameter_values
-using ForwardDiff: derivative
+using ForwardDiff: derivative, gradient
+using Zygote: Zygote
 
 problem = ODEProblem((u, p, t) -> [-p[1] * u[1], p[2] * u[1]], [1.0, 0.0], (0.0, 1.0), [0.5, 0.2])
 
@@ -51,6 +52,9 @@ end
     expected = logpdf(prior, 2.0) + log(2.0) + 2 * logpdf(Normal(0.2, 0.1), 0.3)
     @test log_prior(layer, ps, st) ≈ expected
     @test log_prior(layer, ComponentArray(ps), st) ≈ expected
+    q, reconstruct = pack(default_vectorizer(), ps)
+    density = x -> log_prior(layer, reconstruct(x), st)
+    @test only(Zygote.gradient(density, q)) ≈ gradient(density, q)
     @test length(Corleone.parameter_collections(layer, ps, st)) == 2
     @test_throws ArgumentError ShootingLayer(problem, Tsit5(), Tunable(1; kind = Val(:parameter), prior = :invalid) => nothing)
 end
@@ -124,6 +128,13 @@ end
     @test expanded.parameter.parameters.p₁.parameter.p₁.ps == [0.5, 0.5]
     @test log_prior(layer, expanded, state) ≈ expected
     @test log_prior(layer, ComponentArray(expanded), state) ≈ expected
+    q, reconstruct = pack(default_vectorizer(), expanded)
+    density = x -> log_prior(layer, reconstruct(x), state)
+    @test only(Zygote.gradient(density, q)) ≈ gradient(density, q)
+    unannotated = ShootingLayer(problem, Tsit5(), Tunable(1; kind = Val(:parameter), default = 0.5) => nothing)
+    ps0, st0 = LuxCore.setup(StableRNG(1), unannotated)
+    q0, reconstruct0 = pack(default_vectorizer(), ps0)
+    @test only(Zygote.gradient(x -> log_prior(unannotated, reconstruct0(x), st0), q0)) in (nothing, zero(q0))
     prior_collections = filter(entry -> !isnothing(first(entry).prior), Corleone.parameter_collections(layer, expanded, state))
     @test last(only(prior_collections)) == [2]
 end
