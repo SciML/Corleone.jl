@@ -212,12 +212,15 @@ end
 
 evaluation_log_prior(layer, ps) = 0.0
 function evaluation_log_prior(layer::EvaluationLayer, ps)
-    return sum(keys(layer.trainable); init = 0.0) do name
+    # Splatting into `+` keeps the reduction differentiable under Zygote, which
+    # has no rule for `sum(f, itr; init)`.
+    terms = map(keys(layer.trainable)) do name
         annotation = layer.evaluation[name]
         isnothing(annotation.prior) && return 0.0
         x = getproperty(ps.evaluation, name)
         return log_density(annotation.prior, natural_value(annotation.transform, x)) + log_jacobian(annotation.transform, x)
     end
+    return +(0.0, terms...)
 end
 
 with_evaluation_prior(layer, ps, objective) = objective

@@ -1,6 +1,6 @@
 using CorleoneInverse, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, Test, Random
 using ForwardDiff, ReverseDiff, Zygote, RuntimeGeneratedFunctions
-using SciMLBase
+using SciMLBase, SciMLSensitivity
 using DiffEqBase: SensitivityADPassThrough
 using Distributions: Normal, logpdf
 
@@ -215,4 +215,29 @@ end
     )
     @test optimization_objective(constrained) ≈ 8.0 - logpdf(prior, 1.0)
     @test optimization_constraints(constrained) ≈ [1.0]
+end
+
+@testset "Zygote gradients through solved inverse objectives" begin
+    decay!(du, u, p, t) = (du[1] = -p[1] * u[1]; nothing)
+    problem = ODEProblem(decay!, [1.0], (0.0, 1.0), [0.8]; abstol = 1.0e-10, reltol = 1.0e-10)
+    t = [0.25, 0.5, 1.0]
+    y = exp.(-0.9 .* t)
+    for prior in (nothing, Normal(1.0, 0.5))
+        shooting = ShootingLayer(problem, Tsit5(), Tunable(1; default = 0.8, prior) => nothing)
+        models = (
+            CorleoneDynamicOptProblem(shooting, Experiment(:u₁ => (t, y, 0.1))),
+            CorleoneDynamicOptProblem(
+                shooting, Experiments(shooting, (a = Experiment(:u₁ => (t, y, 0.1)), b = Experiment(:u₁ => (t, y .+ 0.01, 0.1))))
+            ),
+            CorleoneDynamicOptProblem(
+                shooting, Experiment(:(w * u₁) => (t, y, 0.1));
+                observation_parameters = (w = Tunable(default = 1.0, prior = Normal(1.0, 0.2)),)
+            ),
+        )
+        for model in models
+            q, reconstruct = pack(default_vectorizer(), model.ps)
+            objective = x -> optimization_objective(model, reconstruct(x))
+            @test only(Zygote.gradient(objective, q)) ≈ ForwardDiff.gradient(objective, q) rtol = 1.0e-5
+        end
+    end
 end
