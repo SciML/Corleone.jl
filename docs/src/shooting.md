@@ -40,17 +40,23 @@ Tunable(1; kind = Val(:variable), default = [0.5, 1.5]) => [1.0, 2.0]
 ```
 
 At each such time ``\tau_k``, the next piece starts from the assigned value
-``s_{i,k}`` instead of the incoming state. To recover a continuous trajectory,
+``\tilde{x}_{i,k}`` instead of the incoming state. To recover a continuous trajectory,
 Corleone adds the matching residual
 
 ```math
-r_{i,k}=s_{i,k}-x_i(\tau_k^-),
+r_{i,k}=\tilde{x}_{i,k}-x_i(\tau_k^-),
 ```
 
 and the optimizer drives it to zero. Before optimization the trajectory may
 therefore have jumps. Multiple shooting usually makes unstable or long-horizon
 problems easier to solve, and segments that reset every state can be
 [solved in parallel](@ref parallel_shooting).
+
+![A trajectory over five segments: the control p(t) switches at every grid time, and the state x(t) is reset to the shooting value x̃₂ at t₂, leaving the residual r₂ = x̃₂ − x(t₂⁻) that the optimizer drives to zero.](assets/shooting-sequence.svg)
+
+In the figure, ``t_1, \dots, t_4`` are switching times of the control, but only
+``t_2`` is a shooting node: the state is reset to ``\tilde{x}_2`` there, and the
+dotted jump is the residual ``r_2``.
 
 Not every state annotation creates a residual:
 

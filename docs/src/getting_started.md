@@ -33,6 +33,12 @@ Every Corleone problem follows the same steps:
 5. Convert the model to an `OptimizationProblem`, solve it, and map the result back
    to the structured parameters.
 
+The figure shows this loop. The layer integrates the dynamics segment by segment
+for the current parameters, the objective and constraints are evaluated on the
+resulting trajectory, and the optimizer updates `ps` using derivatives from AD.
+
+![The optimization loop: a ShootingLayer maps ps and st to a trajectory with a piecewise-constant control p(t) and a state x(t) that is reset at t₂, leaving a residual r₂; the objective, constraints, and residuals are differentiated with SciMLSensitivity.jl, and Optimization.jl updates ps.](assets/shooting-sequence.svg)
+
 The rest of this page walks through these steps on a one-state example.
 
 ## A first shooting layer
