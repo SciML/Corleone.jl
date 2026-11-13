@@ -107,6 +107,11 @@ function (layer::EvaluationLayer)(experiments::Experiments, ps, st)
     return trajectories, (; shooting, evaluation = st.evaluation)
 end
 
+function experiment_trajectories(layer::EvaluationLayer, experiments::Experiments, ps, st)
+    trajectories, shooting = experiment_trajectories(layer.shooting, experiments, ps.shooting, st.shooting)
+    return trajectories, (; shooting, evaluation = st.evaluation)
+end
+
 for operation in (:get_lower_bound, :get_upper_bound, :get_integrality)
     @eval function $operation(layer::EvaluationLayer, ps, st = nothing)
         shooting = $operation(layer.shooting, ps.shooting, bound_child_state(st, :shooting))

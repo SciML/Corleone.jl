@@ -50,7 +50,10 @@ end
 
 prior_expression(::Type, layer, ps, st, inserted) = :(0.0)
 prior_expression(::Type{<:FixedLayer}, layer, ps, st, inserted) = :(0.0)
-prior_expression(::Type{<:ParameterCollection}, layer, ps, st, inserted) = :(collection_log_prior($layer, $ps, $inserted))
+# A collection whose prior type is `Nothing` contributes a literal zero, so the
+# generated traversal never touches its parameter view.
+prior_expression(::Type{L}, layer, ps, st, inserted) where {L <: ParameterCollection} =
+    fieldtype(L, :prior) === Nothing ? 0.0 : :(collection_log_prior($layer, $ps, $inserted))
 function prior_expression(::Type{L}, layer, ps, st, inserted) where {L <: PiecewiseConstant}
     return child_prior_expression(fieldtype(L, :parameter), :($layer.parameter), :($ps.parameter), :($st.parameter), :($st.lookup.inserted))
 end
@@ -69,9 +72,11 @@ function container_prior_expression(::Type{L}, fields, layer, ps, st, inserted) 
             fieldtype(L, field), :(getfield($layer, $name)), :(getproperty($ps, $name)), :(getproperty($st, $name)), inserted
         )
     end
+    # Literal zeros (no prior below this field) are dropped from the sum.
+    terms = filter(term -> term !== 0.0, collect(terms))
     return quote
         optimization_parameter_names($ps, $(QuoteNode(fields)))
-        sum(($(terms...),); init = 0.0)
+        $(isempty(terms) ? 0.0 : :(sum(($(terms...),); init = 0.0)))
     end
 end
 child_prior_expression(T, layer, ps, st, inserted) =

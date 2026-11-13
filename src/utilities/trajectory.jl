@@ -33,12 +33,21 @@ $(FIELDS)
     residuals
     "Indices in `u` and `t` of outgoing samples at initial-condition reset boundaries."
     reset_indices
-    "The shooting layer used to evaluate parameter values on demand."
+    "The shooting layer used to evaluate parameter values on demand (stored as a `Ref`; `traj.layer` returns the layer)."
     layer
     "The supplied Lux parameters, retained by reference for parameter queries and AD."
     ps
-    "The Lux state used for parameter queries, retained by reference for AD."
+    "The Lux state used for parameter queries (stored as a `Ref`; `traj.st` returns the state)."
     st
+end
+
+# The layer and Lux state do not depend on the optimization variables but make
+# up most of a trajectory's inline size. Holding them in `Ref`s keeps the
+# trajectory small when it is returned or captured, while it stays immutable for
+# AD and every field type stays concrete.
+@inline function Base.getproperty(traj::Trajectory, name::Symbol)
+    value = getfield(traj, name)
+    return name === :layer || name === :st ? value[] : value
 end
 
 # Keep construction separate from assembly: some downstream constructor rules
@@ -124,7 +133,7 @@ function build_trajectory(layer, ps, st, solutions::AbstractVector, residuals)
     u = gather_trajectory_states(states, layout.segments, layout.samples)
     return Trajectory(
         trajectory_symbolic_container(layer), u, layout.times,
-        residuals, layout.reset_indices, layer, ps, st
+        residuals, layout.reset_indices, Ref(layer), ps, Ref(st)
     )
 end
 

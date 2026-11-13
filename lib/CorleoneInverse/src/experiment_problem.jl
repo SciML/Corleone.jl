@@ -7,12 +7,12 @@ as_experiments(experiments::ObservationExperiments) = experiments
 is_weighted(experiment::Experiment) = map(observation -> !isnothing(observation.σ), experiment.observations)
 
 # The wrapper delegates Lux setup and bounds to the owner of the tunable tree.
-struct ExperimentPrediction{S, L, D, P, E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
-    shooting::S
-    layer::L
-    data::D
-    definition::P
-    evaluation::E
+mutable struct ExperimentPrediction{S, L, D, P, E} <: LuxCore.AbstractLuxWrapperLayer{:layer}
+    const shooting::S
+    const layer::L
+    const data::D
+    const definition::P
+    const evaluation::E
 end
 
 experiment_parameters(::Nothing, ps) = ps
@@ -85,12 +85,14 @@ function optimization_prediction(layer::ExperimentPrediction, ps, st, grid)
 end
 function experiment_prediction(owner::Experiments, layer, ps, st, grid)
     state = merge(st, (; saveat = grid))
+    # The tuple form keeps one concrete trajectory type per experiment; converting
+    # the public Vector result with Tuple(...) loses its length during inference.
     if isnothing(layer.evaluation)
-        trajectories, _ = layer.shooting(owner, ps, state)
+        trajectories, _ = Corleone.experiment_trajectories(layer.shooting, owner, ps, state)
     else
-        trajectories, _ = layer.evaluation(owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
+        trajectories, _ = Corleone.experiment_trajectories(layer.evaluation, owner, ps, (; shooting = state, evaluation = get(st, :evaluation, layer.evaluation.fixed)))
     end
-    return NamedTuple{keys(layer.data)}(Tuple(trajectories))
+    return NamedTuple{keys(layer.data)}(trajectories)
 end
 function experiment_prediction(owner::ShootingLayer, layer, ps, st, grid)
     state = merge(st, (; saveat = grid))
@@ -138,16 +140,38 @@ function prepare_observations(data::Experiment, trajectory, eval_module, evaluat
     return Experiment(observations, data.u0, data.t)
 end
 
-struct MeasurementObjective{O, D, R}
-    owner::O
-    data::D
-    reducer::R
+mutable struct MeasurementObjective{O, D, R}
+    const owner::O
+    const data::D
+    const reducer::R
 end
-function measurement_residuals(data, trajectories, evaluation)
-    groups = map(data, trajectories) do experiment, trajectory
-        reduce(vcat, map(observation -> residual(observation, trajectory, evaluation), experiment.observations))
+# Experiments of one concrete type run in a loop over a single compiled method;
+# mixed experiment types keep an unrolled map, so each result stays concrete.
+# The explicit loop indexes the argument tuples instead of capturing them in a
+# generator closure, which would copy every experiment by value.
+function paired_map(f, a::NTuple{N, A}, b::NTuple{N, B}) where {N, A, B}
+    value = f(a[1], b[1])
+    out = Vector{typeof(value)}(undef, N)
+    out[1] = value
+    for i in 2:N
+        out[i] = f(a[i], b[i])
     end
-    return reduce(vcat, values(groups))
+    return out
+end
+paired_map(f, a::Tuple, b::Tuple) = map(f, a, b)
+paired_map(f, ::Tuple{}, ::Tuple{}) = ()
+
+@noinline experiment_residuals(experiment, trajectory, evaluation) =
+    reduce(vcat, map(observation -> residual(observation, trajectory, evaluation), experiment.observations))
+
+# Named experiments are matched by name; positional experiments by position.
+aligned_trajectories(data::NamedTuple, trajectories::NamedTuple) = values(NamedTuple{keys(data)}(trajectories))
+aligned_trajectories(data, trajectories) = values(trajectories)
+
+function measurement_residuals(data, trajectories, evaluation)
+    aligned = aligned_trajectories(data, trajectories)
+    groups = paired_map((experiment, trajectory) -> experiment_residuals(experiment, trajectory, evaluation), values(data), aligned)
+    return reduce(vcat, groups)
 end
 
 reduce_measurements(reducer, data, trajectories, evaluation) = reducer(abs2.(measurement_residuals(data, trajectories, evaluation)))

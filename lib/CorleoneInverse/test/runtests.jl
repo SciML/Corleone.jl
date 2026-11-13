@@ -33,8 +33,11 @@ withenv("GROUP" => GROUP) do
             @safetestset "Lotka Volterra" begin
                 include("core/lotka_volterra.jl")
             end
-            return @safetestset "Multiple shooting" begin
+            @safetestset "Multiple shooting" begin
                 include("core/multiple_shooting.jl")
+            end
+            return @safetestset "Type-stable experiment pipeline" begin
+                include("core/type_stability.jl")
             end
         end,
         qa = (; env = joinpath(@__DIR__, "qa"), body = joinpath(@__DIR__, "qa", "qa.jl")),

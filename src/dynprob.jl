@@ -41,31 +41,31 @@ SciMLBase optimization bridge, or supply another packing implementation.
 # Fields
 $(FIELDS)
 """
-struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
+mutable struct CorleoneDynamicOptProblem{L, O, C, P, S, T, G, B, V, LB, UB}
     "The Lux layer shared with forward predictions."
-    layer::L
+    const layer::L
     "The scalar objective callback, prepared expression, or measurement objective."
-    objective::O
+    const objective::O
     "Prepared constraint evaluators in declaration order."
-    constraints::C
+    const constraints::C
     "Initialized numerical parameters, retained by reference."
-    ps::P
+    const ps::P
     "Initialized Lux state, retained by reference."
-    st::S
+    const st::S
     "Requested expression times grouped by signal, and by experiment when applicable."
-    timepoints::T
+    const timepoints::T
     "The evaluation grid or experiment grid tree, or nothing for layer-owned grids."
-    evaluation_grid::G
+    const evaluation_grid::G
     "The original cached shooting-stop tree used to detect schedule changes."
-    source_timestops::B
+    const source_timestops::B
     "The actual saved prediction grid or grid tree, retained for layout checks."
-    times::V
+    const times::V
     "Flattened user lower bounds followed by shooting equality bounds."
-    lcons::LB
+    const lcons::LB
     "Flattened user upper bounds followed by shooting equality bounds."
-    ucons::UB
+    const ucons::UB
     "The prepared number of state and parameter shooting equalities."
-    nshooting::Int
+    const nshooting::Int
 
     function CorleoneDynamicOptProblem(
             ::Val{:Prepared}, layer::L, objective::O, constraints::C, ps::P, st::S,
