@@ -61,6 +61,16 @@ function beale_joint_confidence(
         throw(ArgumentError("The estimate has $p parameters, but the model has $(length(q0)) tunable values."))
     natural = q -> natural_vector(owner, reconstruct(q), st)
     transforms = _beale_transforms(owner, ps, st)
+    # Independent box samples cannot follow equalities such as shooting matches.
+    any(i -> model.lcons[i] == model.ucons[i], eachindex(model.lcons)) &&
+        throw(ArgumentError("Beale sampling does not support equality constraints, including multiple-shooting matching conditions."))
+    # The region is defined by the residual sum of squares alone.
+    all(entry -> isnothing(first(entry).prior), parameter_collections(owner, ps, st)) ||
+        throw(ArgumentError("Beale sampling does not support parameter priors."))
+    constrained = any(isfinite, model.lcons) || any(isfinite, model.ucons)
+    lower_bounds, upper_bounds = get_bounds(model.layer, ps, st)
+    lb, _ = pack(default_vectorizer(), lower_bounds)
+    ub, _ = pack(default_vectorizer(), upper_bounds)
 
     # Sample in internal coordinates, where every value lies in the transform's domain.
     # The natural intervals map from internal endpoints, so they map back exactly.
@@ -87,13 +97,18 @@ function beale_joint_confidence(
                     (upper[i] = min(upper[i], zero_point))
             end
         end
+        # Annotation bounds are stored in internal coordinates.
+        lower[i] = max(lower[i], lb[i])
+        upper[i] = min(upper[i], ub[i])
         lower[i] < upper[i] || throw(ArgumentError("Empty sampling interval for $(names[i])."))
     end
 
     n = length(residual(model, ps, st))
-    n > p || throw(ArgumentError("Need more residuals than parameters."))
+    # Without equalities, every tunable value is a free parameter of the fit.
+    n - estimate.dof == p ||
+        throw(ArgumentError("The estimate has $(n - estimate.dof) free parameters for $n residuals, but the model has $p."))
     minimal_ssr = estimate.rss
-    threshold = minimal_ssr * (1 + p / (n - p) * quantile(FDist(p, n - p), confidence))
+    threshold = minimal_ssr * (1 + p / estimate.dof * quantile(FDist(p, estimate.dof), confidence))
 
     accepted = Vector{Float64}[]
     accepted_ssr = Float64[]
@@ -103,7 +118,9 @@ function beale_joint_confidence(
         q = lower .+ (upper .- lower) .* rand(rng, p)
         θ = natural(q)
         any(i -> θ[i] == 0 && !zero_ok[i], 1:p) && continue
-        ssr = _beale_ssr(model, reconstruct(q))
+        candidate = reconstruct(q)
+        constrained && !_beale_feasible(model, candidate) && continue
+        ssr = _beale_ssr(model, candidate)
         if ssr < threshold
             push!(accepted, θ)
             push!(accepted_ssr, ssr)
@@ -146,6 +163,16 @@ function _beale_internal_zero(transform)
     catch error
         error isa DomainError && return nothing
         rethrow()
+    end
+end
+
+# Whether a candidate satisfies the model's inequality constraints.
+function _beale_feasible(model, ps)
+    try
+        c = optimization_constraints(model, ps, model.st)
+        return all(i -> model.lcons[i] <= c[i] <= model.ucons[i], eachindex(c))
+    catch
+        return false
     end
 end
 
