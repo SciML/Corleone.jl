@@ -55,27 +55,42 @@ function beale_joint_confidence(
     all(x -> x isa Real && isfinite(x) && x > 0, factors) ||
         throw(ArgumentError("expansion must contain only positive finite values."))
 
+    owner, ps, st = model.objective.owner, model.ps, model.st
+    q0, reconstruct = pack(default_vectorizer(), ps)
+    length(q0) == p ||
+        throw(ArgumentError("The estimate has $p parameters, but the model has $(length(q0)) tunable values."))
+    natural = q -> natural_vector(owner, reconstruct(q), st)
+    transforms = _beale_transforms(owner, ps, st)
+
+    # Sample in internal coordinates, where every value lies in the transform's domain.
+    # The natural intervals map from internal endpoints, so they map back exactly.
     estimate_values = copy(estimate.x)
+    center = internal_vector(owner, ps, st, estimate_values)
+    interval_lower = internal_vector(owner, ps, st, first.(estimate.confidence_intervals))
+    interval_upper = internal_vector(owner, ps, st, last.(estimate.confidence_intervals))
     lower = zeros(p)
     upper = zeros(p)
     for i in 1:p
-        lo, hi = estimate.confidence_intervals[i]
-        isfinite(lo) && isfinite(hi) && lo <= hi ||
+        lo, hi = minmax(interval_lower[i], interval_upper[i])
+        isfinite(lo) && isfinite(hi) ||
             throw(ArgumentError("Invalid confidence interval for $(names[i])."))
-        midpoint = (lo + hi) / 2
         halfwidth = factors[i] * (hi - lo) / 2
-        lower[i] = midpoint - halfwidth
-        upper[i] = midpoint + halfwidth
+        lower[i] = center[i] - halfwidth
+        upper[i] = center[i] + halfwidth
         if restricted[i]
             estimate_values[i] == 0 &&
                 throw(ArgumentError("Cannot sign-restrict $(names[i]): its estimate is zero."))
-            estimate_values[i] > 0 ? (lower[i] = max(lower[i], 0.0)) : (upper[i] = min(upper[i], 0.0))
+            zero_point = _beale_internal_zero(transforms[i])
+            # Keep the side of the internal zero that holds the estimate.
+            if !isnothing(zero_point)
+                zero_point < center[i] ? (lower[i] = max(lower[i], zero_point)) :
+                    (upper[i] = min(upper[i], zero_point))
+            end
         end
         lower[i] < upper[i] || throw(ArgumentError("Empty sampling interval for $(names[i])."))
     end
 
-    _, reconstruct = pack(default_vectorizer(), model.ps)
-    n = length(residual(model, model.ps, model.st))
+    n = length(residual(model, ps, st))
     n > p || throw(ArgumentError("Need more residuals than parameters."))
     minimal_ssr = estimate.rss
     threshold = minimal_ssr * (1 + p / (n - p) * quantile(FDist(p, n - p), confidence))
@@ -85,9 +100,10 @@ function beale_joint_confidence(
     tested = 0
     while length(accepted) < n_accept && tested < max_samples
         tested += 1
-        θ = lower .+ (upper .- lower) .* rand(rng, p)
+        q = lower .+ (upper .- lower) .* rand(rng, p)
+        θ = natural(q)
         any(i -> θ[i] == 0 && !zero_ok[i], 1:p) && continue
-        ssr = _beale_ssr(model, reconstruct, θ)
+        ssr = _beale_ssr(model, reconstruct(q))
         if ssr < threshold
             push!(accepted, θ)
             push!(accepted_ssr, ssr)
@@ -99,7 +115,8 @@ function beale_joint_confidence(
     parameters = isempty(accepted) ? zeros(p, 0) : reduce(hcat, accepted)
     return (
         parameters = parameters, ssr = accepted_ssr, threshold = threshold,
-        minimal_ssr = minimal_ssr, estimate = estimate_values, lower = lower, upper = upper,
+        minimal_ssr = minimal_ssr, estimate = estimate_values,
+        lower = min.(natural(lower), natural(upper)), upper = max.(natural(lower), natural(upper)),
         names = names, tested = tested, confidence = confidence,
     )
 end
@@ -116,10 +133,25 @@ function _beale_per_parameter(values, p, name)
     return result
 end
 
-function _beale_ssr(model, reconstruct, θ)
-    q = internal_vector(model.objective.owner, model.ps, model.st, θ)
+# The transform of each packed coordinate.
+_beale_transforms(owner, ps, st) = reduce(
+    vcat, map(((collection, values),) -> fill(collection.transform, length(values.ps)), collect(parameter_collections(owner, ps, st)));
+    init = Any[]
+)
+
+# The internal coordinate of a natural zero, or `nothing` when zero lies outside the transform's image.
+function _beale_internal_zero(transform)
     try
-        ssr = sum(abs2, residual(model, reconstruct(q), model.st))
+        return only(internal_values(transform, [0.0]))
+    catch error
+        error isa DomainError && return nothing
+        rethrow()
+    end
+end
+
+function _beale_ssr(model, ps)
+    try
+        ssr = sum(abs2, residual(model, ps, model.st))
         return isfinite(ssr) ? ssr : Inf
     catch
         # A failed model evaluation rejects this sample, as in Beale's method.
