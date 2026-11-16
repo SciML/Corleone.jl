@@ -74,7 +74,7 @@ function beale_joint_confidence(
         lower[i] < upper[i] || throw(ArgumentError("Empty sampling interval for $(names[i])."))
     end
 
-    _, reconstruct = Corleone.pack(Corleone.default_vectorizer(), model.ps)
+    _, reconstruct = pack(default_vectorizer(), model.ps)
     n = length(residual(model, model.ps, model.st))
     n > p || throw(ArgumentError("Need more residuals than parameters."))
     minimal_ssr = estimate.rss
@@ -116,22 +116,8 @@ function _beale_per_parameter(values, p, name)
     return result
 end
 
-function _internal_beale_vector(owner, ps, st, θ)
-    parts = Vector{Float64}[]
-    offset = 0
-    for entry in Corleone.parameter_collections(owner, ps, st)
-        collection, values = entry[1], entry[2]
-        count = length(Corleone.natural_values(collection.transform, values.ps))
-        push!(parts, Corleone.internal_values(collection.transform, θ[(offset + 1):(offset + count)]))
-        offset += count
-    end
-    offset == length(θ) ||
-        throw(ArgumentError("The sampled parameter vector does not match the model's tunable parameters."))
-    return reduce(vcat, parts)
-end
-
 function _beale_ssr(model, reconstruct, θ)
-    q = _internal_beale_vector(model.objective.owner, model.ps, model.st, θ)
+    q = internal_vector(model.objective.owner, model.ps, model.st, θ)
     try
         ssr = sum(abs2, residual(model, reconstruct(q), model.st))
         return isfinite(ssr) ? ssr : Inf

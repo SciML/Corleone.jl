@@ -7,7 +7,7 @@ import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajecto
     optimization_matching!, optimization_prediction, optimization_schedule, residual, log_prior, parameter_collections,
     optimization_dependency_rows
 using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, EvaluationLayer,
-    default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
+    default_evaluator, default_vectorizer, get_bounds, internal_values, natural_values, optimization_constraints,
     pack, shooting_constraints,
     collect_expression_times!, compile_trajectory_expression,
     experiment_fields, expression_sample_grid,
