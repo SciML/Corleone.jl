@@ -27,7 +27,7 @@ Returns a named tuple containing `parameters` (a parameter-by-sample matrix),
 the accepted `ssr` values, threshold, minimum SSR, estimate, sampling limits,
 parameter names, number of tested samples, and confidence level.
 
-Contributed by Dr.Kai Exner, BASF SE.
+Contributed by Dr. Kai Exner, BASF SE.
 """
 function beale_joint_confidence(
         model, estimate::ParameterEstimate;

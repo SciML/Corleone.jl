@@ -81,3 +81,6 @@ discretization = "discretization"
 parameterized = "parameterized"
 discretized = "discretized"
 vectorized = "vectorized"
+
+# Organization names in contributor acknowledgements
+BASF = "BASF"
