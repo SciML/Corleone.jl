@@ -1,31 +1,43 @@
 """
     beale_joint_confidence(model, estimate; kwargs...)
 
-Sample a joint parameter confidence region using Beale's method, based on a
-[`ParameterEstimate`](@ref). Each parameter is sampled uniformly in a box
-centered on its 95% confidence interval. A sample is accepted when its sum of
-squared residuals is below
-`SSR_min * (1 + p / (n - p) * F_quantile(p, n - p; confidence))`.
+Sample a joint parameter confidence region of an experiment
+[`CorleoneDynamicOptProblem`](@ref) with Beale's method. `estimate` is the
+[`ParameterEstimate`](@ref) of a least-squares fit of `model`; its residual sum
+of squares `estimate.rss` is the reference `RSS`, so it must come from the
+optimum. Candidates are drawn uniformly from a box around the estimate and
+accepted when their residual sum of squares lies below
 
-The confidence-interval widths are scaled by `expansion`. Parameters can be
-restricted to the sign of their estimate with `sign_restricted`.
+- `RSS * (1 + p / dof * F_quantile(p, dof; confidence))` without noise scales, or
+- `RSS + χ²_quantile(p; confidence)` with known noise scales σ,
+
+for `p` parameters and `dof = estimate.dof` residual degrees of freedom.
+
+The box is built in the internal coordinates of the annotation transforms, so
+every candidate lies in the transform's domain. Each side spans `expansion`
+times the width of the estimate's confidence interval, centered on the
+estimate, and is clipped to the annotation bounds. Candidates that violate an
+inequality constraint or fail with a `DomainError` in the model are rejected.
+Models with equality constraints, including multiple-shooting matching
+conditions, or with parameter priors are not supported.
 
 Keyword arguments:
 - `names`: names used for each parameter (default: `θ1`, `θ2`, ...).
 - `sign_restricted`: whether to keep each parameter on the sign of its estimate.
 - `allow_zero`: whether samples exactly equal to zero are allowed.
-- `expansion`: sampling width relative to the 95% interval width (default: 2).
+- `expansion`: sampling width relative to the confidence-interval width (default: 2).
 - `n_accept`: number of accepted combinations to collect (default: 500).
 - `max_samples`: maximum number of combinations to test (default: 100000).
-- `confidence`: confidence level for the F-test (default: 0.95).
+- `confidence`: confidence level of the joint region (default: 0.95).
 - `rng`: random number generator.
 
 Scalar `sign_restricted`, `allow_zero`, and `expansion` values apply to every
 parameter; collections provide per-parameter values.
 
-Returns a named tuple containing `parameters` (a parameter-by-sample matrix),
-the accepted `ssr` values, threshold, minimum SSR, estimate, sampling limits,
-parameter names, number of tested samples, and confidence level.
+Returns a named tuple containing `parameters` (a parameter-by-sample matrix of
+natural values), the accepted `ssr` values, the `threshold`, the reference
+`minimal_ssr`, the `estimate`, the natural sampling limits `lower` and `upper`,
+the parameter `names`, the number of `tested` samples, and the `confidence` level.
 
 Contributed by Dr. Kai Exner, BASF SE.
 """
@@ -37,7 +49,7 @@ function beale_joint_confidence(
         confidence::Real = 0.95, rng::Random.AbstractRNG = Random.default_rng()
     )
     p = length(estimate.x)
-    names = collect(String, names)
+    names = map(string, collect(names))
     length(names) == p || throw(ArgumentError("Expected $p names, got $(length(names))."))
     0 < confidence < 1 || throw(ArgumentError("confidence must lie in (0, 1)."))
     n_accept > 0 || throw(ArgumentError("n_accept must be positive."))
@@ -203,6 +215,6 @@ end
 Plot accepted Beale confidence-region samples pairwise. `pairs` may contain
 parameter names or indices; by default all parameter pairs are plotted. Sampling
 limits are shown as dashed red lines and the estimate as a black star. Requires
-`CairoMakie` to be loaded.
+a Makie backend, such as `CairoMakie`, to be loaded.
 """
 function plot_beale_pairs end
