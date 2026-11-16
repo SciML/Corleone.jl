@@ -108,7 +108,7 @@ ParameterEstimate(model, ipopt_fit.u)
 # The intervals in `ParameterEstimate` describe uncertainty one parameter at a
 # time. Beale's method probes combinations of parameters around those intervals
 # and retains combinations whose residual sum of squares is below an
-# F-distribution-based threshold. 
+# F-distribution-based threshold.
 names = ["α", "β", "δ", "γ"]
 beale = beale_joint_confidence(model, estimate; names, rng)
 fig = plot_beale_pairs(beale)
