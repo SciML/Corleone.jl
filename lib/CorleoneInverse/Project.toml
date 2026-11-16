@@ -1,7 +1,7 @@
 name = "CorleoneInverse"
 uuid = "f6133253-78ce-497c-b6b6-fe2141d0b67d"
 authors = ["Carl Julius Martensen", "Christoph Plate"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
