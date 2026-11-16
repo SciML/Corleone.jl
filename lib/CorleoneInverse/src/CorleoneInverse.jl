@@ -22,7 +22,7 @@ using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
-using Distributions: Normal, TDist, mean, quantile, std
+using Distributions: FDist, Normal, TDist, mean, quantile, std
 using ForwardDiff: ForwardDiff
 using LinearAlgebra: I, Symmetric, diag, nullspace
 using LuxCore: LuxCore
@@ -39,7 +39,8 @@ include("experiment_sparsity.jl")
 export residual_jacobian_sparsity
 include("problem.jl")
 include("statistics.jl")
-export ParameterEstimate, mean_squared_residual
+include("beale_joint_confidence.jl")
+export ParameterEstimate, mean_squared_residual, beale_joint_confidence, plot_beale_pairs
 
 include("precompile.jl")
 

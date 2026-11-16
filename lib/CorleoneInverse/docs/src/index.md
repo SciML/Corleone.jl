@@ -71,6 +71,11 @@ covariance to their null space.
   method, and confidence intervals by mapping their endpoints from internal
   coordinates.
 
+[`beale_joint_confidence`](@ref) supplements these marginal intervals with
+sampled joint confidence regions. It evaluates candidate parameter combinations
+against an F-distribution-based residual threshold; pairwise samples can be
+visualized with [`plot_beale_pairs`](@ref) when CairoMakie is loaded.
+
 !!! note "Assumptions"
     The estimate is a local, linearized approximation. It assumes an interior
     optimum, away from active inequalities and parameter bounds. With priors, it

@@ -64,3 +64,21 @@ positive = ShootingLayer(
     reference = ParameterEstimate(layer, experiments, est.x, ps0, st0)
     @test est.covariance ≈ reference.covariance rtol = 1.0e-6
 end
+
+@testset "Beale joint confidence region" begin
+    model = CorleoneDynamicOptProblem(layer, experiments; ps, st)
+    offset_estimate = ParameterEstimate(layer, experiments, sol.u .+ [0.08, -0.08], ps, st)
+    result = beale_joint_confidence(
+        model, offset_estimate; names = ["alpha", "delta"], expansion = 0.01,
+        n_accept = 2, max_samples = 100, rng = StableRNG(5)
+    )
+    @test size(result.parameters) == (2, 2)
+    @test length(result.ssr) == 2
+    @test all(result.ssr .< result.threshold)
+    @test result.names == ["alpha", "delta"]
+    @test result.tested <= 100
+
+    @test_throws ArgumentError beale_joint_confidence(model, est; names = ["only one"])
+    @test_throws ArgumentError beale_joint_confidence(model, est; confidence = 1)
+    @test_throws ArgumentError beale_joint_confidence(model, est; expansion = 0)
+end

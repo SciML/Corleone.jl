@@ -104,8 +104,19 @@ ParameterEstimate(model, ipopt_fit.u)
 #     usually the fastest choice. Use `OptimizationProblem` when you need general
 #     priors, constraints, or multiple shooting.
 
+# ## Beale's joint confidence region
+# The intervals in `ParameterEstimate` describe uncertainty one parameter at a
+# time. Beale's method probes combinations of parameters around those intervals
+# and retains combinations whose residual sum of squares is below an
+# F-distribution-based threshold. 
+names = ["α", "β", "δ", "γ"]
+beale = beale_joint_confidence(model, estimate; names, rng)
+fig = plot_beale_pairs(beale)
+fig
+
 # ## Acknowledgements
 #
 # This example is adapted from Christoph Plate
 # ([@chplate](https://github.com/chplate))'s example in
 # [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168).
+# beale_joint_confidence was contributed by Kai Exner, BASF SE.
