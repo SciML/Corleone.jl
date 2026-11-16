@@ -178,18 +178,22 @@ function _beale_feasible(model, ps)
     try
         c = optimization_constraints(model, ps, model.st)
         return all(i -> model.lcons[i] <= c[i] <= model.ucons[i], eachindex(c))
-    catch
-        return false
+    catch error
+        error isa DomainError && return false
+        rethrow()
     end
 end
 
 function _beale_ssr(model, ps)
     try
         ssr = sum(abs2, residual(model, ps, model.st))
+        # Failed solves yield non-finite residuals and reject the sample.
         return isfinite(ssr) ? ssr : Inf
-    catch
-        # A failed model evaluation rejects this sample, as in Beale's method.
-        return Inf
+    catch error
+        # A candidate outside the model's domain is rejected, as in Beale's method;
+        # other errors, including interrupts, propagate.
+        error isa DomainError && return Inf
+        rethrow()
     end
 end
 
