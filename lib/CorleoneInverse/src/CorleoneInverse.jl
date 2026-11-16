@@ -22,7 +22,7 @@ using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
-using Distributions: FDist, Normal, TDist, mean, quantile, std
+using Distributions: Chisq, FDist, Normal, TDist, mean, quantile, std
 using ForwardDiff: ForwardDiff
 using LinearAlgebra: I, Symmetric, diag, nullspace
 using LuxCore: LuxCore

@@ -108,7 +108,14 @@ function beale_joint_confidence(
     n - estimate.dof == p ||
         throw(ArgumentError("The estimate has $(n - estimate.dof) free parameters for $n residuals, but the model has $p."))
     minimal_ssr = estimate.rss
-    threshold = minimal_ssr * (1 + p / estimate.dof * quantile(FDist(p, estimate.dof), confidence))
+    # Known noise scales give a likelihood-ratio region; otherwise the variance is
+    # estimated from the residuals and the F distribution accounts for it.
+    weighted = first(is_weighted(first(values(model.objective.data))))
+    threshold = if weighted
+        minimal_ssr + quantile(Chisq(p), confidence)
+    else
+        minimal_ssr * (1 + p / estimate.dof * quantile(FDist(p, estimate.dof), confidence))
+    end
 
     accepted = Vector{Float64}[]
     accepted_ssr = Float64[]
