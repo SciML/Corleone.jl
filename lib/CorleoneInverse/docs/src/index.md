@@ -74,7 +74,8 @@ covariance to their null space.
 [`beale_joint_confidence`](@ref) supplements these marginal intervals with
 sampled joint confidence regions. It evaluates candidate parameter combinations
 against an F-distribution-based residual threshold; pairwise samples can be
-visualized with [`plot_beale_pairs`](@ref) when CairoMakie is loaded.
+visualized with [`plot_beale_pairs`](@ref) when a Makie backend such as CairoMakie
+is loaded.
 
 !!! note "Assumptions"
     The estimate is a local, linearized approximation. It assumes an interior

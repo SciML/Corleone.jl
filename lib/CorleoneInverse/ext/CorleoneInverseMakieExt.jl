@@ -1,7 +1,7 @@
-module CorleoneInverseCairoMakieExt
+module CorleoneInverseMakieExt
 
 import CorleoneInverse
-using CairoMakie: Axis, Figure, hlines!, scatter!, vlines!
+using Makie: Axis, Figure, hlines!, scatter!, vlines!
 
 function _parameter_index(names, parameter)
     parameter isa Integer && return parameter
@@ -16,7 +16,7 @@ end
 Plot accepted Beale confidence-region samples pairwise. `pairs` may contain
 parameter names or indices; by default all pairs are plotted. The sampling
 limits are shown as dashed red lines, and the estimate as a black star.
-Requires `CairoMakie` to be loaded.
+Requires a Makie backend, such as `CairoMakie`, to be loaded.
 """
 function CorleoneInverse.plot_beale_pairs(
         result; pairs = nothing, show_sampling_box = true, columns::Integer = 2
