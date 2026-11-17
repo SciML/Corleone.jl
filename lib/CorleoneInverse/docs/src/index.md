@@ -78,6 +78,46 @@ covariance to their null space.
     of squares minus the log prior: use least squares with Normal priors, or
     `reducer = x -> sum(x) / 2` with `OptimizationProblem`.
 
+## Profile likelihoods
+
+Loading LikelihoodProfiler.jl enables a constructor that wraps the original
+optimization problem and a fitted `ParameterEstimate`:
+
+```julia
+using Optimization, OptimizationOptimJL, LikelihoodProfiler
+using Distributions: quantile, Chisq
+
+# Known observation noise scales; a Gaussian negative log-likelihood.
+model = CorleoneDynamicOptProblem(shooting, experiment; reducer = x -> sum(x) / 2)
+problem = OptimizationProblem(model, AutoForwardDiff())
+fit = solve(problem, LBFGS())
+estimate = ParameterEstimate(model, fit.u)
+profile = ProfileLikelihoodProblem(problem, estimate;
+    profile_lower = -5.0, profile_upper = 5.0,
+    threshold = quantile(Chisq(1), estimate.level) / 2)
+profiles = solve(profile, OptimizationProfiler(optimizer = LBFGS()))
+```
+
+LikelihoodProfiler's default threshold is
+the full chi-squared quantile, so halve it for a negative log-likelihood objective.
+The wrapper passes the objective and threshold through unchanged; choose their
+scaling consistently, especially with unweighted residuals or custom reducers.
+
+Controls are excluded from the profile targets by default and remain free nuisance
+parameters during reoptimization. Set `include_controls = true` to target all
+tunable values, or use `idxs = [1, 3]` to choose packed indices explicitly,
+including controls. The confidence level defaults to `estimate.level`.
+
+The original optimization problem retains its bounds and constraints; algorithm
+and optimizer support for constrained profiles follows LikelihoodProfiler.
+LikelihoodProfiler 1.6.1's stepwise profiler requires a backend with an Optimization.jl
+`OptimizationCache`, such as OptimizationOptimJL, rather than OptimizationMOI.
+Supply finite `profile_lower` and `profile_upper` bounds if its bounds are infinite;
+these bounds and the resulting profiles are in internal optimizer coordinates.
+The estimate retains the fitted internal values even when `estimate.x` reports
+transformed natural values. Use the same model and packing for the estimate and
+the optimization problem.
+
 ## Where to go next
 
 - [Observations and parameters](@ref inverse_observations) covers measurement
@@ -90,6 +130,8 @@ covariance to their null space.
 
 - [Lotka–Volterra estimation](@ref inverse_lotka_plain): positive parameters and
   uncertainty estimates.
+- [Profile likelihoods](@ref inverse_likelihood_profile): transformed parameters,
+  fitted controls, and profile confidence intervals.
 - [Joint Lotka–Volterra experiments](@ref inverse_lotka_multiexperiment): shared
   parameters across experiments.
 - [Controls from experimental design](@ref inverse_lotka_oed_control): estimation

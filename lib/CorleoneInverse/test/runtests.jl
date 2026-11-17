@@ -12,6 +12,9 @@ const GROUP = _G == _SUB ? "Core" : (startswith(_G, _SUB * "_") ? _G[(length(_SU
 withenv("GROUP" => GROUP) do
     run_tests(;
         core = function ()
+            @safetestset "LikelihoodProfiler extension" begin
+                include("core/likelihood_profiler.jl")
+            end
             @safetestset "Prepared experiment problems" begin
                 include("core/experiment_problem.jl")
             end

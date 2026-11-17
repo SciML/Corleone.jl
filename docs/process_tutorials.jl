@@ -134,6 +134,7 @@ tutorials = map(
         (joinpath(@__DIR__, "..", "examples", "lotka_multistage", "main.jl"), "multistage_lotka_volterra"),
         (joinpath(@__DIR__, "..", "examples", "lotka_sto", "main.jl"), "lotka_volterra_switching_times"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_plain", "main.jl"), "inverse_lotka_plain"),
+        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "likelihood_profile", "main.jl"), "inverse_likelihood_profile"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_multiexperiment", "main.jl"), "inverse_lotka_multiexperiment"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_oed_control", "main.jl"), "inverse_lotka_oed_control"),
         (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "multiple_shooting", "main.jl"), "inverse_multiple_shooting"),
