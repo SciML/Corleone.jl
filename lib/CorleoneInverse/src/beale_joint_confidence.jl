@@ -217,4 +217,6 @@ parameter names or indices; by default all parameter pairs are plotted. Sampling
 limits are shown as dashed red lines and the estimate as a black star. Requires
 a Makie backend, such as `CairoMakie`, to be loaded.
 """
-function plot_beale_pairs end
+function plot_beale_pairs(args...; kwargs...)
+    throw(ArgumentError("plot_beale_pairs requires a Makie backend to be loaded (e.g. `using CairoMakie`)."))
+end

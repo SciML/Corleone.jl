@@ -111,7 +111,7 @@ function internal_vector(layer, ps, st, x::AbstractVector)
     end
     offset == length(x) ||
         throw(ArgumentError("Expected $offset natural parameter values, got $(length(x))."))
-    return reduce(vcat, parts; init = Float64[])
+    return reduce(vcat, parts; init = similar(x, 0))
 end
 
 function Base.show(io::IO, ::MIME"text/plain", est::ParameterEstimate)
