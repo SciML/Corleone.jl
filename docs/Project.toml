@@ -47,7 +47,7 @@ CorleoneOED = {path = "../lib/CorleoneOED"}
 Distributions = "0.25"
 LinearAlgebra = "1"
 LikelihoodProfiler = "1.6.1"
-OptimizationOptimJL = "0.4"
+OptimizationOptimJL = "0.4.13"
 OptimizationOptimisers = "0.3"
 OrdinaryDiffEqBDF = "2"
 OrdinaryDiffEqNonlinearSolve = "2"
