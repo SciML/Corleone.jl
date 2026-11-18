@@ -7,6 +7,26 @@ t = collect(0.1:0.1:2.0)
 ode = ODEProblem((u, p, t) -> [p[1] * t + p[2]], [1.0], (0.0, 2.0), [0.5, 0.2]; abstol = 1.0e-11, reltol = 1.0e-11)
 data = Experiment(1 => (t, 1 .+ 0.7 .* t .^ 2 ./ 2 .+ 0.3 .* t, 0.1))
 
+@testset "Missing control metadata requires explicit targeting" begin
+    problem = OptimizationProblem(
+        OptimizationFunction((q, p) -> sum(abs2, q) / 2, AutoForwardDiff()), zeros(2);
+        lb = fill(-1.0, 2), ub = fill(1.0, 2)
+    )
+    estimate = ParameterEstimate(
+        zeros(2), [1.0 0.0; 0.0 1.0], ones(2), [(-1.0, 1.0), (-1.0, 1.0)],
+        0.95, 0.0, 1, zeros(2), nothing
+    )
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate)
+
+    all_profile = ProfileLikelihoodProblem(problem, estimate; include_controls = true)
+    @test all_profile.target.idxs == [1, 2]
+    @test all_profile.optpars == estimate.internal_x
+
+    selected_profile = ProfileLikelihoodProblem(problem, estimate; idxs = 2)
+    @test selected_profile.target.idxs == [2]
+    @test selected_profile.optpars == estimate.internal_x
+end
+
 @testset "Fitted profile and control selection" begin
     # Both parameters share a grid, but only the second is a control.
     shooting = ShootingLayer(ode, Tsit5(); controls = [2])

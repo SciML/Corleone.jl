@@ -14,6 +14,7 @@ Uses the retained internal optimum, including for transformed parameters.
 By default, profile every tunable value except controls; controls remain free
 nuisance parameters. Set `include_controls = true` to profile all values, or
 pass `idxs` explicitly to select packed indices (including controls).
+If control metadata is unavailable, supply `idxs` or `include_controls = true`.
 
 `conf_level` defaults to the estimate's confidence level. Remaining keywords,
 including `profile_lower`, `profile_upper`, `df`, and `threshold`, are forwarded
@@ -37,6 +38,11 @@ function ProfileLikelihoodProblem(
         )
     )
     if isnothing(idxs)
+        !include_controls && isnothing(estimate.control_indices) && throw(
+            ArgumentError(
+                "Default control exclusion requires control metadata; pass idxs or include_controls = true."
+            )
+        )
         idxs = include_controls ? collect(eachindex(estimate.internal_x)) :
             setdiff(eachindex(estimate.internal_x), estimate.control_indices)
         isempty(idxs) && throw(
