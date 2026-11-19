@@ -7,8 +7,8 @@ import Corleone: CorleoneDynamicOptProblem, append_experiment, evaluate_trajecto
     optimization_matching!, optimization_prediction, optimization_schedule, residual, log_prior, parameter_collections,
     optimization_dependency_rows
 using Corleone: Corleone, BoundedTransform, ShootingLayer, Experiment, Experiments, EvaluationLayer,
-    control_indices, default_evaluator, default_vectorizer, get_bounds, natural_values, optimization_constraints,
-    pack, shooting_constraints,
+    control_indices, default_evaluator, default_vectorizer, get_bounds, internal_values, natural_values,
+    optimization_constraints, pack, shooting_constraints,
     collect_expression_times!, compile_trajectory_expression,
     experiment_fields, expression_sample_grid,
     expression_symbol_indices, get_saveat, observation_residual, optimization_times,
@@ -22,7 +22,7 @@ using ADTypes: AbstractADType, AutoForwardDiff
 using ComponentArrays: ComponentArray
 using ConcreteStructs: @concrete
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
-using Distributions: Normal, TDist, mean, quantile, std
+using Distributions: Chisq, FDist, Normal, TDist, mean, quantile, std
 using ForwardDiff: ForwardDiff
 using LinearAlgebra: I, Symmetric, diag, nullspace
 using LuxCore: LuxCore
@@ -39,7 +39,8 @@ include("experiment_sparsity.jl")
 export residual_jacobian_sparsity
 include("problem.jl")
 include("statistics.jl")
-export ParameterEstimate, mean_squared_residual
+include("beale_joint_confidence.jl")
+export ParameterEstimate, mean_squared_residual, beale_joint_confidence, plot_beale_pairs
 
 include("precompile.jl")
 

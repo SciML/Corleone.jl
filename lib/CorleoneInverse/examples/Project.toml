@@ -34,7 +34,7 @@ CorleoneOED = {path = "../../CorleoneOED"}
 CairoMakie = "0.15"
 ComponentArrays = "0.15"
 Corleone = "2.1"
-CorleoneInverse = "0.1"
+CorleoneInverse = "0.1.1"
 CorleoneOED = "2.1"
 Distributions = "0.25"
 ForwardDiff = "1"

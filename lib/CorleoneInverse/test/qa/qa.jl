@@ -32,7 +32,7 @@ run_qa(
             ignore = (
                 :collect_expression_times!, :compile_trajectory_expression, :evaluate_trajectory_objective,
                 :experiment_fields, :expression_sample_grid, :expression_symbol_indices,
-                :get_saveat, :natural_values, :observation_residual, :optimization_matching, :optimization_matching!,
+                :get_saveat, :internal_values, :natural_values, :observation_residual, :optimization_matching, :optimization_matching!,
                 :optimization_prediction, :optimization_schedule, :optimization_times, :optimization_trajectory,
                 :parameter_collections, :prepare_constraint_bounds, :prepare_dynamic_opt_problem,
                 :sample_indices, :scalar_objective, :state_index,

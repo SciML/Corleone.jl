@@ -5,6 +5,8 @@ Observations, experiments, predictions, and residuals are documented in the
 
 ```@docs
 ParameterEstimate
+beale_joint_confidence
+plot_beale_pairs
 mean_squared_residual
 residual_jacobian_sparsity
 CorleoneDynamicOptProblem(::ShootingLayer, ::CorleoneInverse.Experiments, ::Vararg{Any})
