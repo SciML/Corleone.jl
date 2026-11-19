@@ -64,6 +64,11 @@ ipopt_fit = solve(opt, Ipopt.Optimizer(); print_level = 0, tol = 1.0e-8)
 @assert SciMLBase.successful_retcode(ipopt_fit)
 ParameterEstimate(model, ipopt_fit.u)
 
+names = ["α", "β", "δ", "γ"]
+beale = beale_joint_confidence(model, estimate; names, rng)
+fig = plot_beale_pairs(beale)
+fig
+
         using Pkg
         Pkg.status()
 
