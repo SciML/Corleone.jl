@@ -65,6 +65,7 @@ makedocs(
             ],
             "Parameter estimation" => [
                 "Lotka–Volterra parameter estimation" => "examples/inverse_lotka_plain.md",
+                "Published PEtab measurements" => "examples/inverse_petab_boehm.md",
                 "Joint Lotka–Volterra experiments" => "examples/inverse_lotka_multiexperiment.md",
                 "Controls from experimental design" => "examples/inverse_lotka_oed_control.md",
                 "Multiple-shooting parameter estimation" => "examples/inverse_multiple_shooting.md",

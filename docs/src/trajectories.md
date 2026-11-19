@@ -87,3 +87,95 @@ which answers control and quadrature queries; see [symbolic metadata](@ref symbo
 Derivatives are supported with respect to numerical values on a fixed time grid, not
 with respect to reset or switching times. See
 [automatic differentiation](@ref automatic_differentiation) for backends.
+
+## DataFrames and PEtab-style tables
+
+Load `DataFrames` alongside `Corleone` to activate the optional extension. It uses
+[PEtab 2](https://petab.readthedocs.io/en/latest/v2/documentation_data_format.html)
+measurement and simulation column names, with one row per observable and time.
+A single frame can hold many experiments or trajectories.
+
+For a complete fit to published experimental data, see
+[Fit published PEtab measurements with DataFrames](examples/inverse_petab_boehm.md).
+That tutorial reads the Boehm STAT5 tables, resolves their noise references, fits
+six kinetic rates, and exports the fitted observables.
+
+### Import measurements
+
+```julia
+using Corleone, DataFrames
+
+measurements = DataFrame(
+    observableId = ["x", "x", "x", "x"],
+    experimentId = ["control", "control", "treated", "treated"],
+    time = [0.0, 1.0, 0.0, 1.0],
+    measurement = [1.0, 3.1, 2.0, 4.2],
+    noiseParameters = [0.1, 0.2, 0.1, 0.2],
+)
+data = experiments_from_dataframe(measurements;
+    observables = Dict("x" => 1),
+    initial_states = Dict("control" => [1.0], "treated" => [2.0]),
+)
+# data.control and data.treated are Experiment objects.
+batch = Experiments(shooting, data) # shooting is your existing ShootingLayer
+```
+
+Experiment IDs become named tuple keys in first-appearance order. IDs must be
+nonempty strings or symbols. Without `observables`, observable IDs become state
+symbols (such as `"u₁"`); mappings can instead provide state indices, state
+symbols, scalar callbacks `(u, p, t) -> y`, or Julia observation expressions.
+Without `initial_states`, experiments use the problem's initial state. If supplied,
+a mapping must cover every ID. `Experiment(df; observables, u0)` imports a frame
+containing exactly one experiment. Views of DataFrames are accepted too.
+
+Rows may be unsorted and observables may use different time grids. Repeated
+measurements at the same time remain independent residuals, including rows with
+`replicateId` metadata. They are stored in separate observations with unique,
+sorted times. Residual ordering follows observable first appearance, then
+replicate occurrence, then sorted time; it need not match input row order.
+The input frame is copied and left unchanged.
+
+`noiseParameters` is optional. This extension interprets each positive numeric
+value or numeric string as a known additive standard deviation; blank or missing
+entries have unit weight. With no noise column, observations are unweighted.
+This interpretation requires the corresponding PEtab noise model to be additive
+with these standard deviations. Parameter IDs, lists of noise parameters,
+nonempty `observableParameters`, preequilibration, PEtab 1 condition columns, and
+infinite measurement times are rejected. Measurements must be finite real values.
+Other metadata columns are ignored.
+
+This is a measurement/simulation table adapter. Supply conditions, parameter
+annotations, and control schedules through Corleone's Julia API. For example,
+replace one named entry with `(observations = data.control, annotations = ...)`
+before passing the specifications to `Experiments`. It does not load PEtab model,
+condition, observable, or parameter files, or evaluate PEtab formulas.
+
+### Export trajectories
+
+```julia
+frame = DataFrame(trajectory; experiment_id = "control")
+# Columns: observableId, experimentId, time, simulation, sampleIndex, resetSide
+
+# Named tuple keys supply IDs. Vectors and tuples also work.
+frame = trajectories_dataframe((control = trajectory_a, treated = trajectory_b))
+frame = DataFrame([trajectory_a, trajectory_b];
+    experiment_ids = ["control", "treated"],
+    observables = Dict("x" => 1, "total" => ((u, p, t) -> sum(u))),
+)
+```
+
+The default exports every state using its symbolic name. Output observable
+mappings accept symbols, indices, and scalar callbacks. Use callbacks for derived
+quantities; Julia expressions are supported on import only. Output is ordered by
+trajectory, observable, then saved sample. Each trajectory keeps its own time
+grid; no interpolation is performed. Collections must be nonempty and IDs unique.
+
+`sampleIndex` numbers the saved samples within each trajectory. `resetSide` is
+`"incoming"` or `"outgoing"` at resets and `"none"` elsewhere. These additional
+columns distinguish two state samples at the same time, which standard PEtab
+simulation columns alone cannot distinguish. Callback parameters follow
+Corleone's right-continuous parameter convention on both reset samples.
+For a standard simulation table, select only `observableId`, `experimentId`,
+`time`, and `simulation`, and choose the reset side your consumer expects.
+A simulation frame renamed from `simulation` to `measurement` can be imported;
+reset pairs will then be interpreted as independent measurements.

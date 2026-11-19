@@ -41,6 +41,41 @@ function trajectoryplot! end
 
 export trajectoryplot, trajectoryplot!
 
+"""
+    experiments_from_dataframe(df; observables = nothing, initial_states = nothing)
+
+Import PEtab 2-style measurement rows into a named tuple of [`Experiment`](@ref)s,
+keyed by `experimentId` in first-appearance order. Requires DataFrames.
+Columns are `observableId`, `experimentId`, `time`, and `measurement`.
+`observables` maps IDs (string or symbol keys) to state selectors, callbacks, or
+expressions; by default IDs become state symbols. `initial_states` maps experiment
+IDs to `u0` vectors. Repeated measurements are retained as independent residuals.
+An optional `noiseParameters` column accepts positive numeric standard deviations
+or numeric strings; blank entries are unweighted. Full PEtab problem import,
+parameterized noise/observable overrides, preequilibration, and infinite times
+are unsupported and rejected.
+"""
+function experiments_from_dataframe end
+
+"""
+    trajectories_dataframe(trajectory; experiment_id = "experiment1", observables = nothing)
+    trajectories_dataframe(trajectories; experiment_ids = nothing, observables = nothing)
+
+Export saved trajectories as a PEtab 2-style DataFrame with `observableId`,
+`experimentId`, `time`, and `simulation` columns. Requires DataFrames.
+`observables` maps output IDs to state symbols, indices, or scalar callbacks
+`(u, p, t) -> value`; the default exports every state. Collections may be vectors,
+tuples, or named tuples. Named tuple keys supply experiment IDs; otherwise IDs
+are `experiment1`, `experiment2`, … unless `experiment_ids` is supplied.
+Extra columns `sampleIndex` (one-based saved sample index) and `resetSide`
+(`"incoming"`, `"outgoing"`, or `"none"`) preserve both sides of resets.
+`DataFrame(trajectory; kwargs...)` and `DataFrame(trajectory_vector; kwargs...)`
+are shorthand for the corresponding forms.
+"""
+function trajectories_dataframe end
+
+export experiments_from_dataframe, trajectories_dataframe
+
 # For evaluation
 mythreadmap(::EnsembleSerial, args...) = map(args...)
 mythreadmap(::EnsembleThreads, args...) = tmap(args...)

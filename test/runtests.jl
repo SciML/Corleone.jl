@@ -122,6 +122,12 @@ else
 
         end,
         groups = Dict(
+            "DataFrames" => (;
+                env = joinpath(@__DIR__, "dataframes"),
+                body = function ()
+                    return @safetestset "PEtab-style DataFrames" include("dataframes/dataframes.jl")
+                end,
+            ),
             "Distributed" => (;
                 env = joinpath(@__DIR__, "distributed"),
                 body = function ()

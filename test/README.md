@@ -5,6 +5,7 @@ Run from the repository root. Each named group uses its own dependency environme
 ```sh
 GROUP=Core julia --project=. -e 'using Pkg; Pkg.test()'
 GROUP=Examples julia --project=. -e 'using Pkg; Pkg.test()'
+GROUP=DataFrames julia --project=. -e 'using Pkg; Pkg.test()'
 GROUP=Plotting julia --project=. -e 'using Pkg; Pkg.test()'
 GROUP=QA julia --project=. -e 'using Pkg; Pkg.test()'
 GROUP=Differentiation julia --project=. -e 'using Pkg; Pkg.test()'
@@ -38,3 +39,6 @@ ForwardDiff tag types; anonymous objective closures can fail after serialization
 It needs
 permission to open localhost sockets. It does not establish parallel reverse AD
 support.
+
+DataFrames checks PEtab-style measurement import, replicate residuals, observable
+mappings, experiment batches, and trajectory export including reset samples.
