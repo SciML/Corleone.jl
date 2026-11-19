@@ -2,6 +2,7 @@ using CorleoneInverse, OrdinaryDiffEqTsit5, Optimization, OptimizationOptimJL
 using LikelihoodProfiler, CairoMakie
 using Distributions: Chisq, quantile
 using TransformVariables: asℝ₊
+using SciMLBase: successful_retcode
 
 t = collect(0.1:0.1:2.0)
 σ = 0.05
@@ -21,7 +22,7 @@ problem = OptimizationProblem(
     lb = [log(0.2), -0.5], ub = [log(1.5), 1.0]
 )
 fit = solve(problem, LBFGS(); abstol = 1.0e-10)
-@assert CorleoneInverse.SciMLBase.successful_retcode(fit)
+@assert successful_retcode(fit)
 estimate = ParameterEstimate(model, fit.u)
 @assert maximum(abs.(estimate.x .- [0.7, 0.3])) < 0.05
 show(stdout, MIME"text/plain"(), estimate)
