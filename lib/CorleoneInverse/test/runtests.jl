@@ -30,6 +30,9 @@ withenv("GROUP" => GROUP) do
             @safetestset "Priors" begin
                 include("core/priors.jl")
             end
+            @safetestset "Beale joint confidence regions" begin
+                include("core/beale.jl")
+            end
             @safetestset "Lotka Volterra" begin
                 include("core/lotka_volterra.jl")
             end

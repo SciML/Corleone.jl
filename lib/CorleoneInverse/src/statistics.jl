@@ -100,6 +100,20 @@ natural_vector(layer, ps, st) = reduce(
     init = Union{}[]
 )
 
+# Map natural values in packed order back to internal coordinates, the inverse of `natural_vector`.
+function internal_vector(layer, ps, st, x::AbstractVector)
+    offset = 0
+    parts = map(collect(parameter_collections(layer, ps, st))) do (collection, values)
+        count = length(values.ps)
+        part = internal_values(collection.transform, x[(offset + 1):(offset + count)])
+        offset += count
+        return part
+    end
+    offset == length(x) ||
+        throw(ArgumentError("Expected $offset natural parameter values, got $(length(x))."))
+    return reduce(vcat, parts; init = similar(x, 0))
+end
+
 function Base.show(io::IO, ::MIME"text/plain", est::ParameterEstimate)
     println(io, "ParameterEstimate (RSS = ", round(est.rss; sigdigits = 4), ", dof = ", est.dof, ")")
     print(io, "  index  value  std. error  ", round(100 * est.level; digits = 1), "% interval")

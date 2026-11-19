@@ -1,7 +1,7 @@
 name = "CorleoneInverse"
 uuid = "f6133253-78ce-497c-b6b6-fe2141d0b67d"
 authors = ["Carl Julius Martensen", "Christoph Plate"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
@@ -23,11 +23,15 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 # Match Corleone's optional Hessian interface when Optimization loads it.
 OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
 
 [sources]
 Corleone = {path = "../.."}
+
+[extensions]
+CorleoneInverseMakieExt = "Makie"
 
 [compat]
 ADTypes = "1"
@@ -43,6 +47,7 @@ Ipopt = "1"
 julia = "1.10"
 LinearAlgebra = "1"
 LuxCore = "1.4"
+Makie = "0.24"
 NonlinearSolve = "4"
 Optimization = "5"
 OptimizationBase = "5.5.3"
