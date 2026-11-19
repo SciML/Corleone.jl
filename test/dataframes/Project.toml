@@ -1,0 +1,18 @@
+[deps]
+Corleone = "2751e0db-33e9-4374-b36d-b7219e1e6b40"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+LuxCore = "bb33d45b-7691-41d6-9220-0943567d0623"
+OrdinaryDiffEqTsit5 = "b1df2697-797e-41e3-8120-5422d3b24e4a"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Corleone = "2.1"
+DataFrames = "1"
+LuxCore = "1.4"
+OrdinaryDiffEqTsit5 = "2"
+Random = "1"
+SafeTestsets = "0.1, 1"
+Test = "1"
+julia = "1.10"

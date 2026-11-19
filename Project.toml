@@ -22,6 +22,7 @@ SciMLStructures = "53ae85a6-f571-4167-b2af-e1d143709226"
 SymbolicIndexingInterface = "2efcf032-c050-4f8e-a9bb-153293bab1f5"
 
 [weakdeps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 OptimizationBase = "bca83a33-5cc9-4baa-983d-23429ab6bcbb"
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 SparseMatrixColorings = "0a514795-09f3-496d-8182-132a7b665d35"
@@ -34,6 +35,7 @@ Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [extensions]
+CorleoneDataFramesExtension = "DataFrames"
 CorleoneOptimizationBaseExtension = "OptimizationBase"
 CorleoneSparseDifferentiationExtension = ["DifferentiationInterface", "SparseMatrixColorings"]
 CorleoneRuntimeGeneratedFunctionsExtension = "RuntimeGeneratedFunctions"
@@ -45,6 +47,7 @@ CorleoneDistributionsExtension = "Distributions"
 CorleoneTransformVariablesExtension = "TransformVariables"
 
 [compat]
+DataFrames = "1"
 Distributions = "0.25"
 TransformVariables = "0.8"
 OptimizationBase = "5.5.3"

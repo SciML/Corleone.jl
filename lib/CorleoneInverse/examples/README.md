@@ -1,12 +1,13 @@
 # Parameter-estimation examples
 
-These examples adapt the models and workflows contributed by **Christoph Plate
+Most examples adapt the models and workflows contributed by **Christoph Plate
 ([@chplate](https://github.com/chplate))** in
 [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168), at commit
 `9aeeabb574d7d3fdbecfd06197ca28e4cc9dae87`, to the current annotation and experiment APIs.
 
 | Example | Workflow |
 | --- | --- |
+| [Published PEtab measurements](petab_boehm/main.jl) | Read the Boehm STAT5 PEtab 2 tables with CSV/DataFrames, fit six kinetic rates, and export predictions. |
 | [Lotka–Volterra](lotka_plain/main.jl) | Fit four positive rates, report uncertainties, and use NonlinearSolve or Ipopt. |
 | [Joint Lotka–Volterra experiments](lotka_multiexperiment/main.jl) | Share rates across different initial conditions and warm-start a joint fit. |
 | [OED-designed controls](lotka_oed_control/main.jl) | Design a fishing input and fit with the resulting control schedule fixed. |
@@ -26,6 +27,16 @@ environment. This also works on Julia 1.10, which predates `[sources]` support.
 julia --project=lib/CorleoneInverse/examples -e 'using Pkg; Pkg.develop([Pkg.PackageSpec(path="."), Pkg.PackageSpec(path="lib/CorleoneInverse"), Pkg.PackageSpec(path="lib/CorleoneOED")]); Pkg.instantiate()'
 julia --project=lib/CorleoneInverse/examples lib/CorleoneInverse/examples/lotka_plain/main.jl
 ```
+
+The PEtab tutorial can be run with:
+
+```sh
+julia --project=lib/CorleoneInverse/examples lib/CorleoneInverse/examples/petab_boehm/main.jl
+```
+
+It uses bundled, unmodified TSV tables from a pinned benchmark revision and
+requires no download. The six kinetic rates are fitted with the published noise
+standard deviations fixed.
 
 The scripts return CairoMakie figures and print fitted values or uncertainty
 statistics. The OED and UDE examples perform several optimization runs.

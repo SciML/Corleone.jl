@@ -24,3 +24,7 @@ os = ["ubuntu-latest"]
 [Differentiation]
 versions = ["1"]
 os = ["ubuntu-latest"]
+
+[DataFrames]
+versions = ["lts", "1"]
+os = ["ubuntu-latest"]
