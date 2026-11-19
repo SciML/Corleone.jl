@@ -108,15 +108,20 @@ parameters during reoptimization. Set `include_controls = true` to target all
 tunable values, or use `idxs = [1, 3]` to choose packed indices explicitly,
 including controls. The confidence level defaults to `estimate.level`.
 
-The original optimization problem retains its bounds and constraints; algorithm
-and optimizer support for constrained profiles follows LikelihoodProfiler.
+The original optimization problem and its box constraints are retained. Explicit
+profile ranges must stay within the selected parameters' optimization bounds;
+ranges that exceed them are rejected. General constraints, including
+multiple-shooting equalities, are currently rejected: LikelihoodProfiler 1.6.1's
+profilers can violate them or fail during reoptimization. Retaining a constraint
+callback alone does not guarantee a feasible profile.
 LikelihoodProfiler 1.6.1's stepwise profiler requires a backend with an Optimization.jl
 `OptimizationCache`, such as OptimizationOptimJL, rather than OptimizationMOI.
 Supply finite `profile_lower` and `profile_upper` bounds if its bounds are infinite;
 these bounds and the resulting profiles are in internal optimizer coordinates.
 The estimate retains the fitted internal values even when `estimate.x` reports
 transformed natural values. Use the same model and packing for the estimate and
-the optimization problem.
+the optimization problem. Confidence levels are converted to `Float64` at the
+LikelihoodProfiler boundary, including when the estimate uses a `Float32` level.
 
 ## Where to go next
 

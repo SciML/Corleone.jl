@@ -20,6 +20,10 @@ If control metadata is unavailable, supply `idxs` or `include_controls = true`.
 including `profile_lower`, `profile_upper`, `df`, and `threshold`, are forwarded
 to LikelihoodProfiler. Profile bounds and results use internal coordinates.
 Supply finite profile bounds when the optimization bounds are infinite.
+Profile bounds must lie within the selected parameters' optimization bounds.
+General constraints, including shooting equalities, are rejected because the
+upstream profilers do not reliably preserve their feasibility. Box constraints
+are supported. The confidence level is converted to `Float64` for the dependency.
 The objective is used unchanged: construct it on the likelihood scale required
 by LikelihoodProfiler and choose a matching `threshold` when needed.
 """
@@ -37,6 +41,11 @@ function ProfileLikelihoodProblem(
             "The optimization problem and estimate must have the same packed parameter layout."
         )
     )
+    isnothing(problem.f.cons) || throw(
+        ArgumentError(
+            "LikelihoodProfiler integration does not support general constraints, including shooting equalities."
+        )
+    )
     if isnothing(idxs)
         !include_controls && isnothing(estimate.control_indices) && throw(
             ArgumentError(
@@ -51,7 +60,19 @@ function ProfileLikelihoodProblem(
             )
         )
     end
-    return ProfileLikelihoodProblem(problem, copy(estimate.internal_x); idxs, conf_level, kwargs...)
+    profile = ProfileLikelihoodProblem(
+        problem, copy(estimate.internal_x); idxs, conf_level = Float64(conf_level), kwargs...
+    )
+    # Validate the resolved indices and bounds, including symbolic selections.
+    # Upstream fixes the profiled coordinate and removes its optimization bounds.
+    for (index, lower, upper) in zip(profile.target.idxs, profile.target.profile_lower, profile.target.profile_upper)
+        lower_bound = isnothing(problem.lb) ? -Inf : problem.lb[index]
+        upper_bound = isnothing(problem.ub) ? Inf : problem.ub[index]
+        lower_bound <= lower <= upper <= upper_bound || throw(
+            ArgumentError("Profile bounds for packed index $index must lie within its optimization bounds.")
+        )
+    end
+    return profile
 end
 
 end

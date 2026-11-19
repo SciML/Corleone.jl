@@ -5,7 +5,14 @@ using Distributions: Chisq, quantile
 
 t = collect(0.1:0.1:2.0)
 ode = ODEProblem((u, p, t) -> [p[1] * t + p[2]], [1.0], (0.0, 2.0), [0.5, 0.2]; abstol = 1.0e-11, reltol = 1.0e-11)
-data = Experiment(1 => (t, 1 .+ 0.7 .* t .^ 2 ./ 2 .+ 0.3 .* t, 0.1))
+measurements = 1 .+ 0.7 .* t .^ 2 ./ 2 .+ 0.3 .* t
+data = Experiment(1 => (t, measurements, 0.1))
+
+# Eliminate the nuisance control from the weighted linear design matrix.
+function linear_profile_precision(t, noise_scale)
+    rate, control = t .^ 2 / 2, t
+    return (sum(abs2, rate) - sum(rate .* control)^2 / sum(abs2, control)) / noise_scale^2
+end
 
 @testset "Missing control metadata requires explicit targeting" begin
     problem = OptimizationProblem(
@@ -57,8 +64,9 @@ end
         ); maxiters = 100
     )
     curve = only(profiled.profiles)
+    precision = linear_profile_precision(t, 0.1)
     for (x, objective) in zip(curve.x, curve.obj)
-        @test objective ≈ problem.f(fit.u, problem.p) + (x - fit.u[1])^2 / (2estimate.covariance[1, 1]) atol = 1.0e-6
+        @test objective ≈ precision * (x - 0.7)^2 / 2 atol = 1.0e-6
     end
     @test length(curve.x) > 2
 
@@ -66,6 +74,18 @@ end
     @test_throws DimensionMismatch ProfileLikelihoodProblem(wrong, estimate)
     standalone = ParameterEstimate(estimate.x, estimate.covariance, estimate.std_errors, estimate.confidence_intervals, estimate.level, estimate.rss, estimate.dof)
     @test_throws ArgumentError ProfileLikelihoodProblem(problem, standalone)
+end
+
+@testset "Float32 confidence levels cross the dependency boundary" begin
+    shooting = ShootingLayer(ode, Tsit5(); controls = [2])
+    model = CorleoneDynamicOptProblem(shooting, data)
+    estimate = ParameterEstimate(model, [0.7, 0.3]; α = 0.05f0)
+    @test estimate.level isa Float32
+    problem = OptimizationProblem(model, AutoForwardDiff())
+    profile = ProfileLikelihoodProblem(problem, estimate; profile_lower = -1.0, profile_upper = 2.0)
+    @test profile.threshold ≈ quantile(Chisq(1), Float64(estimate.level))
+    explicit = ProfileLikelihoodProblem(problem, estimate; conf_level = 0.9f0, profile_lower = -1.0, profile_upper = 2.0)
+    @test explicit.threshold ≈ quantile(Chisq(1), Float64(0.9f0))
 end
 
 @testset "Transforms retain internal coordinates" begin
@@ -79,6 +99,12 @@ end
     @test profile.optpars ≈ q
     @test profile.target.idxs == [1]
     @test profile.optprob.f(profile.optpars, problem.p) < 1.0e-12
+
+    bounded = OptimizationProblem(model, AutoForwardDiff(); lb = [log(0.2), -0.5], ub = [log(1.5), 1.0])
+    bounded_profile = ProfileLikelihoodProblem(bounded, estimate; profile_lower = log(0.3), profile_upper = log(1.0))
+    @test bounded_profile.target.profile_lower == [log(0.3)]
+    @test bounded_profile.target.profile_upper == [log(1.0)]
+    @test_throws ArgumentError ProfileLikelihoodProblem(bounded, estimate; profile_lower = log(0.1), profile_upper = log(1.0))
 end
 
 @testset "Experiment-local and fixed controls" begin
@@ -105,15 +131,59 @@ end
     @test ProfileLikelihoodProblem(problem, estimate; include_controls = true, profile_lower = -1.0, profile_upper = 2.0).target.idxs == [1, 2]
 end
 
-@testset "Constrained problem is retained" begin
+@testset "General constraints are rejected" begin
     shooting = ShootingLayer(ode, Tsit5(); controls = [2])
-    model = CorleoneDynamicOptProblem(shooting, data, :(u₁(1.0)); lcons = [1.65], ucons = [1.65], reducer = x -> sum(x) / 2)
-    problem = OptimizationProblem(model, AutoForwardDiff())
+    for (lower, upper) in ((1.65, 1.65), (-Inf, 2.0))
+        model = CorleoneDynamicOptProblem(shooting, data, :(u₁(1.0)); lcons = [lower], ucons = [upper], reducer = x -> sum(x) / 2)
+        problem = OptimizationProblem(model, AutoForwardDiff())
+        estimate = ParameterEstimate(model, [0.7, 0.3])
+        @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; profile_lower = -1.0, profile_upper = 2.0)
+    end
+end
+
+@testset "Profile ranges respect optimization bounds" begin
+    noise_scale = 0.025
+    observations = Experiment(1 => (t, measurements, noise_scale))
+    shooting = ShootingLayer(remake(ode; p = [0.7, 0.3]), Tsit5(); controls = [2])
+    model = CorleoneDynamicOptProblem(shooting, observations; reducer = x -> sum(x) / 2)
+    problem = OptimizationProblem(model, AutoForwardDiff(); lb = [0.6, -0.5], ub = [0.75, 1.0])
     estimate = ParameterEstimate(model, [0.7, 0.3])
-    profile = ProfileLikelihoodProblem(problem, estimate; profile_lower = -1.0, profile_upper = 2.0)
-    @test profile.optprob === problem
-    @test profile.optprob.f.cons === problem.f.cons
-    @test profile.optprob.lcons == profile.optprob.ucons == [1.65]
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; profile_lower = 0.4, profile_upper = 1.0)
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; profile_lower = 0.4, profile_upper = 0.75)
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; profile_lower = 0.6, profile_upper = 1.0)
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; idxs = 2, profile_lower = -1.0, profile_upper = 1.0)
+    @test_throws ArgumentError ProfileLikelihoodProblem(
+        problem, estimate; include_controls = true,
+        profile_lower = [0.4, -0.5], profile_upper = [1.0, 1.0]
+    )
+
+    cutoff = quantile(Chisq(1), estimate.level)
+    profile = ProfileLikelihoodProblem(problem, estimate; threshold = cutoff / 2)
+    @test profile.target.profile_lower == [0.6]
+    @test profile.target.profile_upper == [0.75]
+    # Resolve the interior cutoff crossings before a step reaches the box edge.
+    profiles = solve(
+        profile, OptimizationProfiler(;
+            optimizer = LBFGS(), stepper = FixedStep(initial_step = 0.002),
+            optimizer_opts = (; abstol = 1.0e-10)
+        ); maxiters = 100
+    )
+    curve = only(profiles.profiles)
+    @test all(x -> 0.6 <= x <= 0.75, curve.x)
+    @test all(q -> all(problem.lb .<= q .<= problem.ub), curve.pars)
+    interval = only(LikelihoodProfiler.endpoints(profiles))
+    @test !isnothing(interval.left) && !isnothing(interval.right)
+    if !isnothing(interval.left) && !isnothing(interval.right)
+        @test 0.6 <= interval.left < estimate.x[1] < interval.right <= 0.75
+        halfwidth = sqrt(cutoff / linear_profile_precision(t, noise_scale))
+        @test interval.left ≈ 0.7 - halfwidth atol = 1.0e-4
+        @test interval.right ≈ 0.7 + halfwidth atol = 1.0e-4
+    end
+
+    unbounded = OptimizationProblem(problem.f, problem.u0, problem.p)
+    wide_profile = ProfileLikelihoodProblem(unbounded, estimate; profile_lower = 0.4, profile_upper = 1.0)
+    @test wide_profile.target.profile_lower == [0.4]
+    @test wide_profile.target.profile_upper == [1.0]
 end
 
 @testset "Piecewise controls and finite optimization bounds" begin
