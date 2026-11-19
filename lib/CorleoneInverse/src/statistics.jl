@@ -22,7 +22,15 @@ $(FIELDS)
     rss
     "The residual degrees of freedom."
     dof
+    "The fitted values in internal optimizer coordinates, or `nothing` for manually constructed estimates."
+    internal_x
+    "The packed indices of tunable controls, or `nothing` without model metadata."
+    control_indices
 end
+
+# Preserve construction of standalone summary statistics without profiling metadata.
+ParameterEstimate(x, covariance, std_errors, confidence_intervals, level, rss, dof) =
+    ParameterEstimate(x, covariance, std_errors, confidence_intervals, level, rss, dof, nothing, nothing)
 
 """
 $(SIGNATURES)
@@ -82,7 +90,42 @@ function ParameterEstimate(
     z = quantile(weighted ? Normal() : TDist(dof), 1 - α / 2)
     halfwidth = z .* sqrt.(diag(Σφ))
     intervals = collect(zip(natural(q .- halfwidth), natural(q .+ halfwidth)))
-    return ParameterEstimate(natural(q), Σ, sqrt.(diag(Σ)), intervals, 1 - α, rss, dof)
+    controls = fitted_control_indices(model, reconstruct, length(q), st)
+    return ParameterEstimate(natural(q), Σ, sqrt.(diag(Σ)), intervals, 1 - α, rss, dof, copy(q), controls)
+end
+
+# Resolve the actual packed columns through the same per-experiment parameter
+# trees as the solver bridge. This also handles shared grids and fixed controls.
+function fitted_control_indices(model, reconstruct, ncolumns, st)
+    packed_ids = dependency_column_ids(model, reconstruct, ncolumns, st)
+    prediction = model.layer
+    ids = experiment_parameters(prediction, packed_ids)
+    inputs = experiment_dependency_inputs(prediction.layer, prediction, ids, st)
+    columns = BitSet()
+    for input in inputs
+        (; shooting, parameters, state) = input
+        controls = control_indices(shooting.sys)
+        layer = shooting.parameter
+        for (name, indices) in zip(keys(layer.parameters), layer.indices)
+            child = layer.parameters[name]
+            iszero(LuxCore.parameterlength(child)) && continue
+            values = getproperty(parameters.parameter.parameters, name).parameter
+            states = state.parameter.parameters[name].parameter
+            for (position, index) in enumerate(indices)
+                index in controls || continue
+                if child.parameter isa NamedTuple
+                    member = keys(child.parameter)[position]
+                    entries = parameter_collections(child.parameter[member], getproperty(values, member), states[member])
+                else
+                    entries = parameter_collections(child.parameter, values, states)
+                end
+                for (_, collection_values, _) in entries
+                    union!(columns, collection_values.ps)
+                end
+            end
+        end
+    end
+    return collect(columns)
 end
 
 function ParameterEstimate(

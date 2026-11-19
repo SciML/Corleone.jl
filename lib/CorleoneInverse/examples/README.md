@@ -1,6 +1,6 @@
 # Parameter-estimation examples
 
-These examples adapt the models and workflows contributed by **Christoph Plate
+Most examples adapt the models and workflows contributed by **Christoph Plate
 ([@chplate](https://github.com/chplate))** in
 [Corleone.jl PR #168](https://github.com/SciML/Corleone.jl/pull/168), at commit
 `9aeeabb574d7d3fdbecfd06197ca28e4cc9dae87`, to the current annotation and experiment APIs.
@@ -8,6 +8,7 @@ These examples adapt the models and workflows contributed by **Christoph Plate
 | Example | Workflow |
 | --- | --- |
 | [Lotka–Volterra](lotka_plain/main.jl) | Fit four positive rates, report uncertainties, and use NonlinearSolve or Ipopt. |
+| [Profile likelihoods](likelihood_profile/main.jl) | Profile a transformed rate, reoptimize a fitted control, and compare profile and asymptotic intervals. |
 | [Joint Lotka–Volterra experiments](lotka_multiexperiment/main.jl) | Share rates across different initial conditions and warm-start a joint fit. |
 | [OED-designed controls](lotka_oed_control/main.jl) | Design a fishing input and fit with the resulting control schedule fixed. |
 | [Multiple shooting](multiple_shooting/main.jl) | Fit an interior state and model rates subject to continuity equalities. |
