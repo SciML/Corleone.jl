@@ -5,9 +5,8 @@ on:
     branches:
       - main
     tags: '*'
-  pull_request:    
-    branches:
-      - main
+  # Also validate stacked PRs whose base is another feature branch.
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +15,64 @@ concurrency:
 jobs:
   build-and-deploy-docs:
     name: "Documentation"
-    uses: "SciML/.github/.github/workflows/documentation.yml@v1"
-    with:
-      cache: true
-    secrets: "inherit"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
+    env:
+      # Fork and Dependabot PRs build without deployment credentials.
+      CAN_DEPLOY_DOCS: >-
+        ${{ github.event_name != 'pull_request'
+            || (github.event.pull_request.head.repo.full_name == github.repository
+                && github.actor != 'dependabot[bot]') }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: julia-actions/setup-julia@v3
+        id: julia
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+      - name: Install dependencies
+        run: >-
+          julia --color=yes --project=docs -e
+          'using Pkg; Pkg.develop([PackageSpec(path="."), PackageSpec(path="lib/CorleoneOED"), PackageSpec(path="lib/CorleoneInverse")]); Pkg.instantiate()'
+      - name: Test tutorial caching
+        run: julia --color=yes --project=docs docs/test/runtests.jl
+      - name: Restore executed tutorials
+        id: tutorials
+        uses: actions/cache/restore@v6
+        with:
+          path: docs/.cache/tutorials
+          # The archive is transport only: each entry validates its own input
+          # fingerprint. A change to one example does not discard other entries.
+          key: tutorials-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.julia.outputs.julia-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            tutorials-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.julia.outputs.julia-version }}-
+      - name: Build and deploy documentation
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ env.CAN_DEPLOY_DOCS == 'true' && secrets.GITHUB_TOKEN || '' }}
+          DOCUMENTER_KEY: ''
+        run: julia --color=yes --project=docs --code-coverage=user docs/make.jl
+      - name: Save executed tutorials
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
+        uses: actions/cache/save@v6
+        with:
+          path: docs/.cache/tutorials
+          key: ${{ steps.tutorials.outputs.cache-primary-key }}
+      - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src,ext
+      - uses: codecov/codecov-action@v7
+        continue-on-error: true
+        with:
+          files: lcov.info
+          flags: docs
+          token: ${{ secrets.CODECOV_TOKEN }}
+          disable_safe_directory: true
+          fail_ci_if_error: false

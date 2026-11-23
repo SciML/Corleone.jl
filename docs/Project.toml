@@ -1,4 +1,6 @@
 [deps]
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -44,6 +46,8 @@ CorleoneInverse = {path = "../lib/CorleoneInverse"}
 CorleoneOED = {path = "../lib/CorleoneOED"}
 
 [compat]
+SHA = "0.7, 1"
+TOML = "1"
 CSV = "0.10"
 DataFrames = "1"
 Distributions = "0.25"
