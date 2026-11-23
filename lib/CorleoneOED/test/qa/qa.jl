@@ -27,6 +27,7 @@ const SYMBOLICS_REEXPORTS = (
     Symbol("@register_discontinuity"), Symbol("@register_inverse"),
     Symbol("@register_symbolic"), Symbol("@rule"), Symbol("@symbolic_wrap"), Symbol("@syms"),
     Symbol("@symstruct"), Symbol("@variables"), Symbol("@wrapped"), :BS, :Differential,
+    :Curl, :Divergence, :Grad, :Laplacian, :NormalDerivative,
     :Equation, :IRStructure, :Inequality, :Integral, :Num, :Rewriters, :RuleSet, :SafeReal,
     :SymReal, :SymStruct, :SymbolicLinearODE, :SymbolicUtils, :Symbolics,
     :SymbolicsSparsityDetector, :TreeReal, :approximation_function, :arguments,
