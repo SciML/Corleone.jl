@@ -116,3 +116,59 @@ end
     @test_throws ArgumentError trajectories_dataframe(traj; observables = [:a => 1, "a" => 1])
     @test_throws ArgumentError trajectories_dataframe(traj; observables = Dict("x" => :(u₁ + 1)))
 end
+
+# The provider's symbol enumeration deliberately differs from state storage.
+import SymbolicIndexingInterface as SII
+struct ReorderedStateProvider{S}
+    parent::S
+end
+SII.symbolic_container(provider::ReorderedStateProvider) = provider.parent
+SII.variable_symbols(::ReorderedStateProvider) = [:y, :x]
+
+struct TotalWithOffset{T}
+    offset::T
+end
+(callback::TotalWithOffset)(u, p, t) = sum(u) + callback.offset
+
+@testset "Default export follows provider indices" begin
+    provider = ReorderedStateProvider(SII.SymbolCache([:x, :y], Symbol[], :t))
+    system = ControlSymbolCache(provider)
+    stationary!(du, u, p, t) = (fill!(du, zero(eltype(du))); nothing)
+    prob = ODEProblem(ODEFunction(stationary!; sys = system), [2.0, 13.0], (0.0, 1.0), Float64[])
+    shooting = ShootingLayer(prob, Tsit5())
+    parameters, state = LuxCore.setup(Xoshiro(4), shooting)
+    traj, _ = shooting(nothing, parameters, state)
+    @test SII.variable_symbols(SII.symbolic_container(traj)) == [:y, :x]
+    default = DataFrame(traj)
+    explicit = trajectories_dataframe(traj; observables = [:y => :y, :x => :x])
+    @test default == explicit
+    @test all(==(2.0), default.simulation[default.observableId .== "x"])
+    @test all(==(13.0), default.simulation[default.observableId .== "y"])
+end
+
+@testset "Typed simulation columns and callable observations" begin
+    traj, _ = layer(nothing, ps, merge(st, (; saveat = [0.0, 0.5, 1.0, 2.0])))
+    @test eltype(DataFrame(traj).simulation) === Float64
+    integer_values = trajectories_dataframe(traj; observables = (one = (u, p, t) -> 1,))
+    @test eltype(integer_values.simulation) === Int
+    @test all(==(1), integer_values.simulation)
+    callback = TotalWithOffset(3.0)
+    frame = trajectories_dataframe(traj; observables = (total = callback,))
+    @test eltype(frame.simulation) === Float64
+    @test frame.simulation ≈ first.(traj.u) .+ 3
+    data = Experiment(rename(frame, :simulation => :measurement); observables = (total = callback,))
+    @test residual(data, traj) ≈ zeros(length(traj.t))
+    precise = TotalWithOffset(BigFloat("1.0000000000000000000000000000001"))
+    big = trajectories_dataframe(traj; observables = (precise = precise, state = 1))
+    @test eltype(big.simulation) === BigFloat
+    @test big.simulation[1] == precise(first(traj.u), nothing, 0.0)
+    @test big.simulation[1] != BigFloat(Float64(big.simulation[1]))
+    @test eltype(trajectories_dataframe(traj; observables = (;)).simulation) === Float64
+    @test_throws MethodError trajectories_dataframe(traj; observables = (invalid = 1.5,))
+
+    switched = ShootingLayer(problem, Tsit5(), Constant(1; default = [2.0, 4.0]) => [1.0])
+    parameters, state = LuxCore.setup(Xoshiro(5), switched)
+    history, _ = switched(nothing, parameters, state)
+    frame = trajectories_dataframe(history; observables = (rate = (u, p, t) -> p[1],))
+    @test frame.simulation == [t < 1.0 ? 2.0 : 4.0 for t in history.t]
+end

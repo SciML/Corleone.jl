@@ -4,11 +4,11 @@ using Test
 
 # Load the numerical extensions so ExplicitImports checks their methods too.
 # Plotting and ModelingToolkit have separate test environments.
-using ComponentArrays, Distributions, RuntimeGeneratedFunctions, TransformVariables, Zygote
+using ComponentArrays, DataFrames, Distributions, RuntimeGeneratedFunctions, TransformVariables, Zygote
 
 @testset "Extensions loaded" begin
     for ext in (
-            :CorleoneComponentArraysExtension, :CorleoneDistributionsExtension,
+            :CorleoneComponentArraysExtension, :CorleoneDataFramesExtension, :CorleoneDistributionsExtension,
             :CorleoneRuntimeGeneratedFunctionsExtension, :CorleoneTransformVariablesExtension, :CorleoneZygoteExtension,
         )
         @test Base.get_extension(Corleone, ext) !== nothing
@@ -55,6 +55,7 @@ run_qa(
                 :sparse_constraint_options, :constraint_sparsity, :sparsity_indices,
                 :sparse_hessian_options, :lagrangian_sparsity, :optimization_lagrangian,
                 :natural_value, :internal_value, :log_jacobian,
+                :observe, # Observation sampling shared with the DataFrames extension.
                 :validate_transform, :log_density, :validate_prior,
                 # TransformVariables' abstract scalar transform type is not declared public.
                 :ScalarTransform,

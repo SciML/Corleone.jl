@@ -33,7 +33,7 @@ Corleone = {path = "../.."}
 ADTypes = "1"
 ComponentArrays = "0.15"
 ConcreteStructs = "0.2.3"
-Corleone = "2.1"
+Corleone = "2.2"
 DiffEqBase = "7"
 DifferentiationInterface = "0.7"
 Distributions = "0.25"

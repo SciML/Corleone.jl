@@ -25,7 +25,7 @@ CorleoneOED = {path = ".."}
 Base64 = "1"
 CairoMakie = "0.15"
 ComponentArrays = "0.15"
-Corleone = "2.1"
+Corleone = "2.2"
 CorleoneOED = "2.1"
 Documenter = "1"
 ForwardDiff = "1"

@@ -22,7 +22,7 @@
 #     Read real PEtab measurements into a DataFrame, resolve noise references,
 #     map observable IDs to Julia callbacks, fit a stiff model, and export the
 #     fitted observables with the same IDs.
-using Corleone: SciMLBase
+using SciMLBase: successful_retcode
 using CorleoneInverse, CSV, DataFrames, LuxCore, Random
 using OrdinaryDiffEqRosenbrock, Optimization, OptimizationLBFGSB, CairoMakie
 using SymbolicIndexingInterface: parameter_values
@@ -90,21 +90,34 @@ end
 # not parse SBML or evaluate arbitrary PEtab formulas.
 specificity = nominal["specC17"]
 function pSTAT5A(u, p, t)
-    A, B, AB, AA, BB = u
+    A, B, AB, AA, BB, _, _, _ = u
     return (200AA * specificity + 100AB) / (A * specificity + 2AA * specificity + AB)
 end
 function pSTAT5B(u, p, t)
-    A, B, AB, AA, BB = u
+    A, B, AB, AA, BB, _, _, _ = u
     return (-100AB + 200BB * (specificity - 1)) / (B * (specificity - 1) - AB + 2BB * (specificity - 1))
 end
 function rSTAT5A(u, p, t)
-    A, B, AB, AA, BB = u
+    A, B, AB, AA, BB, _, _, _ = u
     return (100A * specificity + 200AA * specificity + 100AB) /
         (A * specificity - B * (specificity - 1) + 2AA * specificity + 2AB - 2BB * (specificity - 1))
 end
 observable_maps = (
     pSTAT5A_rel = pSTAT5A, pSTAT5B_rel = pSTAT5B, rSTAT5A_rel = rSTAT5A,
 )
+
+# Check the three maps against independently evaluated observables.tsv formulas
+# at an explicit eight-state probe, before asking an optimizer to fit anything.
+# These are formula reference values, not additional experimental measurements.
+reference_state = [90.0, 65.0, 12.0, 8.0, 6.0, 5.0, 7.0, 9.0]
+reference_observations = (
+    pSTAT5A_rel = 58.743895124667979,
+    pSTAT5B_rel = 28.127437748418171,
+    rSTAT5A_rel = 22.422024341277389,
+)
+for id in keys(observable_maps)
+    @assert isapprox(observable_maps[id](reference_state, nothing, 0.0), reference_observations[id]; rtol = 1.0e-12)
+end
 
 # ## Import the DataFrame and fit the kinetic rates
 # No measurements are generated or averaged. The named tuple returned by the
@@ -122,8 +135,8 @@ rate_ids = [
     "log10_k_imp_hetero", "log10_k_imp_homo", "log10_k_phos",
 ]
 published_log_rates = [nominal[id] for id in rate_ids]
-# Start away from the published fit; the data must drive the improvement.
-starting_log_rates = published_log_rates .+ [0.2, 0.4, -0.15, 0.15, -0.3, -0.15]
+# Use round starting guesses chosen independently of the published optimum.
+starting_log_rates = [-2.0, -2.0, -2.0, -2.0, 2.0, 3.0]
 bounds = Dict(row.parameterId => (row.lowerBound, row.upperBound) for row in eachrow(parameter_table))
 lower = [bounds[id][1] for id in rate_ids]
 upper = [bounds[id][2] for id in rate_ids]
@@ -143,20 +156,21 @@ optimization = OptimizationProblem(model, AutoForwardDiff())
 _, reconstruct = pack(default_vectorizer(), model.ps)
 initial_objective = optimization_objective(model)
 fit = solve(optimization, LBFGSB(); maxiters = 1000)
-@assert SciMLBase.successful_retcode(fit)
+@assert successful_retcode(fit)
 fitted_objective = optimization_objective(model, reconstruct(fit.u))
 @assert fitted_objective < initial_objective / 2
+@assert fitted_objective < 1.1 # Reference quality: published noise-scaled MSE is approximately one.
 summary = (retcode = fit.retcode, initial_objective, fitted_objective, measurements = n_observations(data))
 @show summary
 
 # The default objective is the mean squared, noise-scaled residual. In this run
-# it falls from about 9.03 to 1.00. A value near one means the remaining
-# discrepancies are on the scale of the fixed measurement standard deviations.
+# it falls from about 37.85 to 1.00 from the independent starting guess. A value
+# near one means the remaining discrepancies are on the scale of the fixed
+# measurement standard deviations.
 #
-# Exponentiate the optimizer's log10 coordinates to report physical rates. The
-# very fast homodimer import rate can stay close to its starting value while
-# the residual objective approaches the published fit, illustrating its weak
-# practical identifiability here. Treat these results as one local solution.
+# Exponentiate the optimizer's log10 coordinates to report physical rates. Some
+# fitted rates reach the published bounds. This example reports one local
+# solution; parameter uncertainty requires additional analysis.
 fitted_ps = reconstruct(fit.u)
 fitted_trajectories, _ = shooting(experiments, fitted_ps, model.st)
 # Read the complete rate vector from the trajectory's parameter interface.

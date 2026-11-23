@@ -3,7 +3,7 @@ module CorleoneDataFramesExtension
 import Corleone
 using Corleone: Experiment, Trajectory, Observation
 import DataFrames: AbstractDataFrame, DataFrame, groupby, nrow
-import SymbolicIndexingInterface: variable_symbols, symbolic_container, parameter_values_at_time, variable_index
+import SymbolicIndexingInterface: variable_symbols, symbolic_container, variable_index
 
 blank(x) = ismissing(x) || isnothing(x) || x == ""
 
@@ -97,7 +97,7 @@ end
 
 function output_observables(traj, observables)
     mappings = isnothing(observables) ?
-        [string(sym) => i for (i, sym) in enumerate(variable_symbols(symbolic_container(traj)))] :
+        [string(sym) => variable_index(traj, sym) for sym in variable_symbols(symbolic_container(traj))] :
         collect(Base.pairs(observables))
     # Also accept a vector/tuple of ID => selector pairs.
     if observables isa Union{AbstractVector, Tuple} && !(observables isa NamedTuple)
@@ -109,40 +109,43 @@ function output_observables(traj, observables)
     return [id => last(p) for (id, p) in zip(ids, mappings)]
 end
 
+# A function barrier specializes each callback independently, including callable
+# structs, so sample collection need not start from an untyped accumulator.
+function simulation_values(traj, selector)
+    selector isa Expr && throw(ArgumentError("Export selectors must be state symbols, indices, or scalar callbacks."))
+    resolved = if selector isa Symbol
+        index = variable_index(traj, selector)
+        isnothing(index) && throw(ArgumentError("Unknown trajectory state `$selector`."))
+        index
+    else
+        selector
+    end
+    return map(eachindex(traj.t)) do k
+        value = Corleone.observe(resolved, traj, k)
+        value isa Real || throw(ArgumentError("Export observables must return real scalars."))
+        return value
+    end
+end
+
 function Corleone.trajectories_dataframe(
         traj::Trajectory; experiment_id = "experiment1", observables = nothing
     )
     id = identifier(experiment_id, :experimentId)
     mappings = output_observables(traj, observables)
-    observable_ids = String[]
-    times = eltype(traj.t)[]
-    simulations = []
-    indices = Int[]
-    sides = String[]
+    # vcat promotes different numeric result types, preserving e.g. BigFloat or
+    # dual-valued callbacks rather than converting them to the saved state type.
+    columns = map(mapping -> simulation_values(traj, last(mapping)), mappings)
+    simulations = isempty(columns) ? eltype(first(traj.u))[] : reduce(vcat, columns)
+    n, m = length(traj.t), length(mappings)
     outgoing = Set(traj.reset_indices)
     incoming = Set(traj.reset_indices .- 1)
-    for (name, selector) in mappings
-        selector isa Union{Symbol, Integer, Function} ||
-            throw(ArgumentError("Export selectors must be state symbols, indices, or scalar callbacks."))
-        state_index = selector isa Integer ? selector : selector isa Symbol ?
-            variable_index(traj, selector) : nothing
-        selector isa Symbol && isnothing(state_index) &&
-            throw(ArgumentError("Unknown trajectory state `$selector`."))
-        for k in eachindex(traj.t)
-            t = traj.t[k]
-            value = isnothing(state_index) ?
-                selector(traj.u[k], parameter_values_at_time(traj, traj, t), t) : traj.u[k][state_index]
-            value isa Real || throw(ArgumentError("Export observables must return real scalars."))
-            push!(observable_ids, name)
-            push!(times, t)
-            push!(simulations, value)
-            push!(indices, k)
-            push!(sides, k in outgoing ? "outgoing" : k in incoming ? "incoming" : "none")
-        end
+    sides = map(eachindex(traj.t)) do k
+        k in outgoing ? "outgoing" : k in incoming ? "incoming" : "none"
     end
     return DataFrame(
-        observableId = observable_ids, experimentId = fill(id, length(times)),
-        time = times, simulation = identity.(simulations), sampleIndex = indices, resetSide = sides,
+        observableId = repeat(first.(mappings); inner = n), experimentId = fill(id, n * m),
+        time = repeat(traj.t, m), simulation = simulations,
+        sampleIndex = repeat(collect(eachindex(traj.t)), m), resetSide = repeat(sides, m),
     )
 end
 

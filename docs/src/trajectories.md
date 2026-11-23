@@ -165,8 +165,10 @@ frame = DataFrame([trajectory_a, trajectory_b];
 ```
 
 The default exports every state using its symbolic name. Output observable
-mappings accept symbols, indices, and scalar callbacks. Use callbacks for derived
-quantities; Julia expressions are supported on import only. Output is ordered by
+mappings accept symbols, indices, and scalar callable objects, including callable
+structs. Numeric output types are inferred from the observable results and
+promoted when different observables return different number types. Use callbacks
+for derived quantities; Julia expressions are supported on import only. Output is ordered by
 trajectory, observable, then saved sample. Each trajectory keeps its own time
 grid; no interpolation is performed. Collections must be nonempty and IDs unique.
 

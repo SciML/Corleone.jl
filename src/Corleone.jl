@@ -63,7 +63,7 @@ function experiments_from_dataframe end
 
 Export saved trajectories as a PEtab 2-style DataFrame with `observableId`,
 `experimentId`, `time`, and `simulation` columns. Requires DataFrames.
-`observables` maps output IDs to state symbols, indices, or scalar callbacks
+`observables` maps output IDs to state symbols, indices, or scalar callable objects
 `(u, p, t) -> value`; the default exports every state. Collections may be vectors,
 tuples, or named tuples. Named tuple keys supply experiment IDs; otherwise IDs
 are `experiment1`, `experiment2`, … unless `experiment_ids` is supplied.

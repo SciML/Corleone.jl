@@ -1,4 +1,5 @@
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 RuntimeGeneratedFunctions = "7e49a35a-f44a-4d26-94aa-eba1b4ca6b47"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
@@ -11,10 +12,11 @@ TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
+DataFrames = "1"
 RuntimeGeneratedFunctions = "0.5.15"
 Aqua = "0.8"
 ComponentArrays = "0.15"
-Corleone = "2.1"
+Corleone = "2.2"
 Distributions = "0.25"
 SafeTestsets = "0.1, 1"
 SciMLTesting = "2.6"

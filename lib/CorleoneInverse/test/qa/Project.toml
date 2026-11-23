@@ -11,7 +11,7 @@ CorleoneInverse = {path = "../.."}
 
 [compat]
 Aqua = "0.8"
-Corleone = "2.1"
+Corleone = "2.2"
 CorleoneInverse = "0.1"
 SciMLTesting = "2.6"
 Test = "1"
