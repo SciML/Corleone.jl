@@ -1,0 +1,93 @@
+# Paths are relative to the repository root. Entries have independent cache keys.
+
+[[tutorials]]
+source = "examples/linear_quadratic/main.jl"
+name = "the_linear_quadratic_regulator"
+
+[[tutorials]]
+source = "examples/lotka_fishing_optimal_control/main.jl"
+name = "the_lotka_volterra_fishing_problem"
+
+[[tutorials]]
+source = "examples/mtk_lotka/main.jl"
+name = "modelingtoolkit_integration"
+
+[[tutorials]]
+source = "examples/lotka_universal_differential_equation/main.jl"
+name = "lotka_volterra_universal_differential_equation"
+
+[[tutorials]]
+source = "examples/mtk_lti/main.jl"
+name = "lti_control_with_unknown_coefficients"
+
+[[tutorials]]
+source = "examples/two_stage_reactor/main.jl"
+name = "optimal_control_of_a_two_stage_reactor_system"
+
+[[tutorials]]
+source = "examples/lotka_path/main.jl"
+name = "lotka_volterra_path_constraints"
+
+[[tutorials]]
+source = "examples/lotka_min_time/main.jl"
+name = "minimal_time_lotka_volterra"
+
+[[tutorials]]
+source = "examples/lotka_dae/main.jl"
+name = "lotka_volterra_fishing_dae"
+
+[[tutorials]]
+source = "examples/lotka_multistage/main.jl"
+name = "multistage_lotka_volterra"
+
+[[tutorials]]
+source = "examples/lotka_sto/main.jl"
+name = "lotka_volterra_switching_times"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/lotka_plain/main.jl"
+name = "inverse_lotka_plain"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/petab_boehm/main.jl"
+name = "inverse_petab_boehm"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/lotka_multiexperiment/main.jl"
+name = "inverse_lotka_multiexperiment"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/lotka_oed_control/main.jl"
+name = "inverse_lotka_oed_control"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/multiple_shooting/main.jl"
+name = "inverse_multiple_shooting"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/sir_multicity/main.jl"
+name = "inverse_sir_multicity"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/rober_dae/main.jl"
+name = "inverse_rober_dae"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/ude_growth/main.jl"
+name = "inverse_ude_growth"
+
+[[tutorials]]
+source = "lib/CorleoneInverse/examples/egf_signaling/main.jl"
+name = "inverse_egf_signaling"
+
+[[tutorials]]
+source = "lib/CorleoneOED/examples/lotka_oed/main.jl"
+name = "the_lotka_volterra_optimal_experimental_design_problem"
+
+[[tutorials]]
+source = "lib/CorleoneOED/examples/lotka_multiexperiments/main.jl"
+name = "the_lotka_volterra_multiexperiment_problem"
+
+[[tutorials]]
+source = "lib/CorleoneOED/examples/compartmental_oed/main.jl"
+name = "compartmental_oed_problem"

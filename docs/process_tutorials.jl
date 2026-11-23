@@ -1,4 +1,11 @@
 using Base64: base64decode
+using TOML
+include("tutorial_cache.jl")
+using .TutorialCache
+
+cache_enabled = !draft && get(ENV, "DOCS_TUTORIAL_CACHE", "true") != "false"
+cache_root = joinpath(@__DIR__, ".cache", "tutorials")
+cache_context = cache_enabled ? tutorial_context(joinpath(@__DIR__, "..")) : ""
 
 function extract_metadata(file_path)
     content = read(file_path, String)
@@ -97,12 +104,18 @@ function make_tutorial(path; name = nothing, draft = false)
         occursin("CorleoneOED", path) ? "experimental_design" : "optimal_control"
     )
     staged = joinpath(demo_source, category, "$fname.jl")
+    dependencies = get(something(metadata, Dict()), "cache_dependencies", String[])
+    key = cache_enabled ? tutorial_key(path, cache_context; dependencies, root = joinpath(@__DIR__, "..")) : ""
+    hit = cache_enabled && valid_tutorial_cache(cache_root, fname, key)
+    cache_enabled && @info("Tutorial cache", tutorial = fname, status = hit ? "hit" : "miss")
     content = preprocess_script(read(path, String))
-    # Each tutorial disables cover/notebook execution in its native frontmatter.
-    # Only the documentation build's draft mode needs a staging-time override.
-    content = replace(content, "# ---\n" => "# ---\n# execute: $(!draft)\n"; count = 1)
+    # A draft or validated cache hit suppresses Literate execution. Cover and
+    # notebook execution remain disabled by the original frontmatter.
+    content = replace(content, "# ---\n" => "# ---\n# execute: $(!draft && !hit)\n"; count = 1)
     write(staged, content)
     metadata = something(metadata, Dict("title" => fname))
+    metadata["cache_key"] = key
+    metadata["cache_hit"] = hit
     metadata["source"] = path
     metadata["link"] = joinpath(".", "examples", fname)
     return metadata
@@ -118,46 +131,17 @@ for (folder, title) in (("optimal_control", "Optimal control"), ("parameter_esti
     mkpath(joinpath(demo_source, folder))
     write(joinpath(demo_source, folder, "config.json"), "{\"title\":\"$title\"}")
 end
-write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"bokehlist\",\"order\":[\"optimal_control\",\"parameter_estimation\",\"experimental_design\"]}")
 
-tutorials = map(
-    [
-        (joinpath(@__DIR__, "..", "examples", "linear_quadratic", "main.jl"), "the_linear_quadratic_regulator"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_fishing_optimal_control", "main.jl"), "the_lotka_volterra_fishing_problem"),
-        (joinpath(@__DIR__, "..", "examples", "mtk_lotka", "main.jl"), "modelingtoolkit_integration"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_universal_differential_equation", "main.jl"), "lotka_volterra_universal_differential_equation"),
-        (joinpath(@__DIR__, "..", "examples", "mtk_lti", "main.jl"), "lti_control_with_unknown_coefficients"),
-        (joinpath(@__DIR__, "..", "examples", "two_stage_reactor", "main.jl"), "optimal_control_of_a_two_stage_reactor_system"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_path", "main.jl"), "lotka_volterra_path_constraints"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_min_time", "main.jl"), "minimal_time_lotka_volterra"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_dae", "main.jl"), "lotka_volterra_fishing_dae"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_multistage", "main.jl"), "multistage_lotka_volterra"),
-        (joinpath(@__DIR__, "..", "examples", "lotka_sto", "main.jl"), "lotka_volterra_switching_times"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_plain", "main.jl"), "inverse_lotka_plain"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "petab_boehm", "main.jl"), "inverse_petab_boehm"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_multiexperiment", "main.jl"), "inverse_lotka_multiexperiment"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "lotka_oed_control", "main.jl"), "inverse_lotka_oed_control"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "multiple_shooting", "main.jl"), "inverse_multiple_shooting"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "sir_multicity", "main.jl"), "inverse_sir_multicity"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "rober_dae", "main.jl"), "inverse_rober_dae"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "ude_growth", "main.jl"), "inverse_ude_growth"),
-        (joinpath(@__DIR__, "..", "lib", "CorleoneInverse", "examples", "egf_signaling", "main.jl"), "inverse_egf_signaling"),
-        (
-            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_oed", "main.jl"),
-            "the_lotka_volterra_optimal_experimental_design_problem",
-        ),
-        (
-            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "lotka_multiexperiments", "main.jl"),
-            "the_lotka_volterra_multiexperiment_problem",
-        ),
-        (
-            joinpath(@__DIR__, "..", "lib", "CorleoneOED", "examples", "compartmental_oed", "main.jl"),
-            "compartmental_oed_problem",
-        ),
-    ]
-) do (path, name)
-    make_tutorial(path; name, draft)
+tutorials = map(TOML.parsefile(joinpath(@__DIR__, "tutorials.toml"))["tutorials"]) do entry
+    path = joinpath(@__DIR__, "..", entry["source"])
+    make_tutorial(path; name = entry["name"], draft)
 end
+
+active_sections = filter(("optimal_control", "parameter_estimation", "experimental_design")) do folder
+    any(file -> endswith(file, ".jl"), readdir(joinpath(demo_source, folder)))
+end
+order = join(["\"$folder\"" for folder in active_sections], ",")
+write(joinpath(demo_source, "config.json"), "{\"title\":\"Tutorials\",\"theme\":\"bokehlist\",\"order\":[$order]}")
 
 # DemoCards owns Julia/Literate generation; retain published tutorial URLs.
 demo_pages, demo_postprocess, demo_assets = DemoCards.makedemos(
@@ -166,18 +150,26 @@ demo_pages, demo_postprocess, demo_assets = DemoCards.makedemos(
 )
 generated = joinpath(@__DIR__, "src", "gallery")
 for folder in ("optimal_control", "experimental_design", "parameter_estimation")
-    for file in readdir(joinpath(generated, folder); join = true)
+    directory = joinpath(generated, folder)
+    isdir(directory) || continue
+    for file in readdir(directory; join = true)
         mv(file, joinpath(example_output, basename(file)); force = true)
     end
 end
 # Keep DemoCards' metadata-driven list while preserving published tutorial URLs.
 for metadata in tutorials
     name = basename(metadata["link"])
+    if metadata["cache_hit"]
+        restore_tutorial_cache!(cache_root, name, metadata["cache_key"], example_output) ||
+            error("Tutorial cache changed during the build for $name; rerun with DOCS_TUTORIAL_CACHE=false.")
+        continue
+    end
     path = joinpath(example_output, "$name.md")
     edit_url = "https://github.com/SciML/Corleone.jl/blob/main/" * replace(relpath(metadata["source"], joinpath(@__DIR__, "..")), '\\' => '/')
     content = tutorial_figures(read(path, String), metadata["title"], example_output, name)
     content = replace(content, r"```@meta\n.*?```\n"s => ""; count = 1)
     write(path, normalize_demo_output("```@meta\nEditURL = \"$edit_url\"\n```\n\n" * content))
+    cache_enabled && save_tutorial_cache!(cache_root, name, metadata["cache_key"], example_output)
 end
 
 # Reuse executed trajectory figures rather than running examples for covers.

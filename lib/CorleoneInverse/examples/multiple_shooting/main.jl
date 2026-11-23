@@ -1,6 +1,8 @@
 # ---
 # title: Multiple-shooting parameter estimation
 # description: Fit fishing-model rates and a shooting-node state with exact continuity constraints.
+# cache_dependencies:
+#   - ../lotka_oed_control/design.jl
 # category: parameter_estimation
 # id: inverse_multiple_shooting
 # julia: "1.10"

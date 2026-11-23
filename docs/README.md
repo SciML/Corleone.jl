@@ -21,20 +21,73 @@ the setup again.
 julia --project=docs docs/make.jl
 ```
 
-A full build executes every tutorial and `@example` block, runs the doctests,
-checks that all exported names are documented, and resolves cross-references.
+A full build executes uncached tutorials and every `@example` block, runs the
+doctests, checks that all exported names are documented, and resolves
+cross-references. Unchanged tutorials reuse their previously executed output.
 Useful environment variables:
 
 | Variable | Effect |
 |---|---|
 | `DOCS_DRAFT=true` | Draft build: skips all code execution, so tutorials have no output or plots. Much faster for checking prose and links. |
+| `DOCS_TUTORIAL_CACHE=false` | Execute every tutorial afresh without reading or writing the tutorial cache. |
 | `DOCS_LINKCHECK=true` | Also checks external URLs. |
 | `CI=false` | Never deploy. Deployment only runs when `CI=true`. |
 
 On GitHub pull requests, the build is a draft unless the PR changes `examples/`,
 `lib/CorleoneOED/examples/`, `lib/CorleoneInverse/examples/`, or
-`docs/process_tutorials.jl`. Builds on `main`, tags, and local builds execute
-everything unless `DOCS_DRAFT` is set.
+`docs/process_tutorials.jl`, `docs/tutorial_cache.jl`, or `docs/tutorials.toml`.
+Full builds on pull requests, `main`, tags, and local runs use the per-tutorial
+cache unless `DOCS_DRAFT` or `DOCS_TUTORIAL_CACHE` overrides it.
+
+## Tutorial execution cache
+
+Each tutorial has an independent entry in `docs/.cache/tutorials/`, containing its
+executed Markdown, downloadable Julia script, and figure assets. The GitHub Actions
+workflow restores this cache separately from Julia's package cache. The archive
+transports the entries together, but each tutorial validates its own fingerprint;
+editing one example does not invalidate the rest of the folder.
+
+Fingerprints include the example directory (including local data), declared helper
+paths, all checked-out package source and extension code, package projects, the docs
+project and resolved manifest, the rendering scripts, Julia version, OS,
+architecture, and thread count. Changing package code or the resolved environment
+invalidates all tutorial entries. Editing a handwritten manual page does not.
+Checkout relocation is ignored for the three checked-out package paths in the
+manifest. Cached dependency/system appendices describe the original execution.
+
+Incomplete or modified cache payloads are treated as misses. Only successfully
+executed tutorials are stored; draft builds neither read nor overwrite executed
+entries. Pages and the gallery are always regenerated, so removed tutorials cannot
+leave stale pages behind. The cache keeps one successful result per tutorial.
+
+To force a fresh numerical run, use:
+
+```sh
+DOCS_TUTORIAL_CACHE=false julia --project=docs docs/make.jl
+```
+
+Files inside an example's own directory are tracked automatically. Declare helpers
+or data outside it in the tutorial's commented YAML frontmatter, relative to that
+example's directory:
+
+```julia
+# cache_dependencies:
+#   - ../shared/model.jl
+#   - ../shared/measurements.tsv
+```
+
+For example, the multiple-shooting tutorial declares the design helper from the
+OED-control tutorial. Add declarations when introducing cross-directory inputs.
+Changes to external services or undeclared inputs require a forced fresh run.
+Cache hits and misses are logged by tutorial name.
+
+The cache integration tests run two tiny tutorials through the real DemoCards
+pipeline and verify independent invalidation, environment/code changes, corrupted
+assets, gallery covers, draft isolation, and forced execution:
+
+```sh
+julia --project=docs docs/test/runtests.jl
+```
 
 ## Previewing
 
@@ -96,11 +149,11 @@ To add one:
    `category` (`optimal_control`, `parameter_estimation`, or
    `experimental_design`; the default depends on the folder) and `cover_figure`
    (which plot to use as the gallery cover, default 1).
-2. Add the script and its output name to the list in `docs/process_tutorials.jl`.
+2. Add the repository-relative script path and its output name to `docs/tutorials.toml`.
    The output name fixes the page URL, so don't change it once published.
 3. Add the page to the navigation in `docs/make.jl`.
 
-Each tutorial runs once through Literate during the build, and its plots are saved
+On a cache miss, each tutorial runs once through Literate, and its plots are saved
 as PNG files next to the page. The build appends a dependency and system summary
 to every tutorial.
 
