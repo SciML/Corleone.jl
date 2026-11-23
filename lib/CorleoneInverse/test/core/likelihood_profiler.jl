@@ -201,14 +201,16 @@ end
     if !isnothing(interval.left) && !isnothing(interval.right)
         @test 0.6 <= interval.left < estimate.x[1] < interval.right <= 0.75
         halfwidth = sqrt(cutoff / linear_profile_precision(t, noise_scale))
-        @test interval.left ≈ 0.7 - halfwidth atol = 5.0e-4
+        # The left bracket is 0.02 wide; the clamped right bracket is 0.01.
+        @test interval.left ≈ 0.7 - halfwidth atol = 1.0e-3
         @test interval.right ≈ 0.7 + halfwidth atol = 5.0e-4
         # Independently interpolate the analytical likelihood on the last bracket.
         precision = linear_profile_precision(t, noise_scale)
-        lo, hi = 0.74, 0.75
-        f_lo, f_hi = precision .* (lo - 0.7, hi - 0.7) .^ 2 ./ 2
-        interpolated = lo + (hi - lo) * (cutoff / 2 - f_lo) / (f_hi - f_lo)
-        @test interval.right ≈ interpolated atol = 1.0e-6
+        for (lo, hi, endpoint) in ((0.64, 0.66, interval.left), (0.74, 0.75, interval.right))
+            f_lo, f_hi = precision .* (lo - 0.7, hi - 0.7) .^ 2 ./ 2
+            interpolated = lo + (hi - lo) * (cutoff / 2 - f_lo) / (f_hi - f_lo)
+            @test endpoint ≈ interpolated atol = 1.0e-6
+        end
     end
 
     unbounded = OptimizationProblem(problem.f, problem.u0, problem.p)
