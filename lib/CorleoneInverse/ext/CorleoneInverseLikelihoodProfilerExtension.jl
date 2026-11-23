@@ -23,7 +23,8 @@ Supply finite profile bounds when the optimization bounds are infinite.
 Profile bounds must lie within the selected parameters' optimization bounds.
 General constraints, including shooting equalities, are rejected because the
 upstream profilers do not reliably preserve their feasibility. Box constraints
-are supported. The confidence level is converted to `Float64` for the dependency.
+are supported. Integer constraints on either profiled or nuisance parameters
+are rejected. The confidence level is converted to `Float64` for the dependency.
 The objective is used unchanged: construct it on the likelihood scale required
 by LikelihoodProfiler and choose a matching `threshold` when needed.
 """
@@ -44,6 +45,11 @@ function ProfileLikelihoodProblem(
     isnothing(problem.f.cons) || throw(
         ArgumentError(
             "LikelihoodProfiler integration does not support general constraints, including shooting equalities."
+        )
+    )
+    isnothing(problem.int) || !any(problem.int) || throw(
+        ArgumentError(
+            "LikelihoodProfiler integration does not support integer constraints on profiled or nuisance parameters."
         )
     )
     if isnothing(idxs)

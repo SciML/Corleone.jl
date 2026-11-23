@@ -120,6 +120,9 @@ ranges that exceed them are rejected. General constraints, including
 multiple-shooting equalities, are currently rejected: LikelihoodProfiler 1.6.1's
 profilers can violate them or fail during reoptimization. Retaining a constraint
 callback alone does not guarantee a feasible profile.
+Integer constraints are also rejected, including integers that would remain
+nuisance parameters. A mask containing only `false` entries is supported.
+
 LikelihoodProfiler 1.6.1's stepwise profiler requires a backend with an Optimization.jl
 `OptimizationCache`, such as OptimizationOptimJL, rather than OptimizationMOI.
 Supply finite `profile_lower` and `profile_upper` bounds if its bounds are infinite;

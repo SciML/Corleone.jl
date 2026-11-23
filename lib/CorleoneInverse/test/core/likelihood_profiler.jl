@@ -141,6 +141,27 @@ end
     end
 end
 
+@testset "Integer constraints are rejected, including nuisance parameters" begin
+    shooting = ShootingLayer(
+        remake(ode; p = [1.0, 0.3]), Tsit5(), Tunable(1; integer = true) => nothing;
+        controls = [2]
+    )
+    model = CorleoneDynamicOptProblem(shooting, data; reducer = x -> sum(x) / 2)
+    problem = OptimizationProblem(model, AutoForwardDiff(); lb = [0.5, -0.5], ub = [1.5, 1.0])
+    estimate = ParameterEstimate(model, [1.0, 0.3])
+    @test problem.int == [true, false]
+    @test isnothing(problem.f.cons)
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate)
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; include_controls = true)
+    # Profiling the continuous control still leaves an integer nuisance parameter.
+    @test_throws ArgumentError ProfileLikelihoodProblem(problem, estimate; idxs = 2)
+
+    continuous = remake(problem; int = falses(length(problem.u0)))
+    profile = ProfileLikelihoodProblem(continuous, estimate)
+    @test profile.optprob === continuous
+    @test profile.target.idxs == [1]
+end
+
 @testset "Profile ranges respect optimization bounds" begin
     noise_scale = 0.025
     observations = Experiment(1 => (t, measurements, noise_scale))
@@ -161,23 +182,33 @@ end
     profile = ProfileLikelihoodProblem(problem, estimate; threshold = cutoff / 2)
     @test profile.target.profile_lower == [0.6]
     @test profile.target.profile_upper == [0.75]
-    # Resolve the interior cutoff crossings before a step reaches the box edge.
+    # The final right step lands on the box edge after crossing the cutoff.
     profiles = solve(
         profile, OptimizationProfiler(;
-            optimizer = LBFGS(), stepper = FixedStep(initial_step = 0.002),
+            optimizer = LBFGS(), stepper = FixedStep(initial_step = 0.02),
             optimizer_opts = (; abstol = 1.0e-10)
         ); maxiters = 100
     )
     curve = only(profiles.profiles)
     @test all(x -> 0.6 <= x <= 0.75, curve.x)
     @test all(q -> all(problem.lb .<= q .<= problem.ub), curve.pars)
+    @test curve.x[end] == 0.75
+    @test curve.x[end - 1] ≈ 0.74
+    @test curve.obj[end - 1] < cutoff / 2 < curve.obj[end]
+    @test LikelihoodProfiler.retcodes(curve).right == :Identifiable
     interval = only(LikelihoodProfiler.endpoints(profiles))
     @test !isnothing(interval.left) && !isnothing(interval.right)
     if !isnothing(interval.left) && !isnothing(interval.right)
         @test 0.6 <= interval.left < estimate.x[1] < interval.right <= 0.75
         halfwidth = sqrt(cutoff / linear_profile_precision(t, noise_scale))
-        @test interval.left ≈ 0.7 - halfwidth atol = 1.0e-4
-        @test interval.right ≈ 0.7 + halfwidth atol = 1.0e-4
+        @test interval.left ≈ 0.7 - halfwidth atol = 5.0e-4
+        @test interval.right ≈ 0.7 + halfwidth atol = 5.0e-4
+        # Independently interpolate the analytical likelihood on the last bracket.
+        precision = linear_profile_precision(t, noise_scale)
+        lo, hi = 0.74, 0.75
+        f_lo, f_hi = precision .* (lo - 0.7, hi - 0.7) .^ 2 ./ 2
+        interpolated = lo + (hi - lo) * (cutoff / 2 - f_lo) / (f_hi - f_lo)
+        @test interval.right ≈ interpolated atol = 1.0e-6
     end
 
     unbounded = OptimizationProblem(problem.f, problem.u0, problem.p)
