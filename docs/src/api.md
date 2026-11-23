@@ -65,6 +65,7 @@ Stages
 
 ```@docs
 Trajectory
+trajectories_dataframe
 Trajectory(::Any, ::Any, ::Any, ::AbstractVector, ::Any)
 trajectoryplot
 trajectoryplot!
@@ -79,6 +80,7 @@ CorleoneInverse. Prepare the observation grid with `experiment_state`, predict w
 ```@docs
 Observation
 Experiment
+experiments_from_dataframe
 experiment_state
 Experiments
 append_experiment

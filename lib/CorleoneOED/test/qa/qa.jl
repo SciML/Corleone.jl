@@ -17,6 +17,7 @@ const CORLEONE_REEXPORTS = (
     :forward_initialization, :linear_initialization, :random_initialization,
     :constant_initialization, :custom_initialization, :hybrid_initialization,
     :trajectoryplot, :trajectoryplot!, :log_prior,
+    :experiments_from_dataframe, :trajectories_dataframe,
     :BoundedTransform, :Experiments, :append_experiment, :Observation, :Experiment, :experiment_state, :residual, :n_observations,
     :StageLinkage, :StageTransition, :Stages, :get_number_of_linkage_constraints, :linkage_residual,
 )
@@ -26,6 +27,7 @@ const SYMBOLICS_REEXPORTS = (
     Symbol("@register_discontinuity"), Symbol("@register_inverse"),
     Symbol("@register_symbolic"), Symbol("@rule"), Symbol("@symbolic_wrap"), Symbol("@syms"),
     Symbol("@symstruct"), Symbol("@variables"), Symbol("@wrapped"), :BS, :Differential,
+    :Curl, :Divergence, :Grad, :Laplacian, :NormalDerivative,
     :Equation, :IRStructure, :Inequality, :Integral, :Num, :Rewriters, :RuleSet, :SafeReal,
     :SymReal, :SymStruct, :SymbolicLinearODE, :SymbolicUtils, :Symbolics,
     :SymbolicsSparsityDetector, :TreeReal, :approximation_function, :arguments,
