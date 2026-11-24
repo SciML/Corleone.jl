@@ -50,7 +50,7 @@ uopt = solve(
     max_iter = 300, print_level = 0
 )
 @assert successful_retcode(uopt)
-(; retcode = uopt.retcode, objective = uopt.objective)</code></pre><pre><code class="nohighlight hljs">(retcode = SciMLBase.ReturnCode.Success, objective = 1.3443410125911441)</code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), dynprob.ps)
+(; retcode = uopt.retcode, objective = uopt.objective)</code></pre><pre><code class="nohighlight hljs">(retcode = SciMLBase.ReturnCode.Success, objective = 1.3443410170317753)</code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), dynprob.ps)
 optimized_parameters = reconstruct(uopt.u)
 optsol, _ = layer(nothing, optimized_parameters, opt.p)
 trajectoryplot(optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-1.png" alt="Trajectory plot for Lotka–Volterra fishing problem"/></p><h2 id="Sum-Up-Rounding"><a class="docs-heading-anchor" href="#Sum-Up-Rounding">Sum Up Rounding</a><a id="Sum-Up-Rounding-1"></a><a class="docs-heading-anchor-permalink" href="#Sum-Up-Rounding" title="Permalink"></a></h2><p>The relaxed control is not admissible for the underlying mixed-integer problem, in which the fishing intensity is binary. Sum Up Rounding (SUR) reconstructs a binary control from the relaxed one: on each control interval <span>$i$</span> the binary value <span>$p_i$</span> is chosen such that the integral of the deviation <span>$\int_0^{t} (v - w)\,d\tau$</span> stays within <span>$0.5\,\Delta t$</span> at all times (Sager, Bock &amp; Diehl, <em>Solving mixed-integer control problems by Sum Up Rounding</em>). With <span>$q_i$</span> the relaxed value and the accumulator <span>$a_i = \sum_{k&lt;i} (q_k - p_k)\Delta t$</span>, the recursion reads</p><p class="math-container">\[p_i = \begin{cases}
@@ -74,7 +74,7 @@ function sum_up_rounding(v, Δt)
     end
     return binary, max_deviation
 end
-v_binary, max_deviation = sum_up_rounding(v_relaxed, Δt)</code></pre><pre><code class="nohighlight hljs">([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.04982589738215931)</code></pre><p>Simulate with the binary control: keep all constants and replace only the control values.</p><pre><code class="language-julia hljs">binary_parameters = copy(optimized_parameters)
+v_binary, max_deviation = sum_up_rounding(v_relaxed, Δt)</code></pre><pre><code class="nohighlight hljs">([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 0.04985041003890975)</code></pre><p>Simulate with the binary control: keep all constants and replace only the control values.</p><pre><code class="language-julia hljs">binary_parameters = copy(optimized_parameters)
 binary_parameters.parameter.parameters.p₂.parameter.ps .= v_binary
 binsol, _ = layer(nothing, binary_parameters, opt.p)
 trajectoryplot(binsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-2.png" alt="Trajectory plot for Lotka–Volterra fishing problem"/></p><p>The SUR bound guarantees that the binary trajectory stays close to the relaxed one, so the objective increases only moderately.</p><pre><code class="language-julia hljs">(;
@@ -82,7 +82,7 @@ trajectoryplot(binsol)</code></pre><p><img src="../the_lotka_volterra_fishing_pr
     binary_objective = last(binsol.u)[3],
     max_integral_deviation = max_deviation,
     bound = 0.5 * Δt,
-)</code></pre><pre><code class="nohighlight hljs">(relaxed_objective = 1.3443410125911441, binary_objective = 1.3566202394057425, max_integral_deviation = 0.04982589738215931, bound = 0.05)</code></pre><h2 id="Multiple-Shooting"><a class="docs-heading-anchor" href="#Multiple-Shooting">Multiple Shooting</a><a id="Multiple-Shooting-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Shooting" title="Permalink"></a></h2><p>Now lift all three states at interior shooting points. Matching constraints enforce continuity, including the accumulated cost, so its final value still covers the whole time horizon. Full-state resets allow independent blocks to be integrated in parallel with <code>EnsembleThreads()</code>.</p><div class="admonition is-success" id="Use-several-threads-5a11adf204817df0"><header class="admonition-header">Use several threads<a class="admonition-anchor" href="#Use-several-threads-5a11adf204817df0" title="Permalink"></a></header><div class="admonition-body"><p>Start Julia with <code>--threads=4</code> (or <code>auto</code>) to integrate the shooting segments in parallel.</p></div></div><p>We use control intervals of length 0.25. The shooting points at 3.4 and 6.1 lie inside control intervals; 9.75 already coincides with a control switch.</p><pre><code class="language-julia hljs">shooting_points = [3.4, 6.1, 9.75]
+)</code></pre><pre><code class="nohighlight hljs">(relaxed_objective = 1.3443410170317753, binary_objective = 1.3566202394057425, max_integral_deviation = 0.04985041003890975, bound = 0.05)</code></pre><h2 id="Multiple-Shooting"><a class="docs-heading-anchor" href="#Multiple-Shooting">Multiple Shooting</a><a id="Multiple-Shooting-1"></a><a class="docs-heading-anchor-permalink" href="#Multiple-Shooting" title="Permalink"></a></h2><p>Now lift all three states at interior shooting points. Matching constraints enforce continuity, including the accumulated cost, so its final value still covers the whole time horizon. Full-state resets allow independent blocks to be integrated in parallel with <code>EnsembleThreads()</code>.</p><div class="admonition is-success" id="Use-several-threads-5a11adf204817df0"><header class="admonition-header">Use several threads<a class="admonition-anchor" href="#Use-several-threads-5a11adf204817df0" title="Permalink"></a></header><div class="admonition-body"><p>Start Julia with <code>--threads=4</code> (or <code>auto</code>) to integrate the shooting segments in parallel.</p></div></div><p>We use control intervals of length 0.25. The shooting points at 3.4 and 6.1 lie inside control intervals; 9.75 already coincides with a control switch.</p><pre><code class="language-julia hljs">shooting_points = [3.4, 6.1, 9.75]
 initial_conditions = (
     Tunable(i; kind = Val(:variable), lowerbound = 0.0, upperbound = 2.0) =&gt; shooting_points
         for i in 1:3
@@ -103,14 +103,14 @@ ms_uopt = solve(
     max_iter = 1000, print_level = 0
 )
 @assert successful_retcode(ms_uopt)
-(; retcode = ms_uopt.retcode, objective = ms_uopt.objective)</code></pre><pre><code class="nohighlight hljs">(retcode = SciMLBase.ReturnCode.Success, objective = 1.345631331066758)</code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct_ms = pack(default_vectorizer(), ms_dynprob.ps)
+(; retcode = ms_uopt.retcode, objective = ms_uopt.objective)</code></pre><pre><code class="nohighlight hljs">(retcode = SciMLBase.ReturnCode.Success, objective = 1.3456313301016707)</code></pre><p>Reconstruct the optimized parameters and plot the trajectory.</p><pre><code class="language-julia hljs">_, reconstruct_ms = pack(default_vectorizer(), ms_dynprob.ps)
 ms_optimized_parameters = reconstruct_ms(ms_uopt.u)
 ms_optsol, _ = mslayer(nothing, ms_optimized_parameters, ms_opt.p)
-trajectoryplot(ms_optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-4.png" alt="Trajectory plot for Lotka–Volterra fishing problem"/></p><p>The matching residuals measure the feasibility of the lifted states and the inserted control intervals. They should be close to zero:</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(ms_optsol))</code></pre><pre><code class="nohighlight hljs">9.288014801711597e-11</code></pre><div class="admonition is-info" id="Comparing-the-two-formulations-e28df9ae1b6ca467"><header class="admonition-header">Comparing the two formulations<a class="admonition-anchor" href="#Comparing-the-two-formulations-e28df9ae1b6ca467" title="Permalink"></a></header><div class="admonition-body"><p>The single- and multiple-shooting problems use different control grids, and the multiple-shooting model additionally bounds its lifted states (including the quadrature) by two. Their objective values therefore need not coincide.</p></div></div><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
+trajectoryplot(ms_optsol)</code></pre><p><img src="../the_lotka_volterra_fishing_problem-figure-4.png" alt="Trajectory plot for Lotka–Volterra fishing problem"/></p><p>The matching residuals measure the feasibility of the lifted states and the inserted control intervals. They should be close to zero:</p><pre><code class="language-julia hljs">maximum(abs, shooting_constraints(ms_optsol))</code></pre><pre><code class="nohighlight hljs">6.108940020510545e-10</code></pre><div class="admonition is-info" id="Comparing-the-two-formulations-e28df9ae1b6ca467"><header class="admonition-header">Comparing the two formulations<a class="admonition-anchor" href="#Comparing-the-two-formulations-e28df9ae1b6ca467" title="Permalink"></a></header><div class="admonition-body"><p>The single- and multiple-shooting problems use different control grids, and the multiple-shooting model additionally bounds its lifted states (including the quadrature) by two. Their objective values therefore need not coincide.</p></div></div><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.1.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
   [f6133253] CorleoneInverse v0.1.1 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.1.0 `../lib/CorleoneOED`
   [311a05b2] DemoCards v0.5.5
@@ -140,7 +140,7 @@ trajectoryplot(ms_optsol)</code></pre><p><img src="../the_lotka_volterra_fishing
   [860ef19b] StableRNGs v1.1.0
   [2efcf032] SymbolicIndexingInterface v0.3.56
   [84d833dd] TransformVariables v0.8.28
-  [ddb6d928] YAML v0.4.17
+  [ddb6d928] YAML v0.4.18
   [2a0f44e3] Base64 v1.11.0
   [37e2e46d] LinearAlgebra v1.13.0
   [9a3f8284] Random v1.11.0
@@ -152,16 +152,13 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 112 × AMD EPYC 7663 56-Core Processor
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
-Environment:
-  JULIA_CPU_THREADS = 4
-  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -225,7 +222,7 @@ Environment:
   [187b0558] ConstructionBase v1.6.1
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.1.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
   [f6133253] CorleoneInverse v0.1.1 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.1.0 `../lib/CorleoneOED`
   [adafc99b] CpuId v0.3.3
@@ -278,7 +275,7 @@ Environment:
   [a85aefff] FunctionMaps v0.1.2
   [069b7b12] FunctionWrappers v1.1.3
   [77dc65aa] FunctionWrappersWrappers v1.13.0
-  [d9f16b24] Functors v0.5.4
+  [d9f16b24] Functors v0.5.5
   [46192b85] GPUArraysCore v0.2.2
   [a0844989] Gamma v1.2.1
   [5c1252a2] GeometryBasics v0.5.13
@@ -324,9 +321,10 @@ Environment:
   [ba0b0d4f] Krylov v0.10.12
   [5be7bae1] LBFGSB v0.4.1
   [2faa5264] LHLFactorization v2.2.2
-  [929cbde3] LLVM v10.5.1
+  [929cbde3] LLVM v10.7.0
   [b964fa9f] LaTeXStrings v1.4.1
   [0e77f7df] LazilyInitializedFields v1.3.0
+  [21706172] LazyJLLWrappers v1.2.7
   [8cdb02fc] LazyModules v0.3.1
   [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
   [87fe0de2] LineSearch v0.1.20
@@ -337,7 +335,7 @@ Environment:
   [e6f89c97] LoggingExtras v1.2.0
   [b2108857] Lux v1.32.2
   [bb33d45b] LuxCore v1.5.5
-  [82251201] LuxLib v1.15.13
+  [82251201] LuxLib v1.15.15
 ⌅ [6c6e2e6c] MIMEs v0.1.4
   [7e8f7934] MLDataDevices v1.18.1
   [1914dd2f] MacroTools v0.5.16
@@ -360,7 +358,7 @@ Environment:
 ⌅ [102ac46a] MultivariatePolynomials v0.5.20
   [ffc61752] Mustache v1.1.0
   [d8a4904e] MutableArithmetics v1.9.5
-  [872c559c] NNlib v0.9.60
+  [872c559c] NNlib v0.9.61
   [77ba4419] NaNMath v1.1.5
   [f09324ee] Netpbm v1.1.1
   [8913a72c] NonlinearSolve v4.32.0
@@ -373,7 +371,7 @@ Environment:
   [67456a42] OhMyThreads v0.8.9
   [52e1d378] OpenEXR v0.3.3
   [4d8831e6] OpenSSL v1.12.0
-  [3bd65402] Optimisers v0.4.11
+  [3bd65402] Optimisers v0.4.13
   [7f7a1694] Optimization v5.9.1
   [bca83a33] OptimizationBase v5.10.1
   [22f7324a] OptimizationLBFGSB v1.5.3
@@ -411,7 +409,7 @@ Environment:
   [1fd47b50] QuadGK v2.11.3
   [b3c3ace0] RangeArrays v0.3.2
   [c84ed2f1] Ratios v0.4.5
-  [a3311ec8] ReactantCore v0.1.26
+  [a3311ec8] ReactantCore v0.1.27
   [988b38a3] ReadOnlyArrays v0.2.0
   [795d4caa] ReadOnlyDicts v1.0.1
   [3cdcf5f2] RecipesBase v1.4.0
@@ -422,7 +420,7 @@ Environment:
   [ae029012] Requires v1.3.1
   [9fe22ead] RespecializeParams v1.3.0
   [79098fc4] Rmath v0.9.0
-  [f2b01f46] Roots v3.0.14
+  [f2b01f46] Roots v3.0.15
   [5eaf0fd0] RoundingEmulator v0.2.1
   [7e49a35a] RuntimeGeneratedFunctions v0.5.27
   [9dfe8606] SCCNonlinearSolve v1.16.0
@@ -447,7 +445,7 @@ Environment:
   [ed01d8cd] Sobol v1.5.0
   [a2af1166] SortingAlgorithms v1.2.3
   [a57abbd0] SparseColumnPivotedQR v2.1.8
-  [9f842d2f] SparseConnectivityTracer v1.2.4
+  [9f842d2f] SparseConnectivityTracer v1.2.5
   [0a514795] SparseMatrixColorings v0.4.29
   [276daf66] SpecialFunctions v2.9.2
   [860ef19b] StableRNGs v1.1.0
@@ -469,7 +467,7 @@ Environment:
   [fd094767] Suppressor v0.2.8
   [2efcf032] SymbolicIndexingInterface v0.3.56
   [19f23fe9] SymbolicLimits v1.2.2
-  [d1185830] SymbolicUtils v4.56.2
+  [d1185830] SymbolicUtils v4.56.4
   [0c5d862f] Symbolics v7.49.0
   [3783bdb8] TableTraits v1.0.1
   [bd369af6] Tables v1.14.0
@@ -493,7 +491,7 @@ Environment:
   [e3aaa7dc] WebP v0.1.3
   [d49dbf32] WeightInitializers v1.3.8
   [efce3f68] WoodburyMatrices v1.1.0
-  [ddb6d928] YAML v0.4.17
+  [ddb6d928] YAML v0.4.18
   [ae81ac8f] ASL_jll v0.1.5+0
   [6e34b625] Bzip2_jll v1.0.9+0
   [4e9b3aee] CRlibm_jll v1.0.3+0
@@ -519,12 +517,12 @@ Environment:
   [aacddb02] JpegTurbo_jll v3.2.1+0
   [c1c5ebd0] LAME_jll v3.100.3+0
   [88015f11] LERC_jll v4.3.0+0
-  [dad2f222] LLVMExtra_jll v0.0.57+0
+  [dad2f222] LLVMExtra_jll v0.0.60+0
   [1d63c593] LLVMOpenMP_jll v23.1.1+0
   [81d17ec3] L_BFGS_B_jll v3.0.1+0
 ⌅ [e9f186c6] Libffi_jll v3.4.7+0
   [7e76a0d4] Libglvnd_jll v1.7.1+1
-  [94ce4f54] Libiconv_jll v1.18.0+0
+  [94ce4f54] Libiconv_jll v1.18.1
   [4b2f31a3] Libmount_jll v2.42.4+0
   [89763e89] Libtiff_jll v4.7.3+0
   [38a345b3] Libuuid_jll v2.42.4+0
@@ -533,7 +531,7 @@ Environment:
   [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
   [c8ffd9c3] MbedTLS_jll v2.28.1010+0
   [e7412a2a] Ogg_jll v1.3.6+0
-  [656ef2d0] OpenBLAS32_jll v0.3.34+1
+  [656ef2d0] OpenBLAS32_jll v0.3.34+2
   [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
   [18a262bb] OpenEXR_jll v3.5.4+0
 ⌅ [95196869] OpenJPH_jll v0.32.0+0
@@ -544,7 +542,7 @@ Environment:
   [30392449] Pixman_jll v0.46.4+0
   [f50d1b31] Rmath_jll v0.5.2+0
   [319450e9] SPRAL_jll v2025.9.18+1
-  [02c8fc9c] XML2_jll v2.15.4+0
+  [02c8fc9c] XML2_jll v2.15.5
   [ffd25f8a] XZ_jll v5.8.4+0
   [4f6342f7] Xorg_libX11_jll v1.8.14+0
   [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
@@ -621,4 +619,4 @@ Environment:
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.5+0
 Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
-</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear quadratic regulator</a><a class="docs-footer-nextpage" href="../lotka_volterra_path_constraints/">Path and terminal constraints »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 19 November 2026 20:12">Thursday 19 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../the_linear_quadratic_regulator/">« Linear quadratic regulator</a><a class="docs-footer-nextpage" href="../lotka_volterra_path_constraints/">Path and terminal constraints »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 24 November 2026 15:43">Tuesday 24 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

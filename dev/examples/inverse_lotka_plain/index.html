@@ -76,10 +76,10 @@ ParameterEstimate(model, ipopt_fit.u)</code></pre><pre><code class="nohighlight 
 beale = beale_joint_confidence(model, estimate; names, rng)
 fig = plot_beale_pairs(beale)
 fig</code></pre><p><img src="../inverse_lotka_plain-figure-2.png" alt="Trajectory plot for Lotka–Volterra parameter estimation"/></p><h2 id="Acknowledgements"><a class="docs-heading-anchor" href="#Acknowledgements">Acknowledgements</a><a id="Acknowledgements-1"></a><a class="docs-heading-anchor-permalink" href="#Acknowledgements" title="Permalink"></a></h2><p>This example is adapted from Christoph Plate (<a href="https://github.com/chplate">@chplate</a>)&#39;s example in <a href="https://github.com/SciML/Corleone.jl/pull/168">Corleone.jl PR #168</a>. beale<em>joint</em>confidence was contributed by Kai Exner, BASF SE.</p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Project.toml`
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
   [13f3f980] CairoMakie v0.15.17
   [b0b7db55] ComponentArrays v0.15.50
-  [2751e0db] Corleone v2.1.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
   [f6133253] CorleoneInverse v0.1.1 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.1.0 `../lib/CorleoneOED`
   [311a05b2] DemoCards v0.5.5
@@ -109,7 +109,7 @@ fig</code></pre><p><img src="../inverse_lotka_plain-figure-2.png" alt="Trajector
   [860ef19b] StableRNGs v1.1.0
   [2efcf032] SymbolicIndexingInterface v0.3.56
   [84d833dd] TransformVariables v0.8.28
-  [ddb6d928] YAML v0.4.17
+  [ddb6d928] YAML v0.4.18
   [2a0f44e3] Base64 v1.11.0
   [37e2e46d] LinearAlgebra v1.13.0
   [9a3f8284] Random v1.11.0
@@ -121,16 +121,13 @@ Build Info:
   Official https://julialang.org release
 Platform Info:
   OS: Linux (x86_64-linux-gnu)
-  CPU: 112 × AMD EPYC 7663 56-Core Processor
+  CPU: 4 × AMD EPYC 9V45 96-Core Processor
   WORD_SIZE: 64
-  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver5)
   GC: Built with stock GC
 Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
-Environment:
-  JULIA_CPU_THREADS = 4
-  JULIA_NUM_PRECOMPILE_TASKS = 4
 </code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
-        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/_work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
   [47edcb42] ADTypes v1.24.0
   [14f7f29c] AMD v0.5.4
   [a4c015fc] ANSIColoredPrinters v0.0.1
@@ -194,7 +191,7 @@ Environment:
   [187b0558] ConstructionBase v1.6.1
   [d38c429a] Contour v0.6.3
   [b7a15901] CoreMath v0.1.0
-  [2751e0db] Corleone v2.1.0 `~/_work/Corleone.jl/Corleone.jl`
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
   [f6133253] CorleoneInverse v0.1.1 `../lib/CorleoneInverse`
   [6590a4b1] CorleoneOED v2.1.0 `../lib/CorleoneOED`
   [adafc99b] CpuId v0.3.3
@@ -247,7 +244,7 @@ Environment:
   [a85aefff] FunctionMaps v0.1.2
   [069b7b12] FunctionWrappers v1.1.3
   [77dc65aa] FunctionWrappersWrappers v1.13.0
-  [d9f16b24] Functors v0.5.4
+  [d9f16b24] Functors v0.5.5
   [46192b85] GPUArraysCore v0.2.2
   [a0844989] Gamma v1.2.1
   [5c1252a2] GeometryBasics v0.5.13
@@ -293,9 +290,10 @@ Environment:
   [ba0b0d4f] Krylov v0.10.12
   [5be7bae1] LBFGSB v0.4.1
   [2faa5264] LHLFactorization v2.2.2
-  [929cbde3] LLVM v10.5.1
+  [929cbde3] LLVM v10.7.0
   [b964fa9f] LaTeXStrings v1.4.1
   [0e77f7df] LazilyInitializedFields v1.3.0
+  [21706172] LazyJLLWrappers v1.2.7
   [8cdb02fc] LazyModules v0.3.1
   [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
   [87fe0de2] LineSearch v0.1.20
@@ -306,7 +304,7 @@ Environment:
   [e6f89c97] LoggingExtras v1.2.0
   [b2108857] Lux v1.32.2
   [bb33d45b] LuxCore v1.5.5
-  [82251201] LuxLib v1.15.13
+  [82251201] LuxLib v1.15.15
 ⌅ [6c6e2e6c] MIMEs v0.1.4
   [7e8f7934] MLDataDevices v1.18.1
   [1914dd2f] MacroTools v0.5.16
@@ -329,7 +327,7 @@ Environment:
 ⌅ [102ac46a] MultivariatePolynomials v0.5.20
   [ffc61752] Mustache v1.1.0
   [d8a4904e] MutableArithmetics v1.9.5
-  [872c559c] NNlib v0.9.60
+  [872c559c] NNlib v0.9.61
   [77ba4419] NaNMath v1.1.5
   [f09324ee] Netpbm v1.1.1
   [8913a72c] NonlinearSolve v4.32.0
@@ -342,7 +340,7 @@ Environment:
   [67456a42] OhMyThreads v0.8.9
   [52e1d378] OpenEXR v0.3.3
   [4d8831e6] OpenSSL v1.12.0
-  [3bd65402] Optimisers v0.4.11
+  [3bd65402] Optimisers v0.4.13
   [7f7a1694] Optimization v5.9.1
   [bca83a33] OptimizationBase v5.10.1
   [22f7324a] OptimizationLBFGSB v1.5.3
@@ -380,7 +378,7 @@ Environment:
   [1fd47b50] QuadGK v2.11.3
   [b3c3ace0] RangeArrays v0.3.2
   [c84ed2f1] Ratios v0.4.5
-  [a3311ec8] ReactantCore v0.1.26
+  [a3311ec8] ReactantCore v0.1.27
   [988b38a3] ReadOnlyArrays v0.2.0
   [795d4caa] ReadOnlyDicts v1.0.1
   [3cdcf5f2] RecipesBase v1.4.0
@@ -391,7 +389,7 @@ Environment:
   [ae029012] Requires v1.3.1
   [9fe22ead] RespecializeParams v1.3.0
   [79098fc4] Rmath v0.9.0
-  [f2b01f46] Roots v3.0.14
+  [f2b01f46] Roots v3.0.15
   [5eaf0fd0] RoundingEmulator v0.2.1
   [7e49a35a] RuntimeGeneratedFunctions v0.5.27
   [9dfe8606] SCCNonlinearSolve v1.16.0
@@ -416,7 +414,7 @@ Environment:
   [ed01d8cd] Sobol v1.5.0
   [a2af1166] SortingAlgorithms v1.2.3
   [a57abbd0] SparseColumnPivotedQR v2.1.8
-  [9f842d2f] SparseConnectivityTracer v1.2.4
+  [9f842d2f] SparseConnectivityTracer v1.2.5
   [0a514795] SparseMatrixColorings v0.4.29
   [276daf66] SpecialFunctions v2.9.2
   [860ef19b] StableRNGs v1.1.0
@@ -438,7 +436,7 @@ Environment:
   [fd094767] Suppressor v0.2.8
   [2efcf032] SymbolicIndexingInterface v0.3.56
   [19f23fe9] SymbolicLimits v1.2.2
-  [d1185830] SymbolicUtils v4.56.2
+  [d1185830] SymbolicUtils v4.56.4
   [0c5d862f] Symbolics v7.49.0
   [3783bdb8] TableTraits v1.0.1
   [bd369af6] Tables v1.14.0
@@ -462,7 +460,7 @@ Environment:
   [e3aaa7dc] WebP v0.1.3
   [d49dbf32] WeightInitializers v1.3.8
   [efce3f68] WoodburyMatrices v1.1.0
-  [ddb6d928] YAML v0.4.17
+  [ddb6d928] YAML v0.4.18
   [ae81ac8f] ASL_jll v0.1.5+0
   [6e34b625] Bzip2_jll v1.0.9+0
   [4e9b3aee] CRlibm_jll v1.0.3+0
@@ -488,12 +486,12 @@ Environment:
   [aacddb02] JpegTurbo_jll v3.2.1+0
   [c1c5ebd0] LAME_jll v3.100.3+0
   [88015f11] LERC_jll v4.3.0+0
-  [dad2f222] LLVMExtra_jll v0.0.57+0
+  [dad2f222] LLVMExtra_jll v0.0.60+0
   [1d63c593] LLVMOpenMP_jll v23.1.1+0
   [81d17ec3] L_BFGS_B_jll v3.0.1+0
 ⌅ [e9f186c6] Libffi_jll v3.4.7+0
   [7e76a0d4] Libglvnd_jll v1.7.1+1
-  [94ce4f54] Libiconv_jll v1.18.0+0
+  [94ce4f54] Libiconv_jll v1.18.1
   [4b2f31a3] Libmount_jll v2.42.4+0
   [89763e89] Libtiff_jll v4.7.3+0
   [38a345b3] Libuuid_jll v2.42.4+0
@@ -502,7 +500,7 @@ Environment:
   [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
   [c8ffd9c3] MbedTLS_jll v2.28.1010+0
   [e7412a2a] Ogg_jll v1.3.6+0
-  [656ef2d0] OpenBLAS32_jll v0.3.34+1
+  [656ef2d0] OpenBLAS32_jll v0.3.34+2
   [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
   [18a262bb] OpenEXR_jll v3.5.4+0
 ⌅ [95196869] OpenJPH_jll v0.32.0+0
@@ -513,7 +511,7 @@ Environment:
   [30392449] Pixman_jll v0.46.4+0
   [f50d1b31] Rmath_jll v0.5.2+0
   [319450e9] SPRAL_jll v2025.9.18+1
-  [02c8fc9c] XML2_jll v2.15.4+0
+  [02c8fc9c] XML2_jll v2.15.5
   [ffd25f8a] XZ_jll v5.8.4+0
   [4f6342f7] Xorg_libX11_jll v1.8.14+0
   [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
@@ -590,4 +588,4 @@ Environment:
   [8e850ede] nghttp2_jll v1.70.0+0
   [3f19e933] p7zip_jll v17.8.5+0
 Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
-</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lotka_volterra_switching_times/">« Switching-time optimization</a><a class="docs-footer-nextpage" href="../inverse_lotka_multiexperiment/">Joint Lotka–Volterra experiments »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 19 November 2026 20:12">Thursday 19 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lotka_volterra_switching_times/">« Switching-time optimization</a><a class="docs-footer-nextpage" href="../inverse_lotka_multiexperiment/">Joint Lotka–Volterra experiments »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Tuesday 24 November 2026 15:43">Tuesday 24 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
