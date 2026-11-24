@@ -19,6 +19,9 @@ hero:
     - theme: alt
       text: View on GitHub
       link: https://github.com/SciML/Corleone.jl
+    - theme: alt
+      text: View Youtube channel
+      link: https://www.youtube.com/@mathopt
 
 features:
   - icon: 🎯
