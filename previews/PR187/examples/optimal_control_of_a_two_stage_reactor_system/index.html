@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>Two-Stage Chemical Reactor · Corleone.jl</title><meta name="title" content="Two-Stage Chemical Reactor · Corleone.jl"/><meta property="og:title" content="Two-Stage Chemical Reactor · Corleone.jl"/><meta property="twitter:title" content="Two-Stage Chemical Reactor · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/tutorial-gallery.css" rel="stylesheet" type="text/css"/><link href="../../assets/documenterlandingpage/landing.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting_started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../gallery/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox" checked/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Optimal Control</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li><li class="is-active"><a class="tocitem" href>Two-Stage Chemical Reactor</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Model"><span>Model</span></a></li><li><a class="tocitem" href="#Defining-the-Stages"><span>Defining the Stages</span></a></li><li><a class="tocitem" href="#The-Optimization-Problem"><span>The Optimization Problem</span></a></li><li><a class="tocitem" href="#Results"><span>Results</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox"/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Parameter Estimation</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../inverse_lotka_plain/">Lotka–Volterra Parameter Estimation</a></li><li><a class="tocitem" href="../inverse_lotka_multiexperiment/">Joint Lotka–Volterra Experiments</a></li><li><a class="tocitem" href="../inverse_lotka_oed_control/">Estimation with OED-Designed Controls</a></li><li><a class="tocitem" href="../inverse_multiple_shooting/">Multiple-Shooting Parameter Estimation</a></li><li><a class="tocitem" href="../inverse_sir_multicity/">SIR Estimation Across Two Regions</a></li><li><a class="tocitem" href="../inverse_rober_dae/">Robertson DAE Parameter Estimation</a></li><li><a class="tocitem" href="../inverse_ude_growth/">Universal Differential Equation with Lux</a></li><li><a class="tocitem" href="../inverse_egf_signaling/">EGF Signaling Across Doses</a></li><li><a class="tocitem" href="../lotka_volterra_universal_differential_equation/">Lotka–Volterra Universal Differential Equation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Optimal Experimental Design</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete Compartmental Design</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a></li></ul></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../shooting/">Constructing Shooting Problems</a></li><li><a class="tocitem" href="../../scheduling/">Scheduling Parameters</a></li><li><a class="tocitem" href="../../initialization/">Initializing Models</a></li><li><a class="tocitem" href="../../trajectories/">Inspecting Trajectories</a></li><li><a class="tocitem" href="../../optimization_contracts/">Adding Objectives and Constraints</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../automatic_differentiation/">Selecting Differentiation Methods</a></li><li><a class="tocitem" href="../../sparse_derivatives/">Preparing Sparse Derivatives</a></li><li><a class="tocitem" href="../../parallel_shooting/">Running Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Querying Symbolic Metadata</a></li></ul></li><li><span class="tocitem">Sublibraries</span><ul><li><a class="tocitem" href="../../sublibraries/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-5-2" type="checkbox"/><label class="tocitem" for="menuitem-5-2"><span class="docs-label">CorleoneOED</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../oed/">Overview</a></li><li><a class="tocitem" href="../../oed/formulation/">Measurements and Information</a></li><li><a class="tocitem" href="../../oed/designs/">Constructing and Optimizing Designs</a></li><li><a class="tocitem" href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a></li><li><a class="tocitem" href="../../oed/api/">API Reference</a></li><li><a class="tocitem" href="../../oed/references/">References and Attribution</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-5-3" type="checkbox"/><label class="tocitem" for="menuitem-5-3"><span class="docs-label">CorleoneInverse</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../inverse/">Parameter Estimation</a></li><li><a class="tocitem" href="../../inverse/api/">API Reference</a></li></ul></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Optimal Control</a></li><li class="is-active"><a href>Two-Stage Chemical Reactor</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Two-Stage Chemical Reactor</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl/blob/main/examples/two_stage_reactor/main.jl" title="View source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="optimal_control_of_a_two_stage_reactor_system"><a class="docs-heading-anchor" href="#optimal_control_of_a_two_stage_reactor_system">Optimal Control of a Two Stage Reactor System</a><a id="optimal_control_of_a_two_stage_reactor_system-1"></a><a class="docs-heading-anchor-permalink" href="#optimal_control_of_a_two_stage_reactor_system" title="Permalink"></a></h1><p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/examples/two_stage_reactor/main.jl"><img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code"/></a> <img src="https://img.shields.io/badge/julia-1.10.0-blue.svg" alt="compat"/></p><p>This tutorial reproduces the two-stage <strong>batch reactor</strong> optimal-control problem of Hirmajer &amp; Fikar, <em>Optimal Control of a Two-Stage Reactor System</em>, Chem. Pap. 60(5):381–387 (2006), DOI: <a href="https://doi.org/10.2478/s11696-006-0069-x">10.2478/s11696-006-0069-x</a>.</p><p>A connected system of two batch reactors is operated in two stages. In the first, <strong>non-isothermal</strong> stage the chain reaction <span>$A \to B \to C$</span> proceeds and the reactor temperature is the control. When this stage is finished, a volume <span>$S$</span> of a dilute aqueous solution of <span>$B$</span> (concentration <span>$c_B^s$</span>) is added. The mixture (volume <span>$V_2 = V_1 + S$</span>) is then loaded into a second reactor where three <strong>parallel</strong> reactions <span>$B \to D$</span>, <span>$B \to E$</span> and <span>$2B \to F$</span> take place at a fixed temperature.</p><p>We want to</p><p class="math-container">\[\max_{S, \Delta t_i, T[0, t_s]} \quad J_0 = V_2\, c_D(t_P)\]</p><p>subject to a minimum final concentration of <span>$D$</span> and a maximum processing time</p><p class="math-container">\[J_1 = c_D(t_P) - c_D^w \ge 0, \qquad
+J_2 = t_P - \sum_i \Delta t_i \ge 0 .\]</p><p>The two stages live on normalized time <span>$\tau \in [0, 1]$</span> and their right-hand sides are scaled by the (optimized) stage durations <span>$T_1$</span> and <span>$T_2$</span>. The added volume enters as the parameter of the <code>StageTransition</code>, which applies the <strong>mixing</strong> relations of the paper.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Corleone
+using LuxCore
+using Random
+using OrdinaryDiffEqTsit5
+using Optimization
+using OptimizationMOI
+using Ipopt
+using ComponentArrays
+using CairoMakie</code></pre><h2 id="Model"><a class="docs-heading-anchor" href="#Model">Model</a><a id="Model-1"></a><a class="docs-heading-anchor-permalink" href="#Model" title="Permalink"></a></h2><p>The six species <span>$A,\dots,F$</span> are tracked as concentrations <span>$[\mathrm{mol\,m^{-3}}]$</span>. Two auxiliary states are carried along to make the objective a plain terminal state:</p><ul><li><span>$x_7 = V\,c_D$</span>, the <strong>total amount of D</strong> (in mol). Because the volume is constant within each stage, <span>$\mathrm{d}(V c_D)/\mathrm{d}t = V\,\mathrm{d}c_D/\mathrm{d}t$</span>. Since <span>$c_D = 0$</span> in stage 1, only the second stage produces it.</li><li><span>$x_8 = V_2$</span>, the <strong>stage-2 volume</strong>, which is needed in the right-hand side of the second stage and is set (= <span>$V_1 + S$</span>) at the switch.</li></ul><h3 id="Stage-1:-non-isothermal,-A-\\to-B-\\to-C"><a class="docs-heading-anchor" href="#Stage-1:-non-isothermal,-A-\\to-B-\\to-C">Stage 1: non-isothermal, <span>$A \to B \to C$</span></a><a id="Stage-1:-non-isothermal,-A-\\to-B-\\to-C-1"></a><a class="docs-heading-anchor-permalink" href="#Stage-1:-non-isothermal,-A-\\to-B-\\to-C" title="Permalink"></a></h3><p>The Arrhenius rate constants are <span>$k_1(T) = 0.0444\,e^{-2500/T}$</span> and <span>$k_2(T) = 6889\,e^{-5000/T}$</span>, with <span>$T$</span> the reactor temperature (the control). The interval duration <span>$T_1$</span> scales the right-hand side.</p><pre><code class="language-julia hljs">function stage1!(du, u, p, t)
+    A, B, C, D, E, F, D_amount, V2 = u
+    T1, T = p
+    k1 = 0.0444 * exp(-2500.0 / T)
+    k2 = 6889.0 * exp(-5000.0 / T)
+    du[1] = T1 * (-2 * k1 * A^2)
+    du[2] = T1 * (k1 * A^2 - k2 * B)
+    du[3] = T1 * (k2 * B)
+    du[4] = 0.0
+    du[5] = 0.0
+    du[6] = 0.0
+    du[7] = 0.0 # amount of D stays constant (c_D = 0 throughout stage 1)
+    du[8] = 0.0 # stage-2 volume is set at the switch
+    return
+end</code></pre><h3 id="Stage-2:-isothermal,-B-\\to-D,-B-\\to-E,-2B-\\to-F"><a class="docs-heading-anchor" href="#Stage-2:-isothermal,-B-\\to-D,-B-\\to-E,-2B-\\to-F">Stage 2: isothermal, <span>$B \to D$</span>, <span>$B \to E$</span>, <span>$2B \to F$</span></a><a id="Stage-2:-isothermal,-B-\\to-D,-B-\\to-E,-2B-\\to-F-1"></a><a class="docs-heading-anchor-permalink" href="#Stage-2:-isothermal,-B-\\to-D,-B-\\to-E,-2B-\\to-F" title="Permalink"></a></h3><p>The volume <span>$V_2$</span> is read from state 8, and the amount of <span>$D$</span> grows as <span>$\mathrm{d}(V_2 c_D)/\mathrm{d}t = V_2 \cdot 0.02\,c_B$</span>.</p><pre><code class="language-julia hljs">function stage2!(du, u, p, t)
+    A, B, C, D, E, F, D_amount, V2 = u
+    T2 = p[1]
+    du[1] = 0.0
+    du[2] = T2 * (-0.02 * B - 0.05 * B - 0.00008 * B^2)
+    du[3] = 0.0
+    du[4] = T2 * (0.02 * B)
+    du[5] = T2 * (0.05 * B)
+    du[6] = T2 * (0.00004 * B^2)
+    du[7] = T2 * (V2 * 0.02 * B) # d(D_amount)/dt = V2 * d(c_D)/dt
+    du[8] = 0.0
+    return
+end</code></pre><h3 id="Interface-linkage:-the-mixing-operation"><a class="docs-heading-anchor" href="#Interface-linkage:-the-mixing-operation">Interface linkage: the mixing operation</a><a id="Interface-linkage:-the-mixing-operation-1"></a><a class="docs-heading-anchor-permalink" href="#Interface-linkage:-the-mixing-operation" title="Permalink"></a></h3><p>At the switching time <span>$t_s$</span> the mixing equations of the paper apply:</p><p class="math-container">\[V_2 c_A(t^+) = V_1 c_A(t^-), \qquad
+V_2 c_B(t^+) = V_1 c_B(t^-) + S\,c_B^s, \qquad
+V_2 c_C(t^+) = V_1 c_C(t^-),\]</p><p>with <span>$V_2 = V_1 + S$</span> and the same (dilution) relation for <span>$c_D, c_E, c_F$</span>. The amount of <span>$D$</span> (<span>$x_7$</span>) is unchanged and <span>$x_8$</span> is set to <span>$V_2$</span>.</p><p>The map is affine in the state <span>$x$</span> but <strong>nonlinear in the added volume</strong> <span>$S$</span> (the dilution factor is <span>$V_1/(V_1+S)$</span> and the jump term is <span>$S\,c_B^s/(V_1+S)$</span>), so it is expressed as a general <code>StageLinkage</code> map <span>$m(x, \theta)$</span> with <span>$\theta = [S]$</span>. The interface state <span>$u_0$</span> (the second stage&#39;s initial concentration vector) is a free optimization variable and is coupled to the first stage&#39;s final state by the linkage residual <span>$u_0 - m(x_f, \theta) = 0$</span>.</p><pre><code class="language-julia hljs">const V1 = 0.1
+const c_b_s = 600.0
+
+function switch_at_ts(x, θ)
+    A, B, C, D, E, F, D_amount, V2 = x
+    S = θ[1]
+    V2_new = V1 + S
+    return [
+        V1 * A / V2_new, (V1 * B + S * c_b_s) / V2_new, V1 * C / V2_new,
+        V1 * D / V2_new, V1 * E / V2_new, V1 * F / V2_new,
+        V1 * D,    # amount of D is preserved across the switch
+        V2_new,    # carry the stage-2 volume
+    ]
+end</code></pre><h2 id="Defining-the-Stages"><a class="docs-heading-anchor" href="#Defining-the-Stages">Defining the Stages</a><a id="Defining-the-Stages-1"></a><a class="docs-heading-anchor-permalink" href="#Defining-the-Stages" title="Permalink"></a></h2><p>The initial concentration of <span>$A$</span> in the first reactor is <span>$c_A(0) = 2000\,\mathrm{mol\,m^{-3}}$</span>. The initial durations emulate the paper&#39;s guess of five 15-minute control intervals for the first stage and a 15-minute second stage, so <span>$T_1 = 75$</span> and <span>$T_2 = 15$</span> min.</p><pre><code class="language-julia hljs">u0 = [2000.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+const t_p = 180.0   # processing time [min]
+const c_d_w = 150.0 # minimum final concentration of D [mol/m^3]
+
+T1_init = 5.0 * 15.0
+T2_init = 15.0
+
+prob1 = ODEProblem(stage1!, u0, (0.0, 1.0), [T1_init, 350.0], abstol = 1.0e-10)
+prob2 = ODEProblem(stage2!, u0, (0.0, 1.0), [T2_init], abstol = 1.0e-10)</code></pre><p>The temperature is a piecewise-constant control on <span>$P - 1 = 5$</span> uniform intervals of the first stage (normalized time), bounded to the reactor limits <span>$[298, 398]\,\mathrm{K}$</span>.</p><pre><code class="language-julia hljs">P = 20
+grid = collect(range(0.0, 1.0, P + 1))[1:(end - 1)];
+nothing #hide</code></pre><p>The duration <code>p₁</code> is a single tunable scalar; the temperature control <code>p₂</code> is a piecewise-constant parameter switched at the interior grid points (the problem start is added automatically). The initial control guess comes from <code>prob.p[2] = 350</code>.</p><pre><code class="language-julia hljs">stage1 = ShootingLayer(
+    prob1, Tsit5(),
+    Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) =&gt; nothing,
+    Tunable(2; kind = Val(:parameter), lowerbound = 298.0, upperbound = 398.0) =&gt; grid[2:end],
+)
+stage2 = ShootingLayer(
+    prob2, Tsit5(),
+    Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) =&gt; nothing,
+)</code></pre><p>The linkage owns the second stage&#39;s initial state. It is initialized consistently with the first stage&#39;s forward solution for <span>$S = 0.1$</span>, so the residual starts at zero, and the added volume <span>$S$</span> is bounded to <span>$[0, 0.1]$</span>.</p><pre><code class="language-julia hljs">let ps1, st1
+    ps1, st1 = LuxCore.setup(Random.default_rng(), stage1)
+    traj1, _ = stage1(nothing, ps1, st1)
+    global u0_linkage = switch_at_ts(last(traj1.u), [0.1])
+end
+
+linkage = StageLinkage(
+    switch_at_ts; u0 = u0_linkage, θ = [0.1], bounds_θ = ([0.0], [0.1])
+)
+stages = Stages(stage1, linkage, stage2)</code></pre><h2 id="The-Optimization-Problem"><a class="docs-heading-anchor" href="#The-Optimization-Problem">The Optimization Problem</a><a id="The-Optimization-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#The-Optimization-Problem" title="Permalink"></a></h2><p>We minimise <span>$J = -x_7 = -V_2 c_D(t_P)$</span>, i.e. we <strong>maximise</strong> <span>$J_0$</span>. The terminal concentration constraint <span>$c_D(t_P) \ge c_D^w$</span> is expressed as a path constraint on the final stage evaluated <strong>only at the final value</strong> (<span>$t = 1$</span>). The processing-time constraint <span>$J_2$</span> couples the two stage durations through a parameter constraint: <span>$T_1 + T_2 \le t_P$</span>.</p><pre><code class="language-julia hljs">duration_constraint = (
+    ps -&gt; [
+        ps.stage_1.parameter.parameters.p₁.parameter.ps[1] +
+            ps.stage_3.parameter.parameters.p₁.parameter.ps[1] - t_p,
+    ]
+) =&gt; (lb = [-Inf], ub = [0.0])
+
+optprob = OptimizationProblem(
+    stages, AutoForwardDiff(), Val(:ComponentArrays);
+    loss = :(-u₇), # maximise J0 = V2 * c_D(t_P) = D_amount(t_P)
+    constraints = (
+        (:u₄, 2) =&gt; (t = [1.0], bounds = (c_d_w, Inf)),
+        #(:u₂, 1) =&gt; (t= [1.0], bounds = (0.0, 2000.0)) # constraint on stage 1 (not needed)
+    ),
+    parameter_constraints = duration_constraint,
+)
+
+uopt = solve(
+    optprob, Ipopt.Optimizer();
+    hessian_approximation = &quot;limited-memory&quot;,
+    max_iter = 500, print_level = 5,
+);
+nothing #hide</code></pre><h2 id="Results"><a class="docs-heading-anchor" href="#Results">Results</a><a id="Results-1"></a><a class="docs-heading-anchor-permalink" href="#Results" title="Permalink"></a></h2><p>The optimized value <span>$J_0 = V_2 c_D(t_P) = 25.51\,\mathrm{mol}$</span>, the switching time <span>$t_s = T_1 \approx 106\,\mathrm{min}$</span> and the added volume <span>$S \approx 0.070\,\mathrm{m^3}$</span> all match the paper (<span>$J_0 = 25.54$</span>, <span>$t_s = 106.04$</span>, <span>$S = 0.0702$</span> for <span>$P = 6$</span>). The final concentration constraint <span>$c_D(t_P) = 150\,\mathrm{mol\,m^{-3}}$</span> is active.</p><pre><code class="language-julia hljs">ps, st = LuxCore.setup(Random.default_rng(), stages)
+ps_opt = uopt + zero(ComponentArray(ps))
+
+println(&quot;J0 = V2*c_D(t_P) = &quot;, -uopt.objective)
+println(&quot;t_s = T1 = &quot;, ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1], &quot; min,  T2 = &quot;, ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1], &quot; min&quot;)
+println(&quot;S = &quot;, ps_opt.stage_2.θ[1], &quot; m^3&quot;)
+println(&quot;c_D(t_P) = &quot;, last((stages(nothing, ps_opt, st))[1].u)[4], &quot; mol/m^3&quot;)</code></pre><h3 id="Simulating-and-plotting"><a class="docs-heading-anchor" href="#Simulating-and-plotting">Simulating and plotting</a><a id="Simulating-and-plotting-1"></a><a class="docs-heading-anchor-permalink" href="#Simulating-and-plotting" title="Permalink"></a></h3><p>The trajectories are sparsely sampled for efficiency. However, this is not useful for plotting. We remake the layers with more densely sampled trajectories.</p><pre><code class="language-julia hljs">stage1 = ShootingLayer(
+    remake(prob1, saveat = 0.001), Tsit5(),
+    Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) =&gt; nothing,
+    Tunable(2; kind = Val(:parameter), lowerbound = 298.0, upperbound = 398.0) =&gt; grid[2:end],
+)
+stage2 = ShootingLayer(
+    remake(prob2, saveat = 0.001), Tsit5(),
+    Tunable(1; kind = Val(:parameter), lowerbound = 10.0, upperbound = 170.0) =&gt; nothing,
+)
+
+stages = Stages(stage1, linkage, stage2)
+traj, _ = stages(nothing, ps_opt, st)
+traj_stage1, _ = stage1(nothing, ps_opt.stage_1, st.stage_1)</code></pre><p>Map the normalized time of each stage back to physical time.</p><pre><code class="language-julia hljs">T1 = ps_opt.stage_1.parameter.parameters.p₁.parameter.ps[1]
+T2 = ps_opt.stage_3.parameter.parameters.p₁.parameter.ps[1]
+t1p = T1 .* traj_stage1.t
+t2p = T1 .+ T2 .* traj.t
+u1 = reduce(hcat, traj_stage1.u)
+u2 = reduce(hcat, traj.u)</code></pre><p>The temperature control is piecewise constant on <code>grid</code>; resample it on the dense normalized trajectory time so it can be drawn as a stair plot.</p><pre><code class="language-julia hljs">temp_series = Vector(ps_opt.stage_1.parameter.parameters.p₂.parameter.ps)
+temperature = temp_series[clamp.(searchsortedlast.(Ref(grid), traj_stage1.t), 1, length(temp_series))]
+
+function plot_reactor(u1, t1p, u2, t2p, temperature)
+    f = Figure(size = (1000, 750))
+    c = CairoMakie.Makie.wong_colors()
+    ax1 = CairoMakie.Axis(
+        f[1, 1], title = &quot;A, B, C&quot;,
+        xlabel = &quot;t [min]&quot;, ylabel = &quot;c [mol/m³]&quot;,
+        xticks = 0:30:180, yticks = 0:250:2000
+    )
+    for (i, n) in enumerate((&quot;A&quot;, &quot;B&quot;, &quot;C&quot;))
+        lines!(ax1, t1p, u1[i, :]; linewidth = 2, label = n, color = c[i])
+    end
+    vlines!(ax1, T1, color = :black, linestyle = :dot)
+    for (i, n) in enumerate((&quot;A&quot;, &quot;B&quot;, &quot;C&quot;))
+        lines!(ax1, t2p, u2[i, :]; linewidth = 2, color = c[i])
+    end
+    axislegend(ax1; position = :rt)
+
+    ax2 = CairoMakie.Axis(
+        f[1, 2], title = &quot;D, E, F&quot;,
+        xlabel = &quot;t [min]&quot;, ylabel = &quot;c [mol/m³]&quot;,
+        xticks = 0:30:180, yticks = 0:50:400
+    )
+    for (i, n) in enumerate((&quot;D&quot;, &quot;E&quot;, &quot;F&quot;))
+        lines!(ax2, t2p, u2[3 + i, :]; linewidth = 2, label = n, color = c[3 + i])
+    end
+    for (i, n) in enumerate((&quot;D&quot;, &quot;E&quot;, &quot;F&quot;))
+        lines!(ax2, t1p, u1[3 + i, :]; linewidth = 2, color = c[3 + i])
+    end
+    vlines!(ax2, T1, color = :black, linestyle = :dot)
+    axislegend(ax2; position = :lt)
+
+    axc = CairoMakie.Axis(
+        f[2, 1:2], title = &quot;Optimal temperature control&quot;,
+        xlabel = &quot;t [min]&quot;, ylabel = &quot;T [K]&quot;,
+        xticks = 0:30:180,
+        limits = (nothing, (305, 345))
+    )
+    stairs!(axc, t1p, temperature; linewidth = 2, step = :pre, label = &quot;T(t)&quot;)
+    stairs!(axc, [extrema(t2p)...], ones(2) * last(temperature); linewidth = 2, step = :pre)
+    vlines!(axc, T1, color = :black, linestyle = :dot)
+    axislegend(axc; position = :rt)
+
+    return f
+end
+
+plot_reactor(u1, t1p, u2, t2p, temperature)</code></pre><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lti_control_with_unknown_coefficients/">« LTI Control with Unknown Coefficients</a><a class="docs-footer-nextpage" href="../inverse_lotka_plain/">Lotka–Volterra Parameter Estimation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Friday 13 November 2026 10:51">Friday 13 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

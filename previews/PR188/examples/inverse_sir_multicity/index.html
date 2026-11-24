@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="referrer" content="no-referrer"/><title>SIR Estimation Across Two Regions · Corleone.jl</title><meta name="title" content="SIR Estimation Across Two Regions · Corleone.jl"/><meta property="og:title" content="SIR Estimation Across Two Regions · Corleone.jl"/><meta property="twitter:title" content="SIR Estimation Across Two Regions · Corleone.jl"/><meta name="description" content="Documentation for Corleone.jl."/><meta property="og:description" content="Documentation for Corleone.jl."/><meta property="twitter:description" content="Documentation for Corleone.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/documentercitations/citations-hover.css" rel="stylesheet" type="text/css"/><link href="../../assets/documentercitations/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/tutorial-gallery.css" rel="stylesheet" type="text/css"/><link href="../../assets/documenterlandingpage/landing.css" rel="stylesheet" type="text/css"/><script src="../../assets/documentercitations/citations-data.js"></script><script src="../../assets/documentercitations/citations-hover.js"></script><script src="../../assets/documentercitations/citations-backlinks.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Corleone.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Corleone.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../getting_started/">Getting Started</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../gallery/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Optimal Control</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_linear_quadratic_regulator/">Linear Quadratic Regulator</a></li><li><a class="tocitem" href="../the_lotka_volterra_fishing_problem/">Lotka Volterra Fishing</a></li><li><a class="tocitem" href="../modelingtoolkit_integration/">ModelingToolkit Integration</a></li><li><a class="tocitem" href="../lti_control_with_unknown_coefficients/">LTI Control with Unknown Coefficients</a></li><li><a class="tocitem" href="../optimal_control_of_a_two_stage_reactor_system/">Two-Stage Chemical Reactor</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3-3"><span class="docs-label">Parameter Estimation</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../inverse_lotka_plain/">Lotka–Volterra Parameter Estimation</a></li><li><a class="tocitem" href="../inverse_lotka_multiexperiment/">Joint Lotka–Volterra Experiments</a></li><li><a class="tocitem" href="../inverse_lotka_oed_control/">Estimation with OED-Designed Controls</a></li><li><a class="tocitem" href="../inverse_multiple_shooting/">Multiple-Shooting Parameter Estimation</a></li><li class="is-active"><a class="tocitem" href>SIR Estimation Across Two Regions</a><ul class="internal"><li><a class="tocitem" href="#Joint-fit-of-both-regions"><span>Joint fit of both regions</span></a></li><li><a class="tocitem" href="#Compare-with-one-region"><span>Compare with one region</span></a></li><li><a class="tocitem" href="#Estimate-a-local-initial-infection-count"><span>Estimate a local initial infection count</span></a></li><li><a class="tocitem" href="#Appendix"><span>Appendix</span></a></li></ul></li><li><a class="tocitem" href="../inverse_rober_dae/">Robertson DAE Parameter Estimation</a></li><li><a class="tocitem" href="../inverse_ude_growth/">Universal Differential Equation with Lux</a></li><li><a class="tocitem" href="../inverse_egf_signaling/">EGF Signaling Across Doses</a></li><li><a class="tocitem" href="../lotka_volterra_universal_differential_equation/">Lotka–Volterra Universal Differential Equation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-4" type="checkbox"/><label class="tocitem" for="menuitem-3-4"><span class="docs-label">Optimal Experimental Design</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../the_lotka_volterra_optimal_experimental_design_problem/">Continuous Lotka–Volterra Design</a></li><li><a class="tocitem" href="../compartmental_oed_problem/">Discrete Compartmental Design</a></li><li><a class="tocitem" href="../the_lotka_volterra_multiexperiment_problem/">Multiple Experiments</a></li></ul></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../shooting/">Constructing Shooting Problems</a></li><li><a class="tocitem" href="../../scheduling/">Scheduling Parameters</a></li><li><a class="tocitem" href="../../initialization/">Initializing Models</a></li><li><a class="tocitem" href="../../trajectories/">Inspecting Trajectories</a></li><li><a class="tocitem" href="../../optimization_contracts/">Adding Objectives and Constraints</a></li><li><a class="tocitem" href="../../modelingtoolkit/">ModelingToolkit</a></li><li><a class="tocitem" href="../../automatic_differentiation/">Selecting Differentiation Methods</a></li><li><a class="tocitem" href="../../sparse_derivatives/">Preparing Sparse Derivatives</a></li><li><a class="tocitem" href="../../parallel_shooting/">Running Parallel Shooting</a></li><li><a class="tocitem" href="../../symbolic_metadata/">Querying Symbolic Metadata</a></li></ul></li><li><span class="tocitem">Sublibraries</span><ul><li><a class="tocitem" href="../../sublibraries/">Overview</a></li><li><input class="collapse-toggle" id="menuitem-5-2" type="checkbox"/><label class="tocitem" for="menuitem-5-2"><span class="docs-label">CorleoneOED</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../oed/">Overview</a></li><li><a class="tocitem" href="../../oed/formulation/">Measurements and Information</a></li><li><a class="tocitem" href="../../oed/designs/">Constructing and Optimizing Designs</a></li><li><a class="tocitem" href="../../oed/numerics/">Reduction, AD, and Numerical Scope</a></li><li><a class="tocitem" href="../../oed/api/">API Reference</a></li><li><a class="tocitem" href="../../oed/references/">References and Attribution</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-5-3" type="checkbox"/><label class="tocitem" for="menuitem-5-3"><span class="docs-label">CorleoneInverse</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../inverse/">Parameter Estimation</a></li><li><a class="tocitem" href="../../inverse/api/">API Reference</a></li></ul></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li><a class="is-disabled">Parameter Estimation</a></li><li class="is-active"><a href>SIR Estimation Across Two Regions</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>SIR Estimation Across Two Regions</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/Corleone.jl/blob/main/lib/CorleoneInverse/examples/sir_multicity/main.jl" title="View source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="inverse_sir_multicity"><a class="docs-heading-anchor" href="#inverse_sir_multicity">Joint parameter estimation for an SIR epidemic across two regions</a><a id="inverse_sir_multicity-1"></a><a class="docs-heading-anchor-permalink" href="#inverse_sir_multicity" title="Permalink"></a></h1><p><a href="https://raw.githubusercontent.com/SciML/Corleone.jl/main/lib/CorleoneInverse/examples/sir_multicity/main.jl"><img src="https://img.shields.io/badge/download-julia-brightgreen.svg" alt="Source code"/></a> <img src="https://img.shields.io/badge/julia-1.10.0-blue.svg" alt="compat"/></p><p>Adapted from Christoph Plate (@chplate)&#39;s example in <a href="https://github.com/SciML/Corleone.jl/pull/168">Corleone.jl PR #168</a>.</p><p>Two regions share the transmission rate <span>$\beta$</span> and the recovery rate <span>$\gamma$</span> of an SIR epidemic but start from different outbreaks. We observe the infection flux every two days and the recovered population every four days.</p><div class="admonition is-info" id="What-you-will-learn-7465bff6c9e8a313"><header class="admonition-header">What you will learn<a class="admonition-anchor" href="#What-you-will-learn-7465bff6c9e8a313" title="Permalink"></a></header><div class="admonition-body"><p>How to observe an <em>expression</em> of states and parameters rather than a single state, combine quantities on different schedules, and estimate an experiment-local initial state.</p></div></div><pre><code class="language-julia hljs">using Corleone: SciMLBase
+using CorleoneInverse, LuxCore, ComponentArrays, OrdinaryDiffEqTsit5, NonlinearSolve
+using StableRNGs, CairoMakie, LinearAlgebra
+using TransformVariables: asℝ₊
+
+function sir!(du, u, p, t)
+    S, I, R = u
+    β, γ = p
+    incidence = β * S * I / (S + I + R)
+    du[1] = -incidence
+    du[2] = incidence - γ * I
+    du[3] = γ * I
+    return nothing
+end
+incidence(u, p, t) = p[1] * u[1] * u[2] / sum(u)
+rng = StableRNG(3)
+N = 1.0e4
+p_true = [0.5, 0.2]
+prob = ODEProblem(
+    sir!, [N - 2, 2.0, 0.0], (0.0, 30.0), p_true; abstol = 1.0e-8, reltol = 1.0e-8
+)
+t_inf, t_rec = collect(0.0:2.0:30.0), collect(0.0:4.0:30.0)</code></pre><pre><code class="nohighlight hljs">([0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0], [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0])</code></pre><p>The infection flux <span>$\beta S I / N$</span> is not a state. We observe it through a symbolic expression of states (<code>uᵢ</code>) and parameters (<code>pᵢ</code>).</p><div class="admonition is-success" id="Observation-expressions-4207ffc116131da1"><header class="admonition-header">Observation expressions<a class="admonition-anchor" href="#Observation-expressions-4207ffc116131da1" title="Permalink"></a></header><div class="admonition-body"><p>Any expression of states and parameters can be observed. Corleone compiles it once and differentiates through it like any other model output.</p></div></div><pre><code class="language-julia hljs">function measure(u0)
+    truth = solve(remake(prob; u0), Tsit5(); saveat = sort(unique(vcat(t_inf, t_rec))))
+    infections = [incidence(truth(t), p_true, t) for t in t_inf]
+    infections .+= 15 .* randn(rng, length(t_inf))
+    recovered = [truth(t)[3] for t in t_rec] .+ 150 .* randn(rng, length(t_rec))
+    return Experiment(
+        :(p₁ * u₁ * u₂ / (u₁ + u₂ + u₃)) =&gt; (t_inf, infections, 15.0),
+        3 =&gt; (t_rec, recovered, 150.0);
+        u0,
+    )
+end
+data_a, data_b = measure([N - 2, 2.0, 0.0]), measure([N - 20, 20.0, 0.0])</code></pre><pre><code class="nohighlight hljs">(Experiment{}((Observation{}(:((p₁ * u₁ * u₂) / (u₁ + u₂ + u₃)), [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0], [4.1098419364436545, -4.07405033479901, -4.73180423807612, -3.4724376378966957, 5.937163217589418, -5.7806440336218365, 26.568749493126766, 74.74265894362323, 90.43169551894186, 191.74706289745902, 292.7041868033494, 397.9196905933539, 527.3221829033142, 586.12030311341, 558.2627108911298, 455.41025219360137], 15.0), Observation{}(3, [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0], [-29.0897906480509, -19.420126977109174, 8.36717176900617, -112.73688769335308, 64.67435298279925, 491.152930714134, 1471.270402409632, 2674.644332198421], 150.0)), [9998.0, 2.0, 0.0], [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0]), Experiment{}((Observation{}(:((p₁ * u₁ * u₂) / (u₁ + u₂ + u₃)), [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0], [8.224310155215548, -8.443444359419175, 64.02399361133526, 62.83389904543112, 91.43402305313764, 147.2043327168965, 260.3041442171683, 402.6984653399952, 526.8565445169847, 585.9110858228202, 591.6408160913833, 480.14533398287057, 361.7575078578181, 226.4044145755334, 161.90790865760636, 126.7945100947577], 15.0), Observation{}(3, [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0], [-79.29295231241855, 93.54302088335666, 8.577105002839716, 592.6812453672455, 1407.2073499858732, 2616.02197069184, 4362.027786194542, 6442.330889580291], 150.0)), [9980.0, 20.0, 0.0], [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0]))</code></pre><h2 id="Joint-fit-of-both-regions"><a class="docs-heading-anchor" href="#Joint-fit-of-both-regions">Joint fit of both regions</a><a id="Joint-fit-of-both-regions-1"></a><a class="docs-heading-anchor-permalink" href="#Joint-fit-of-both-regions" title="Permalink"></a></h2><pre><code class="language-julia hljs">shooting = ShootingLayer(prob, Tsit5())
+shared = Tunable(1:2; default = [0.3, 0.4], transform = asℝ₊) =&gt; nothing
+experiments = Experiments(prob, shared; experiments = (region_a = data_a, region_b = data_b))
+ps, st = LuxCore.setup(rng, experiments)
+model = CorleoneDynamicOptProblem(shooting, experiments; ps, st)
+fit = solve(NonlinearLeastSquaresProblem(model), LevenbergMarquardt(); maxiters = 300)
+@assert SciMLBase.successful_retcode(fit)
+estimate = ParameterEstimate(model, fit.u)
+@assert all(first(interval) &gt; 0 for interval in estimate.confidence_intervals)
+estimate</code></pre><pre><code class="nohighlight hljs">ParameterEstimate (RSS = 44.45, dof = 46)
+  index  value  std. error  95.0% interval
+  1  0.49669  0.00493  [0.48712, 0.50645]
+  2  0.1973  0.00538  [0.18703, 0.20814]</code></pre><p>The basic reproduction number <span>$R_0 = \beta / \gamma$</span> is a derived quantity. The delta method propagates the covariance to its standard error.</p><pre><code class="language-julia hljs">R0 = estimate.x[1] / estimate.x[2]
+gradient = [1 / estimate.x[2], -estimate.x[1] / estimate.x[2]^2]
+(; R0, std_error = sqrt(gradient&#39; * estimate.covariance * gradient))</code></pre><pre><code class="nohighlight hljs">(R0 = 2.5174374444238343, std_error = 0.04442303384035639)</code></pre><h2 id="Compare-with-one-region"><a class="docs-heading-anchor" href="#Compare-with-one-region">Compare with one region</a><a id="Compare-with-one-region-1"></a><a class="docs-heading-anchor-permalink" href="#Compare-with-one-region" title="Permalink"></a></h2><pre><code class="language-julia hljs">single = Experiments(prob, shared; experiments = (region_a = data_a,))
+ps_a, st_a = LuxCore.setup(rng, single)
+model_a = CorleoneDynamicOptProblem(shooting, single; ps = ps_a, st = st_a)
+fit_a = solve(NonlinearLeastSquaresProblem(model_a), LevenbergMarquardt(); maxiters = 300)
+@assert SciMLBase.successful_retcode(fit_a)
+estimate_a = ParameterEstimate(model_a, fit_a.u)
+(; single_region_std_errors = estimate_a.std_errors, joint_std_errors = estimate.std_errors)</code></pre><pre><code class="nohighlight hljs">(single_region_std_errors = [0.008128784466964621, 0.008628299545964589], joint_std_errors = [0.004930698222846423, 0.0053835632240899454])</code></pre><h2 id="Estimate-a-local-initial-infection-count"><a class="docs-heading-anchor" href="#Estimate-a-local-initial-infection-count">Estimate a local initial infection count</a><a id="Estimate-a-local-initial-infection-count-1"></a><a class="docs-heading-anchor-permalink" href="#Estimate-a-local-initial-infection-count" title="Permalink"></a></h2><p>Suppose the initial number of infected people in region A is unknown. Only that component becomes a local unknown; the susceptible and recovered values keep their known experiment values.</p><pre><code class="language-julia hljs">initial_infected = Tunable(
+    2; kind = Val(:variable), default = 10.0, transform = asℝ₊
+) =&gt; [0.0]
+local_experiment = Experiments(
+    prob, shared; experiments = (
+        region_a = (observations = data_a, annotations = (initial_infected,)),
+    )
+)
+ps_ic, st_ic = LuxCore.setup(rng, local_experiment)
+model_ic = CorleoneDynamicOptProblem(shooting, local_experiment; ps = ps_ic, st = st_ic)
+fit_ic = solve(NonlinearLeastSquaresProblem(model_ic), LevenbergMarquardt(); maxiters = 500)
+@assert SciMLBase.successful_retcode(fit_ic)
+ParameterEstimate(model_ic, fit_ic.u)</code></pre><pre><code class="nohighlight hljs">ParameterEstimate (RSS = 11.89, dof = 21)
+  index  value  std. error  95.0% interval
+  1  0.49662  0.0265  [0.44723, 0.55146]
+  2  0.19825  0.0202  [0.16228, 0.24218]
+  3  1.9994  0.433  [1.3074, 3.0577]</code></pre><p>The fit recovers the two initial infections of region A together with the rates.</p><pre><code class="language-julia hljs">_, reconstruct = pack(default_vectorizer(), ps)
+trajectories, _ = shooting(experiments, reconstruct(fit.u), st)
+figure = Figure()
+for (i, (trajectory, data)) in enumerate(zip(trajectories, (data_a, data_b)))
+    axis = CairoMakie.Axis(
+        figure[1, i]; xlabel = &quot;Day&quot;, ylabel = &quot;Count&quot;, title = &quot;Region $i&quot;
+    )
+    times = trajectory.t
+    fitted_incidence = [incidence(u, estimate.x, t) for (u, t) in zip(trajectory.u, times)]
+    lines!(axis, times, fitted_incidence; label = &quot;Infection flux&quot;)
+    lines!(axis, times, getindex.(trajectory.u, 3); label = &quot;Recovered&quot;)
+    for observation in data.observations
+        scatter!(axis, observation.t, observation.y; markersize = 5)
+    end
+    axislegend(axis)
+end
+figure</code></pre><p><img src="../inverse_sir_multicity-figure-1.png" alt="Trajectory plot for Joint parameter estimation for an SIR epidemic across two regions"/></p><h2 id="Appendix"><a class="docs-heading-anchor" href="#Appendix">Appendix</a><a id="Appendix-1"></a><a class="docs-heading-anchor-permalink" href="#Appendix" title="Permalink"></a></h2><details><summary>This example was built using these direct dependencies,</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status()</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Project.toml`
+  [13f3f980] CairoMakie v0.15.17
+  [b0b7db55] ComponentArrays v0.15.50
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
+  [f6133253] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [311a05b2] DemoCards v0.5.5
+  [31c24e10] Distributions v0.25.134
+  [e30172f5] Documenter v1.20.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [1c52b33b] DocumenterLandingPage v0.2.2
+  [f6369f11] ForwardDiff v1.4.8
+  [b6b21f68] Ipopt v1.16.0
+  [98b081ad] Literate v2.21.1
+⌃ [16fef848] LiveServer v1.5.0
+  [b2108857] Lux v1.31.6
+  [bb33d45b] LuxCore v1.5.4
+  [10bdffc8] MaterialDocs v0.2.2
+  [961ee093] ModelingToolkit v11.46.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [7f7a1694] Optimization v5.9.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [43230ef6] OrdinaryDiffEqRosenbrock v2.7.5
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [0bca4576] SciMLBase v3.58.0
+  [860ef19b] StableRNGs v1.1.0
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [84d833dd] TransformVariables v0.8.28
+  [ddb6d928] YAML v0.4.17
+  [2a0f44e3] Base64 v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [9a3f8284] Random v1.11.0
+Info Packages marked with ⌃ have new versions available and may be upgradable.
+</code></pre></details><details><summary>and using this machine and Julia version.</summary><pre><code class="language-julia hljs">        using InteractiveUtils
+        InteractiveUtils.versioninfo()</code></pre><pre><code class="nohighlight hljs">Julia Version 1.13.3
+Commit 67ac47b9cd8 (2026-10-25 15:28 UTC)
+Build Info:
+  Official https://julialang.org release
+Platform Info:
+  OS: Linux (x86_64-linux-gnu)
+  CPU: 4 × AMD EPYC 7763 64-Core Processor
+  WORD_SIZE: 64
+  LLVM: libLLVM-20.1.8 (ORCJIT, znver3)
+  GC: Built with stock GC
+Threads: 1 default, 1 interactive, 1 GC (on 4 virtual cores)
+</code></pre></details><details><summary>A more complete overview of all dependencies and their versions is also provided.</summary><pre><code class="language-julia hljs">        using Pkg
+        Pkg.status(; mode = PKGMODE_MANIFEST)</code></pre><pre><code class="nohighlight hljs">Status `~/work/Corleone.jl/Corleone.jl/docs/Manifest.toml`
+  [47edcb42] ADTypes v1.24.0
+  [14f7f29c] AMD v0.5.4
+  [a4c015fc] ANSIColoredPrinters v0.0.1
+  [621f4979] AbstractFFTs v1.5.0
+  [6e696c72] AbstractPlutoDingetjes v1.4.1
+  [1520ce14] AbstractTrees v0.4.5
+  [7d9f7c33] Accessors v0.1.46
+  [79e6a3ab] Adapt v4.8.0
+  [4f381ef7] AdaptiveArrayPools v0.3.12
+  [35492f91] AdaptivePredicates v1.2.0
+  [66dad0bd] AliasTables v1.1.3
+  [27a7e980] Animations v0.4.2
+  [dce04be8] ArgCheck v2.5.0
+  [ec485272] ArnoldiMethod v0.4.0
+  [4fba245c] ArrayInterface v7.30.2
+  [4c555306] ArrayLayouts v1.16.0
+  [a9b6321e] Atomix v1.7.0
+  [67c07d97] Automa v1.2.0
+  [13072b0f] AxisAlgorithms v1.1.0
+  [39de3d68] AxisArrays v0.4.8
+  [ab4f0b2a] BFloat16s v0.6.5
+  [aae01518] BandedMatrices v1.14.0
+  [198e06fe] BangBang v0.4.9
+  [18cc8868] BaseDirs v1.4.0
+  [2027ae74] BibInternal v0.4.0
+  [13533e5b] BibParser v0.3.0
+  [f1be7e48] Bibliography v0.4.0
+  [e2ed5e7c] Bijections v0.2.2
+  [b2a6c25c] BinaryHeaps v1.1.0
+  [caf10ac8] BipartiteGraphs v0.1.15
+  [d1d4a3ce] BitFlags v0.1.10
+  [8e7c35d0] BlockArrays v1.10.3
+  [70df07ce] BracketingNonlinearSolve v1.12.8
+⌅ [fa961155] CEnum v0.5.0
+  [2a0fbf3d] CPUSummary v0.2.7
+  [96374032] CRlibm v1.2.0
+  [159f3aea] Cairo v1.1.1
+  [13f3f980] CairoMakie v0.15.17
+  [d360d2e6] ChainRulesCore v1.26.8
+  [ae650224] ChunkSplitters v3.2.0
+  [523fee87] CodecBzip2 v0.8.5
+  [944b1d66] CodecZlib v0.7.9
+  [6b39b394] CodecZstd v0.8.7
+  [a2cac450] ColorBrewer v0.4.2
+  [35d6a980] ColorSchemes v3.32.0
+  [3da002f7] ColorTypes v0.12.5
+  [c3611d14] ColorVectorSpace v0.11.2
+  [5ae59095] Colors v0.13.4
+⌅ [861a8166] Combinatorics v1.0.2
+  [38540f10] CommonSolve v0.2.14
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [f70d9fcc] CommonWorldInvalidations v1.2.2
+  [34da2185] Compat v4.18.1
+  [b0b7db55] ComponentArrays v0.15.50
+  [b152e2b5] CompositeTypes v0.1.4
+  [a33af91c] CompositionsBase v0.1.2
+  [95dc2771] ComputePipeline v0.1.9
+  [2569d6c7] ConcreteStructs v0.2.8
+  [f0e56b4a] ConcurrentUtilities v2.8.0
+  [88cd18e8] ConsoleProgressMonitor v0.1.2
+  [187b0558] ConstructionBase v1.6.1
+  [d38c429a] Contour v0.6.3
+  [b7a15901] CoreMath v0.1.0
+  [2751e0db] Corleone v2.1.0 `~/work/Corleone.jl/Corleone.jl`
+  [f6133253] CorleoneInverse v0.1.0 `../lib/CorleoneInverse`
+  [6590a4b1] CorleoneOED v2.0.0 `../lib/CorleoneOED`
+  [adafc99b] CpuId v0.3.3
+  [a8cc5b0e] Crayons v4.2.0
+  [9a962f9c] DataAPI v1.16.0
+  [a93c6f00] DataFrames v1.8.3
+  [864edb3b] DataStructures v0.19.6
+  [e2d170a0] DataValueInterfaces v1.0.0
+  [927a84f5] DelaunayTriangulation v1.7.0
+  [8bb1440f] DelimitedFiles v1.9.1
+  [311a05b2] DemoCards v0.5.5
+  [2b5f629d] DiffEqBase v7.21.6
+  [459566f4] DiffEqCallbacks v4.19.6
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.17.1
+  [a0c0ee7d] DifferentiationInterface v0.7.22
+  [8d63f2c5] DispatchDoctor v0.4.29
+  [31c24e10] Distributions v0.25.134
+  [43dc2714] DocInventories v1.0.0
+⌅ [ffbed154] DocStringExtensions v0.9.5
+  [e30172f5] Documenter v1.20.0
+  [daee34ce] DocumenterCitations v1.5.0
+  [d12716ef] DocumenterInterLinks v1.1.0
+  [1c52b33b] DocumenterLandingPage v0.2.2
+  [5b8099bc] DomainSets v0.8.3
+⌅ [7c1d4256] DynamicPolynomials v0.6.8
+  [4e289a0a] EnumX v1.0.7
+  [f151be2c] EnzymeCore v0.8.27
+  [429591f6] ExactPredicates v2.2.9
+  [460bff9d] ExceptionUnwrapping v0.1.12
+  [e2ba6199] ExprTools v0.1.11
+  [21656369] ExpressionExplorer v1.1.6
+  [55351af7] ExproniconLite v0.10.16
+  [b86e33f2] FFTA v0.3.3
+  [7034ab61] FastBroadcast v1.5.1
+  [9aa1b823] FastClosures v0.3.2
+  [9ea80cae] FastInterpolations v0.4.20
+  [a4df4552] FastPower v1.5.1
+  [5789e2e9] FileIO v1.20.0
+  [8fc22ac5] FilePaths v0.9.0
+  [48062228] FilePathsBase v0.9.24
+  [1a297f60] FillArrays v1.18.2
+  [64ca27bc] FindFirstFunctions v3.4.1
+  [6a86dc24] FiniteDiff v2.33.0
+⌅ [53c48c17] FixedPointNumbers v0.8.6
+  [1fa38f19] Format v1.3.7
+  [f6369f11] ForwardDiff v1.4.8
+  [b38be410] FreeType v4.1.1
+  [663a7486] FreeTypeAbstraction v0.10.8
+  [a85aefff] FunctionMaps v0.1.2
+  [069b7b12] FunctionWrappers v1.1.3
+  [77dc65aa] FunctionWrappersWrappers v1.13.0
+  [d9f16b24] Functors v0.5.4
+  [46192b85] GPUArraysCore v0.2.2
+  [a0844989] Gamma v1.2.1
+  [5c1252a2] GeometryBasics v0.5.13
+  [d7ba0133] Git v1.5.0
+  [a2bd30eb] Graphics v1.1.3
+  [86223c79] Graphs v1.15.0
+  [3955a311] GridLayoutBase v0.11.3
+⌅ [cd3eb016] HTTP v1.11.1
+  [076d061b] HashArrayMappedTries v0.2.0
+  [5880b2e8] HelpPlots v1.1.1
+  [34004b35] HypergeometricFunctions v0.3.31
+  [b5f81e59] IOCapture v1.0.0
+  [615f187c] IfElse v0.1.1
+  [2803e5a7] ImageAxes v0.6.12
+  [c817782e] ImageBase v0.1.7
+  [a09fc81d] ImageCore v0.10.5
+  [82e4d734] ImageIO v0.6.10
+  [bc367c6b] ImageMetadata v0.9.10
+  [3263718b] ImplicitDiscreteSolve v2.3.0
+  [9b13fd28] IndirectArrays v1.0.0
+  [d25df0c9] Inflate v0.1.5
+  [22cec73e] InitialValues v0.3.1
+  [842dd82b] InlineStrings v2.0.1
+  [18e54dd8] IntegerMathUtils v0.1.4
+  [a98d9a8b] Interpolations v0.16.3
+  [d1acc4aa] IntervalArithmetic v1.0.14
+  [8197267c] IntervalSets v0.7.15
+  [3587e190] InverseFunctions v0.1.18
+  [41ab1584] InvertedIndices v1.3.1
+  [b6b21f68] Ipopt v1.16.0
+  [92d709cd] IrrationalConstants v0.2.7
+  [f1662d9f] Isoband v0.1.1
+  [c8e1da08] IterTools v1.11.0
+  [82899510] IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] JLLWrappers v1.8.0
+⌅ [682c06a0] JSON v0.21.4
+  [7d188eb4] JSONSchema v1.6.0
+  [ae98c720] Jieko v0.2.1
+  [b835a17e] JpegTurbo v0.1.6
+  [ccbc3e58] JumpProcesses v10.2.0
+⌃ [63c18a36] KernelAbstractions v0.9.46
+  [5ab0869b] KernelDensity v0.6.13
+  [ba0b0d4f] Krylov v0.10.12
+  [5be7bae1] LBFGSB v0.4.1
+  [2faa5264] LHLFactorization v2.2.2
+  [929cbde3] LLVM v10.4.3
+  [b964fa9f] LaTeXStrings v1.4.1
+  [0e77f7df] LazilyInitializedFields v1.3.0
+  [8cdb02fc] LazyModules v0.3.1
+  [1d6d02ad] LeftChildRightSiblingTrees v0.3.0
+  [87fe0de2] LineSearch v0.1.20
+  [7ed4a6bd] LinearSolve v5.18.3
+  [98b081ad] Literate v2.21.1
+⌃ [16fef848] LiveServer v1.5.0
+  [2ab3a3ac] LogExpFunctions v1.0.6
+  [e6f89c97] LoggingExtras v1.2.0
+  [b2108857] Lux v1.31.6
+  [bb33d45b] LuxCore v1.5.4
+  [82251201] LuxLib v1.15.10
+⌅ [6c6e2e6c] MIMEs v0.1.4
+  [7e8f7934] MLDataDevices v1.18.0
+  [1914dd2f] MacroTools v0.5.16
+  [ee78f7c6] Makie v0.24.17
+  [dbb5928d] MappedArrays v0.4.3
+  [d0879d2d] MarkdownAST v0.1.3
+  [3927ea69] MaterialDesignColors v0.1.0
+  [10bdffc8] MaterialDocs v0.2.2
+  [b8f27783] MathOptInterface v1.54.0
+  [0a4f8689] MathTeXEngine v0.6.9
+  [bb5d69b7] MaybeInplace v0.1.8
+  [739be429] MbedTLS v1.2.0
+  [e1d29d7a] Missings v1.2.1
+  [961ee093] ModelingToolkit v11.46.1
+  [7771a370] ModelingToolkitBase v1.80.0
+  [6bb917b9] ModelingToolkitTearing v1.20.9
+  [e94cdb99] MosaicViews v0.3.4
+  [2e0e35c7] Moshi v0.3.13
+  [46d2c3a1] MuladdMacro v0.2.7
+⌅ [102ac46a] MultivariatePolynomials v0.5.20
+  [ffc61752] Mustache v1.1.0
+  [d8a4904e] MutableArithmetics v1.9.4
+  [872c559c] NNlib v0.9.60
+  [77ba4419] NaNMath v1.1.5
+  [f09324ee] Netpbm v1.1.1
+  [8913a72c] NonlinearSolve v4.32.0
+  [be0214bd] NonlinearSolveBase v2.55.1
+  [5959db7a] NonlinearSolveFirstOrder v2.10.0
+  [9a2c21bd] NonlinearSolveQuasiNewton v1.15.3
+  [26075421] NonlinearSolveSpectralMethods v1.8.3
+  [510215fc] Observables v0.5.5
+  [6fe1bfb0] OffsetArrays v1.18.0
+  [67456a42] OhMyThreads v0.8.9
+  [52e1d378] OpenEXR v0.3.3
+  [4d8831e6] OpenSSL v1.12.0
+  [3bd65402] Optimisers v0.4.11
+  [7f7a1694] Optimization v5.9.1
+  [bca83a33] OptimizationBase v5.10.1
+  [22f7324a] OptimizationLBFGSB v1.5.3
+  [fd9f6733] OptimizationMOI v1.6.1
+  [42dfb2eb] OptimizationOptimisers v0.3.26
+  [bac558e1] OrderedCollections v2.0.3
+  [6ad6398a] OrdinaryDiffEqBDF v2.4.14
+  [bbf590c4] OrdinaryDiffEqCore v4.19.1
+  [4302a76b] OrdinaryDiffEqDifferentiation v3.12.5
+  [127b3ac7] OrdinaryDiffEqNonlinearSolve v2.9.10
+  [43230ef6] OrdinaryDiffEqRosenbrock v2.7.5
+  [b4bd8bb3] OrdinaryDiffEqRosenbrockTableaus v2.4.2
+  [2d112036] OrdinaryDiffEqSDIRK v2.9.8
+  [b1df2697] OrdinaryDiffEqTsit5 v2.1.5
+  [90014a1f] PDMats v0.11.41
+  [f57f5aa1] PNGFiles v0.4.5
+  [19eb6ba3] Packing v0.5.1
+  [5432bcbf] PaddedViews v0.5.12
+⌅ [69de0a69] Parsers v2.8.11
+  [eebad327] PkgVersion v0.3.3
+  [995b91a9] PlotUtils v1.5.1
+  [e409e4f3] PoissonRandom v0.4.14
+  [647866c9] PolygonOps v0.1.2
+  [2dfb63ee] PooledArrays v1.4.3
+  [d236fae5] PreallocationTools v1.7.1
+  [aea7be01] PrecompileTools v1.4.0
+  [21216c6a] Preferences v1.6.1
+  [08abe8d2] PrettyTables v3.5.1
+  [27ebfcd6] Primes v0.5.7
+  [33c8b6b6] ProgressLogging v0.1.6
+  [92933f4c] ProgressMeter v1.13.0
+  [43287f4e] PtrArrays v1.4.0
+  [0c0d3e7f] PureKLU v1.6.0
+  [4b34888f] QOI v1.0.3
+  [1fd47b50] QuadGK v2.11.3
+  [b3c3ace0] RangeArrays v0.3.2
+  [c84ed2f1] Ratios v0.4.5
+  [a3311ec8] ReactantCore v0.1.26
+  [988b38a3] ReadOnlyArrays v0.2.0
+  [795d4caa] ReadOnlyDicts v1.0.1
+  [3cdcf5f2] RecipesBase v1.4.0
+  [731186ca] RecursiveArrayTools v4.5.6
+  [189a3867] Reexport v1.2.2
+  [2792f1a3] RegistryInstances v0.1.0
+  [05181044] RelocatableFolders v1.0.1
+  [ae029012] Requires v1.3.1
+  [9fe22ead] RespecializeParams v1.3.0
+  [79098fc4] Rmath v0.9.0
+  [f2b01f46] Roots v3.0.14
+  [5eaf0fd0] RoundingEmulator v0.2.1
+  [7e49a35a] RuntimeGeneratedFunctions v0.5.27
+  [9dfe8606] SCCNonlinearSolve v1.16.0
+  [fdea26ae] SIMD v3.8.2
+  [0bca4576] SciMLBase v3.58.0
+  [19f34311] SciMLJacobianOperators v0.1.20
+  [a6db7da4] SciMLLogging v2.1.0
+  [c0aeaf25] SciMLOperators v1.30.4
+  [431bcebd] SciMLPublic v1.3.0
+  [53ae85a6] SciMLStructures v1.10.6
+  [7e506255] ScopedValues v1.6.2
+  [6c6a2e73] Scratch v1.3.0
+  [91c51154] SentinelArrays v1.4.11
+  [efcf1570] Setfield v1.2.0
+  [65257c39] ShaderAbstractions v0.5.1
+  [73760f76] SignedDistanceFields v0.4.1
+  [777ac1f9] SimpleBufferStream v1.2.0
+  [67d14529] SimpleImageMetadata v0.1.0
+  [727e6d20] SimpleNonlinearSolve v2.14.6
+  [699a6c99] SimpleTraits v0.9.6
+  [45858cf5] Sixel v0.1.6
+  [ed01d8cd] Sobol v1.5.0
+  [a2af1166] SortingAlgorithms v1.2.3
+  [a57abbd0] SparseColumnPivotedQR v2.1.8
+  [9f842d2f] SparseConnectivityTracer v1.2.4
+  [0a514795] SparseMatrixColorings v0.4.29
+  [276daf66] SpecialFunctions v2.9.2
+  [860ef19b] StableRNGs v1.1.0
+  [91464d47] StableTasks v0.1.7
+  [cae243ae] StackViews v0.1.2
+⌅ [0c0c59c1] StarAlgebras v0.3.1
+  [64909d44] StateSelection v1.11.1
+  [aedffcd0] Static v1.4.6
+  [0d7ed370] StaticArrayInterface v1.10.0
+  [90137ffa] StaticArrays v1.9.24
+  [1e83bf80] StaticArraysCore v1.4.5
+  [10745b16] Statistics v1.11.5
+  [82ae8749] StatsAPI v1.8.0
+  [2913bbd2] StatsBase v0.34.13
+  [4c63d2b9] StatsFuns v2.2.1
+  [69024149] StringEncodings v0.3.7
+  [892a3eda] StringManipulation v0.6.1
+  [09ab397b] StructArrays v0.7.4
+  [fd094767] Suppressor v0.2.8
+  [2efcf032] SymbolicIndexingInterface v0.3.56
+  [19f23fe9] SymbolicLimits v1.2.2
+  [d1185830] SymbolicUtils v4.56.1
+  [0c5d862f] Symbolics v7.48.0
+  [3783bdb8] TableTraits v1.0.1
+  [bd369af6] Tables v1.14.0
+  [ed4db957] TaskLocalValues v0.1.3
+  [62fd8b95] TensorCore v0.1.1
+  [8ea1fca8] TermInterface v2.0.1
+  [5d786b92] TerminalLoggers v0.1.8
+  [1c621080] TestItems v1.1.0
+  [731e570b] TiffImages v0.11.10
+  [a759f4b9] TimerOutputs v1.2.3
+  [3bb67fe8] TranscodingStreams v0.11.3
+  [84d833dd] TransformVariables v0.8.28
+  [981d1d27] TriplotBase v0.1.0
+  [781d530d] TruncatedStacktraces v1.4.0
+  [5c2747f8] URIs v1.7.3
+  [3a884ed6] UnPack v1.0.2
+  [1cfade01] UnicodeFun v0.4.1
+  [1986cc42] Unitful v1.29.0
+  [013be700] UnsafeAtomics v0.4.0
+  [d30d5f5c] WeakCacheSets v0.1.0
+  [e3aaa7dc] WebP v0.1.3
+  [d49dbf32] WeightInitializers v1.3.5
+  [efce3f68] WoodburyMatrices v1.1.0
+  [ddb6d928] YAML v0.4.17
+  [ae81ac8f] ASL_jll v0.1.5+0
+  [6e34b625] Bzip2_jll v1.0.9+0
+  [4e9b3aee] CRlibm_jll v1.0.3+0
+  [83423d85] Cairo_jll v1.18.8+1
+  [a38c48d9] CoreMath_jll v0.1.0+0
+⌅ [5ae413db] EarCut_jll v2.2.4+0
+  [2e619515] Expat_jll v2.10.0+0
+  [b22a6f82] FFMPEG_jll v9.0.2+0
+  [a3f928ae] Fontconfig_jll v2.18.3+0
+⌅ [d7e528f0] FreeType2_jll v2.14.3+1
+  [559328eb] FriBidi_jll v1.0.19+0
+⌅ [b0724c58] GettextRuntime_jll v0.22.4+0
+  [59f7168a] Giflib_jll v6.1.3+0
+  [020c3dae] Git_LFS_jll v3.8.1+0
+  [f8c6e375] Git_jll v2.56.0+0
+  [7746bdde] Glib_jll v2.90.1+0
+  [3b182d85] Graphite2_jll v1.3.16+0
+  [2e76f6c2] HarfBuzz_jll v100.15001.0+0
+  [e33a78d0] Hwloc_jll v2.15.0+3
+  [905a6f67] Imath_jll v3.2.2+0
+  [1d5cc7b8] IntelOpenMP_jll v2025.2.0+0
+⌅ [9cc047cb] Ipopt_jll v300.1400.1902+0
+  [aacddb02] JpegTurbo_jll v3.2.1+0
+  [c1c5ebd0] LAME_jll v3.100.3+0
+  [88015f11] LERC_jll v4.3.0+0
+  [dad2f222] LLVMExtra_jll v0.0.56+0
+  [1d63c593] LLVMOpenMP_jll v23.1.1+0
+  [81d17ec3] L_BFGS_B_jll v3.0.1+0
+⌅ [e9f186c6] Libffi_jll v3.4.7+0
+  [7e76a0d4] Libglvnd_jll v1.7.1+1
+  [94ce4f54] Libiconv_jll v1.18.0+0
+  [4b2f31a3] Libmount_jll v2.42.4+0
+  [89763e89] Libtiff_jll v4.7.3+0
+  [38a345b3] Libuuid_jll v2.42.4+0
+  [d00139f3] METIS_jll v5.1.4+0
+  [856f044c] MKL_jll v2025.2.0+0
+  [d7ed1dd3] MUMPS_seq_jll v500.900.100+0
+  [c8ffd9c3] MbedTLS_jll v2.28.1010+0
+  [e7412a2a] Ogg_jll v1.3.6+0
+  [656ef2d0] OpenBLAS32_jll v0.3.34+1
+  [6cdc7f73] OpenBLASConsistentFPCSR_jll v0.3.34+0
+  [18a262bb] OpenEXR_jll v3.5.3+0
+⌅ [95196869] OpenJPH_jll v0.32.0+0
+  [9bd350c2] OpenSSH_jll v10.6.2+0
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [91d4177d] Opus_jll v1.6.1+0
+  [36c8627f] Pango_jll v1.58.2+0
+  [30392449] Pixman_jll v0.46.4+0
+  [f50d1b31] Rmath_jll v0.5.2+0
+  [319450e9] SPRAL_jll v2025.9.18+1
+  [02c8fc9c] XML2_jll v2.15.4+0
+  [ffd25f8a] XZ_jll v5.8.4+0
+  [4f6342f7] Xorg_libX11_jll v1.8.14+0
+  [0c0b7dd1] Xorg_libXau_jll v1.0.13+0
+  [a3789734] Xorg_libXdmcp_jll v1.1.6+0
+  [1082639a] Xorg_libXext_jll v1.3.8+0
+  [d091e8ba] Xorg_libXfixes_jll v6.0.2+0
+  [ea2f1a96] Xorg_libXrender_jll v0.9.13+0
+  [a65dc6b1] Xorg_libpciaccess_jll v0.19.0+0
+  [c7cfdc94] Xorg_libxcb_jll v1.17.1+0
+  [c5fb5394] Xorg_xtrans_jll v1.6.0+0
+  [9a68df92] isoband_jll v0.2.4+0
+  [a4ae2306] libaom_jll v3.15.3+0
+  [0ac62f75] libass_jll v0.17.5+0
+  [46979653] libdeflate_jll v1.26.0+1
+  [8e53e030] libdrm_jll v2.4.134+0
+⌅ [f638f0a6] libfdk_aac_jll v2.0.4+0
+  [b53b4c65] libpng_jll v1.6.59+1
+  [075b6546] libsixel_jll v1.80.702+0
+  [9a156e7d] libva_jll v2.24.1+0
+  [f27f6e37] libvorbis_jll v1.3.8+0
+  [c5f90fcd] libwebp_jll v1.6.1+0
+  [1317d2d5] oneTBB_jll v2023.1.0+0
+⌅ [1270edf5] x264_jll v10164.0.1+0
+⌅ [dfaa095f] x265_jll v4.1.0+0
+  [0dad84c5] ArgTools v1.1.2
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [8bf52ea8] CRC32c v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [8ba89e20] Distributed v1.11.0
+  [f43a241f] Downloads v1.7.0
+  [7b1f6079] FileWatching v1.11.0
+  [9fa8497b] Future v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [ac6e5ff7] JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] LazyArtifacts v1.11.0
+  [b27032c2] LibCURL v1.0.0
+  [76f85450] LibGit2 v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.13.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [a63ad114] Mmap v1.11.0
+  [ca575930] NetworkOptions v1.3.0
+  [44cfe95a] Pkg v1.13.0
+  [de0858da] Printf v1.11.0
+  [3fa0cd96] REPL v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v1.0.0
+  [9e88b42a] Serialization v1.11.0
+  [1a1011a3] SharedArrays v1.11.0
+  [6462fe0b] Sockets v1.11.0
+  [2f01184e] SparseArrays v1.13.0
+  [f489334b] StyledStrings v1.11.0
+  [4607b0f0] SuiteSparse
+  [fa267f1f] TOML v1.0.3
+  [a4e569a6] Tar v1.10.0
+  [8dfed614] Test v1.11.0
+  [cf7118a7] UUIDs v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] LibCURL_jll v8.22.0+0
+  [e37daf67] LibGit2_jll v1.9.7+0
+  [29816b5a] LibSSH2_jll v1.11.104+0
+  [14a3606d] MozillaCACerts_jll v2026.10.20
+  [4536629a] OpenBLAS_jll v0.3.30+0
+  [05823500] OpenLibm_jll v0.8.7+0
+  [458c3c95] OpenSSL_jll v3.5.8+0
+  [efcefdf7] PCRE2_jll v10.47.0+0
+  [bea87d4a] SuiteSparse_jll v7.10.1+0
+  [83775a58] Zlib_jll v1.3.2+0
+  [3161d3a3] Zstd_jll v1.5.7+1
+  [8e850b90] libblastrampoline_jll v5.15.0+0
+  [8e850ede] nghttp2_jll v1.70.0+0
+  [3f19e933] p7zip_jll v17.8.3+0
+Info Packages marked with ⌃ and ⌅ have new versions available. Those with ⌃ may be upgradable, but those with ⌅ are restricted by compatibility constraints from upgrading. To see why use `status --outdated -m`
+</code></pre></details></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../inverse_multiple_shooting/">« Multiple-Shooting Parameter Estimation</a><a class="docs-footer-nextpage" href="../inverse_rober_dae/">Robertson DAE Parameter Estimation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Friday 13 November 2026 13:04">Friday 13 November 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
